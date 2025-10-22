@@ -25,7 +25,6 @@
         }
     </script>
 
-
     <style>
         .progress-bar {
             transition: width 0.3s ease;
