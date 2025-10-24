@@ -1,8 +1,8 @@
 <?php
 // Ensure session is active
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// if (session_status() === PHP_SESSION_NONE) {
+//     session_start();
+// }
 
 // Load sidebar function definitions
 require_once __DIR__ . '/../includes/functions.php';

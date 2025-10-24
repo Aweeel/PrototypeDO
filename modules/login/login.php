@@ -1,5 +1,4 @@
 <?php
-session_start();
 
 // If already logged in, prevent access to login page
 if (isset($_SESSION['user'])) {
