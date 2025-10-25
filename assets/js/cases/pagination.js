@@ -1,12 +1,23 @@
+// ====== Pagination Functions ======
+
 function renderCases() {
+    console.log('Rendering cases...');
+    console.log('Filtered cases:', filteredCases.length);
+    
     const tbody = document.getElementById('casesTableBody');
     const startIndex = (currentPage - 1) * casesPerPage;
     const endIndex = startIndex + casesPerPage;
     const paginatedCases = filteredCases.slice(startIndex, endIndex);
 
+    console.log('Paginated cases:', paginatedCases.length);
+
     if (paginatedCases.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="7" class="text-center py-6 text-gray-500 dark:text-gray-400">No cases found.</td></tr>
+            <tr>
+                <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    No cases found.
+                </td>
+            </tr>
         `;
         updatePaginationInfo();
         updatePaginationButtons();
@@ -14,16 +25,23 @@ function renderCases() {
     }
 
     tbody.innerHTML = paginatedCases.map(c => `
-        <tr>
-            <td class="px-6 py-3">${c.id}</td>
-            <td class="px-6 py-3">${c.student}</td>
-            <td class="px-6 py-3">${c.type}</td>
-            <td class="px-6 py-3">${c.date}</td>
-            <td class="px-6 py-3"><span class="px-3 py-1 text-xs rounded-full ${statusColors[c.statusColor]}">${c.status}</span></td>
-            <td class="px-6 py-3">${c.assignedTo}</td>
-            <td class="px-6 py-3">
-                <button onclick="viewCase('${c.id}')" class="text-blue-600">View</button>
-                <button onclick="editCase('${c.id}')" class="text-blue-600 ml-2">Edit</button>
+        <tr class="hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${c.id}</td>
+            <td class="px-6 py-4 text-sm">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex-shrink-0"></div>
+                    <span class="text-gray-900 dark:text-gray-100">${c.student}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.type}</td>
+            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.date}</td>
+            <td class="px-6 py-4 text-sm">
+                <span class="px-2.5 py-1 text-xs font-medium rounded ${statusColors[c.statusColor]}">${c.status}</span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.assignedTo}</td>
+            <td class="px-6 py-4 text-sm">
+                <button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
+                <button onclick="editCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline">Edit</button>
             </td>
         </tr>
     `).join('');
@@ -41,31 +59,46 @@ function changePage(page) {
 
 function updatePaginationInfo() {
     const info = document.getElementById('paginationInfo');
-    const start = (currentPage - 1) * casesPerPage + 1;
+    const start = filteredCases.length === 0 ? 0 : (currentPage - 1) * casesPerPage + 1;
     const end = Math.min(start + casesPerPage - 1, filteredCases.length);
-    info.textContent = `Showing ${start}-${end} of ${filteredCases.length}`;
+    info.textContent = `Showing ${start}-${end} of ${filteredCases.length} cases`;
 }
 
 function updatePaginationButtons() {
     const pagination = document.getElementById('paginationButtons');
-    pagination.innerHTML = '';
     const totalPages = Math.ceil(filteredCases.length / casesPerPage);
 
-    const makeBtn = (text, disabled, clickHandler, isActive = false) => {
-        const btn = document.createElement('button');
-        btn.textContent = text;
-        btn.disabled = disabled;
-        btn.className = `px-3 py-1 border rounded ${
-            isActive ? 'bg-blue-600 text-white' :
-            'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
-        } disabled:opacity-50`;
-        btn.onclick = clickHandler;
-        return btn;
-    };
-
-    pagination.appendChild(makeBtn('Prev', currentPage === 1, () => changePage(currentPage - 1)));
-    for (let i = 1; i <= totalPages; i++) {
-        pagination.appendChild(makeBtn(i, false, () => changePage(i), i === currentPage));
+    if (totalPages === 0) {
+        pagination.innerHTML = '';
+        return;
     }
-    pagination.appendChild(makeBtn('Next', currentPage === totalPages, () => changePage(currentPage + 1)));
+
+    let html = `
+        <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} 
+            class="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300">
+            Previous
+        </button>
+    `;
+
+    for (let i = 1; i <= totalPages; i++) {
+        html += `
+            <button onclick="changePage(${i})" 
+                class="px-3 py-1.5 text-sm border rounded ${
+                    i === currentPage 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'
+                }">
+                ${i}
+            </button>
+        `;
+    }
+
+    html += `
+        <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} 
+            class="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300">
+            Next
+        </button>
+    `;
+
+    pagination.innerHTML = html;
 }

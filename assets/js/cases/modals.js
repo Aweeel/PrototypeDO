@@ -1,27 +1,83 @@
 // ====== Modal Management for Student Cases ======
 
-// View Case Modal
+function getStatusColor(status) {
+    switch (status) {
+        case 'Pending': return 'yellow';
+        case 'Under Review': return 'blue';
+        case 'Resolved': return 'green';
+        case 'Escalated': return 'red';
+        default: return 'gray';
+    }
+}
+
+// View Case Modal - EXACT match to Image 1
 function viewCase(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
 
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50';
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6 relative animate-fadeIn">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Case Details</h2>
-            <div class="space-y-2 text-gray-700 dark:text-gray-300">
-                <p><strong>ID:</strong> ${caseData.id}</p>
-                <p><strong>Student:</strong> ${caseData.student}</p>
-                <p><strong>Type:</strong> ${caseData.type}</p>
-                <p><strong>Date:</strong> ${caseData.date}</p>
-                <p><strong>Status:</strong> ${caseData.status}</p>
-                <p><strong>Assigned To:</strong> ${caseData.assignedTo}</p>
-                <p><strong>Description:</strong> ${caseData.description || 'N/A'}</p>
-                <p><strong>Notes:</strong> ${caseData.notes || 'N/A'}</p>
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Case Details: ${caseData.id}</h3>
+                <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
-            <div class="mt-6 flex justify-end">
-                <button onclick="closeModal(this)" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+
+            <div class="space-y-3">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student</p>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.student}</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Status</p>
+                        <span class="inline-block px-2.5 py-1 text-xs font-medium rounded ${statusColors[caseData.statusColor]}">${caseData.status}</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Assigned To</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.assignedTo}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case Type</p>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.type}</p>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Date Reported</p>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.date}</p>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Description</p>
+                    <div class="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-700 p-2.5 rounded">
+                        ${caseData.description}
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Notes</p>
+                    <div class="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-700 p-2.5 rounded">
+                        ${caseData.notes || 'No notes available.'}
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5">
+                <button onclick="editCase('${caseData.id}'); closeModal(this);" class="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium">
+                    Edit Case
+                </button>
+                <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
                     Close
                 </button>
             </div>
@@ -30,61 +86,86 @@ function viewCase(caseId) {
     document.body.appendChild(modal);
 }
 
-
-// Edit Case Modal
+// Edit Case Modal - EXACT match to Image 2
 function editCase(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
 
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50';
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 relative animate-fadeIn">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Edit Case</h2>
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Edit Case: ${caseData.id}</h3>
+                <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
             <form id="editCaseForm" class="space-y-3">
-                <div>
-                    <label class="block text-sm font-medium">Student</label>
-                    <input type="text" id="editStudent" value="${caseData.student}" 
-                        class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" required>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student</label>
+                        <input type="text" value="${caseData.student}" readonly
+                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case ID</label>
+                        <input type="text" value="${caseData.id}" readonly
+                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case Type</label>
+                        <select id="editType" class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <option ${caseData.type === 'Tardiness' ? 'selected' : ''}>Tardiness</option>
+                            <option ${caseData.type === 'Dress Code' ? 'selected' : ''}>Dress Code</option>
+                            <option ${caseData.type === 'Classroom Disruption' ? 'selected' : ''}>Classroom Disruption</option>
+                            <option ${caseData.type === 'Academic Dishonesty' ? 'selected' : ''}>Academic Dishonesty</option>
+                            <option ${caseData.type === 'Attendance' ? 'selected' : ''}>Attendance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Date Reported</label>
+                        <input type="text" value="${caseData.date}" 
+                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Type</label>
-                    <input type="text" id="editType" value="${caseData.type}" 
-                        class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" required>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium">Status</label>
-                    <select id="editStatus" 
-                        class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600">
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Status</label>
+                    <select id="editStatus" class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option ${caseData.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option ${caseData.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                        <option ${caseData.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
                         <option ${caseData.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-                        <option ${caseData.status === 'Dismissed' ? 'selected' : ''}>Dismissed</option>
+                        <option ${caseData.status === 'Escalated' ? 'selected' : ''}>Escalated</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Assigned To</label>
-                    <input type="text" id="editAssigned" value="${caseData.assignedTo}" 
-                        class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600">
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Description</label>
+                    <textarea id="editDescription" rows="3" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none">${caseData.description}</textarea>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Description</label>
-                    <textarea id="editDescription" 
-                        class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600">${caseData.description}</textarea>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Notes</label>
+                    <textarea id="editNotes" rows="2" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none">${caseData.notes}</textarea>
                 </div>
 
-                <div class="flex justify-end mt-4 space-x-2">
-                    <button type="button" onclick="closeModal(this)" class="px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                <div class="flex justify-end gap-2 mt-4 pt-3">
+                    <button type="button" onclick="closeModal(this)" class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
                         Cancel
                     </button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
                         Save Changes
                     </button>
-                </div>
+                    </div>
             </form>
         </div>
     `;
@@ -92,62 +173,89 @@ function editCase(caseId) {
 
     document.getElementById('editCaseForm').addEventListener('submit', (e) => {
         e.preventDefault();
-        // Update data (for now in memory; later you can connect to PHP/MySQL)
-        caseData.student = document.getElementById('editStudent').value;
+        
         caseData.type = document.getElementById('editType').value;
         caseData.status = document.getElementById('editStatus').value;
-        caseData.assignedTo = document.getElementById('editAssigned').value;
         caseData.description = document.getElementById('editDescription').value;
+        caseData.notes = document.getElementById('editNotes').value;
+        caseData.statusColor = getStatusColor(caseData.status);
 
-        renderCases(); // re-render table
+        renderCases();
         closeModal(e.target);
     });
 }
 
-
 // Add Case Modal
 function addCase() {
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50';
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 relative animate-fadeIn">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Add New Case</h2>
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add New Case</h3>
+                <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
             <form id="addCaseForm" class="space-y-3">
                 <div>
-                    <label class="block text-sm font-medium">Student</label>
-                    <input type="text" id="newStudent" class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" required>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="newStudent" required
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" 
+                        placeholder="Enter student name">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Type</label>
-                    <input type="text" id="newType" class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" required>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium">Status</label>
-                    <select id="newStatus" class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600">
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Resolved</option>
-                        <option>Dismissed</option>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case Type <span class="text-red-500">*</span></label>
+                    <select id="newType" required class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">Select type...</option>
+                        <option>Tardiness</option>
+                        <option>Dress Code</option>
+                        <option>Classroom Disruption</option>
+                        <option>Academic Dishonesty</option>
+                        <option>Attendance</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Assigned To</label>
-                    <input type="text" id="newAssigned" class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600">
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Status</label>
+                    <select id="newStatus" class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <option>Pending</option>
+                        <option>Under Review</option>
+                        <option>Resolved</option>
+                        <option>Escalated</option>
+                    </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">Description</label>
-                    <textarea id="newDescription" class="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600"></textarea>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Assigned To</label>
+                    <input type="text" id="newAssigned" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" 
+                        placeholder="Enter staff name">
                 </div>
 
-                <div class="flex justify-end mt-4 space-x-2">
-                    <button type="button" onclick="closeModal(this)" class="px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Description <span class="text-red-500">*</span></label>
+                    <textarea id="newDescription" rows="3" required
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
+                        placeholder="Describe the incident..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Notes</label>
+                    <textarea id="newNotes" rows="2" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
+                        placeholder="Additional notes..."></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-4 pt-3">
+                    <button type="button" onclick="closeModal(this)" class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
                         Cancel
                     </button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    <button type="submit" class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
                         Add Case
                     </button>
                 </div>
@@ -165,13 +273,13 @@ function addCase() {
             type: document.getElementById('newType').value,
             date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             status: document.getElementById('newStatus').value,
-            assignedTo: document.getElementById('newAssigned').value,
+            assignedTo: document.getElementById('newAssigned').value || 'Unassigned',
             statusColor: getStatusColor(document.getElementById('newStatus').value),
             description: document.getElementById('newDescription').value,
-            notes: ''
+            notes: document.getElementById('newNotes').value
         };
 
-        allCases.unshift(newCase); // add to top
+        allCases.unshift(newCase);
         filteredCases = [...allCases];
         currentPage = 1;
         renderCases();
@@ -179,21 +287,8 @@ function addCase() {
     });
 }
 
-
-// Close any modal
+// Close modal
 function closeModal(element) {
     const modal = element.closest('.fixed');
     if (modal) modal.remove();
-}
-
-
-// Helper: Get status color
-function getStatusColor(status) {
-    switch (status) {
-        case 'Pending': return 'yellow';
-        case 'In Progress': return 'blue';
-        case 'Resolved': return 'green';
-        case 'Dismissed': return 'red';
-        default: return 'gray';
-    }
 }
