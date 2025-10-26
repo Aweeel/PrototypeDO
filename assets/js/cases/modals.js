@@ -1,3 +1,20 @@
+// Get all students for dropdown
+function loadStudents() {
+    return fetch('/PrototypeDO/modules/do/cases.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'ajax=1&action=getStudents'
+    })
+    .then(response => response.json())
+    .then(data => data.students || [])
+    .catch(error => {
+        console.error('Error loading students:', error);
+        return [];
+    });
+}
+
 // ====== Modal Management for Student Cases ======
 
 function getStatusColor(status) {
@@ -10,7 +27,7 @@ function getStatusColor(status) {
     }
 }
 
-// View Case Modal - EXACT match to Image 1
+// View Case Modal
 function viewCase(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
@@ -73,20 +90,25 @@ function viewCase(caseId) {
                 </div>
             </div>
 
-            <div class="flex justify-end gap-2 mt-5">
-                <button onclick="editCase('${caseData.id}'); closeModal(this);" class="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium">
-                    Edit Case
+            <div class="flex justify-between gap-2 mt-5">
+                <button onclick="archiveCaseConfirm('${caseData.id}')" class="px-4 py-2 text-sm border border-red-600 text-red-600 rounded hover:bg-red-50 dark:hover:bg-red-900/20 font-medium">
+                    Archive Case
                 </button>
-                <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
-                    Close
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="editCase('${caseData.id}'); closeModal(this);" class="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium">
+                        Edit Case
+                    </button>
+                    <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 }
 
-// Edit Case Modal - EXACT match to Image 2
+// Edit Case Modal
 function editCase(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
@@ -131,8 +153,8 @@ function editCase(caseId) {
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Date Reported</label>
-                        <input type="text" value="${caseData.date}" 
-                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <input type="text" value="${caseData.date}" readonly
+                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
                 </div>
 
@@ -165,28 +187,50 @@ function editCase(caseId) {
                     <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
                         Save Changes
                     </button>
-                    </div>
+                </div>
             </form>
         </div>
     `;
     document.body.appendChild(modal);
 
-    document.getElementById('editCaseForm').addEventListener('submit', (e) => {
+    document.getElementById('editCaseForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        caseData.type = document.getElementById('editType').value;
-        caseData.status = document.getElementById('editStatus').value;
-        caseData.description = document.getElementById('editDescription').value;
-        caseData.notes = document.getElementById('editNotes').value;
-        caseData.statusColor = getStatusColor(caseData.status);
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'updateCase');
+        formData.append('caseId', caseData.id);
+        formData.append('type', document.getElementById('editType').value);
+        formData.append('severity', caseData.severity || 'Minor');
+        formData.append('status', document.getElementById('editStatus').value);
+        formData.append('description', document.getElementById('editDescription').value);
+        formData.append('notes', document.getElementById('editNotes').value);
 
-        renderCases();
-        closeModal(e.target);
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeModal(e.target);
+                loadCasesFromDB(); // Reload from database
+                alert('Case updated successfully!');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update case'));
+            }
+        } catch (error) {
+            console.error('Error updating case:', error);
+            alert('Error updating case. Please try again.');
+        }
     });
 }
 
 // Add Case Modal
-function addCase() {
+// Add Case Modal - With manual student input
+async function addCase() {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
     modal.innerHTML = `
@@ -202,21 +246,36 @@ function addCase() {
 
             <form id="addCaseForm" class="space-y-3">
                 <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student Number <span class="text-red-500">*</span></label>
+                    <input type="text" id="newStudentNumber" required 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                        placeholder="e.g., 02000372341">
+                </div>
+
+                <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student Name <span class="text-red-500">*</span></label>
-                    <input type="text" id="newStudent" required
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" 
-                        placeholder="Enter student name">
+                    <input type="text" id="newStudentName" required 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                        placeholder="e.g., Juan Dela Cruz">
                 </div>
 
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case Type <span class="text-red-500">*</span></label>
-                    <select id="newType" required class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <select id="newType" required class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option value="">Select type...</option>
                         <option>Tardiness</option>
                         <option>Dress Code</option>
                         <option>Classroom Disruption</option>
                         <option>Academic Dishonesty</option>
                         <option>Attendance</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Severity</label>
+                    <select id="newSeverity" class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <option>Minor</option>
+                        <option>Major</option>
                     </select>
                 </div>
 
@@ -231,23 +290,16 @@ function addCase() {
                 </div>
 
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Assigned To</label>
-                    <input type="text" id="newAssigned" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" 
-                        placeholder="Enter staff name">
-                </div>
-
-                <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Description <span class="text-red-500">*</span></label>
                     <textarea id="newDescription" rows="3" required
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
                         placeholder="Describe the incident..."></textarea>
                 </div>
 
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Notes</label>
                     <textarea id="newNotes" rows="2" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none focus:ring-2 focus:ring-blue-500 outline-none" 
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
                         placeholder="Additional notes..."></textarea>
                 </div>
 
@@ -264,27 +316,107 @@ function addCase() {
     `;
     document.body.appendChild(modal);
 
-    document.getElementById('addCaseForm').addEventListener('submit', (e) => {
+    document.getElementById('addCaseForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const newCase = {
-            id: 'C-' + (Math.floor(Math.random() * 9000) + 1000),
-            student: document.getElementById('newStudent').value,
-            type: document.getElementById('newType').value,
-            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            status: document.getElementById('newStatus').value,
-            assignedTo: document.getElementById('newAssigned').value || 'Unassigned',
-            statusColor: getStatusColor(document.getElementById('newStatus').value),
-            description: document.getElementById('newDescription').value,
-            notes: document.getElementById('newNotes').value
-        };
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'createCase');
+        formData.append('studentNumber', document.getElementById('newStudentNumber').value);
+        formData.append('studentName', document.getElementById('newStudentName').value);
+        formData.append('type', document.getElementById('newType').value);
+        formData.append('severity', document.getElementById('newSeverity').value);
+        formData.append('status', document.getElementById('newStatus').value);
+        formData.append('description', document.getElementById('newDescription').value);
+        formData.append('notes', document.getElementById('newNotes').value);
 
-        allCases.unshift(newCase);
-        filteredCases = [...allCases];
-        currentPage = 1;
-        renderCases();
-        closeModal(e.target);
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                closeModal(e.target);
+                loadCasesFromDB(); // Reload table from database
+                alert('Case created successfully!');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to create case'));
+            }
+        } catch (error) {
+            console.error('Error creating case:', error);
+            alert('Error creating case. Please try again.');
+        }
     });
+}
+
+// Archive case with confirmation
+function archiveCaseConfirm(caseId) {
+    if (confirm('Are you sure you want to archive this case? It will be moved to the Archived tab.')) {
+        archiveCaseAction(caseId);
+    }
+}
+
+async function archiveCaseAction(caseId) {
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'archiveCase');
+    formData.append('caseId', caseId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Close any open modals
+            const modal = document.querySelector('.fixed.inset-0');
+            if (modal) modal.remove();
+            
+            // Reload cases
+            loadCasesFromDB();
+            alert('Case archived successfully!');
+        } else {
+            alert('Error: ' + (data.error || 'Failed to archive case'));
+        }
+    } catch (error) {
+        console.error('Error archiving case:', error);
+        alert('Error archiving case. Please try again.');
+    }
+}
+
+// Unarchive case
+async function unarchiveCase(caseId) {
+    if (!confirm('Are you sure you want to restore this case to active cases?')) return;
+    
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'unarchiveCase');
+    formData.append('caseId', caseId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadCasesFromDB();
+            alert('Case restored successfully!');
+        } else {
+            alert('Error: ' + (data.error || 'Failed to restore case'));
+        }
+    } catch (error) {
+        console.error('Error restoring case:', error);
+        alert('Error restoring case. Please try again.');
+    }
 }
 
 // Close modal
