@@ -3121,8 +3121,8 @@ learning environment and of the STI Community.</p>
 <aside>
   <div
     id="toc-sidebar"
-    class="hidden xl:flex flex-col w-95 sticky top-28 max-h-[90vh] overflow-y-auto 
-           bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700
+    class="hidden xl:flex flex-col w-80 sticky top-28 max-h-[90vh] overflow-y-auto 
+           bg-gray-100 dark:bg-[#111827] rounded-m border border-gray-300 dark:border-slate-700
            p-3 mr-6 text-lg custom-scrollbar leading-relaxed">
     <h3 class="text-gray-700 dark:text-gray-300 font-bold mb-5 uppercase tracking-wide text-2xl">
       On this page
