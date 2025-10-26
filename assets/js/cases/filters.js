@@ -43,6 +43,10 @@ function switchTab(tab) {
         currentBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
     }
     
+    // Load cases based on tab
+    loadCasesFromDB();
+}
+    
     if (tab === 'archived') {
         document.getElementById('casesTableBody').innerHTML = `
             <tr>
@@ -55,5 +59,4 @@ function switchTab(tab) {
         document.getElementById('paginationButtons').innerHTML = '';
     } else {
         loadCasesFromDB();
-    }
 }

@@ -1,0 +1,24 @@
+Database set-up
+
+Server name: (localdb)\MSSQLLocalDB
+Authentication Type: Windows Authentication
+
+-----------------
+
+Update XAMPP PHP Version
+
+Download PHP 8.2 Thread Safe x64: https://windows.php.net/download#php-8.2
+Extract to C:\xampp\php (backup old php folder first!)
+Download PHP 8.2 SQL Server drivers: https://github.com/microsoft/msphpsql/releases/tag/v5.12.0
+Extract and copy to C:\xampp\php\ext\
+
+----------------
+
+schema.sql sa ssms tas execute query <-------- gawa/open ng database
+
+localhost/PrototypeDO/test_db-connection.php <-------- check pag may error
+
+sqllocaldb start MSSQLLocalDB <-------- manual start ng db (command prompt)
+sqllocaldb info MSSQLLocalDB <-------- verification (command prompt)
+
+

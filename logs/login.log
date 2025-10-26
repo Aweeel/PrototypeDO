@@ -50,3 +50,11 @@
 [2025-10-26 09:57:39] LOGIN SUCCESS: admin (super_admin)
 [2025-10-26 10:07:56] LOGIN SUCCESS: do_staff (discipline_office)
 [2025-10-26 10:08:12] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 14:56:39] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 18:19:41] LOGIN FAILED: Invalid credentials for 'awel.bagaporo@gmail.com' from IP: ::1
+[2025-10-26 18:19:46] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 19:35:09] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 19:36:33] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 19:36:43] LOGIN SUCCESS: do_staff (discipline_office)
+[2025-10-26 19:51:04] LOGIN SUCCESS: admin (super_admin)
+[2025-10-26 19:51:13] LOGIN SUCCESS: do_staff (discipline_office)

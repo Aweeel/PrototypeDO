@@ -12,10 +12,11 @@ function renderCases() {
     console.log('Paginated cases:', paginatedCases.length);
 
     if (paginatedCases.length === 0) {
+        const message = currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.';
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    No cases found.
+                    ${message}
                 </td>
             </tr>
         `;
@@ -40,8 +41,11 @@ function renderCases() {
             </td>
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.assignedTo}</td>
             <td class="px-6 py-4 text-sm">
-                <button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
-                <button onclick="editCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline">Edit</button>
+                ${currentTab === 'archived' 
+                    ? `<button onclick="unarchiveCase('${c.id}')" class="text-green-600 dark:text-green-400 hover:underline mr-3">Restore</button>`
+                    : `<button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
+                       <button onclick="editCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline">Edit</button>`
+                }
             </td>
         </tr>
     `).join('');

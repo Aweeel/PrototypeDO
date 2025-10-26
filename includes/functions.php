@@ -102,13 +102,31 @@ function createCase($data) {
     $lastNum = $lastCase ? intval(substr($lastCase['case_id'], 2)) : 1000;
     $newCaseId = 'C-' . ($lastNum + 1);
     
+    // Check if student exists, if not create
+    $studentId = $data['student_number'];
+    $existingStudent = getStudentById($studentId);
+    
+    if (!$existingStudent) {
+        // Parse student name
+        $nameParts = explode(' ', trim($data['student_name']));
+        $firstName = $nameParts[0];
+        $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
+        
+        // Create new student record
+        $sql = "INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type)
+                VALUES (?, ?, ?, 'N/A', 'N/A', 'College')";
+        
+        executeQuery($sql, [$studentId, $firstName, $lastName]);
+    }
+    
+    // Create case
     $sql = "INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, 
             status, date_reported, reported_by, assigned_to, description, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $params = [
         $newCaseId,
-        $data['student_id'],
+        $studentId,
         $data['offense_id'] ?? null,
         $data['case_type'],
         $data['severity'],
