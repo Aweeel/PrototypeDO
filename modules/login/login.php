@@ -100,7 +100,7 @@ if (isset($_SESSION['user'])) {
                     <!-- Email Address -->
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
-                        <input type="email" name="email" placeholder="name@sti.edu.ph" required
+                        <input type="text" name="username" placeholder="Username" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
 

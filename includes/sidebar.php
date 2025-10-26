@@ -5,7 +5,7 @@
 // }
 
 // Load sidebar function definitions
-require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/functions.php';
 
 // Get current page for highlighting
 $currentPage = basename($_SERVER['PHP_SELF']);
