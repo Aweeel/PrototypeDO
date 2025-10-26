@@ -1,22 +1,8 @@
 // ====== Filter Functions ======
 
 function filterCases() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const typeFilter = document.getElementById('typeFilter').value;
-    const statusFilter = document.getElementById('statusFilter').value;
-
-    filteredCases = allCases.filter(c => {
-        const matchesSearch = c.student.toLowerCase().includes(searchTerm) ||
-                              c.id.toLowerCase().includes(searchTerm) ||
-                              c.type.toLowerCase().includes(searchTerm) ||
-                              c.assignedTo.toLowerCase().includes(searchTerm);
-        const matchesType = !typeFilter || c.type === typeFilter;
-        const matchesStatus = !statusFilter || c.status === statusFilter;
-        return matchesSearch && matchesType && matchesStatus;
-    });
-
-    currentPage = 1;
-    renderCases();
+    // Reload from database with filters
+    loadCasesFromDB();
 }
 
 function sortCases() {
@@ -57,7 +43,6 @@ function switchTab(tab) {
         currentBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
     }
     
-    // For now, just show a message. Later you can filter archived cases
     if (tab === 'archived') {
         document.getElementById('casesTableBody').innerHTML = `
             <tr>
@@ -69,6 +54,6 @@ function switchTab(tab) {
         document.getElementById('paginationInfo').textContent = 'Showing 0 cases';
         document.getElementById('paginationButtons').innerHTML = '';
     } else {
-        filterCases();
+        loadCasesFromDB();
     }
 }

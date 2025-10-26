@@ -2,10 +2,9 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Cases page loaded');
-    console.log('Total cases:', allCases.length);
     
-    // Initial render
-    renderCases();
+    // Load cases from database via AJAX
+    loadCasesFromDB();
 
     // Set max date for date inputs
     const today = new Date().toISOString().split('T')[0];
@@ -26,3 +25,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Load cases from database
+function loadCasesFromDB() {
+    console.log('Loading cases from database...');
+    
+    const searchTerm = document.getElementById('searchInput')?.value || '';
+    const typeFilter = document.getElementById('typeFilter')?.value || '';
+    const statusFilter = document.getElementById('statusFilter')?.value || '';
+    
+    fetch('/PrototypeDO/pages/do/cases.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `ajax=1&action=getCases&search=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(typeFilter)}&status=${encodeURIComponent(statusFilter)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Response from server:', data);
+        if (data.success) {
+            allCases = data.cases;
+            filteredCases = [...allCases];
+            console.log('Loaded cases:', allCases.length);
+            renderCases();
+        } else {
+            console.error('Failed to load cases:', data.error);
+            document.getElementById('casesTableBody').innerHTML = `
+                <tr><td colspan="7" class="px-6 py-8 text-center text-red-500">
+                    Error loading cases: ${data.error || 'Unknown error'}
+                </td></tr>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading cases:', error);
+        document.getElementById('casesTableBody').innerHTML = `
+            <tr><td colspan="7" class="px-6 py-8 text-center text-red-500">
+                Error loading cases. Please refresh the page.
+            </td></tr>
+        `;
+    });
+}
