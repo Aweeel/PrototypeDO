@@ -1,11 +1,23 @@
 <?php
+session_start();
 
-// If already logged in, prevent access to login page
-if (isset($_SESSION['user'])) {
-    header("Location: /PrototypeDO/modules/dashboard/DODashboard.php");
+// Redirect if already logged in
+if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
+    $role = $_SESSION['user_role'] ?? 'do';
+    
+    if ($role === 'super_admin' || $role === 'discipline_office' || $role === 'do') {
+        header('Location: /PrototypeDO/modules/do/doDashboard.php');
+    } elseif ($role === 'student') {
+        header('Location: /PrototypeDO/modules/student/studentDashboard.php');
+    } elseif ($role === 'teacher' || $role === 'security') {
+        header('Location: /PrototypeDO/modules/teacher/teacherDashboard.php');
+    }
     exit;
 }
 ?>
+
+<!DOCTYPE html>
+<!-- Rest of your login page -->
 
 <!DOCTYPE html>
 <html lang="en">

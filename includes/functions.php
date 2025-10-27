@@ -102,7 +102,7 @@ function createCase($data) {
     $lastNum = $lastCase ? intval(substr($lastCase['case_id'], 2)) : 1000;
     $newCaseId = 'C-' . ($lastNum + 1);
     
-    // Check if student exists, if not create
+    // Check if student exists
     $studentId = $data['student_number'];
     $existingStudent = getStudentById($studentId);
     
@@ -113,10 +113,37 @@ function createCase($data) {
         $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
         
         // Create new student record
-        $sql = "INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type)
-                VALUES (?, ?, ?, 'N/A', 'N/A', 'College')";
+        $sql = "INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
         
-        executeQuery($sql, [$studentId, $firstName, $lastName]);
+        try {
+            executeQuery($sql, [
+                $studentId, 
+                $firstName, 
+                $lastName, 
+                'N/A', 
+                'N/A', 
+                'College',
+                'Good Standing'
+            ]);
+            
+            error_log("Created new student: $studentId - $firstName $lastName");
+        } catch (Exception $e) {
+            error_log("Error creating student: " . $e->getMessage());
+            throw new Exception("Failed to create student record: " . $e->getMessage());
+        }
+    }
+    
+    // Try to find matching offense_id
+    $offenseId = null;
+    try {
+        $offenseQuery = "SELECT offense_id FROM offense_types WHERE offense_name = ?";
+        $offense = fetchOne($offenseQuery, [$data['case_type']]);
+        if ($offense) {
+            $offenseId = $offense['offense_id'];
+        }
+    } catch (Exception $e) {
+        error_log("Error finding offense_id: " . $e->getMessage());
     }
     
     // Create case
@@ -127,18 +154,24 @@ function createCase($data) {
     $params = [
         $newCaseId,
         $studentId,
-        $data['offense_id'] ?? null,
+        $offenseId,
         $data['case_type'],
         $data['severity'],
         $data['status'] ?? 'Pending',
-        $data['date_reported'] ?? date('Y-m-d'),
+        date('Y-m-d'),
         $data['reported_by'] ?? null,
         $data['assigned_to'] ?? null,
         $data['description'],
         $data['notes'] ?? ''
     ];
     
-    executeQuery($sql, $params);
+    try {
+        executeQuery($sql, $params);
+        error_log("Created new case: $newCaseId for student $studentId");
+    } catch (Exception $e) {
+        error_log("Error creating case: " . $e->getMessage());
+        throw new Exception("Failed to create case: " . $e->getMessage());
+    }
     
     // Log case creation
     logCaseHistory($newCaseId, $_SESSION['user_id'] ?? null, 'Created', null, 'Case created');
@@ -526,5 +559,64 @@ function get_sidebar_items($role) {
     }
     
     return $items;
+}
+// ==========================================
+// OFFENSE TYPES FUNCTIONS
+// ==========================================
+
+function getOffenseTypesByCategory($category) {
+    $sql = "SELECT offense_id, offense_name, description 
+            FROM offense_types 
+            WHERE category = ? AND is_active = 1 
+            ORDER BY offense_name";
+    return fetchAll($sql, [$category]);
+}
+
+function getAllOffenseTypes() {
+    $sql = "SELECT offense_id, offense_name, category, description 
+            FROM offense_types 
+            WHERE is_active = 1 
+            ORDER BY category, offense_name";
+    return fetchAll($sql);
+}
+
+// ==========================================
+// SANCTIONS FUNCTIONS
+// ==========================================
+
+function getAllSanctions() {
+    $sql = "SELECT * FROM sanctions WHERE is_active = 1 ORDER BY severity_level, sanction_name";
+    return fetchAll($sql);
+}
+
+function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '') {
+    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes)
+            VALUES (?, ?, ?, ?)";
+    
+    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes]);
+    
+    // Log the sanction
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied");
+}
+
+function getCaseSanctions($caseId) {
+    $sql = "SELECT cs.*, s.sanction_name, s.severity_level, s.description
+            FROM case_sanctions cs
+            JOIN sanctions s ON cs.sanction_id = s.sanction_id
+            WHERE cs.case_id = ?
+            ORDER BY cs.applied_date DESC";
+    
+    return fetchAll($sql, [$caseId]);
+}
+
+// ==========================================
+// CASE FUNCTIONS - UPDATED
+// ==========================================
+
+function markCaseAsResolved($caseId) {
+    $sql = "UPDATE cases SET status = 'Resolved', resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$caseId]);
+    
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Resolved', 'Previous Status', 'Case marked as resolved');
 }
 ?>

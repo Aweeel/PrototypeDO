@@ -7,9 +7,9 @@ require_once __DIR__ . '/db_connect.php';
 // Secure session setup — must happen before output
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
-        'lifetime' => 0,                // Ends when browser closes
-        'path' => '/',                  // Valid site-wide
-        'secure' => false,              // XAMPP = usually no HTTPS
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => false,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
@@ -25,7 +25,7 @@ if (!headers_sent()) {
 }
 
 // Auto logout after inactivity (30 mins)
-$timeout = 1800; // 30 minutes
+$timeout = 1800;
 if (isset($_SESSION['user'])) {
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout)) {
         session_unset();
@@ -42,7 +42,7 @@ define('ASSETS_URL', BASE_URL . '/assets');
 
 // File upload configuration
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 5242880); // 5MB in bytes
+define('MAX_FILE_SIZE', 5242880);
 
 // Date/Time configuration
 date_default_timezone_set('Asia/Manila');
