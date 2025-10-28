@@ -3,6 +3,17 @@ Database set-up
 Server name: (localdb)\MSSQLLocalDB
 Authentication Type: Windows Authentication
 
+----------------
+
+Enable PDO_ODBC Extension sa PHP
+
+1. Open XAMPP Control Panel
+2. Click Config next to Apache
+3. Click PHP (php.ini)
+4. Press Ctrl+F and search for:
+;extension=pdo_odbc
+5. remove ; then save
+
 -----------------
 
 Update XAMPP PHP Version
@@ -16,9 +27,9 @@ Extract and copy to C:\xampp\php\ext\
 
 schema.sql sa ssms tas execute query <-------- gawa/open ng database
 
-localhost/PrototypeDO/test_db-connection.php <-------- check pag may error
+localhost/PrototypeDO/test_db-connection.php <-------- check sa browser pag may error
 
 sqllocaldb start MSSQLLocalDB <-------- manual start ng db (command prompt)
-sqllocaldb info MSSQLLocalDB <-------- verification (command prompt)
+sqllocaldb info MSSQLLocalDB <-------- verification/info (command prompt)
 
 
