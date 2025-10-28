@@ -52,19 +52,32 @@ $pendingCases = fetchAll("SELECT TOP 4 c.*, CONCAT(s.first_name, ' ', s.last_nam
         .progress-bar {
             transition: width 0.3s ease;
         }
+        /* Slim, subtle scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(96, 165, 250, 0.8);
+        }
     </style>
 </head>
 
 <body
-    class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
+  class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable] custom-scrollbar">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <div class="flex h-screen">
         <!-- Main Content -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto custom-scrollbar">
             <header class="bg-white dark:bg-slate-800 ...">
 
                 <!-- Main Content -->
-                <div class="flex-1 overflow-y-auto ml-64">
+                <div class="flex-1 overflow-y-auto ml-64 custom-scrollbar">
                     <!-- Header -->
                     <?php
                     $pageTitle = "Dashboard";
