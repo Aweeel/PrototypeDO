@@ -1,6 +1,8 @@
--- PrototypeDO Database Schema
+-- ============================================
+-- PrototypeDO Database Schema - COMPLETE VERSION
 -- SQL Server 2019+
--- Created for Discipline Office Management System
+-- Discipline Office Management System
+-- ============================================
 
 USE master;
 GO
@@ -43,7 +45,7 @@ GO
 -- ============================================
 CREATE TABLE students (
     student_id NVARCHAR(20) PRIMARY KEY,
-    user_id INT FOREIGN KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id INT NULL FOREIGN KEY REFERENCES users(user_id) ON DELETE SET NULL,
     first_name NVARCHAR(50) NOT NULL,
     last_name NVARCHAR(50) NOT NULL,
     middle_name NVARCHAR(50),
@@ -64,7 +66,7 @@ CREATE TABLE students (
 GO
 
 -- ============================================
--- 3. OFFENSE TYPES TABLE (Catalog)
+-- 3. OFFENSE TYPES TABLE (Catalog based on handbook)
 -- ============================================
 CREATE TABLE offense_types (
     offense_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -82,21 +84,23 @@ GO
 CREATE TABLE cases (
     case_id NVARCHAR(20) PRIMARY KEY, -- Format: C-1092
     student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
-    offense_id INT FOREIGN KEY REFERENCES offense_types(offense_id),
+    offense_id INT NULL FOREIGN KEY REFERENCES offense_types(offense_id),
     case_type NVARCHAR(100) NOT NULL, -- 'Tardiness', 'Dress Code', etc.
     severity NVARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
+    offense_category NVARCHAR(50) NULL, -- Category A, B, C, D
     status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Under Review', 'Resolved', 'Escalated', 'Dismissed')),
     date_reported DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     time_reported TIME,
     location NVARCHAR(200),
-    reported_by INT FOREIGN KEY REFERENCES users(user_id), -- Teacher/Guard who reported
-    assigned_to INT FOREIGN KEY REFERENCES users(user_id), -- DO staff handling case
+    reported_by INT NULL FOREIGN KEY REFERENCES users(user_id), -- Teacher/Guard who reported
+    assigned_to INT NULL FOREIGN KEY REFERENCES users(user_id), -- DO staff handling case
     description NVARCHAR(MAX),
     witnesses NVARCHAR(500),
     action_taken NVARCHAR(500),
     notes NVARCHAR(MAX),
     attachments NVARCHAR(MAX), -- JSON array of file paths
     next_hearing_date DATETIME,
+    resolved_date DATE NULL,
     is_archived BIT DEFAULT 0,
     archived_at DATETIME,
     created_at DATETIME DEFAULT GETDATE(),
@@ -125,6 +129,7 @@ CREATE TABLE case_sanctions (
     case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
     sanction_id INT FOREIGN KEY REFERENCES sanctions(sanction_id),
     applied_date DATE DEFAULT CAST(GETDATE() AS DATE),
+    duration_days INT NULL, -- For suspensions, etc.
     is_completed BIT DEFAULT 0,
     completion_date DATE,
     notes NVARCHAR(500),
@@ -138,7 +143,7 @@ GO
 CREATE TABLE case_history (
     history_id INT IDENTITY(1,1) PRIMARY KEY,
     case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
-    changed_by INT FOREIGN KEY REFERENCES users(user_id),
+    changed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     action NVARCHAR(50) NOT NULL, -- 'Created', 'Updated', 'Status Changed', 'Assigned', etc.
     old_value NVARCHAR(MAX),
     new_value NVARCHAR(MAX),
@@ -159,10 +164,10 @@ CREATE TABLE lost_found_items (
     date_found DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     time_found TIME,
     finder_name NVARCHAR(100),
-    finder_student_id NVARCHAR(20) FOREIGN KEY REFERENCES students(student_id),
+    finder_student_id NVARCHAR(20) NULL FOREIGN KEY REFERENCES students(student_id),
     status NVARCHAR(20) DEFAULT 'Unclaimed' CHECK (status IN ('Unclaimed', 'Claimed', 'Disposed')),
     claimer_name NVARCHAR(100),
-    claimer_student_id NVARCHAR(20) FOREIGN KEY REFERENCES students(student_id),
+    claimer_student_id NVARCHAR(20) NULL FOREIGN KEY REFERENCES students(student_id),
     date_claimed DATE,
     image_path NVARCHAR(500),
     is_archived BIT DEFAULT 0,
@@ -197,7 +202,7 @@ CREATE TABLE reports (
     report_type NVARCHAR(50) NOT NULL, -- 'Disciplinary', 'Statistical', 'User Activity'
     format NVARCHAR(10) NOT NULL CHECK (format IN ('PDF', 'Excel', 'CSV')),
     file_path NVARCHAR(500),
-    generated_by INT FOREIGN KEY REFERENCES users(user_id),
+    generated_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     date_generated DATETIME DEFAULT GETDATE(),
     parameters NVARCHAR(MAX), -- JSON of filter parameters used
     file_size_kb INT
@@ -215,7 +220,7 @@ CREATE TABLE calendar_events (
     category NVARCHAR(50) NOT NULL CHECK (category IN ('Meeting', 'Conference', 'Deadline', 'Hearing', 'Holiday', 'Other')),
     description NVARCHAR(MAX),
     location NVARCHAR(200),
-    created_by INT FOREIGN KEY REFERENCES users(user_id),
+    created_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -229,7 +234,7 @@ CREATE TABLE handbook_sections (
     section_title NVARCHAR(200) NOT NULL,
     section_order INT NOT NULL,
     content NVARCHAR(MAX) NOT NULL,
-    last_edited_by INT FOREIGN KEY REFERENCES users(user_id),
+    last_edited_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     last_edited_at DATETIME DEFAULT GETDATE(),
     created_at DATETIME DEFAULT GETDATE()
 );
@@ -242,11 +247,11 @@ CREATE TABLE watch_list (
     watch_id INT IDENTITY(1,1) PRIMARY KEY,
     student_id NVARCHAR(20) FOREIGN KEY REFERENCES students(student_id),
     reason NVARCHAR(500) NOT NULL,
-    added_by INT FOREIGN KEY REFERENCES users(user_id),
+    added_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     added_date DATE DEFAULT CAST(GETDATE() AS DATE),
     is_active BIT DEFAULT 1,
     removed_date DATE,
-    removed_by INT FOREIGN KEY REFERENCES users(user_id),
+    removed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     notes NVARCHAR(MAX)
 );
 GO
@@ -256,7 +261,7 @@ GO
 -- ============================================
 CREATE TABLE audit_log (
     log_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_id INT FOREIGN KEY REFERENCES users(user_id),
+    user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
     action NVARCHAR(100) NOT NULL,
     table_name NVARCHAR(50),
     record_id NVARCHAR(50),
@@ -274,14 +279,16 @@ GO
 CREATE INDEX idx_cases_student ON cases(student_id);
 CREATE INDEX idx_cases_status ON cases(status);
 CREATE INDEX idx_cases_date ON cases(date_reported);
+CREATE INDEX idx_cases_archived ON cases(is_archived);
 CREATE INDEX idx_students_status ON students(status);
 CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_audit_user ON audit_log(user_id);
 CREATE INDEX idx_lost_found_status ON lost_found_items(status);
+CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
 GO
 
 -- ============================================
--- INSERT SAMPLE DATA
+-- INSERT DEFAULT USERS
 -- ============================================
 
 -- Insert default Super Admin
@@ -294,70 +301,141 @@ VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
 INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
 VALUES ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
         'do@sti.edu', 'John Doe', 'discipline_office', '09187654321');
+GO
 
--- Insert sample offense types
+-- ============================================
+-- INSERT OFFENSE TYPES (Based on STI Handbook)
+-- ============================================
+
+-- Minor Offenses
 INSERT INTO offense_types (offense_name, category, description) VALUES
-('Tardiness', 'Minor', 'Late arrival to class'),
-('Dress Code Violation', 'Minor', 'Inappropriate attire'),
-('Classroom Disruption', 'Minor', 'Disruptive behavior during class'),
-('Academic Dishonesty', 'Major', 'Cheating, plagiarism'),
-('Bullying', 'Major', 'Physical or verbal harassment'),
-('Vandalism', 'Major', 'Destruction of school property'),
-('Attendance Issues', 'Minor', 'Excessive absences'),
-('Smoking', 'Major', 'Smoking on campus'),
-('Fighting', 'Major', 'Physical altercation'),
-('Insubordination', 'Minor', 'Refusing to follow instructions');
+('Non-adherence to Student Decorum', 'Minor', 'Discourtesy towards STI community members'),
+('Non-wearing of School Uniform', 'Minor', 'Not wearing uniform or improper use of ID'),
+('Inappropriate Campus Attire', 'Minor', 'Wearing inappropriate clothes on wash days'),
+('Losing/Forgetting ID', 'Minor', 'Lost or forgot ID three times'),
+('Disrespect to National Symbols', 'Minor', 'Disrespectful behavior to national symbols'),
+('Improper Use of School Property', 'Minor', 'Irresponsible use of school property'),
+('Gambling', 'Minor', 'Gambling within school premises'),
+('Classroom Disruption', 'Minor', 'Disrupting classes or school activities'),
+('Possession of Cigarettes/Vapes', 'Minor', 'Having cigarettes or vapes on person'),
+('Bringing Pets', 'Minor', 'Bringing pets to school premises'),
+('Public Display of Affection', 'Minor', 'Inappropriate displays of affection');
 GO
 
--- Insert sample sanctions
+-- Major Offenses - Category A
+INSERT INTO offense_types (offense_name, category, description) VALUES
+('Repeated Minor Offenses', 'Major', 'More than three minor offenses'),
+('Lending/Borrowing ID', 'Major', 'Using tampered or borrowed school ID'),
+('Smoking/Vaping on Campus', 'Major', 'Smoking or vaping inside campus'),
+('Intoxication', 'Major', 'Entering campus intoxicated or drinking liquor'),
+('Allowing Non-STI Entry', 'Major', 'Allowing unauthorized person entry'),
+('Cheating', 'Major', 'Academic dishonesty in any form'),
+('Plagiarism', 'Major', 'Copying work without proper attribution');
+GO
+
+-- Major Offenses - Category B
+INSERT INTO offense_types (offense_name, category, description) VALUES
+('Vandalism', 'Major', 'Damaging or destroying property'),
+('Cyberbullying/Defamation', 'Major', 'Posting disrespectful content online'),
+('Privacy Violation', 'Major', 'Recording/uploading without consent'),
+('Wearing Uniform in Ill Repute Places', 'Major', 'Going to inappropriate places in uniform'),
+('False Testimony', 'Major', 'Lying during official investigations'),
+('Use of Profane Language', 'Major', 'Grave insult to community members');
+GO
+
+-- Major Offenses - Category C
+INSERT INTO offense_types (offense_name, category, description) VALUES
+('Hacking', 'Major', 'Attacking computer systems'),
+('Forgery', 'Major', 'Tampering records or receipts'),
+('Theft', 'Major', 'Stealing school or personal property'),
+('Unauthorized Material Distribution', 'Major', 'Copying/distributing school materials'),
+('Embezzlement', 'Major', 'Misuse of school or organization funds'),
+('Illegal Assembly', 'Major', 'Disruptive demonstrations or boycotts'),
+('Immorality', 'Major', 'Acts of immoral conduct'),
+('Bullying', 'Major', 'Physical, cyber, or verbal bullying'),
+('Physical Assault', 'Major', 'Fighting or inflicting physical injuries'),
+('Drug Use', 'Major', 'Using prohibited drugs or chemicals'),
+('False Alarms', 'Major', 'False fire alarms or bomb threats'),
+('Misuse of Fire Equipment', 'Major', 'Using fire equipment inappropriately');
+GO
+
+-- Major Offenses - Category D (Expulsion-level)
+INSERT INTO offense_types (offense_name, category, description) VALUES
+('Drug Possession/Sale', 'Major', 'Possessing or selling prohibited drugs'),
+('Repeated Drug Use', 'Major', 'Second positive drug test after intervention'),
+('Weapons Possession', 'Major', 'Carrying firearms or deadly weapons'),
+('Fraternity/Sorority Membership', 'Major', 'Membership in illegal organizations'),
+('Hazing', 'Major', 'Participating in hazing or initiation rites'),
+('Moral Turpitude', 'Major', 'Crimes like rape, murder, homicide, etc'),
+('Sexual Harassment', 'Major', 'Sexual harassment as per RA 7877'),
+('Subversion/Sedition', 'Major', 'Acts of subversion, sedition, or insurgency'),
+('Others', 'Minor', 'Other offenses not specifically listed');
+GO
+
+-- ============================================
+-- INSERT SANCTIONS (Based on STI Handbook)
+-- ============================================
+
 INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
-('Verbal Warning', 1, 'Official verbal warning documented'),
-('Written Warning', 2, 'Written warning letter to student'),
-('Parent Conference', 2, 'Meeting with parents/guardians required'),
-('Community Service', 3, '8-40 hours of community service'),
-('Suspension (1-3 days)', 4, 'Temporary suspension from school'),
-('Suspension (4-7 days)', 5, 'Extended suspension from school'),
-('Probation', 4, 'Academic probation period'),
-('Behavioral Contract', 3, 'Signed agreement for behavior improvement'),
-('Confiscation', 1, 'Confiscation of prohibited items'),
-('Expulsion', 5, 'Permanent removal from school');
+('Verbal/Oral Warning', 1, 'Verbal warning for first minor offense'),
+('Written Apology', 1, 'Required to write apology letter'),
+('Written Reprimand', 2, 'Formal written notice of violation'),
+('Corrective Reinforcement (3 days)', 2, 'Attend classes + after-school tasks for 3 days'),
+('Corrective Reinforcement (7 days)', 2, 'Attend classes + after-school tasks for 7 days'),
+('Conference with Discipline Committee', 2, 'Meeting with parents/guardians required'),
+('Suspension from Class (3 days)', 3, 'Cannot attend classes for 3 days'),
+('Suspension from Class (7 days)', 3, 'Cannot attend classes for 7 days'),
+('Suspension from Class (10 days)', 4, 'Cannot attend classes for 10 days'),
+('Preventive Suspension', 3, 'Suspended during investigation period'),
+('Non-readmission', 4, 'Denied enrollment for next term'),
+('Exclusion', 5, 'Immediately removed from school'),
+('Expulsion', 5, 'Disqualified from all Philippine institutions');
 GO
 
--- Insert sample students
-INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, guardian_name, guardian_contact)
+-- ============================================
+-- INSERT SAMPLE STUDENTS
+-- ============================================
+
+INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status, guardian_name, guardian_contact)
 VALUES 
-('02000372341', 'Alex', 'Johnson', '12', 'STEM', 'SHS', 'Mary Johnson', '09171234567'),
-('02000372342', 'Maria', 'Garcia', '11', 'ABM', 'SHS', 'Jose Garcia', '09181234567'),
-('02000372343', 'James', 'Smith', '2nd Year', 'BSIT', 'College', 'John Smith', '09191234567'),
-('02000372344', 'Emma', 'Wilson', '1st Year', 'BSBA', 'College', 'Sarah Wilson', '09201234567'),
-('02000372345', 'Daniel', 'Lee', '12', 'HUMSS', 'SHS', 'Lisa Lee', '09211234567'),
-('02000372346', 'Sophia', 'Brown', '11', 'STEM', 'SHS', 'Robert Brown', '09221234567'),
-('02000372347', 'Michael', 'Wang', '3rd Year', 'BSCS', 'College', 'Wei Wang', '09231234567'),
-('02000372348', 'Olivia', 'Martinez', '12', 'ABM', 'SHS', 'Carlos Martinez', '09241234567');
+('02000372341', 'Alex', 'Johnson', '12', 'STEM', 'SHS', 'Good Standing', 'Mary Johnson', '09171234567'),
+('02000372342', 'Maria', 'Garcia', '11', 'ABM', 'SHS', 'Good Standing', 'Jose Garcia', '09181234567'),
+('02000372343', 'James', 'Smith', '2nd Year', 'BSIT', 'College', 'Good Standing', 'John Smith', '09191234567'),
+('02000372344', 'Emma', 'Wilson', '1st Year', 'BSBA', 'College', 'Good Standing', 'Sarah Wilson', '09201234567'),
+('02000372345', 'Daniel', 'Lee', '12', 'HUMSS', 'SHS', 'Good Standing', 'Lisa Lee', '09211234567'),
+('02000372346', 'Sophia', 'Brown', '11', 'STEM', 'SHS', 'Good Standing', 'Robert Brown', '09221234567'),
+('02000372347', 'Michael', 'Wang', '3rd Year', 'BSCS', 'College', 'Good Standing', 'Wei Wang', '09231234567'),
+('02000372348', 'Olivia', 'Martinez', '12', 'ABM', 'SHS', 'Good Standing', 'Carlos Martinez', '09241234567');
 GO
 
--- Insert sample cases (matching your JavaScript data)
+-- ============================================
+-- INSERT SAMPLE CASES
+-- ============================================
+
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, status, date_reported, assigned_to, description, notes)
 VALUES 
-('C-1092', '02000372341', 1, 'Tardiness', 'Minor', 'Pending', '2023-10-12', 2, 
+('C-1092', '02000372341', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2023-10-12', 2, 
  'Student was late to class for the third time this month.', 'Parent has been contacted via email on Oct 11.'),
-('C-1091', '02000372342', 2, 'Dress Code', 'Minor', 'Resolved', '2023-10-11', 2, 
+('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-11', 2, 
  'Inappropriate attire violation.', 'Issue resolved, student complied.'),
-('C-1090', '02000372343', 3, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-10', 2, 
+('C-1090', '02000372343', 8, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-10', 2, 
  'Talking loudly during class.', 'Reviewing incident with student.'),
-('C-1089', '02000372344', 4, 'Academic Dishonesty', 'Major', 'Escalated', '2023-10-09', 2, 
+('C-1089', '02000372344', 17, 'Cheating', 'Major', 'Escalated', '2023-10-09', 2, 
  'Cheating on exam.', 'Case escalated to principal.'),
-('C-1088', '02000372345', 7, 'Attendance', 'Minor', 'Resolved', '2023-10-08', 2, 
+('C-1088', '02000372345', 1, 'Non-adherence to Student Decorum', 'Minor', 'Resolved', '2023-10-08', 2, 
  'Multiple absences.', 'Medical documentation provided.'),
-('C-1087', '02000372346', 1, 'Tardiness', 'Minor', 'Pending', '2023-10-07', 2, 
+('C-1087', '02000372346', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2023-10-07', 2, 
  'Late to class.', ''),
-('C-1086', '02000372347', 2, 'Dress Code', 'Minor', 'Resolved', '2023-10-06', 2, 
+('C-1086', '02000372347', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-06', 2, 
  'Uniform violation.', 'Corrected immediately.'),
-('C-1085', '02000372348', 3, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-05', 2, 
+('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-05', 2, 
  'Disruptive behavior.', 'Meeting scheduled with parents.');
 GO
 
--- Insert sample lost & found items
+-- ============================================
+-- INSERT SAMPLE LOST & FOUND ITEMS
+-- ============================================
+
 INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
 VALUES 
 ('LF-1001', 'Blue Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
@@ -366,10 +444,40 @@ VALUES
 ('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
 GO
 
-PRINT 'Database schema created successfully!';
-PRINT 'Default login credentials:';
+-- ============================================
+-- VERIFICATION QUERIES
+-- ============================================
+
+PRINT '========================================';
+PRINT 'Database Schema Created Successfully!';
+PRINT '========================================';
+PRINT '';
+PRINT 'Default Login Credentials:';
 PRINT 'Username: admin';
 PRINT 'Password: password';
 PRINT '';
-PRINT 'Please change the password after first login!';
+PRINT 'OR';
+PRINT '';
+PRINT 'Username: do_staff';
+PRINT 'Password: password';
+PRINT '';
+PRINT '⚠️  IMPORTANT: Change passwords after first login!';
+PRINT '';
+
+-- Show table counts
+SELECT 'Users' as TableName, COUNT(*) as RecordCount FROM users
+UNION ALL
+SELECT 'Students', COUNT(*) FROM students
+UNION ALL
+SELECT 'Offense Types', COUNT(*) FROM offense_types
+UNION ALL
+SELECT 'Cases', COUNT(*) FROM cases
+UNION ALL
+SELECT 'Sanctions', COUNT(*) FROM sanctions
+UNION ALL
+SELECT 'Lost & Found Items', COUNT(*) FROM lost_found_items;
+GO
+
+PRINT '';
+PRINT '✅ Database ready for use!';
 GO

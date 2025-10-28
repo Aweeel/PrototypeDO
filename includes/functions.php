@@ -33,21 +33,82 @@ function authenticateUser($username, $password) {
 }
 
 // ==========================================
+// AUTO-ARCHIVE FUNCTIONS
+// ==========================================
+
+/**
+ * Automatically archive cases that are 1 year or older
+ * based on date_reported
+ */
+function autoArchiveOldCases() {
+    // Calculate date 1 year ago
+    $sql = "UPDATE cases 
+            SET is_archived = 1, 
+                archived_at = GETDATE(),
+                notes = CONCAT(notes, ' [Auto-archived after 1 year]')
+            WHERE is_archived = 0 
+            AND DATEDIFF(year, date_reported, GETDATE()) >= 1
+            AND date_reported IS NOT NULL";
+    
+    try {
+        $result = executeQuery($sql);
+        
+        // Log how many cases were auto-archived
+        $countSql = "SELECT @@ROWCOUNT as archived_count";
+        $count = fetchValue($countSql);
+        
+        if ($count > 0) {
+            error_log("Auto-archived $count old cases (1+ years old)");
+        }
+        
+        return $count;
+    } catch (Exception $e) {
+        error_log("Error in autoArchiveOldCases: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Check and archive old cases - call this before loading cases
+ * This ensures old cases are automatically moved to archive
+ */
+function checkAndArchiveOldCases() {
+    // Only run auto-archive once per session to avoid repeated queries
+    if (!isset($_SESSION['auto_archive_checked'])) {
+        $archivedCount = autoArchiveOldCases();
+        $_SESSION['auto_archive_checked'] = true;
+        $_SESSION['auto_archive_count'] = $archivedCount;
+        return $archivedCount;
+    }
+    return 0;
+}
+
+// ==========================================
 // CASE FUNCTIONS
 // ==========================================
 
 function getAllCases($filters = []) {
+    // Auto-archive old cases first (only once per session)
+    checkAndArchiveOldCases();
+    
     $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
             CONCAT(s.first_name, ' ', s.last_name) as student_name,
             u.full_name as assigned_to_name
             FROM cases c
             LEFT JOIN students s ON c.student_id = s.student_id
             LEFT JOIN users u ON c.assigned_to = u.user_id
-            WHERE c.is_archived = 0";
+            WHERE 1=1";
     
     $params = [];
     
-    // Apply filters
+    // Handle archived filter
+    if (isset($filters['archived']) && $filters['archived'] === true) {
+        $sql .= " AND c.is_archived = 1";
+    } else {
+        $sql .= " AND c.is_archived = 0";
+    }
+    
+    // Apply other filters
     if (!empty($filters['search'])) {
         $sql .= " AND (s.first_name LIKE ? OR s.last_name LIKE ? OR c.case_id LIKE ?)";
         $searchTerm = '%' . $filters['search'] . '%';
@@ -187,8 +248,7 @@ function updateCase($caseId, $data) {
             assigned_to = ?,
             description = ?, 
             notes = ?,
-            updated_at = GETDATE()
-            WHERE case_id = ?";
+            updated_at = GETDATE()";
     
     $params = [
         $data['case_type'],
@@ -196,9 +256,17 @@ function updateCase($caseId, $data) {
         $data['status'],
         $data['assigned_to'] ?? null,
         $data['description'],
-        $data['notes'] ?? '',
-        $caseId
+        $data['notes'] ?? ''
     ];
+    
+    // Add date_reported if provided
+    if (isset($data['date_reported']) && !empty($data['date_reported'])) {
+        $sql .= ", date_reported = ?";
+        $params[] = $data['date_reported'];
+    }
+    
+    $sql .= " WHERE case_id = ?";
+    $params[] = $caseId;
     
     executeQuery($sql, $params);
     
