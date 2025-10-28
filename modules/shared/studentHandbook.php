@@ -2783,7 +2783,7 @@ and institutional rules and regulations.
     <li>Wearing inappropriate campus attire<br></li>
     <li>Losing or forgetting one’s ID three (3) times<br></li>
     <li>Disrespect to national symbols or any other similar infraction<br></li>
-    <li>Irresponsible or  use of school property<br></li>
+    <li>Irresponsible or improper use of school property<br></li>
     <li>Gambling in any form within the school premises or during official functions<br></li>
     <li>Staying or eating inside the classroom without permission from the school administrator or management<br></li>
     <li>
