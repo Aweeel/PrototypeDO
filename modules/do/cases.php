@@ -77,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'case_type' => $_POST['type'],
                 'severity' => $_POST['severity'] ?? 'Minor',
                 'status' => $_POST['status'],
+                'date_reported' => $_POST['dateReported'] ?? null,
                 'assigned_to' => $_SESSION['user_id'] ?? null,
                 'description' => $_POST['description'],
                 'notes' => $_POST['notes'] ?? ''
@@ -121,43 +122,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         exit;
     }
 
-    
-// Get offense types by category
-if ($_POST['action'] === 'getOffenseTypes') {
-    $category = $_POST['category'] ?? '';
-    if ($category) {
-        $offenses = getOffenseTypesByCategory($category);
-    } else {
-        $offenses = getAllOffenseTypes();
+    // Get offense types by category
+    if ($_POST['action'] === 'getOffenseTypes') {
+        $category = $_POST['category'] ?? '';
+        if ($category) {
+            $offenses = getOffenseTypesByCategory($category);
+        } else {
+            $offenses = getAllOffenseTypes();
+        }
+        echo json_encode(['success' => true, 'offenses' => $offenses]);
+        exit;
     }
-    echo json_encode(['success' => true, 'offenses' => $offenses]);
-    exit;
-}
 
-// Get all sanctions
-if ($_POST['action'] === 'getSanctions') {
-    $sanctions = getAllSanctions();
-    echo json_encode(['success' => true, 'sanctions' => $sanctions]);
-    exit;
-}
+    // Get all sanctions
+    if ($_POST['action'] === 'getSanctions') {
+        $sanctions = getAllSanctions();
+        echo json_encode(['success' => true, 'sanctions' => $sanctions]);
+        exit;
+    }
 
-// Mark case as resolved
-if ($_POST['action'] === 'markResolved') {
+    // Mark case as resolved
+    if ($_POST['action'] === 'markResolved') {
+        $caseId = $_POST['caseId'];
+        markCaseAsResolved($caseId);
+        echo json_encode(['success' => true, 'message' => 'Case marked as resolved']);
+        exit;
+    }
+
+    // Apply sanction to case
+    if ($_POST['action'] === 'applySanction') {
+        $caseId = $_POST['caseId'];
+        $sanctionId = $_POST['sanctionId'];
+        $durationDays = $_POST['durationDays'] ?? null;
+        $notes = $_POST['notes'] ?? '';
+
+        applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
+        echo json_encode(['success' => true, 'message' => 'Sanction applied successfully']);
+        exit;
+    }
+
+    // Add these new handlers to your cases.php file (inside the existing AJAX handling section)
+
+// Remove case permanently
+if ($_POST['action'] === 'removeCase') {
     $caseId = $_POST['caseId'];
-    markCaseAsResolved($caseId);
-    echo json_encode(['success' => true, 'message' => 'Case marked as resolved']);
-    exit;
-}
-
-// Apply sanction to case
-if ($_POST['action'] === 'applySanction') {
-    $caseId = $_POST['caseId'];
-    $sanctionId = $_POST['sanctionId'];
-    $durationDays = $_POST['durationDays'] ?? null;
-    $notes = $_POST['notes'] ?? '';
     
-    applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
-    echo json_encode(['success' => true, 'message' => 'Sanction applied successfully']);
+    // Get case info before deletion for logging
+    $case = getCaseById($caseId);
+    
+    // Delete related records first (foreign key constraints)
+    $sql1 = "DELETE FROM case_sanctions WHERE case_id = ?";
+    executeQuery($sql1, [$caseId]);
+    
+    $sql2 = "DELETE FROM case_history WHERE case_id = ?";
+    executeQuery($sql2, [$caseId]);
+    
+    // Delete the case
+    $sql3 = "DELETE FROM cases WHERE case_id = ?";
+    executeQuery($sql3, [$caseId]);
+    
+    // Update student offense count if student exists
+    if ($case && $case['student_id']) {
+        updateStudentOffenseCount($case['student_id']);
+    }
+    
+    // Log the deletion
+    logAudit($_SESSION['user_id'] ?? null, 'Case Deleted', 'cases', $caseId, json_encode($case), null);
+    
+    echo json_encode(['success' => true, 'message' => 'Case removed successfully']);
+    exit;
+}
+
+// Get case sanctions
+if ($_POST['action'] === 'getCaseSanctions') {
+    $caseId = $_POST['caseId'];
+    $sanctions = getCaseSanctions($caseId);
+    echo json_encode(['success' => true, 'sanctions' => $sanctions]);
     exit;
 }
 }
@@ -329,4 +369,5 @@ if ($_POST['action'] === 'applySanction') {
     <script src="/PrototypeDO/assets/js/cases/main.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
+
 </html>

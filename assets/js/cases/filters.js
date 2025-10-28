@@ -28,14 +28,14 @@ function toggleFilters() {
     }
 }
 
-function switchTab(tab) {
-    currentTab = tab;
+function switchTab(tabName) {
+    currentTab = tabName;
     
     // Update button styles
     const currentBtn = document.getElementById('currentTab');
     const archivedBtn = document.getElementById('archivedTab');
     
-    if (tab === 'current') {
+    if (tabName === 'current') {
         currentBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
         archivedBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
     } else {
@@ -45,18 +45,4 @@ function switchTab(tab) {
     
     // Load cases based on tab
     loadCasesFromDB();
-}
-    
-    if (tab === 'archived') {
-        document.getElementById('casesTableBody').innerHTML = `
-            <tr>
-                <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    No archived cases found.
-                </td>
-            </tr>
-        `;
-        document.getElementById('paginationInfo').textContent = 'Showing 0 cases';
-        document.getElementById('paginationButtons').innerHTML = '';
-    } else {
-        loadCasesFromDB();
 }
