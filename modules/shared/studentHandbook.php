@@ -29,37 +29,137 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             const html = document.documentElement;
             const isDark = html.classList.toggle("dark");
             localStorage.setItem("theme", isDark ? "dark" : "light");
-            
         }
+
+        let lastHighlights = [];
+
+        function clearHighlights() {
+            lastHighlights.forEach(el => {
+               el.outerHTML = el.innerText;
+          });
+            lastHighlights = [];
+        }
+    </script>
+    
+    <script>
+          document.addEventListener("DOMContentLoaded", () => {
+            let searchHighlights = [];
+            let currentQuery = "";
+            let currentIndex = 0;
+
+            function clearHighlights() {
+              searchHighlights.forEach(span => {
+                const parent = span.parentNode;
+                parent.replaceChild(document.createTextNode(span.textContent), span);
+                parent.normalize();
+              });
+              searchHighlights = [];
+              currentIndex = 0;
+            }
+
+            function scrollToCurrent() {
+              if (searchHighlights.length === 0) return;
+              const mark = searchHighlights[currentIndex];
+              mark.scrollIntoView({ behavior: "smooth", block: "center" });
+              mark.style.outline = "2px solid #2563eb";
+              setTimeout(() => (mark.style.outline = ""), 500);
+            }
+
+            window.searchHandbook = function(event) {
+              const query = document.getElementById("searchInput").value.trim().toLowerCase();
+              const content = document.querySelector("main");
+              const countDisplay = document.getElementById("searchCount");
+
+              if (event && event.key === "Enter" && searchHighlights.length > 0) {
+                event.preventDefault();
+                currentIndex = (currentIndex + 1) % searchHighlights.length;
+                scrollToCurrent();
+                countDisplay.textContent = `Match ${currentIndex + 1} of ${searchHighlights.length}`;
+                return;
+              }
+
+              if (currentQuery !== query) clearHighlights();
+              currentQuery = query;
+
+              if (query.length < 2) {
+                countDisplay.textContent = "";
+                return;
+              }
+
+              const regex = new RegExp(query, "gi");
+              let count = 0;
+
+              const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null, false);
+              const textNodes = [];
+              while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+              for (const node of textNodes) {
+                const parent = node.parentNode;
+                if (["SCRIPT", "STYLE", "MARK"].includes(parent.nodeName)) continue;
+
+                const text = node.nodeValue;
+                if (!text.toLowerCase().includes(query)) continue;
+
+                const frag = document.createDocumentFragment();
+                let lastIndex = 0;
+                let match;
+
+                while ((match = regex.exec(text)) !== null) {
+                  const before = text.slice(lastIndex, match.index);
+                  if (before) frag.appendChild(document.createTextNode(before));
+
+                  const mark = document.createElement("mark");
+                  mark.textContent = match[0];
+                  mark.className = "bg-yellow-300 dark:bg-yellow-500 text-black rounded px-0.5";
+                  frag.appendChild(mark);
+                  searchHighlights.push(mark);
+                  count++;
+
+                  lastIndex = match.index + match[0].length;
+                }
+
+                const after = text.slice(lastIndex);
+                if (after) frag.appendChild(document.createTextNode(after));
+
+                parent.replaceChild(frag, node);
+              }
+
+              countDisplay.textContent = count
+                ? `${count} result${count > 1 ? "s" : ""} found. Press Enter to jump.`
+                : "No matches found.";
+
+              if (count) {
+                currentIndex = 0;
+                scrollToCurrent();
+              }
+            };
+          });
     </script>
 
 <style>
   html { scroll-behavior: smooth; }
 
-  /* Make section scroll offset account for fixed header */
   [id] {
-    scroll-margin-top: 6rem; /* Adjust if your header height changes */
+    scroll-margin-top: 7rem;
   }
 
-  /* Slim, subtle scrollbar styling */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: rgba(156, 163, 175, 0.5);
-    border-radius: 3px;
+    border-radius: 4px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: rgba(96, 165, 250, 0.8);
   }
 
-  /* Highlight animation for active TOC link */
   .active-toc-link {
-    color: #2563eb !important; /* Tailwind blue-600 */
+    color: #2563eb !important;
     font-weight: 600;
   }
   .dark .active-toc-link {
-    color: #60a5fa !important; /* lighter blue for dark mode */
+    color: #60a5fa !important;
   }
 </style>
 
@@ -68,17 +168,35 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
 <body class="bg-gray-50 dark:bg-[#1E293B] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
   <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-<div class="flex">
-  <div class="flex-1 ml-64 w-full min-h-screen overflow-x-hidden">
-      <?php include __DIR__ . '/../../includes/header.php'; ?>
+  <!-- Fixed Header -->
+  <header class="fixed top-0 left-64 right-0 z-50 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm">
+    <?php include __DIR__ . '/../../includes/header.php'; ?>
+  </header>
 
-      <main class="p-8 pt-28 min-h-screen transition-colors duration-300 flex gap-10">
-        <!-- ==== MAIN CONTENT ==== -->
-        <div class="flex-1 max-w-9xl ">
-          <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-20">
-            <h2 class="text-5xl font-bold mb-6 text-gray-800 dark:text-gray-100">
-              <?php echo htmlspecialchars($pageTitle); ?>
-            </h2>
+  <!-- Main Container -->
+  <div class="ml-64 h-screen flex">
+    <!-- Main Content Area (Scrollable) -->
+<main class="flex-1 overflow-hidden custom-scrollbar">
+  <div class="p-8 flex gap-10">
+    <!-- Content Column -->
+    <div class="flex-1 overflow-visible max-w-8xl pt-20">
+      <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 
+            rounded-lg shadow-sm pl-20 pb-20 pr-20 pt-[3.5rem] 
+            overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar">
+
+        <!-- Header title + PDF download -->
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-5xl font-bold text-gray-800 dark:text-gray-100">
+            <?php echo htmlspecialchars($pageTitle); ?>
+          </h2>
+          <a
+            href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
+            download
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
+          >
+            Download PDF
+          </a>
+        </div>
 
            <!-- ================= GENERAL INFORMATION ================= -->
 <section id="general-info" class="space-y-6 text-justify text-lg">
@@ -3109,22 +3227,32 @@ learning environment and of the STI Community.</p>
   </div>
 </section>
 
+
+
+
     </div>
     </div>
-  </div>
+    
+        <!-- Table of Contents Sidebar (Sticky) -->
+        <aside class=" hidden xl:block w-96  flex-shrink-0">
+          <div class=" sticky top-[7rem] max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
+            
+            <!-- Search Container -->
+            <div class="sticky top-0 z-10 bg-gray-200 dark:bg-[#111827] border-b-2 border-gray-400 dark:border-slate-700 shadow-md px-3 pb-2 pt-4 rounded-t-lg">
+              <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Search the handbook..." 
+                class="w-full border-2 border-gray-400 dark:border-slate-600 bg-white dark:bg-slate-800 
+                       rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                oninput="searchHandbook(event)" 
+                onkeydown="searchHandbook(event)"
+              >
+              <p id="searchCount" class="text-sm mt-2 text-gray-600 dark:text-gray-400"></p>
+            </div>
 
-
-
-
-
-<!-- Table of Contents (Right Sidebar) -->
-<aside>
-  <div
-    id="toc-sidebar"
-    class="hidden xl:flex flex-col w-80 sticky top-28 max-h-[90vh] overflow-y-auto 
-           bg-gray-100 dark:bg-[#111827] rounded-m border border-gray-300 dark:border-slate-700
-           p-3 mr-6 text-lg custom-scrollbar leading-relaxed">
-    <h3 class="text-gray-700 dark:text-gray-300 font-bold mb-5 uppercase tracking-wide text-2xl">
+    <!-- TOC Content -->
+    <h3 class="text-gray-700 dark:text-gray-300 font-bold pt-4 pl-4 mb-5 uppercase tracking-wide text-2xl">
       On this page
     </h3>
 
@@ -3347,6 +3475,11 @@ learning environment and of the STI Community.</p>
     </ul>
   </div>
 </aside>
+  </div>
+
+
+
+
         </main>
 </div>
 </div>
