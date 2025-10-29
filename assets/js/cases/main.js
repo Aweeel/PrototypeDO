@@ -74,7 +74,7 @@ function renderTableRows() {
     if (casesToDisplay.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     ${currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.'}
                 </td>
             </tr>
@@ -96,25 +96,24 @@ function renderTableRows() {
             <td class="px-6 py-4">
                 <span class="inline-block px-2.5 py-1 text-xs font-medium rounded ${statusColors[caseItem.statusColor]}">${caseItem.status}</span>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${caseItem.assignedTo}</td>
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
                     ${currentTab === 'archived' ? `
                         <button onclick="unarchiveCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Restore
                         </button>
                     ` : `
                         <button onclick="viewCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             View
                         </button>
                         <button onclick="editCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Edit
                         </button>
                         <button onclick="manageSanctions('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Sanctions
                         </button>
                     `}

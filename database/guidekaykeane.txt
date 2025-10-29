@@ -1,11 +1,13 @@
-Database set-up
+Download SSMS 21: https://learn.microsoft.com/en-us/ssms/install/install
+Download VS Code, XAMPP kung wala pa
 
+Database set-up:
 Server name: (localdb)\MSSQLLocalDB
 Authentication Type: Windows Authentication
 
 ----------------
 
-Enable PDO_ODBC Extension sa PHP
+Enable PDO_ODBC Extension sa PHP (XAMPP)
 
 1. Open XAMPP Control Panel
 2. Click Config next to Apache
@@ -18,9 +20,12 @@ Enable PDO_ODBC Extension sa PHP
 
 Update XAMPP PHP Version
 
-Download PHP 8.2 Thread Safe x64: https://windows.php.net/download#php-8.2
+Download PHP 8.2 VS16 x64 Thread Safe ZIP: https://windows.php.net/download#php-8.2
 Extract to C:\xampp\php (backup old php folder first!)
-Download PHP 8.2 SQL Server drivers: https://github.com/microsoft/msphpsql/releases/tag/v5.12.0
+
+----------------
+
+Download PHP 8.2 SQL Server drivers - Windows_5.12.0RTW.zip: https://github.com/microsoft/msphpsql/releases/tag/v5.12.0
 Extract and copy to C:\xampp\php\ext\
 
 ----------------
@@ -32,4 +37,5 @@ localhost/PrototypeDO/test_db-connection.php <-------- check sa browser pag may 
 sqllocaldb start MSSQLLocalDB <-------- manual start ng db (command prompt)
 sqllocaldb info MSSQLLocalDB <-------- verification/info (command prompt)
 
-
+EXEC sp_ArchiveOldCases; <-------- manual archive oldcases
+EXEC sp_ArchiveLostFoundItems; <-------- manual archive old l&f items
