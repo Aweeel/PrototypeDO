@@ -249,14 +249,14 @@ async function markCaseResolved(caseId) {
       // Close any open modal
       const modal = document.querySelector(".fixed.inset-0");
       if (modal) modal.remove();
-      
+
       // Reload cases
-      if (typeof loadCasesFromDB === 'function') {
+      if (typeof loadCasesFromDB === "function") {
         loadCasesFromDB();
       }
-      
+
       // Show success message
-      if (typeof showSuccessToast === 'function') {
+      if (typeof showSuccessToast === "function") {
         showSuccessToast("Case marked as resolved successfully!");
       } else {
         alert("Case marked as resolved successfully!");
@@ -396,7 +396,9 @@ async function editCase(caseId) {
                 </div>
 
                 <div class="flex justify-between gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-slate-700">
-                    <button type="button" onclick="archiveCaseFromEdit('${caseData.id}')" 
+                    <button type="button" onclick="archiveCaseFromEdit('${
+                      caseData.id
+                    }')" 
                         class="px-4 py-2 text-sm border border-orange-600 text-orange-600 rounded hover:bg-orange-50 dark:hover:bg-orange-900/20 font-medium flex items-center">
                         Archive
                     </button>
@@ -481,10 +483,10 @@ async function editCase(caseId) {
 
         if (data.success) {
           closeModal(e.target);
-          if (typeof loadCasesFromDB === 'function') {
+          if (typeof loadCasesFromDB === "function") {
             loadCasesFromDB();
           }
-          if (typeof showSuccessToast === 'function') {
+          if (typeof showSuccessToast === "function") {
             showSuccessToast("Case updated successfully!");
           } else {
             alert("Case updated successfully!");
@@ -551,7 +553,6 @@ async function archiveCaseFromEdit(caseId) {
   // Show confirmation modal
   archiveCaseConfirm(caseId);
 }
-
 
 // ====== ADD CASE MODAL ======
 
@@ -693,13 +694,13 @@ async function addCase() {
         statusEl.className = "text-xs mt-1 text-green-600 dark:text-green-400";
       } else {
         nameInput.value = "";
-        nameInput.readOnly = false;
-        nameInput.placeholder = "Student not found - enter name manually";
+        nameInput.readOnly = true; // Keep readonly even if not found
+        nameInput.placeholder = "Student not found in database";
         nameInput.className =
-          "w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100";
-        statusEl.textContent = "Student not in database - enter name manually";
-        statusEl.className =
-          "text-xs mt-1 text-orange-600 dark:text-orange-400";
+          "w-full px-2.5 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 cursor-not-allowed";
+        statusEl.textContent =
+          "⚠ Student not found. Please check the student number.";
+        statusEl.className = "text-xs mt-1 text-red-600 dark:text-red-400";
       }
     }, 500);
   });
@@ -710,9 +711,18 @@ async function addCase() {
     .addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      const studentName = document.getElementById("newStudentName").value;
       const offenseType = document.getElementById("newOffenseType").value;
       const caseType = document.getElementById("newCaseType").value;
       const description = document.getElementById("newDescription").value;
+
+      // Validate student exists
+      if (!studentName) {
+        alert(
+          "Please enter a valid student number. Student must exist in the database."
+        );
+        return;
+      }
 
       if (!offenseType) {
         alert("Please select an Offense Type (Minor or Major)");
@@ -768,14 +778,8 @@ async function addCase() {
 
         if (data.success) {
           closeModal(e.target);
-          if (typeof loadCasesFromDB === 'function') {
-            loadCasesFromDB();
-          }
-          if (typeof showSuccessToast === 'function') {
-            showSuccessToast("Case created successfully!");
-          } else {
-            alert("Case created successfully!");
-          }
+          loadCasesFromDB();
+          showSuccessToast("Case created successfully!");
         } else {
           alert("Error: " + (data.error || "Failed to create case"));
         }
@@ -788,74 +792,66 @@ async function addCase() {
 
 // Handle offense type change in add modal
 async function handleAddOffenseTypeChange() {
-  const offenseType = document.getElementById("newOffenseType").value;
-  const caseTypeDiv = document.getElementById("newCaseTypeDiv");
-  const caseTypeInput = document.getElementById("newCaseType");
-  const datalist = document.getElementById("newCaseTypeList");
-
-  if (!offenseType) {
-    caseTypeDiv.style.display = "none";
-    return;
-  }
-
-  // Show case type dropdown
-  caseTypeDiv.style.display = "block";
-
-  // Load offense types from database
-  const offenses = await loadOffenseTypes(offenseType);
-
-  // Populate datalist
-  datalist.innerHTML =
-    offenses
-      .map(
-        (o) => `<option value="${o.offense_name}">${o.offense_name}</option>`
-      )
-      .join("") +
-    '<option value="Others">Others (Specify in description)</option>';
-
-  // Clear current selection
-  caseTypeInput.value = "";
+    const offenseType = document.getElementById('newOffenseType').value;
+    const caseTypeDiv = document.getElementById('newCaseTypeDiv');
+    const caseTypeInput = document.getElementById('newCaseType');
+    const datalist = document.getElementById('newCaseTypeList');
+    
+    if (!offenseType) {
+        caseTypeDiv.style.display = 'none';
+        return;
+    }
+    
+    // Show case type dropdown
+    caseTypeDiv.style.display = 'block';
+    
+    // Load offense types from database
+    const offenses = await loadOffenseTypes(offenseType);
+    
+    // Populate datalist
+    datalist.innerHTML = offenses.map(o => `<option value="${o.offense_name}">${o.offense_name}</option>`).join('') +
+        '<option value="Others">Others (Specify in description)</option>';
+    
+    // Clear current selection
+    caseTypeInput.value = '';
 }
 
 // Handle case type change in add modal
 function handleAddCaseTypeChange() {
-  const caseType = document.getElementById("newCaseType").value;
-  const description = document.getElementById("newDescription");
-  const descRequired = document.getElementById("newDescRequired");
-  const customOffenseDiv = document.getElementById("newCustomOffenseDiv");
-  const customOffenseInput = document.getElementById("newCustomOffense");
-
-  if (caseType === "Others") {
-    description.required = true;
-    descRequired.style.display = "inline";
-    customOffenseDiv.style.display = "block";
-    customOffenseInput.required = true;
-  } else {
-    description.required = false;
-    descRequired.style.display = "none";
-    customOffenseDiv.style.display = "none";
-    customOffenseInput.required = false;
-  }
+    const caseType = document.getElementById('newCaseType').value;
+    const description = document.getElementById('newDescription');
+    const descRequired = document.getElementById('newDescRequired');
+    const customOffenseDiv = document.getElementById('newCustomOffenseDiv');
+    const customOffenseInput = document.getElementById('newCustomOffense');
+    
+    if (caseType === 'Others') {
+        description.required = true;
+        descRequired.style.display = 'inline';
+        customOffenseDiv.style.display = 'block';
+        customOffenseInput.required = true;
+    } else {
+        description.required = false;
+        descRequired.style.display = 'none';
+        customOffenseDiv.style.display = 'none';
+        customOffenseInput.required = false;
+    }
 }
 
 // ====== MANAGE SANCTIONS MODAL ======
 
 async function manageSanctions(caseId) {
-  const caseData = allCases.find((c) => c.id === caseId);
-  if (!caseData) return;
-
-  // Load available sanctions
-  const sanctions = await loadSanctions();
-
-  const modal = document.createElement("div");
-  modal.className =
-    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4";
-  modal.innerHTML = `
+    const caseData = allCases.find(c => c.id === caseId);
+    if (!caseData) return;
+    
+    // Load available sanctions
+    const sanctions = await loadSanctions();
+    
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
+    modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Manage Sanctions - ${
-                  caseData.id
-                }</h3>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Manage Sanctions - ${caseData.id}</h3>
                 <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -865,22 +861,14 @@ async function manageSanctions(caseId) {
 
             <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                    <strong class="text-gray-900 dark:text-gray-100">Student:</strong> ${
-                      caseData.student
-                    }
+                    <strong class="text-gray-900 dark:text-gray-100">Student:</strong> ${caseData.student}
                 </p>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                    <strong class="text-gray-900 dark:text-gray-100">Case Type:</strong> ${
-                      caseData.type
-                    }
+                    <strong class="text-gray-900 dark:text-gray-100">Case Type:</strong> ${caseData.type}
                 </p>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
                     <strong class="text-gray-900 dark:text-gray-100">Offense Type:</strong> 
-                    <span class="inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                      caseData.severity === "Major"
-                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                    }">${caseData.severity}</span>
+                    <span class="inline-block px-2 py-0.5 text-xs font-medium rounded ${caseData.severity === 'Major' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'}">${caseData.severity}</span>
                 </p>
             </div>
 
@@ -890,25 +878,11 @@ async function manageSanctions(caseId) {
                     <select id="sanctionSelect" required onchange="handleSanctionChange()" 
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option value="">Choose a sanction...</option>
-                        ${sanctions
-                          .map(
-                            (s) => `
-                            <option value="${
-                              s.sanction_id
-                            }" data-default-days="${
-                              s.default_duration_days || ""
-                            }" data-severity="${
-                              s.severity_level || ""
-                            }" data-description="${s.description || ""}">
-                                ${s.sanction_name}${
-                              s.severity_level
-                                ? " (" + s.severity_level + ")"
-                                : ""
-                            }
+                        ${sanctions.map(s => `
+                            <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}">
+                                ${s.sanction_name}${s.severity_level ? ' (' + s.severity_level + ')' : ''}
                             </option>
-                        `
-                          )
-                          .join("")}
+                        `).join('')}
                     </select>
                 </div>
 
@@ -950,177 +924,165 @@ async function manageSanctions(caseId) {
             </div>
         </div>
     `;
-  document.body.appendChild(modal);
+    document.body.appendChild(modal);
 
-  // Load and display applied sanctions
-  loadAppliedSanctions(caseId);
+    // Load and display applied sanctions
+    loadAppliedSanctions(caseId);
 
-  // Store sanctions data for later use
-  window.sanctionsData = sanctions;
+    // Store sanctions data for later use
+    window.sanctionsData = sanctions;
 
-  document
-    .getElementById("applySanctionForm")
-    .addEventListener("submit", async (e) => {
-      e.preventDefault();
+    document.getElementById('applySanctionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-      const sanctionId = document.getElementById("sanctionSelect").value;
-      const duration = document.getElementById("sanctionDuration").value;
-      const notes = document.getElementById("sanctionNotes").value;
+        const sanctionId = document.getElementById('sanctionSelect').value;
+        const duration = document.getElementById('sanctionDuration').value;
+        const notes = document.getElementById('sanctionNotes').value;
 
-      if (!sanctionId) {
-        alert("Please select a sanction");
-        return;
-      }
-
-      // Check if duration is required
-      const durationDiv = document.getElementById("durationDiv");
-      if (durationDiv.style.display !== "none" && !duration) {
-        alert("Please enter the duration in days");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("ajax", "1");
-      formData.append("action", "applySanction");
-      formData.append("caseId", caseId);
-      formData.append("sanctionId", sanctionId);
-      if (duration) formData.append("durationDays", duration);
-      formData.append("notes", notes);
-
-      try {
-        const response = await fetch("/PrototypeDO/modules/do/cases.php", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          alert("Sanction applied successfully!");
-          // Reset form
-          document.getElementById("applySanctionForm").reset();
-          document.getElementById("durationDiv").style.display = "none";
-          document.getElementById("sanctionDescription").style.display = "none";
-          // Reload applied sanctions list
-          loadAppliedSanctions(caseId);
-        } else {
-          alert("Error: " + (data.error || "Failed to apply sanction"));
+        if (!sanctionId) {
+            alert('Please select a sanction');
+            return;
         }
-      } catch (error) {
-        console.error("Error applying sanction:", error);
-        alert("Error applying sanction. Please try again.");
-      }
+
+        // Check if duration is required
+        const durationDiv = document.getElementById('durationDiv');
+        if (durationDiv.style.display !== 'none' && !duration) {
+            alert('Please enter the duration in days');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'applySanction');
+        formData.append('caseId', caseId);
+        formData.append('sanctionId', sanctionId);
+        if (duration) formData.append('durationDays', duration);
+        formData.append('notes', notes);
+
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Sanction applied successfully!');
+                // Reset form
+                document.getElementById('applySanctionForm').reset();
+                document.getElementById('durationDiv').style.display = 'none';
+                document.getElementById('sanctionDescription').style.display = 'none';
+                // Reload applied sanctions list
+                loadAppliedSanctions(caseId);
+            } else {
+                alert('Error: ' + (data.error || 'Failed to apply sanction'));
+            }
+        } catch (error) {
+            console.error('Error applying sanction:', error);
+            alert('Error applying sanction. Please try again.');
+        }
     });
 }
 
 // Handle sanction selection change
 function handleSanctionChange() {
-  const select = document.getElementById("sanctionSelect");
-  const selectedOption = select.options[select.selectedIndex];
-  const durationDiv = document.getElementById("durationDiv");
-  const durationInput = document.getElementById("sanctionDuration");
-  const descriptionDiv = document.getElementById("sanctionDescription");
-
-  if (!selectedOption.value) {
-    durationDiv.style.display = "none";
-    descriptionDiv.style.display = "none";
-    return;
-  }
-
-  const defaultDays = selectedOption.dataset.defaultDays;
-  const sanctionName = selectedOption.text.toLowerCase();
-  const description = selectedOption.dataset.description;
-
-  // Show description
-  if (description && description !== "null" && description !== "") {
-    descriptionDiv.innerHTML = `<strong>Description:</strong> ${description}`;
-    descriptionDiv.style.display = "block";
-  } else {
-    descriptionDiv.style.display = "none";
-  }
-
-  // Check if sanction requires duration
-  const requiresDuration =
-    sanctionName.includes("suspension") ||
-    sanctionName.includes("probation") ||
-    sanctionName.includes("community service") ||
-    defaultDays;
-
-  if (requiresDuration) {
-    durationDiv.style.display = "block";
-    durationInput.required = true;
-    if (defaultDays && defaultDays !== "null" && defaultDays !== "") {
-      durationInput.value = defaultDays;
+    const select = document.getElementById('sanctionSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    const durationDiv = document.getElementById('durationDiv');
+    const durationInput = document.getElementById('sanctionDuration');
+    const descriptionDiv = document.getElementById('sanctionDescription');
+    
+    if (!selectedOption.value) {
+        durationDiv.style.display = 'none';
+        descriptionDiv.style.display = 'none';
+        return;
     }
-  } else {
-    durationDiv.style.display = "none";
-    durationInput.required = false;
-    durationInput.value = "";
-  }
+    
+    const defaultDays = selectedOption.dataset.defaultDays;
+    const sanctionName = selectedOption.text.toLowerCase();
+    const description = selectedOption.dataset.description;
+    
+    // Show description
+    if (description && description !== 'null' && description !== '') {
+        descriptionDiv.innerHTML = `<strong>Description:</strong> ${description}`;
+        descriptionDiv.style.display = 'block';
+    } else {
+        descriptionDiv.style.display = 'none';
+    }
+    
+    // Extract duration from sanction name if it contains day numbers
+    const durationMatch = sanctionName.match(/(\d+)\s*days?/i);
+    const extractedDays = durationMatch ? durationMatch[1] : null;
+    
+    // Check if sanction requires duration
+    const requiresDuration = sanctionName.includes('suspension') || 
+                            sanctionName.includes('probation') || 
+                            sanctionName.includes('community service') ||
+                            extractedDays ||
+                            defaultDays;
+    
+    if (requiresDuration) {
+        durationDiv.style.display = 'block';
+        durationInput.required = true;
+        
+        // Priority: extracted from name > default_duration_days > empty
+        if (extractedDays) {
+            durationInput.value = extractedDays;
+        } else if (defaultDays && defaultDays !== 'null' && defaultDays !== '') {
+            durationInput.value = defaultDays;
+        } else {
+            durationInput.value = '';
+        }
+    } else {
+        durationDiv.style.display = 'none';
+        durationInput.required = false;
+        durationInput.value = '';
+    }
 }
 
 // Load applied sanctions for a case
 async function loadAppliedSanctions(caseId) {
-  try {
-    const formData = new FormData();
-    formData.append("ajax", "1");
-    formData.append("action", "getCaseSanctions");
-    formData.append("caseId", caseId);
+    try {
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getCaseSanctions');
+        formData.append('caseId', caseId);
 
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    const listDiv = document.getElementById("appliedSanctionsList");
-
-    if (data.success && data.sanctions && data.sanctions.length > 0) {
-      listDiv.innerHTML = data.sanctions
-        .map(
-          (s) => `
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('appliedSanctionsList');
+        
+        if (data.success && data.sanctions && data.sanctions.length > 0) {
+            listDiv.innerHTML = data.sanctions.map(s => `
                 <div class="p-3 bg-gray-50 dark:bg-slate-700 rounded">
                     <div class="flex justify-between items-start">
                         <div>
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${
-                              s.sanction_name
-                            }</p>
-                            ${
-                              s.duration_days
-                                ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>`
-                                : ""
-                            }
-                            ${
-                              s.notes
-                                ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>`
-                                : ""
-                            }
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${s.sanction_name}</p>
+                            ${s.duration_days ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>` : ''}
+                            ${s.notes ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>` : ''}
                         </div>
                         <span class="text-xs px-2 py-1 rounded ${
-                          s.severity_level === "High"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                            : s.severity_level === "Medium"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                            : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        }">${s.severity_level || "N/A"}</span>
+                            s.severity_level === 'High' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                            s.severity_level === 'Medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        }">${s.severity_level || 'N/A'}</span>
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Applied on: ${new Date(
-                      s.applied_date
-                    ).toLocaleDateString()}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Applied on: ${new Date(s.applied_date).toLocaleDateString()}</p>
                 </div>
-            `
-        )
-        .join("");
-    } else {
-      listDiv.innerHTML =
-        '<p class="text-sm text-gray-500 dark:text-gray-400">No sanctions applied yet.</p>';
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No sanctions applied yet.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading applied sanctions:', error);
+        document.getElementById('appliedSanctionsList').innerHTML = '<p class="text-sm text-red-500">Error loading sanctions.</p>';
     }
-  } catch (error) {
-    console.error("Error loading applied sanctions:", error);
-    document.getElementById("appliedSanctionsList").innerHTML =
-      '<p class="text-sm text-red-500">Error loading sanctions.</p>';
-  }
 }
 
 // ====== ARCHIVE FUNCTIONS ======
