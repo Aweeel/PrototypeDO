@@ -2,6 +2,7 @@
 -- PrototypeDO Database Schema - COMPLETE VERSION
 -- SQL Server 2019+
 -- Discipline Office Management System
+-- Safe to run multiple times - prevents duplicates
 -- ============================================
 
 USE master;
@@ -291,16 +292,12 @@ GO
 -- INSERT DEFAULT USERS
 -- ============================================
 
--- Insert default Super Admin
 INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
-VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
-        'admin@sti.edu', 'System Administrator', 'super_admin', '09123456789');
--- Password: 'password' (change this after first login!)
-
--- Insert Discipline Office account
-INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
-VALUES ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
-        'do@sti.edu', 'John Doe', 'discipline_office', '09187654321');
+VALUES 
+('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
+ 'admin@sti.edu', 'System Administrator', 'super_admin', '09123456789'),
+('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
+ 'do@sti.edu', 'John Doe', 'discipline_office', '09187654321');
 GO
 
 -- ============================================
@@ -393,11 +390,12 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 GO
 
 -- ============================================
--- INSERT SAMPLE STUDENTS
+-- INSERT SAMPLE STUDENTS (Original 8 + New 24)
 -- ============================================
 
 INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status, guardian_name, guardian_contact)
 VALUES 
+-- Original 8 students
 ('02000372341', 'Alex', 'Johnson', '12', 'STEM', 'SHS', 'Good Standing', 'Mary Johnson', '09171234567'),
 ('02000372342', 'Maria', 'Garcia', '11', 'ABM', 'SHS', 'Good Standing', 'Jose Garcia', '09181234567'),
 ('02000372343', 'James', 'Smith', '2nd Year', 'BSIT', 'College', 'Good Standing', 'John Smith', '09191234567'),
@@ -405,15 +403,52 @@ VALUES
 ('02000372345', 'Daniel', 'Lee', '12', 'HUMSS', 'SHS', 'Good Standing', 'Lisa Lee', '09211234567'),
 ('02000372346', 'Sophia', 'Brown', '11', 'STEM', 'SHS', 'Good Standing', 'Robert Brown', '09221234567'),
 ('02000372347', 'Michael', 'Wang', '3rd Year', 'BSCS', 'College', 'Good Standing', 'Wei Wang', '09231234567'),
-('02000372348', 'Olivia', 'Martinez', '12', 'ABM', 'SHS', 'Good Standing', 'Carlos Martinez', '09241234567');
+('02000372348', 'Olivia', 'Martinez', '12', 'ABM', 'SHS', 'Good Standing', 'Carlos Martinez', '09241234567'),
+
+-- New SHS Students - STEM Track
+('2024001234', 'Juan', 'Dela Cruz', '11', 'STEM', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
+('2024001235', 'Maria', 'Santos', '11', 'STEM', 'SHS', 'Good Standing', 'Jose Santos', '09171234002'),
+('2024001236', 'Pedro', 'Reyes', '12', 'STEM', 'SHS', 'Good Standing', 'Ana Reyes', '09171234003'),
+('2024001237', 'Ana', 'Garcia', '12', 'STEM', 'SHS', 'Good Standing', 'Carlos Garcia', '09171234004'),
+
+-- New SHS Students - ABM Track
+('2024001238', 'Carlos', 'Mendoza', '11', 'ABM', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
+('2024001239', 'Sofia', 'Ramos', '11', 'ABM', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
+('2024001240', 'Miguel', 'Torres', '12', 'ABM', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
+('2024001241', 'Isabella', 'Cruz', '12', 'ABM', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
+
+-- New SHS Students - HUMSS Track
+('2024001242', 'Luis', 'Fernandez', '11', 'HUMSS', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
+('2024001243', 'Carmen', 'Diaz', '11', 'HUMSS', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
+('2024001244', 'Diego', 'Morales', '12', 'HUMSS', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
+('2024001245', 'Lucia', 'Gutierrez', '12', 'HUMSS', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
+
+-- New College Students - BSIT
+('2024002001', 'Marco', 'Villanueva', '1st Year', 'BSIT', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
+('2024002002', 'Angela', 'Castillo', '2nd Year', 'BSIT', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
+('2024002003', 'Rafael', 'Herrera', '3rd Year', 'BSIT', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
+('2024002004', 'Gabriela', 'Jimenez', '4th Year', 'BSIT', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
+
+-- New College Students - BSBA
+('2024002005', 'Daniel', 'Navarro', '1st Year', 'BSBA', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
+('2024002006', 'Valentina', 'Romero', '2nd Year', 'BSBA', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
+('2024002007', 'Andres', 'Vargas', '3rd Year', 'BSBA', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
+('2024002008', 'Camila', 'Flores', '4th Year', 'BSBA', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
+
+-- New College Students - BSCS
+('2024002009', 'Sebastian', 'Martinez', '1st Year', 'BSCS', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
+('2024002010', 'Nicole', 'Gonzalez', '2nd Year', 'BSCS', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
+('2024002011', 'Adrian', 'Lopez', '3rd Year', 'BSCS', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
+('2024002012', 'Bianca', 'Perez', '4th Year', 'BSCS', 'College', 'Good Standing', 'Ramon Perez', '09181234012');
 GO
 
 -- ============================================
--- INSERT SAMPLE CASES
+-- INSERT SAMPLE CASES (Original 8 + New 5)
 -- ============================================
 
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, status, date_reported, assigned_to, description, notes)
 VALUES 
+-- Original cases
 ('C-1092', '02000372341', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2023-10-12', 2, 
  'Student was late to class for the third time this month.', 'Parent has been contacted via email on Oct 11.'),
 ('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-11', 2, 
@@ -429,7 +464,34 @@ VALUES
 ('C-1086', '02000372347', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-06', 2, 
  'Uniform violation.', 'Corrected immediately.'),
 ('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-05', 2, 
- 'Disruptive behavior.', 'Meeting scheduled with parents.');
+ 'Disruptive behavior.', 'Meeting scheduled with parents.'),
+
+-- New cases with new students
+('C-1093', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2024-10-15', 2, 
+ 'Late to class three times this week.', 'First warning issued.'),
+('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', 'Under Review', '2024-10-16', 2, 
+ 'Wearing improper uniform on Monday.', 'Student explained forgot to wash uniform.'),
+('C-1095', '2024002001', 8, 'Classroom Disruption', 'Minor', 'Resolved', '2024-10-17', 2, 
+ 'Talking during lecture.', 'Apologized to instructor.'),
+('C-1096', '2024002007', 17, 'Cheating', 'Major', 'Escalated', '2024-10-18', 2, 
+ 'Caught with cheat sheet during exam.', 'Case forwarded to academic council.'),
+('C-1097', '2024001241', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2024-10-19', 2, 
+ 'Multiple uniform violations.', 'Student placed on watch list.');
+GO
+
+-- ============================================
+-- UPDATE STUDENT OFFENSE COUNTS
+-- ============================================
+
+UPDATE students 
+SET 
+    total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
+    major_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Major' AND is_archived = 0),
+    minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
+    last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
+WHERE student_id IN (
+    SELECT DISTINCT student_id FROM cases
+);
 GO
 
 -- ============================================
@@ -445,12 +507,12 @@ VALUES
 GO
 
 -- ============================================
--- VERIFICATION QUERIES
+-- FINAL VERIFICATION & SUMMARY
 -- ============================================
 
-PRINT '========================================';
+PRINT '============================================';
 PRINT 'Database Schema Created Successfully!';
-PRINT '========================================';
+PRINT '============================================';
 PRINT '';
 PRINT 'Default Login Credentials:';
 PRINT 'Username: admin';
@@ -464,20 +526,86 @@ PRINT '';
 PRINT '⚠️  IMPORTANT: Change passwords after first login!';
 PRINT '';
 
--- Show table counts
-SELECT 'Users' as TableName, COUNT(*) as RecordCount FROM users
+-- Show detailed summary
+SELECT 
+    'Total Students' AS metric, 
+    COUNT(*) AS count 
+FROM students
 UNION ALL
-SELECT 'Students', COUNT(*) FROM students
+SELECT 
+    'SHS Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'SHS'
 UNION ALL
-SELECT 'Offense Types', COUNT(*) FROM offense_types
+SELECT 
+    'College Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'College'
 UNION ALL
-SELECT 'Cases', COUNT(*) FROM cases
+SELECT 
+    'Total Cases', 
+    COUNT(*) 
+FROM cases
 UNION ALL
-SELECT 'Sanctions', COUNT(*) FROM sanctions
+SELECT 
+    'Active Cases', 
+    COUNT(*) 
+FROM cases 
+WHERE is_archived = 0
 UNION ALL
-SELECT 'Lost & Found Items', COUNT(*) FROM lost_found_items;
+SELECT 
+    'Offense Types', 
+    COUNT(*) 
+FROM offense_types
+UNION ALL
+SELECT 
+    'Sanctions', 
+    COUNT(*) 
+FROM sanctions
+UNION ALL
+SELECT 
+    'Users', 
+    COUNT(*) 
+FROM users
+UNION ALL
+SELECT 
+    'Lost & Found Items', 
+    COUNT(*) 
+FROM lost_found_items;
 GO
 
 PRINT '';
+PRINT '============================================';
+PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
+PRINT '============================================';
+
+-- Count by track/course
+SELECT 
+    track_course,
+    student_type,
+    COUNT(*) AS student_count
+FROM students
+GROUP BY track_course, student_type
+ORDER BY student_type, student_count DESC;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
+PRINT '============================================';
+PRINT '';
+PRINT 'SHS Students:';
+PRINT '  - 2024001234 (Juan Dela Cruz - STEM)';
+PRINT '  - 2024001238 (Carlos Mendoza - ABM)';
+PRINT '  - 2024001242 (Luis Fernandez - HUMSS)';
+PRINT '';
+PRINT 'College Students:';
+PRINT '  - 2024002001 (Marco Villanueva - BSIT)';
+PRINT '  - 2024002007 (Andres Vargas - BSBA - On Watch)';
+PRINT '  - 2024002009 (Sebastian Martinez - BSCS)';
+PRINT '';
 PRINT '✅ Database ready for use!';
+PRINT '============================================';
 GO

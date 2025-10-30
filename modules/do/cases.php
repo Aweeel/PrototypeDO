@@ -70,6 +70,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        // Get student by student number
+if ($_POST['action'] === 'getStudentByNumber') {
+    $studentNumber = $_POST['studentNumber'] ?? '';
+    
+    if (empty($studentNumber)) {
+        echo json_encode(['success' => false, 'error' => 'Student number required']);
+        exit;
+    }
+    
+    $student = getStudentById($studentNumber);
+    
+    if ($student) {
+        echo json_encode([
+            'success' => true,
+            'student' => [
+                'student_id' => $student['student_id'],
+                'first_name' => $student['first_name'],
+                'last_name' => $student['last_name'],
+                'full_name' => $student['first_name'] . ' ' . $student['last_name']
+            ]
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Student not found']);
+    }
+    exit;
+}
+
         // Update existing case
         if ($_POST['action'] === 'updateCase') {
             $caseId = $_POST['caseId'];
@@ -163,43 +190,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
     // Add these new handlers to your cases.php file (inside the existing AJAX handling section)
 
-// Remove case permanently
-if ($_POST['action'] === 'removeCase') {
-    $caseId = $_POST['caseId'];
-    
-    // Get case info before deletion for logging
-    $case = getCaseById($caseId);
-    
-    // Delete related records first (foreign key constraints)
-    $sql1 = "DELETE FROM case_sanctions WHERE case_id = ?";
-    executeQuery($sql1, [$caseId]);
-    
-    $sql2 = "DELETE FROM case_history WHERE case_id = ?";
-    executeQuery($sql2, [$caseId]);
-    
-    // Delete the case
-    $sql3 = "DELETE FROM cases WHERE case_id = ?";
-    executeQuery($sql3, [$caseId]);
-    
-    // Update student offense count if student exists
-    if ($case && $case['student_id']) {
-        updateStudentOffenseCount($case['student_id']);
-    }
-    
-    // Log the deletion
-    logAudit($_SESSION['user_id'] ?? null, 'Case Deleted', 'cases', $caseId, json_encode($case), null);
-    
-    echo json_encode(['success' => true, 'message' => 'Case removed successfully']);
-    exit;
-}
+    // Remove case permanently
+    if ($_POST['action'] === 'removeCase') {
+        $caseId = $_POST['caseId'];
 
-// Get case sanctions
-if ($_POST['action'] === 'getCaseSanctions') {
-    $caseId = $_POST['caseId'];
-    $sanctions = getCaseSanctions($caseId);
-    echo json_encode(['success' => true, 'sanctions' => $sanctions]);
-    exit;
-}
+        // Get case info before deletion for logging
+        $case = getCaseById($caseId);
+
+        // Delete related records first (foreign key constraints)
+        $sql1 = "DELETE FROM case_sanctions WHERE case_id = ?";
+        executeQuery($sql1, [$caseId]);
+
+        $sql2 = "DELETE FROM case_history WHERE case_id = ?";
+        executeQuery($sql2, [$caseId]);
+
+        // Delete the case
+        $sql3 = "DELETE FROM cases WHERE case_id = ?";
+        executeQuery($sql3, [$caseId]);
+
+        // Update student offense count if student exists
+        if ($case && $case['student_id']) {
+            updateStudentOffenseCount($case['student_id']);
+        }
+
+        // Log the deletion
+        logAudit($_SESSION['user_id'] ?? null, 'Case Deleted', 'cases', $caseId, json_encode($case), null);
+
+        echo json_encode(['success' => true, 'message' => 'Case removed successfully']);
+        exit;
+    }
+
+    // Get case sanctions
+    if ($_POST['action'] === 'getCaseSanctions') {
+        $caseId = $_POST['caseId'];
+        $sanctions = getCaseSanctions($caseId);
+        echo json_encode(['success' => true, 'sanctions' => $sanctions]);
+        exit;
+    }
 }
 
 ?>
@@ -275,42 +302,39 @@ if ($_POST['action'] === 'getCaseSanctions') {
                     </div>
 
                     <div class="flex gap-3 items-center flex-wrap">
-                        <button onclick="toggleFilters()"
+                        <!-- Minor/Major Filter Buttons -->
+                        <div class="flex gap-2 border-r border-gray-300 dark:border-slate-600 pr-3">
+                            <button id="allOffensesBtn" onclick="filterByOffenseType('')"
+                                class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
+                                All
+                            </button>
+                            <button id="minorBtn" onclick="filterByOffenseType('Minor')"
+                                class="px-4 py-2 bg-white dark:bg-slate-800 border border-yellow-500 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium text-sm hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors">
+                                Minor
+                            </button>
+                            <button id="majorBtn" onclick="filterByOffenseType('Major')"
+                                class="px-4 py-2 bg-white dark:bg-slate-800 border border-red-500 text-red-700 dark:text-red-300 rounded-lg font-medium text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                Major
+                            </button>
+                        </div>
+
+                        <!-- Advanced Filters Button -->
+                        <button onclick="openAdvancedFilters()"
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                             </svg>
-                            Filters
+                            Advanced Filters
                         </button>
 
-                        <div id="filterSection" class="flex gap-3">
-                            <select id="typeFilter" onchange="filterCases()"
-                                class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                                <option value="">All Types</option>
-                                <option value="Tardiness">Tardiness</option>
-                                <option value="Dress Code">Dress Code</option>
-                                <option value="Classroom Disruption">Classroom Disruption</option>
-                                <option value="Academic Dishonesty">Academic Dishonesty</option>
-                                <option value="Attendance">Attendance</option>
-                            </select>
-
-                            <select id="statusFilter" onchange="filterCases()"
-                                class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                                <option value="">All Status</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Under Review">Under Review</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="Escalated">Escalated</option>
-                            </select>
-
-                            <select id="sortFilter" onchange="sortCases()"
-                                class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                                <option value="newest">Sort: Newest</option>
-                                <option value="oldest">Sort: Oldest</option>
-                                <option value="status">Sort: Status</option>
-                            </select>
-                        </div>
+                        <!-- Sort Dropdown -->
+                        <select id="sortFilter" onchange="sortCases()"
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="newest">Sort: Newest</option>
+                            <option value="oldest">Sort: Oldest</option>
+                            <option value="status">Sort: Status</option>
+                        </select>
                     </div>
                 </div>
 
@@ -337,9 +361,6 @@ if ($_POST['action'] === 'getCaseSanctions') {
                                     Status</th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                    Assigned To</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                                     Actions</th>
                             </tr>
                         </thead>
@@ -354,14 +375,13 @@ if ($_POST['action'] === 'getCaseSanctions') {
                 <div class="mt-6 flex items-center justify-between">
                     <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Showing 1-8 of 24 cases</p>
                     <div id="paginationButtons" class="flex gap-2">
-                        <!-- Populated by JS -->
                     </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- Load Scripts in correct order - NO INLINE SCRIPTS -->
+    <!-- Load Scripts -->
     <script src="/PrototypeDO/assets/js/cases/data.js"></script>
     <script src="/PrototypeDO/assets/js/cases/filters.js"></script>
     <script src="/PrototypeDO/assets/js/cases/modals.js"></script>
