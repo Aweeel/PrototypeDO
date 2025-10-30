@@ -133,15 +133,15 @@ if ($_POST['action'] === 'getStudentByNumber') {
 
         // Unarchive case
         if ($_POST['action'] === 'unarchiveCase') {
-            $caseId = $_POST['caseId'];
-            $sql = "UPDATE cases SET is_archived = 0, archived_at = NULL WHERE case_id = ?";
-            executeQuery($sql, [$caseId]);
+    $caseId = $_POST['caseId'];
+    $sql = "UPDATE cases SET is_archived = 0, archived_at = NULL, manually_restored = 1 WHERE case_id = ?";
+    executeQuery($sql, [$caseId]);
 
-            logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Unarchived', null, 'Case unarchived');
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Unarchived', null, 'Case manually restored by user');
 
-            echo json_encode(['success' => true, 'message' => 'Case restored successfully']);
-            exit;
-        }
+    echo json_encode(['success' => true, 'message' => 'Case restored successfully']);
+    exit;
+}
 
     } catch (Exception $e) {
         error_log("Cases AJAX Error: " . $e->getMessage());
