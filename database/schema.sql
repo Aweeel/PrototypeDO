@@ -103,6 +103,7 @@ CREATE TABLE cases (
     next_hearing_date DATETIME,
     resolved_date DATE NULL,
     is_archived BIT DEFAULT 0,
+    manually_restored BIT DEFAULT 0,
     archived_at DATETIME,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()

@@ -41,19 +41,21 @@ function authenticateUser($username, $password) {
  * based on date_reported
  */
 function autoArchiveOldCases() {
-    // Calculate date 1 year ago
     $sql = "UPDATE cases 
             SET is_archived = 1, 
                 archived_at = GETDATE(),
-                notes = CONCAT(notes, ' [Auto-archived after 1 year]')
+                notes = CASE 
+                    WHEN notes IS NULL OR notes = '' THEN '[Auto-archived after 1 year]'
+                    ELSE CONCAT(notes, ' [Auto-archived after 1 year]')
+                END
             WHERE is_archived = 0 
             AND DATEDIFF(year, date_reported, GETDATE()) >= 1
-            AND date_reported IS NOT NULL";
+            AND date_reported IS NOT NULL
+            AND (manually_restored = 0 OR manually_restored IS NULL)";
     
     try {
-        $result = executeQuery($sql);
+        executeQuery($sql);
         
-        // Log how many cases were auto-archived
         $countSql = "SELECT @@ROWCOUNT as archived_count";
         $count = fetchValue($countSql);
         
@@ -71,15 +73,19 @@ function autoArchiveOldCases() {
 /**
  * Check and archive old cases - call this before loading cases
  * This ensures old cases are automatically moved to archive
+ * Updated to run less frequently (once per day per user)
  */
 function checkAndArchiveOldCases() {
-    // Only run auto-archive once per session to avoid repeated queries
-    if (!isset($_SESSION['auto_archive_checked'])) {
+    // Check if auto-archive was already run today for this session
+    $today = date('Y-m-d');
+    
+    if (!isset($_SESSION['auto_archive_date']) || $_SESSION['auto_archive_date'] !== $today) {
         $archivedCount = autoArchiveOldCases();
-        $_SESSION['auto_archive_checked'] = true;
+        $_SESSION['auto_archive_date'] = $today;
         $_SESSION['auto_archive_count'] = $archivedCount;
         return $archivedCount;
     }
+    
     return 0;
 }
 
