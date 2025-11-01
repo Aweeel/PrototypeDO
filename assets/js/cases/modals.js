@@ -80,6 +80,20 @@ async function lookupStudentByNumber(studentNumber) {
 
 // ====== UTILITY FUNCTIONS ======
 
+// Toggle sanctions view in case modal
+function toggleSanctionsView(button) {
+    const content = button.nextElementSibling;
+    const svg = button.querySelector('svg');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        svg.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        svg.style.transform = 'rotate(0deg)';
+    }
+}
+
 function getStatusColor(status) {
   switch (status) {
     case "Pending":
@@ -116,15 +130,18 @@ function closeModal(element) {
 
 // ====== VIEW CASE MODAL ======
 
-function viewCase(caseId) {
+async function viewCase(caseId) {
   const caseData = allCases.find((c) => c.id === caseId);
   if (!caseData) return;
+
+  // Load applied sanctions for this case
+  const sanctions = await loadAppliedSanctionsForView(caseId);
 
   const modal = document.createElement("div");
   modal.className =
     "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4";
   modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Case Details: ${
                   caseData.id
@@ -141,9 +158,23 @@ function viewCase(caseId) {
                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student</p>
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">${
-                          caseData.student
-                        }</span>
+                        <div>
+                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100 block">${
+                              caseData.student
+                            }</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">ID: ${caseData.student_id || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Grade/Year</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.grade_level || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Track/Course</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${caseData.track_course || 'N/A'}</p>
                     </div>
                 </div>
 
@@ -198,6 +229,47 @@ function viewCase(caseId) {
                         ${caseData.notes || "No notes available."}
                     </div>
                 </div>
+
+                <!-- Applied Sanctions Section - Collapsible -->
+                <div class="pt-3 border-t border-gray-200 dark:border-slate-700">
+                    <button type="button" onclick="toggleSanctionsView(this)" 
+                        class="w-full flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 hover:text-gray-900 dark:hover:text-gray-200 transition-colors">
+                        <span>Applied Sanctions (${sanctions.length})</span>
+                        <svg class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="sanctions-content space-y-2" style="display: none;">
+                        ${
+                          sanctions.length > 0
+                            ? sanctions
+                                .map(
+                                  (s) => `
+                            <div class="p-2.5 bg-gray-50 dark:bg-slate-700 rounded text-sm">
+                                <p class="font-medium text-gray-900 dark:text-gray-100">${
+                                  s.sanction_name
+                                }</p>
+                                ${
+                                  s.duration_days
+                                    ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>`
+                                    : ""
+                                }
+                                ${
+                                  s.notes
+                                    ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>`
+                                    : ""
+                                }
+                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">Applied: ${new Date(
+                                  s.applied_date
+                                ).toLocaleDateString()}</p>
+                            </div>
+                        `
+                                )
+                                .join("")
+                            : '<p class="text-sm text-gray-500 dark:text-gray-400">No sanctions applied yet.</p>'
+                        }
+                    </div>
+                </div>
             </div>
 
             <div class="flex justify-between gap-2 mt-5">
@@ -227,10 +299,78 @@ function viewCase(caseId) {
   document.body.appendChild(modal);
 }
 
-// Mark case as resolved
+// Load applied sanctions for view modal (separate function)
+async function loadAppliedSanctionsForView(caseId) {
+  try {
+    const formData = new FormData();
+    formData.append("ajax", "1");
+    formData.append("action", "getCaseSanctions");
+    formData.append("caseId", caseId);
+
+    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+    return data.success && data.sanctions ? data.sanctions : [];
+  } catch (error) {
+    console.error("Error loading sanctions:", error);
+    return [];
+  }
+}
+
+// Mark case as resolved with confirmation
 async function markCaseResolved(caseId) {
-  if (!confirm("Mark this case as resolved? This will update the case status."))
-    return;
+  const modal = document.createElement("div");
+  modal.className =
+    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200";
+  modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Mark Case as Resolved?</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Case ID: ${caseId}</p>
+                </div>
+            </div>
+            
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-6">
+                This will update the case status to "Resolved". This action can be changed later if needed.
+            </p>
+            
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal(this)" 
+                    class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmMarkResolved('${caseId}')" 
+                    class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    Mark as Resolved
+                </button>
+            </div>
+        </div>
+    `;
+  document.body.appendChild(modal);
+
+  // Animate in
+  setTimeout(() => {
+    const modalContent = modal.querySelector("div > div");
+    modalContent.classList.remove("scale-95", "opacity-0");
+    modalContent.classList.add("scale-100", "opacity-100");
+  }, 10);
+}
+
+async function confirmMarkResolved(caseId) {
+  // Close confirmation modal
+  const modal = document.querySelector(".fixed.inset-0");
+  if (modal) modal.remove();
+
+  showLoadingToast("Marking case as resolved...");
 
   const formData = new FormData();
   formData.append("ajax", "1");
@@ -245,28 +385,21 @@ async function markCaseResolved(caseId) {
 
     const data = await response.json();
 
-    if (data.success) {
-      // Close any open modal
-      const modal = document.querySelector(".fixed.inset-0");
-      if (modal) modal.remove();
+    closeLoadingToast();
 
+    if (data.success) {
       // Reload cases
       if (typeof loadCasesFromDB === "function") {
         loadCasesFromDB();
       }
-
-      // Show success message
-      if (typeof showSuccessToast === "function") {
-        showSuccessToast("Case marked as resolved successfully!");
-      } else {
-        alert("Case marked as resolved successfully!");
-      }
+      showSuccessToast("Case marked as resolved successfully!");
     } else {
-      alert("Error: " + (data.error || "Failed to mark case as resolved"));
+      showErrorToast("Failed to mark case as resolved: " + (data.error || "Unknown error"));
     }
   } catch (error) {
+    closeLoadingToast();
     console.error("Error marking case as resolved:", error);
-    alert("Error marking case as resolved. Please try again.");
+    showErrorToast("Error marking case as resolved. Please try again.");
   }
 }
 
@@ -486,11 +619,7 @@ async function editCase(caseId) {
           if (typeof loadCasesFromDB === "function") {
             loadCasesFromDB();
           }
-          if (typeof showSuccessToast === "function") {
-            showSuccessToast("Case updated successfully!");
-          } else {
-            alert("Case updated successfully!");
-          }
+          showSuccessToast("Case updated successfully!");
         } else {
           alert("Error: " + (data.error || "Failed to update case"));
         }
@@ -694,7 +823,7 @@ async function addCase() {
         statusEl.className = "text-xs mt-1 text-green-600 dark:text-green-400";
       } else {
         nameInput.value = "";
-        nameInput.readOnly = true; // Keep readonly even if not found
+        nameInput.readOnly = true;
         nameInput.placeholder = "Student not found in database";
         nameInput.className =
           "w-full px-2.5 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 cursor-not-allowed";
@@ -802,17 +931,12 @@ async function handleAddOffenseTypeChange() {
         return;
     }
     
-    // Show case type dropdown
     caseTypeDiv.style.display = 'block';
-    
-    // Load offense types from database
     const offenses = await loadOffenseTypes(offenseType);
     
-    // Populate datalist
     datalist.innerHTML = offenses.map(o => `<option value="${o.offense_name}">${o.offense_name}</option>`).join('') +
         '<option value="Others">Others (Specify in description)</option>';
     
-    // Clear current selection
     caseTypeInput.value = '';
 }
 
@@ -843,11 +967,10 @@ async function manageSanctions(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
     
-    // Load available sanctions
     const sanctions = await loadSanctions();
     
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
@@ -880,14 +1003,13 @@ async function manageSanctions(caseId) {
                         <option value="">Choose a sanction...</option>
                         ${sanctions.map(s => `
                             <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}">
-                                ${s.sanction_name}${s.severity_level ? ' (' + s.severity_level + ')' : ''}
+                                ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
                             </option>
                         `).join('')}
                     </select>
                 </div>
 
                 <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none;">
-                    <!-- Sanction description will be shown here -->
                 </div>
 
                 <div id="durationDiv" style="display: none;">
@@ -926,10 +1048,7 @@ async function manageSanctions(caseId) {
     `;
     document.body.appendChild(modal);
 
-    // Load and display applied sanctions
     loadAppliedSanctions(caseId);
-
-    // Store sanctions data for later use
     window.sanctionsData = sanctions;
 
     document.getElementById('applySanctionForm').addEventListener('submit', async (e) => {
@@ -944,45 +1063,92 @@ async function manageSanctions(caseId) {
             return;
         }
 
-        // Check if duration is required
         const durationDiv = document.getElementById('durationDiv');
         if (durationDiv.style.display !== 'none' && !duration) {
             alert('Please enter the duration in days');
             return;
         }
 
-        const formData = new FormData();
-        formData.append('ajax', '1');
-        formData.append('action', 'applySanction');
-        formData.append('caseId', caseId);
-        formData.append('sanctionId', sanctionId);
-        if (duration) formData.append('durationDays', duration);
-        formData.append('notes', notes);
-
-        try {
-            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                alert('Sanction applied successfully!');
-                // Reset form
-                document.getElementById('applySanctionForm').reset();
-                document.getElementById('durationDiv').style.display = 'none';
-                document.getElementById('sanctionDescription').style.display = 'none';
-                // Reload applied sanctions list
-                loadAppliedSanctions(caseId);
-            } else {
-                alert('Error: ' + (data.error || 'Failed to apply sanction'));
-            }
-        } catch (error) {
-            console.error('Error applying sanction:', error);
-            alert('Error applying sanction. Please try again.');
-        }
+        const selectedOption = document.getElementById('sanctionSelect').options[document.getElementById('sanctionSelect').selectedIndex];
+        const sanctionName = selectedOption.text;
+        
+        const confirmModal = document.createElement('div');
+        confirmModal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+        confirmModal.innerHTML = `
+            <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Apply Sanction?</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">This action will be recorded</p>
+                    </div>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
+                    <p class="text-sm"><strong>Sanction:</strong> ${sanctionName}</p>
+                    ${duration ? `<p class="text-sm"><strong>Duration:</strong> ${duration} days</p>` : ''}
+                    ${notes ? `<p class="text-sm"><strong>Notes:</strong> ${notes}</p>` : ''}
+                </div>
+                
+                <div class="flex justify-end gap-3">
+                    <button onclick="closeModal(this)" 
+                        class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`)" 
+                        class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+                        Confirm & Apply
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmModal);
     });
+}
+
+// Confirm apply sanction
+async function confirmApplySanction(caseId, sanctionId, duration, notes) {
+    const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
+    if (confirmModal) confirmModal.remove();
+
+    showLoadingToast("Applying sanction...");
+
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'applySanction');
+    formData.append('caseId', caseId);
+    formData.append('sanctionId', sanctionId);
+    if (duration) formData.append('durationDays', duration);
+    formData.append('notes', notes);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        closeLoadingToast();
+        
+        if (data.success) {
+            document.getElementById('applySanctionForm').reset();
+            document.getElementById('durationDiv').style.display = 'none';
+            document.getElementById('sanctionDescription').style.display = 'none';
+            loadAppliedSanctions(caseId);
+            showSuccessToast('Sanction applied successfully!');
+        } else {
+            showErrorToast('Failed to apply sanction: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        closeLoadingToast();
+        console.error('Error applying sanction:', error);
+        showErrorToast('Error applying sanction. Please try again.');
+    }
 }
 
 // Handle sanction selection change
@@ -1003,7 +1169,6 @@ function handleSanctionChange() {
     const sanctionName = selectedOption.text.toLowerCase();
     const description = selectedOption.dataset.description;
     
-    // Show description
     if (description && description !== 'null' && description !== '') {
         descriptionDiv.innerHTML = `<strong>Description:</strong> ${description}`;
         descriptionDiv.style.display = 'block';
@@ -1011,14 +1176,13 @@ function handleSanctionChange() {
         descriptionDiv.style.display = 'none';
     }
     
-    // Extract duration from sanction name if it contains day numbers
     const durationMatch = sanctionName.match(/(\d+)\s*days?/i);
     const extractedDays = durationMatch ? durationMatch[1] : null;
     
-    // Check if sanction requires duration
     const requiresDuration = sanctionName.includes('suspension') || 
                             sanctionName.includes('probation') || 
                             sanctionName.includes('community service') ||
+                            sanctionName.includes('reinforcement') ||
                             extractedDays ||
                             defaultDays;
     
@@ -1026,7 +1190,6 @@ function handleSanctionChange() {
         durationDiv.style.display = 'block';
         durationInput.required = true;
         
-        // Priority: extracted from name > default_duration_days > empty
         if (extractedDays) {
             durationInput.value = extractedDays;
         } else if (defaultDays && defaultDays !== 'null' && defaultDays !== '') {
@@ -1061,19 +1224,26 @@ async function loadAppliedSanctions(caseId) {
         if (data.success && data.sanctions && data.sanctions.length > 0) {
             listDiv.innerHTML = data.sanctions.map(s => `
                 <div class="p-3 bg-gray-50 dark:bg-slate-700 rounded">
-                    <div class="flex justify-between items-start">
-                        <div>
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="flex-1">
                             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${s.sanction_name}</p>
                             ${s.duration_days ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>` : ''}
                             ${s.notes ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>` : ''}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Applied on: ${new Date(s.applied_date).toLocaleDateString()}</p>
                         </div>
-                        <span class="text-xs px-2 py-1 rounded ${
-                            s.severity_level === 'High' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                            s.severity_level === 'Medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                            'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                        }">${s.severity_level || 'N/A'}</span>
+                        <div class="flex flex-col gap-2 items-end">
+                            <span class="text-xs px-2 py-1 rounded whitespace-nowrap ${
+                                s.severity_level >= 4 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                s.severity_level >= 3 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
+                                s.severity_level >= 2 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            }">Level ${s.severity_level || 'N/A'}</span>
+                            <button onclick="editSanction('${caseId}', '${s.applied_sanction_id}', '${s.sanction_name}', '${s.duration_days || ''}', \`${(s.notes || '').replace(/`/g, '\\`')}\`)" 
+                                class="text-xs px-2 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                Edit
+                            </button>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Applied on: ${new Date(s.applied_date).toLocaleDateString()}</p>
                 </div>
             `).join('');
         } else {
@@ -1085,13 +1255,197 @@ async function loadAppliedSanctions(caseId) {
     }
 }
 
+// ====== EDIT SANCTION FUNCTION ======
+
+async function editSanction(caseId, appliedSanctionId, sanctionName, currentDuration, currentNotes) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Sanction</h3>
+                <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="editSanctionForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Sanction</label>
+                    <input type="text" value="${sanctionName}" readonly
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100 cursor-not-allowed">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (Days)</label>
+                    <input type="number" id="editSanctionDuration" min="1" value="${currentDuration}"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                        placeholder="Enter number of days...">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Notes</label>
+                    <textarea id="editSanctionNotes" rows="3" 
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
+                        placeholder="Additional notes...">${currentNotes}</textarea>
+                </div>
+
+                <div class="flex justify-between gap-2 pt-3 border-t border-gray-200 dark:border-slate-700">
+                    <button type="button" onclick="removeSanctionFromEdit('${caseId}', '${appliedSanctionId}')" 
+                        class="px-4 py-2 text-sm border border-red-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        Remove
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeModal(this)" 
+                            class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('editSanctionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const duration = document.getElementById('editSanctionDuration').value;
+        const notes = document.getElementById('editSanctionNotes').value;
+
+        closeModal(e.target);
+        showLoadingToast("Updating sanction...");
+
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'updateSanction');
+        formData.append('appliedSanctionId', appliedSanctionId);
+        if (duration) formData.append('durationDays', duration);
+        formData.append('notes', notes);
+
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            closeLoadingToast();
+            
+            if (data.success) {
+                loadAppliedSanctions(caseId);
+                showSuccessToast('Sanction updated successfully!');
+            } else {
+                showErrorToast('Failed to update sanction: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            closeLoadingToast();
+            console.error('Error updating sanction:', error);
+            showErrorToast('Error updating sanction. Please try again.');
+        }
+    });
+}
+
+// ====== REMOVE SANCTION FUNCTION ======
+
+// Remove sanction from edit modal
+async function removeSanctionFromEdit(caseId, appliedSanctionId) {
+    // Close edit modal first
+    const editModal = document.querySelectorAll('.fixed.inset-0')[1];
+    if (editModal) editModal.remove();
+    
+    // Show confirmation modal
+    removeSanction(caseId, appliedSanctionId);
+}
+
+async function removeSanction(caseId, appliedSanctionId) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Remove Sanction?</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">This action cannot be undone</p>
+                </div>
+            </div>
+            
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-6">
+                Are you sure you want to remove this sanction from the case? The sanction record will be permanently deleted.
+            </p>
+            
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal(this)" 
+                    class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmRemoveSanction('${caseId}', '${appliedSanctionId}')" 
+                    class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    Remove Sanction
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function confirmRemoveSanction(caseId, appliedSanctionId) {
+    // Close confirmation modal
+    const modals = document.querySelectorAll('.fixed.inset-0');
+    if (modals.length > 0) modals[modals.length - 1].remove();
+
+    showLoadingToast("Removing sanction...");
+
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'removeSanction');
+    formData.append('appliedSanctionId', appliedSanctionId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        closeLoadingToast();
+        
+        if (data.success) {
+            loadAppliedSanctions(caseId);
+            showSuccessToast('Sanction removed successfully!');
+        } else {
+            showErrorToast('Failed to remove sanction: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        closeLoadingToast();
+        console.error('Error removing sanction:', error);
+        showErrorToast('Error removing sanction. Please try again.');
+    }
+}
+
 // ====== ARCHIVE FUNCTIONS ======
 
-// Archive case with confirmation
 function archiveCaseConfirm(caseId) {
+  const existingModal = document.querySelector('.archive-confirm-modal');
+  if (existingModal) return;
+
   const modal = document.createElement("div");
   modal.className =
-    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200";
+    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200 archive-confirm-modal";
   modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0">
             <div class="flex items-center gap-3 mb-4">
@@ -1111,7 +1465,7 @@ function archiveCaseConfirm(caseId) {
             </p>
             
             <div class="flex justify-end gap-3">
-                <button onclick="closeModal(this)" 
+                <button onclick="closeArchiveModal()" 
                     class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                     Cancel
                 </button>
@@ -1124,7 +1478,6 @@ function archiveCaseConfirm(caseId) {
     `;
   document.body.appendChild(modal);
 
-  // Animate in
   setTimeout(() => {
     const modalContent = modal.querySelector("div > div");
     modalContent.classList.remove("scale-95", "opacity-0");
@@ -1132,9 +1485,13 @@ function archiveCaseConfirm(caseId) {
   }, 10);
 }
 
-async function confirmArchiveCase(caseId) {
-  const modal = document.querySelector(".fixed.inset-0");
+function closeArchiveModal() {
+  const modal = document.querySelector('.archive-confirm-modal');
   if (modal) modal.remove();
+}
+
+async function confirmArchiveCase(caseId) {
+  closeArchiveModal();
 
   showLoadingToast("Archiving case...");
 
@@ -1204,7 +1561,6 @@ async function unarchiveCase(caseId) {
     `;
   document.body.appendChild(modal);
 
-  // Animate in
   setTimeout(() => {
     const modalContent = modal.querySelector("div > div");
     modalContent.classList.remove("scale-95", "opacity-0");
@@ -1248,9 +1604,12 @@ async function confirmUnarchiveCase(caseId) {
   }
 }
 
-// ====== Toast Notifications (Tailwind Only) ======
+// ====== Toast Notifications ======
 
 function showLoadingToast(message) {
+  const existingToast = document.getElementById("loadingToast");
+  if (existingToast) existingToast.remove();
+
   const toast = document.createElement("div");
   toast.id = "loadingToast";
   toast.className =
@@ -1288,7 +1647,7 @@ function showSuccessToast(message) {
   setTimeout(() => {
     toast.classList.add("translate-x-full");
     setTimeout(() => toast.remove(), 300);
-  }, 2000);
+  }, 3000);
 }
 
 function showErrorToast(message) {
@@ -1309,5 +1668,5 @@ function showErrorToast(message) {
   setTimeout(() => {
     toast.classList.add("translate-x-full");
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, 4000);
 }
