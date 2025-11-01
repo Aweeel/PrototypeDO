@@ -1,11 +1,251 @@
 -- ============================================
--- PrototypeDO Database Schema - COMPLETE VERSION
+-- PrototypeDO Database Schema - COMPLETE VERSION WITH 2025 CASES
 -- SQL Server 2019+
 -- Discipline Office Management System
 -- Safe to run multiple times - prevents duplicates
 -- ============================================
 
 USE master;
+GO
+
+-- ============================================
+-- UPDATE STUDENT OFFENSE COUNTS
+-- ============================================
+
+UPDATE students 
+SET 
+    total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
+    major_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Major' AND is_archived = 0),
+    minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
+    last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
+WHERE student_id IN (
+    SELECT DISTINCT student_id FROM cases
+);
+GO
+
+-- ============================================
+-- INSERT CASE HISTORY FOR ALL CASES
+-- ============================================
+
+INSERT INTO case_history (case_id, changed_by, action, new_value, notes, timestamp)
+SELECT 
+    case_id,
+    2, -- DO staff user
+    'Created',
+    'Status: ' + status,
+    'Case created and logged into system',
+    DATEADD(MINUTE, 5, CAST(date_reported AS DATETIME) + CAST(ISNULL(time_reported, '08:00:00') AS DATETIME))
+FROM cases;
+GO
+
+-- ============================================
+-- INSERT SAMPLE LOST & FOUND ITEMS
+-- ============================================
+
+INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
+VALUES 
+('LF-1001', 'Blue Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
+('LF-1002', 'Water Bottle', 'Personal Items', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
+('LF-1003', 'Math Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
+('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
+GO
+
+-- ============================================
+-- INSERT WATCH LIST ENTRIES
+-- ============================================
+
+-- Add student 2024002007 to watch list (has 2 major offenses)
+INSERT INTO watch_list (student_id, reason, added_by, added_date, notes)
+VALUES 
+('2024002007', 'Multiple major offenses: Cheating incidents in 2024 and 2025. Requires close monitoring.', 2, '2025-02-15', 
+ 'Student requires close monitoring. Consider probation if another offense occurs.'),
+ 
+-- Add student 2024001241 to watch list (smoking + previous violations)
+('2024001241', 'Major offense: Smoking on campus. Multiple previous uniform violations.', 2, '2025-03-11', 
+ 'Requires behavioral intervention. Parent involvement necessary. Suspension under consideration.');
+GO
+
+-- ============================================
+-- INSERT SAMPLE SANCTIONS APPLIED
+-- ============================================
+
+INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
+VALUES
+-- C-2025001 - Verbal Warning
+('C-2025001', 1, '2025-01-15', 1, '2025-01-15', 'Student acknowledged warning and committed to improvement'),
+
+-- C-2025002 - Written Reprimand
+('C-2025002', 3, '2025-01-20', 1, '2025-01-20', 'Written reprimand issued and filed'),
+
+-- C-2025007 - Verbal Warning + Counseling
+('C-2025007', 1, '2025-03-20', 1, '2025-03-20', 'Counseling completed with both students'),
+
+-- C-2025009 - Verbal Warning
+('C-2025009', 1, '2025-04-15', 1, '2025-04-15', 'Educational discussion conducted about campus policies');
+GO
+
+-- ============================================
+-- INSERT SAMPLE NOTIFICATIONS
+-- ============================================
+
+INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
+VALUES
+(2, 'New Case Reported', 'New cyberbullying case C-2025010 requires immediate attention', 'case_update', 'C-2025010', 0),
+(2, 'Case Under Review', 'Case C-2025006 (Smoking) requires decision on sanctions', 'case_update', 'C-2025006', 0),
+(2, 'Escalated Case', 'Case C-2025004 has been escalated to Academic Council', 'case_update', 'C-2025004', 1);
+GO
+
+-- ============================================
+-- FINAL VERIFICATION & SUMMARY
+-- ============================================
+
+PRINT '============================================';
+PRINT 'Database Schema Created Successfully!';
+PRINT '============================================';
+PRINT '';
+PRINT 'Default Login Credentials:';
+PRINT 'Username: admin';
+PRINT 'Password: password';
+PRINT '';
+PRINT 'OR';
+PRINT '';
+PRINT 'Username: do_staff';
+PRINT 'Password: password';
+PRINT '';
+PRINT '⚠️  IMPORTANT: Change passwords after first login!';
+PRINT '';
+
+-- Show detailed summary
+SELECT 
+    'Total Students' AS metric, 
+    COUNT(*) AS count 
+FROM students
+UNION ALL
+SELECT 
+    'SHS Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'SHS'
+UNION ALL
+SELECT 
+    'College Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'College'
+UNION ALL
+SELECT 
+    'Total Cases', 
+    COUNT(*) 
+FROM cases
+UNION ALL
+SELECT 
+    'Active Cases', 
+    COUNT(*) 
+FROM cases 
+WHERE is_archived = 0
+UNION ALL
+SELECT 
+    '2025 Cases', 
+    COUNT(*) 
+FROM cases 
+WHERE case_id LIKE 'C-2025%'
+UNION ALL
+SELECT 
+    'Offense Types', 
+    COUNT(*) 
+FROM offense_types
+UNION ALL
+SELECT 
+    'Sanctions', 
+    COUNT(*) 
+FROM sanctions
+UNION ALL
+SELECT 
+    'Users', 
+    COUNT(*) 
+FROM users
+UNION ALL
+SELECT 
+    'Lost & Found Items', 
+    COUNT(*) 
+FROM lost_found_items;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
+PRINT '============================================';
+
+-- Count by track/course
+SELECT 
+    track_course,
+    student_type,
+    COUNT(*) AS student_count
+FROM students
+GROUP BY track_course, student_type
+ORDER BY student_type, student_count DESC;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT '2025 CASES SUMMARY';
+PRINT '============================================';
+
+SELECT 
+    case_id AS 'Case ID',
+    student_id AS 'Student ID',
+    case_type AS 'Offense Type',
+    severity AS 'Severity',
+    status AS 'Status',
+    date_reported AS 'Date'
+FROM cases
+WHERE case_id LIKE 'C-2025%'
+ORDER BY date_reported;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'STUDENTS WITH MULTIPLE OFFENSES';
+PRINT '============================================';
+
+SELECT 
+    s.student_id AS 'Student ID',
+    s.first_name + ' ' + s.last_name AS 'Student Name',
+    s.track_course AS 'Track/Course',
+    s.total_offenses AS 'Total',
+    s.major_offenses AS 'Major',
+    s.minor_offenses AS 'Minor',
+    s.status AS 'Status'
+FROM students s
+WHERE s.total_offenses > 0
+ORDER BY s.total_offenses DESC, s.major_offenses DESC;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
+PRINT '============================================';
+PRINT '';
+PRINT 'SHS Students with Cases:';
+PRINT '  - 2024001234 (Juan Dela Cruz - STEM) - 2 cases';
+PRINT '  - 2024001238 (Carlos Mendoza - ABM) - 2 cases';
+PRINT '  - 2024001241 (Isabella Cruz - ABM - On Watch) - 2 cases';
+PRINT '  - 2024001242 (Luis Fernandez - HUMSS) - 1 case';
+PRINT '  - 2024001236 (Pedro Reyes - STEM) - 1 case';
+PRINT '';
+PRINT 'College Students with Cases:';
+PRINT '  - 2024002001 (Marco Villanueva - BSIT) - 2 cases';
+PRINT '  - 2024002007 (Andres Vargas - BSBA - On Watch) - 2 cases';
+PRINT '  - 2024002002 (Angela Castillo - BSIT) - 1 case';
+PRINT '  - 2024002006 (Valentina Romero - BSBA) - 1 case';
+PRINT '  - 2024002009 (Sebastian Martinez - BSCS) - 1 case';
+PRINT '';
+PRINT '✅ Database ready for use!';
+PRINT '✅ Includes 10 NEW 2025 cases with detailed information';
+PRINT '✅ All student offense counts updated';
+PRINT '✅ Watch list populated';
+PRINT '✅ Case history tracked';
+PRINT '============================================';
 GO
 
 -- Drop database if exists (careful in production!)
@@ -298,7 +538,7 @@ VALUES
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'admin@sti.edu', 'System Administrator', 'super_admin', '09123456789'),
 ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'do@sti.edu', 'John Doe', 'discipline_office', '09187654321');
+ 'do@sti.edu', 'John Doe', 'discipline_office', '09187654321'),
 ('teacher', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'teacher1@sti.edu', 'Maria Santos', 'teacher', '09171234567'),
 ('security', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
@@ -397,7 +637,7 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 GO
 
 -- ============================================
--- INSERT SAMPLE STUDENTS (Original 8 + New 24)
+-- INSERT SAMPLE STUDENTS (32 Total)
 -- ============================================
 
 INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status, guardian_name, guardian_contact)
@@ -450,169 +690,60 @@ VALUES
 GO
 
 -- ============================================
--- INSERT SAMPLE CASES (Original 8 + New 5)
+-- INSERT SAMPLE CASES (23 Total: 13 Old + 10 New 2025)
 -- ============================================
 
-INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, status, date_reported, assigned_to, description, notes)
+INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes)
 VALUES 
--- Original cases
-('C-1092', '02000372341', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2023-10-12', 2, 
- 'Student was late to class for the third time this month.', 'Parent has been contacted via email on Oct 11.'),
-('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-11', 2, 
- 'Inappropriate attire violation.', 'Issue resolved, student complied.'),
-('C-1090', '02000372343', 8, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-10', 2, 
- 'Talking loudly during class.', 'Reviewing incident with student.'),
-('C-1089', '02000372344', 17, 'Cheating', 'Major', 'Escalated', '2023-10-09', 2, 
- 'Cheating on exam.', 'Case escalated to principal.'),
-('C-1088', '02000372345', 1, 'Non-adherence to Student Decorum', 'Minor', 'Resolved', '2023-10-08', 2, 
- 'Multiple absences.', 'Medical documentation provided.'),
-('C-1087', '02000372346', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2023-10-07', 2, 
- 'Late to class.', ''),
-('C-1086', '02000372347', 2, 'Non-wearing of School Uniform', 'Minor', 'Resolved', '2023-10-06', 2, 
- 'Uniform violation.', 'Corrected immediately.'),
-('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', 'Under Review', '2023-10-05', 2, 
- 'Disruptive behavior.', 'Meeting scheduled with parents.'),
+-- Original 2023 cases (8)
+('C-1092', '02000372341', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2023-10-12', NULL, NULL, NULL, 2, 
+ 'Student was late to class for the third time this month.', NULL, NULL, 'Parent has been contacted via email on Oct 11.'),
+('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2023-10-11', NULL, NULL, NULL, 2, 
+ 'Inappropriate attire violation.', NULL, NULL, 'Issue resolved, student complied.'),
+('C-1090', '02000372343', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2023-10-10', NULL, NULL, NULL, 2, 
+ 'Talking loudly during class.', NULL, NULL, 'Reviewing incident with student.'),
+('C-1089', '02000372344', 17, 'Cheating', 'Major', NULL, 'Escalated', '2023-10-09', NULL, NULL, NULL, 2, 
+ 'Cheating on exam.', NULL, NULL, 'Case escalated to principal.'),
+('C-1088', '02000372345', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2023-10-08', NULL, NULL, NULL, 2, 
+ 'Multiple absences.', NULL, NULL, 'Medical documentation provided.'),
+('C-1087', '02000372346', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2023-10-07', NULL, NULL, NULL, 2, 
+ 'Late to class.', NULL, NULL, ''),
+('C-1086', '02000372347', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2023-10-06', NULL, NULL, NULL, 2, 
+ 'Uniform violation.', NULL, NULL, 'Corrected immediately.'),
+('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2023-10-05', NULL, NULL, NULL, 2, 
+ 'Disruptive behavior.', NULL, NULL, 'Meeting scheduled with parents.'),
 
--- New cases with new students
-('C-1093', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2024-10-15', 2, 
- 'Late to class three times this week.', 'First warning issued.'),
-('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', 'Under Review', '2024-10-16', 2, 
- 'Wearing improper uniform on Monday.', 'Student explained forgot to wash uniform.'),
-('C-1095', '2024002001', 8, 'Classroom Disruption', 'Minor', 'Resolved', '2024-10-17', 2, 
- 'Talking during lecture.', 'Apologized to instructor.'),
-('C-1096', '2024002007', 17, 'Cheating', 'Major', 'Escalated', '2024-10-18', 2, 
- 'Caught with cheat sheet during exam.', 'Case forwarded to academic council.'),
-('C-1097', '2024001241', 1, 'Non-adherence to Student Decorum', 'Minor', 'Pending', '2024-10-19', 2, 
- 'Multiple uniform violations.', 'Student placed on watch list.');
-GO
+-- Additional 2024 cases (5)
+('C-1093', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-15', NULL, NULL, NULL, 2, 
+ 'Late to class three times this week.', NULL, NULL, 'First warning issued.'),
+('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Under Review', '2024-10-16', NULL, NULL, NULL, 2, 
+ 'Wearing improper uniform on Monday.', NULL, NULL, 'Student explained forgot to wash uniform.'),
+('C-1095', '2024002001', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2024-10-17', NULL, NULL, NULL, 2, 
+ 'Talking during lecture.', NULL, NULL, 'Apologized to instructor.'),
+('C-1096', '2024002007', 17, 'Cheating', 'Major', NULL, 'Escalated', '2024-10-18', NULL, NULL, NULL, 2, 
+ 'Caught with cheat sheet during exam.', NULL, NULL, 'Case forwarded to academic council.'),
+('C-1097', '2024001241', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-19', NULL, NULL, NULL, 2, 
+ 'Multiple uniform violations.', NULL, NULL, 'Student placed on watch list.'),
 
--- ============================================
--- UPDATE STUDENT OFFENSE COUNTS
--- ============================================
-
-UPDATE students 
-SET 
-    total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
-    major_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Major' AND is_archived = 0),
-    minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
-    last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
-WHERE student_id IN (
-    SELECT DISTINCT student_id FROM cases
-);
-GO
-
--- ============================================
--- INSERT SAMPLE LOST & FOUND ITEMS
--- ============================================
-
-INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
-VALUES 
-('LF-1001', 'Blue Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
-('LF-1002', 'Water Bottle', 'Personal Items', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
-('LF-1003', 'Math Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
-('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
-GO
-
--- ============================================
--- FINAL VERIFICATION & SUMMARY
--- ============================================
-
-PRINT '============================================';
-PRINT 'Database Schema Created Successfully!';
-PRINT '============================================';
-PRINT '';
-PRINT 'Default Login Credentials:';
-PRINT 'Username: admin';
-PRINT 'Password: password';
-PRINT '';
-PRINT 'OR';
-PRINT '';
-PRINT 'Username: do_staff';
-PRINT 'Password: password';
-PRINT '';
-PRINT '⚠️  IMPORTANT: Change passwords after first login!';
-PRINT '';
-
--- Show detailed summary
-SELECT 
-    'Total Students' AS metric, 
-    COUNT(*) AS count 
-FROM students
-UNION ALL
-SELECT 
-    'SHS Students', 
-    COUNT(*) 
-FROM students 
-WHERE student_type = 'SHS'
-UNION ALL
-SELECT 
-    'College Students', 
-    COUNT(*) 
-FROM students 
-WHERE student_type = 'College'
-UNION ALL
-SELECT 
-    'Total Cases', 
-    COUNT(*) 
-FROM cases
-UNION ALL
-SELECT 
-    'Active Cases', 
-    COUNT(*) 
-FROM cases 
-WHERE is_archived = 0
-UNION ALL
-SELECT 
-    'Offense Types', 
-    COUNT(*) 
-FROM offense_types
-UNION ALL
-SELECT 
-    'Sanctions', 
-    COUNT(*) 
-FROM sanctions
-UNION ALL
-SELECT 
-    'Users', 
-    COUNT(*) 
-FROM users
-UNION ALL
-SELECT 
-    'Lost & Found Items', 
-    COUNT(*) 
-FROM lost_found_items;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
-PRINT '============================================';
-
--- Count by track/course
-SELECT 
-    track_course,
-    student_type,
-    COUNT(*) AS student_count
-FROM students
-GROUP BY track_course, student_type
-ORDER BY student_type, student_count DESC;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
-PRINT '============================================';
-PRINT '';
-PRINT 'SHS Students:';
-PRINT '  - 2024001234 (Juan Dela Cruz - STEM)';
-PRINT '  - 2024001238 (Carlos Mendoza - ABM)';
-PRINT '  - 2024001242 (Luis Fernandez - HUMSS)';
-PRINT '';
-PRINT 'College Students:';
-PRINT '  - 2024002001 (Marco Villanueva - BSIT)';
-PRINT '  - 2024002007 (Andres Vargas - BSBA - On Watch)';
-PRINT '  - 2024002009 (Sebastian Martinez - BSCS)';
-PRINT '';
-PRINT '✅ Database ready for use!';
-PRINT '============================================';
+-- NEW 2025 CASES (10)
+('C-2025001', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2025-01-15', '08:15:00', 'Building A - Room 201', 3, 2, 
+ 'Student arrived 15 minutes late to first period class without valid excuse.', 'Class teacher - Maria Santos', 'Verbal warning issued', 'First offense for this semester. Student apologized and committed to punctuality.'),
+('C-2025002', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2025-01-20', '07:45:00', 'Main Gate Entrance', 4, 2, 
+ 'Student entered campus wearing casual clothes (jeans and t-shirt) instead of proper uniform.', 'Security guard - Carlos Dela Cruz', 'Written reprimand issued, student changed to proper uniform', 'Student claimed uniform was being washed. Parent notified.'),
+('C-2025003', '2024002001', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2025-02-05', '10:30:00', 'Computer Laboratory 3', 3, 2, 
+ 'Student was repeatedly talking and laughing loudly during programming class, disturbing other students.', 'Teacher: Maria Santos; Classmates: 3 students', 'Student conference scheduled', 'Multiple warnings given during class. Pattern of disruptive behavior noted.'),
+('C-2025004', '2024002007', 17, 'Cheating', 'Major', 'Category A', 'Escalated', '2025-02-14', '14:00:00', 'Room B-305', 3, 2, 
+ 'Student caught with written notes hidden in calculator case during Business Mathematics midterm exam.', 'Proctor: Maria Santos; Student seated nearby: 2 witnesses', 'Exam confiscated, case escalated to Academic Council', 'Second major offense this year. Student already on watch list. Parent conference required.'),
+('C-2025005', '2024001242', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Pending', '2025-03-01', '07:30:00', 'Main Gate', 4, 2, 
+ 'Student forgot ID for the third time this semester. Unable to enter campus without temporary pass.', 'Security guard on duty', 'Temporary ID issued, parent notification sent', 'This is the third occurrence. Pattern of negligence. Corrective action needed.'),
+('C-2025006', '2024001241', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Under Review', '2025-03-10', '12:15:00', 'Behind Gymnasium', 4, 2, 
+ 'Student caught smoking cigarettes in restricted area behind the gymnasium during lunch break.', 'Security guard + 1 janitor', 'Student brought to DO office, cigarettes confiscated', 'Student admitted to offense. Parent contacted immediately. Suspension being considered.'),
+('C-2025007', '2024002002', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2025-03-20', '16:45:00', 'Student Lounge', 3, 2, 
+ 'Students engaged in inappropriate public display of affection (prolonged embrace and kissing) in student common area.', 'Teacher on duty + 5 students present', 'Verbal warning, counseling session conducted', 'Both students counseled on appropriate campus behavior. First offense.'),
+('C-2025008', '2024001236', 19, 'Vandalism', 'Major', 'Category B', 'Under Review', '2025-04-02', '17:30:00', 'Restroom - 3rd Floor Building C', 4, 2, 
+ 'Student caught spray painting graffiti on restroom walls. Security footage confirmed identity.', 'Security personnel, janitor who discovered vandalism', 'Student questioned, admitted to offense. Cleanup scheduled', 'Student to pay for repainting costs and perform community service. Parent meeting scheduled.'),
+('C-2025009', '2024002009', 10, 'Bringing Pets', 'Minor', NULL, 'Resolved', '2025-04-15', '08:00:00', 'Parking Area', 4, 2, 
+ 'Student brought a small dog to campus in backpack. Animal was discovered during routine inspection.', 'Security guard at entrance', 'Pet removed from campus, parent called to pick up animal', 'Student unaware of policy. Educational discussion conducted. No malicious intent.'),
+('C-2025010', '2024002006', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Pending', '2025-05-01', '09:00:00', 'Reported online, investigated in DO Office', 3, 2, 
+ 'Student posted derogatory and insulting comments about a classmate on social media group. Screenshots provided as evidence.', 'Victim student + 3 classmates who witnessed posts', 'Investigation ongoing, social media evidence collected', 'Serious case requiring thorough investigation. Both students and parents to be called for mediation. Potential suspension.');
 GO
