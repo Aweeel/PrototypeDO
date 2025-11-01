@@ -1,8 +1,4 @@
 <?php
-// Ensure session is active
-// if (session_status() === PHP_SESSION_NONE) {
-//     session_start();
-// }
 
 // Load sidebar function definitions
 require_once __DIR__ . '/functions.php';
@@ -18,8 +14,33 @@ if (empty($currentPage) || $currentPage === 'index.php') {
 // Determine user role (fallback to 'do')
 $role = $_SESSION['user_role'] ?? 'do';
 
+// Format role for display (capitalize and replace underscores)
+$displayRole = ucwords(str_replace('_', ' ', $role));
+
 // Fetch sidebar items
 $sidebarItems = get_sidebar_items($role);
+
+// Set badge letters based on role
+switch ($role) {
+    case 'super_admin':
+        $badgeShort = 'SA';
+        break;
+    case 'discipline_office':
+        $badgeShort = 'DO';
+        break;
+    case 'teacher':
+        $badgeShort = 'TC';
+        break;
+    case 'security':
+        $badgeShort = 'SC';
+        break;
+    case 'student':
+        $badgeShort = 'ST';
+        break;
+    default:
+        $badgeShort = 'DO';
+        break;
+}
 ?>
 
 <aside class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
@@ -32,10 +53,13 @@ $sidebarItems = get_sidebar_items($role);
 
     <!-- Department Badge -->
     <div class="px-4 pt-2 justify-center flex items-center space-x-2 mx-4 mb-4">
-        <span class="text-blue-900 font-bold text-xl bg-yellow-400 p-2 rounded">DO</span>
-        <span class="text-white text-md px-2 py-1">Discipline Office</span>
+        <span class="text-blue-900 font-bold text-xl bg-yellow-400 p-2 rounded">
+            <?= htmlspecialchars($badgeShort) ?>
+        </span>
+        <span class="text-white text-md px-2 py-1">
+            <?= htmlspecialchars($displayRole) ?>
+        </span>
     </div>
-
 
     <!-- Navigation -->
     <nav class="flex-1 px-3 py-1 space-y-1 overflow-y-auto">

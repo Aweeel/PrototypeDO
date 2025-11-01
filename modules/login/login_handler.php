@@ -29,9 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['admin_name'] = $user['full_name'];
             $_SESSION['last_activity'] = time();
 
-            // Log successful login
+            // Log successful login to file
             write_log("LOGIN SUCCESS: {$user['username']} ({$user['role']})", 'login');
-            logAudit($user['user_id'], 'User Login', 'users', $user['user_id']);
+            
+            // Log to audit_logs database table
+            logLogin($user['user_id']);
 
             // Redirect based on role
             if ($user['role'] === 'super_admin' || $user['role'] === 'discipline_office') {
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($user['role'] === 'student') {
                 header('Location: /PrototypeDO/modules/student/studentDashboard.php');
             } elseif ($user['role'] === 'teacher' || $user['role'] === 'security') {
-                header('Location: /PrototypeDO/modules/teacher/teacherDashboard.php');
+                header('Location: /PrototypeDO/modules/teacher-guard/studentReport.php');
             } else {
                 header('Location: /PrototypeDO/modules/do/doDashboard.php');
             }
@@ -48,6 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Authentication failed
             write_log("LOGIN FAILED: Invalid credentials for '$username' from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
+            
+            // Log failed login attempt to audit_logs
+            logFailedLogin($username, 'Invalid credentials');
+            
             header('Location: /PrototypeDO/modules/login/login.php?error=invalid');
             exit;
         }

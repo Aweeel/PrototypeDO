@@ -443,6 +443,9 @@ function markNotificationAsRead($notificationId) {
 // ==========================================
 // AUDIT LOG FUNCTIONS
 // ==========================================
+// ==========================================
+// AUDIT LOG FUNCTIONS
+// ==========================================
 
 function logAudit($userId, $action, $tableName = null, $recordId = null, $oldValues = null, $newValues = null) {
     $sql = "INSERT INTO audit_log (user_id, action, table_name, record_id, old_values, new_values, ip_address, user_agent)
@@ -462,6 +465,155 @@ function logAudit($userId, $action, $tableName = null, $recordId = null, $oldVal
     executeQuery($sql, $params);
 }
 
+/**
+ * Get record data before modification (for logging old values)
+ * 
+ * @param string $tableName The table name
+ * @param string $primaryKey The primary key column name
+ * @param mixed $recordId The record ID
+ * @return array|null The record data or null if not found
+ */
+function getRecordForAudit($tableName, $primaryKey, $recordId) {
+    try {
+        $sql = "SELECT * FROM " . $tableName . " WHERE " . $primaryKey . " = ?";
+        
+        $result = fetchAll($sql, [$recordId]);
+        return $result[0] ?? null;
+        
+    } catch (Exception $e) {
+        error_log("Get Record for Audit Error: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Sanitize data for audit logging (remove sensitive fields)
+ * 
+ * @param array $data The data to sanitize
+ * @return array The sanitized data
+ */
+function sanitizeAuditData($data) {
+    if (!is_array($data)) {
+        return $data;
+    }
+    
+    $sensitiveFields = ['password', 'password_hash', 'token', 'secret', 'api_key', 'access_token', 'refresh_token'];
+    
+    foreach ($sensitiveFields as $field) {
+        if (isset($data[$field])) {
+            $data[$field] = '[REDACTED]';
+        }
+    }
+    
+    return $data;
+}
+
+/**
+ * Log user login
+ * 
+ * @param int $userId The user ID
+ * @return void
+ */
+function logLogin($userId) {
+    logAudit($userId, 'Login', 'users', $userId, null, ['login_time' => date('Y-m-d H:i:s')]);
+}
+
+/**
+ * Log user logout
+ * 
+ * @param int $userId The user ID
+ * @return void
+ */
+function logLogout($userId) {
+    logAudit($userId, 'Logout', 'users', $userId, null, ['logout_time' => date('Y-m-d H:i:s')]);
+}
+
+/**
+ * Log failed login attempt
+ * 
+ * @param string $username The attempted username
+ * @param string $reason The failure reason
+ * @return void
+ */
+function logFailedLogin($username, $reason = 'Invalid credentials') {
+    logAudit(null, 'Failed Login', 'users', null, null, [
+        'username' => $username,
+        'reason' => $reason,
+        'attempt_time' => date('Y-m-d H:i:s')
+    ]);
+}
+
+/**
+ * Quick audit helper for CREATE operations
+ * 
+ * @param string $tableName The table name
+ * @param mixed $recordId The record ID
+ * @param array $data The new data
+ * @return void
+ */
+function auditCreate($tableName, $recordId, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Created', $tableName, $recordId, null, $data);
+}
+
+/**
+ * Quick audit helper for UPDATE operations
+ * 
+ * @param string $tableName The table name
+ * @param mixed $recordId The record ID
+ * @param array $oldData The old data
+ * @param array $newData The new data
+ * @return void
+ */
+function auditUpdate($tableName, $recordId, $oldData, $newData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Updated', $tableName, $recordId, $oldData, $newData);
+}
+
+/**
+ * Quick audit helper for DELETE operations
+ * 
+ * @param string $tableName The table name
+ * @param mixed $recordId The record ID
+ * @param array $oldData The old data
+ * @return void
+ */
+function auditDelete($tableName, $recordId, $oldData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Deleted', $tableName, $recordId, $oldData, null);
+}
+
+/**
+ * Quick audit helper for ARCHIVE operations
+ * 
+ * @param string $tableName The table name
+ * @param mixed $recordId The record ID
+ * @param string $oldStatus The old status
+ * @return void
+ */
+function auditArchive($tableName, $recordId, $oldStatus) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Archived', $tableName, $recordId, 
+        ['status' => $oldStatus], 
+        ['status' => 'Archived', 'archived_date' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Quick audit helper for RESTORE operations
+ * 
+ * @param string $tableName The table name
+ * @param mixed $recordId The record ID
+ * @param string $oldStatus The old status
+ * @return void
+ */
+function auditRestore($tableName, $recordId, $oldStatus) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Restored', $tableName, $recordId, 
+        ['status' => $oldStatus], 
+        ['status' => 'Active', 'restored_date' => date('Y-m-d H:i:s')]
+    );
+}
 // ==========================================
 // UTILITY FUNCTIONS
 // ==========================================
