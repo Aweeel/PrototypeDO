@@ -168,56 +168,45 @@ function createCase($data) {
     $lastCase = fetchOne("SELECT TOP 1 case_id FROM cases ORDER BY case_id DESC");
     $lastNum = $lastCase ? intval(substr($lastCase['case_id'], 2)) : 1000;
     $newCaseId = 'C-' . ($lastNum + 1);
-    
+
     // Check if student exists
     $studentId = $data['student_number'];
     $existingStudent = getStudentById($studentId);
-    
+
     if (!$existingStudent) {
         // Parse student name
         $nameParts = explode(' ', trim($data['student_name']));
         $firstName = $nameParts[0];
         $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
-        
+
         // Create new student record
         $sql = "INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?)";
-        
-        try {
-            executeQuery($sql, [
-                $studentId, 
-                $firstName, 
-                $lastName, 
-                'N/A', 
-                'N/A', 
-                'College',
-                'Good Standing'
-            ]);
-            
-            error_log("Created new student: $studentId - $firstName $lastName");
-        } catch (Exception $e) {
-            error_log("Error creating student: " . $e->getMessage());
-            throw new Exception("Failed to create student record: " . $e->getMessage());
-        }
+        executeQuery($sql, [
+            $studentId, 
+            $firstName, 
+            $lastName, 
+            'N/A', 
+            'N/A', 
+            'College',
+            'Good Standing'
+        ]);
+
+        error_log("Created new student: $studentId - $firstName $lastName");
     }
-    
+
     // Try to find matching offense_id
     $offenseId = null;
-    try {
-        $offenseQuery = "SELECT offense_id FROM offense_types WHERE offense_name = ?";
-        $offense = fetchOne($offenseQuery, [$data['case_type']]);
-        if ($offense) {
-            $offenseId = $offense['offense_id'];
-        }
-    } catch (Exception $e) {
-        error_log("Error finding offense_id: " . $e->getMessage());
+    $offenseQuery = "SELECT offense_id FROM offense_types WHERE offense_name = ?";
+    $offense = fetchOne($offenseQuery, [$data['case_type']]);
+    if ($offense) {
+        $offenseId = $offense['offense_id'];
     }
-    
+
     // Create case
     $sql = "INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, 
             status, date_reported, reported_by, assigned_to, description, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    
     $params = [
         $newCaseId,
         $studentId,
@@ -231,22 +220,21 @@ function createCase($data) {
         $data['description'],
         $data['notes'] ?? ''
     ];
-    
-    try {
-        executeQuery($sql, $params);
-        error_log("Created new case: $newCaseId for student $studentId");
-    } catch (Exception $e) {
-        error_log("Error creating case: " . $e->getMessage());
-        throw new Exception("Failed to create case: " . $e->getMessage());
-    }
-    
-    // Log case creation
+    executeQuery($sql, $params);
+
+    // ✅ Log separately (only once each)
     logCaseHistory($newCaseId, $_SESSION['user_id'] ?? null, 'Created', null, 'Case created');
-    
+    auditCreate('cases', $newCaseId, sanitizeAuditData($data));
+
     return $newCaseId;
 }
 
 function updateCase($caseId, $data) {
+    // 🧩 Fetch old record for audit before updating
+    $oldData = getRecordForAudit('cases', 'case_id', $caseId);
+    $oldData = sanitizeAuditData($oldData);
+
+    // Build SQL update query
     $sql = "UPDATE cases SET 
             case_type = ?, 
             severity = ?, 
@@ -273,19 +261,42 @@ function updateCase($caseId, $data) {
     
     $sql .= " WHERE case_id = ?";
     $params[] = $caseId;
-    
+
+    // Execute the update
     executeQuery($sql, $params);
-    
-    // Log case update
+
+    //  Fetch new data after update
+    $newData = getRecordForAudit('cases', 'case_id', $caseId);
+    $newData = sanitizeAuditData($newData);
+
+    //  Log the change to Audit Log
+    auditUpdate('cases', $caseId, $oldData, $newData);
+
+    //  Still log the change in case history
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Updated', null, 'Case updated');
-    
+
     return true;
 }
 
+
 function archiveCase($caseId) {
+    //  Get old case data before archiving (for audit)
+    $oldData = getRecordForAudit('cases', 'case_id', $caseId);
+    $oldData = sanitizeAuditData($oldData);
+    $oldStatus = $oldData['status'] ?? 'Unknown';
+
+    //  Archive the case
     $sql = "UPDATE cases SET is_archived = 1, archived_at = GETDATE() WHERE case_id = ?";
     executeQuery($sql, [$caseId]);
-    
+
+    //  Get new data after update (for audit comparison)
+    $newData = getRecordForAudit('cases', 'case_id', $caseId);
+    $newData = sanitizeAuditData($newData);
+
+    //  Log to Audit Log
+    auditArchive('cases', $caseId, $oldStatus);
+
+    //  Also log to Case History
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Archived', null, 'Case archived');
 }
 
@@ -440,9 +451,7 @@ function markNotificationAsRead($notificationId) {
     executeQuery($sql, [$notificationId]);
 }
 
-// ==========================================
-// AUDIT LOG FUNCTIONS
-// ==========================================
+
 // ==========================================
 // AUDIT LOG FUNCTIONS
 // ==========================================

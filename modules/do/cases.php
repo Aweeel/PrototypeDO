@@ -48,27 +48,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         // Create new case
-        if ($_POST['action'] === 'createCase') {
-            $data = [
-                'student_number' => $_POST['studentNumber'],
-                'student_name' => $_POST['studentName'],
-                'case_type' => $_POST['type'],
-                'severity' => $_POST['severity'] ?? 'Minor',
-                'status' => $_POST['status'] ?? 'Pending',
-                'assigned_to' => $_SESSION['user_id'] ?? null,
-                'reported_by' => $_SESSION['user_id'] ?? null,
-                'description' => $_POST['description'],
-                'notes' => $_POST['notes'] ?? ''
-            ];
+if ($_POST['action'] === 'createCase') {
+    $data = [
+        'student_number' => $_POST['studentNumber'],
+        'student_name' => $_POST['studentName'],
+        'case_type' => $_POST['type'],
+        'severity' => $_POST['severity'] ?? 'Minor',
+        'status' => $_POST['status'] ?? 'Pending',
+        'assigned_to' => $_SESSION['user_id'] ?? null,
+        'reported_by' => $_SESSION['user_id'] ?? null,
+        'description' => $_POST['description'],
+        'notes' => $_POST['notes'] ?? ''
+    ];
 
-            $newCaseId = createCase($data);
+    $newCaseId = createCase($data);
 
-            // Update student offense count
-            updateStudentOffenseCount($data['student_number']);
 
-            echo json_encode(['success' => true, 'caseId' => $newCaseId, 'message' => 'Case created successfully']);
-            exit;
-        }
+
+    updateStudentOffenseCount($data['student_number']);
+    echo json_encode(['success' => true, 'caseId' => $newCaseId, 'message' => 'Case created successfully']);
+    exit;
+}
+
 
         // Get student by student number
 if ($_POST['action'] === 'getStudentByNumber') {
@@ -98,50 +99,64 @@ if ($_POST['action'] === 'getStudentByNumber') {
 }
 
         // Update existing case
-        if ($_POST['action'] === 'updateCase') {
-            $caseId = $_POST['caseId'];
-            $data = [
-                'case_type' => $_POST['type'],
-                'severity' => $_POST['severity'] ?? 'Minor',
-                'status' => $_POST['status'],
-                'date_reported' => $_POST['dateReported'] ?? null,
-                'assigned_to' => $_SESSION['user_id'] ?? null,
-                'description' => $_POST['description'],
-                'notes' => $_POST['notes'] ?? ''
-            ];
+if ($_POST['action'] === 'updateCase') {
+    $caseId = $_POST['caseId'];
+    $data = [
+        'case_type' => $_POST['type'],
+        'severity' => $_POST['severity'] ?? 'Minor',
+        'status' => $_POST['status'],
+        'date_reported' => $_POST['dateReported'] ?? null,
+        'assigned_to' => $_SESSION['user_id'] ?? null,
+        'description' => $_POST['description'],
+        'notes' => $_POST['notes'] ?? ''
+    ];
 
-            updateCase($caseId, $data);
+    // Get old data before update
+    $oldData = sanitizeAuditData(getRecordForAudit('cases', 'case_id', $caseId));
 
-            // Get student_id from case
-            $case = getCaseById($caseId);
-            if ($case) {
-                updateStudentOffenseCount($case['student_id']);
-            }
+    updateCase($caseId, $data);
 
-            echo json_encode(['success' => true, 'message' => 'Case updated successfully']);
-            exit;
-        }
+ 
+    // Update student offense count
+    $case = getCaseById($caseId);
+    if ($case) updateStudentOffenseCount($case['student_id']);
+
+    echo json_encode(['success' => true, 'message' => 'Case updated successfully']);
+    exit;
+}
 
         // Archive case
-        if ($_POST['action'] === 'archiveCase') {
-            $caseId = $_POST['caseId'];
-            archiveCase($caseId);
+if ($_POST['action'] === 'archiveCase') {
+    $caseId = $_POST['caseId'];
+    $oldData = getRecordForAudit('cases', 'case_id', $caseId);
+    $oldStatus = $oldData['status'] ?? 'Unknown';
 
-            echo json_encode(['success' => true, 'message' => 'Case archived successfully']);
-            exit;
-        }
+    archiveCase($caseId);
+
+
+
+    echo json_encode(['success' => true, 'message' => 'Case archived successfully']);
+    exit;
+}
+
 
         // Unarchive case
-        if ($_POST['action'] === 'unarchiveCase') {
+if ($_POST['action'] === 'unarchiveCase') {
     $caseId = $_POST['caseId'];
     $sql = "UPDATE cases SET is_archived = 0, archived_at = NULL, manually_restored = 1 WHERE case_id = ?";
     executeQuery($sql, [$caseId]);
 
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Unarchived', null, 'Case manually restored by user');
 
+    // 🧾 Audit Log
+    $oldData = getRecordForAudit('cases', 'case_id', $caseId);
+    $oldStatus = $oldData['status'] ?? 'Archived';
+    auditRestore('cases', $caseId, $oldStatus);
+
     echo json_encode(['success' => true, 'message' => 'Case restored successfully']);
     exit;
 }
+
 
     } catch (Exception $e) {
         error_log("Cases AJAX Error: " . $e->getMessage());
@@ -169,24 +184,38 @@ if ($_POST['action'] === 'getStudentByNumber') {
     }
 
     // Mark case as resolved
-    if ($_POST['action'] === 'markResolved') {
-        $caseId = $_POST['caseId'];
-        markCaseAsResolved($caseId);
-        echo json_encode(['success' => true, 'message' => 'Case marked as resolved']);
-        exit;
-    }
+if ($_POST['action'] === 'markResolved') {
+    $caseId = $_POST['caseId'];
+    markCaseAsResolved($caseId);
+
+    // 🧾 Audit Log
+    auditUpdate('cases', $caseId, ['status' => 'Pending'], ['status' => 'Resolved']);
+
+    echo json_encode(['success' => true, 'message' => 'Case marked as resolved']);
+    exit;
+}
+
 
     // Apply sanction to case
-    if ($_POST['action'] === 'applySanction') {
-        $caseId = $_POST['caseId'];
-        $sanctionId = $_POST['sanctionId'];
-        $durationDays = $_POST['durationDays'] ?? null;
-        $notes = $_POST['notes'] ?? '';
+if ($_POST['action'] === 'applySanction') {
+    $caseId = $_POST['caseId'];
+    $sanctionId = $_POST['sanctionId'];
+    $durationDays = $_POST['durationDays'] ?? null;
+    $notes = $_POST['notes'] ?? '';
 
-        applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
-        echo json_encode(['success' => true, 'message' => 'Sanction applied successfully']);
-        exit;
-    }
+    applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
+
+    // 🧾 Audit Log
+    $auditData = [
+        'sanction_id' => $sanctionId,
+        'duration_days' => $durationDays,
+        'notes' => $notes
+    ];
+    auditCreate('case_sanctions', $caseId, sanitizeAuditData($auditData));
+
+    echo json_encode(['success' => true, 'message' => 'Sanction applied successfully']);
+    exit;
+}
 
     // Add these new handlers to your cases.php file (inside the existing AJAX handling section)
 
