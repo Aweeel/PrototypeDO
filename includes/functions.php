@@ -739,6 +739,11 @@ function get_sidebar_items($role) {
                 'label' => 'Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
+            ],
+            [
+                'label' => 'Audit Log',
+                'path' => '/PrototypeDO/modules/do/auditLog.php',
+                'icon' => 'Audit-log-icon.png'
             ]
         ];
     } elseif ($role === 'student') {

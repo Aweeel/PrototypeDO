@@ -8,246 +8,6 @@
 USE master;
 GO
 
--- ============================================
--- UPDATE STUDENT OFFENSE COUNTS
--- ============================================
-
-UPDATE students 
-SET 
-    total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
-    major_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Major' AND is_archived = 0),
-    minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
-    last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
-WHERE student_id IN (
-    SELECT DISTINCT student_id FROM cases
-);
-GO
-
--- ============================================
--- INSERT CASE HISTORY FOR ALL CASES
--- ============================================
-
-INSERT INTO case_history (case_id, changed_by, action, new_value, notes, timestamp)
-SELECT 
-    case_id,
-    2, -- DO staff user
-    'Created',
-    'Status: ' + status,
-    'Case created and logged into system',
-    DATEADD(MINUTE, 5, CAST(date_reported AS DATETIME) + CAST(ISNULL(time_reported, '08:00:00') AS DATETIME))
-FROM cases;
-GO
-
--- ============================================
--- INSERT SAMPLE LOST & FOUND ITEMS
--- ============================================
-
-INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
-VALUES 
-('LF-1001', 'Blue Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
-('LF-1002', 'Water Bottle', 'Personal Items', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
-('LF-1003', 'Math Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
-('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
-GO
-
--- ============================================
--- INSERT WATCH LIST ENTRIES
--- ============================================
-
--- Add student 2024002007 to watch list (has 2 major offenses)
-INSERT INTO watch_list (student_id, reason, added_by, added_date, notes)
-VALUES 
-('2024002007', 'Multiple major offenses: Cheating incidents in 2024 and 2025. Requires close monitoring.', 2, '2025-02-15', 
- 'Student requires close monitoring. Consider probation if another offense occurs.'),
- 
--- Add student 2024001241 to watch list (smoking + previous violations)
-('2024001241', 'Major offense: Smoking on campus. Multiple previous uniform violations.', 2, '2025-03-11', 
- 'Requires behavioral intervention. Parent involvement necessary. Suspension under consideration.');
-GO
-
--- ============================================
--- INSERT SAMPLE SANCTIONS APPLIED
--- ============================================
-
-INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
-VALUES
--- C-2025001 - Verbal Warning
-('C-2025001', 1, '2025-01-15', 1, '2025-01-15', 'Student acknowledged warning and committed to improvement'),
-
--- C-2025002 - Written Reprimand
-('C-2025002', 3, '2025-01-20', 1, '2025-01-20', 'Written reprimand issued and filed'),
-
--- C-2025007 - Verbal Warning + Counseling
-('C-2025007', 1, '2025-03-20', 1, '2025-03-20', 'Counseling completed with both students'),
-
--- C-2025009 - Verbal Warning
-('C-2025009', 1, '2025-04-15', 1, '2025-04-15', 'Educational discussion conducted about campus policies');
-GO
-
--- ============================================
--- INSERT SAMPLE NOTIFICATIONS
--- ============================================
-
-INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
-VALUES
-(2, 'New Case Reported', 'New cyberbullying case C-2025010 requires immediate attention', 'case_update', 'C-2025010', 0),
-(2, 'Case Under Review', 'Case C-2025006 (Smoking) requires decision on sanctions', 'case_update', 'C-2025006', 0),
-(2, 'Escalated Case', 'Case C-2025004 has been escalated to Academic Council', 'case_update', 'C-2025004', 1);
-GO
-
--- ============================================
--- FINAL VERIFICATION & SUMMARY
--- ============================================
-
-PRINT '============================================';
-PRINT 'Database Schema Created Successfully!';
-PRINT '============================================';
-PRINT '';
-PRINT 'Default Login Credentials:';
-PRINT 'Username: admin';
-PRINT 'Password: password';
-PRINT '';
-PRINT 'OR';
-PRINT '';
-PRINT 'Username: do_staff';
-PRINT 'Password: password';
-PRINT '';
-PRINT '⚠️  IMPORTANT: Change passwords after first login!';
-PRINT '';
-
--- Show detailed summary
-SELECT 
-    'Total Students' AS metric, 
-    COUNT(*) AS count 
-FROM students
-UNION ALL
-SELECT 
-    'SHS Students', 
-    COUNT(*) 
-FROM students 
-WHERE student_type = 'SHS'
-UNION ALL
-SELECT 
-    'College Students', 
-    COUNT(*) 
-FROM students 
-WHERE student_type = 'College'
-UNION ALL
-SELECT 
-    'Total Cases', 
-    COUNT(*) 
-FROM cases
-UNION ALL
-SELECT 
-    'Active Cases', 
-    COUNT(*) 
-FROM cases 
-WHERE is_archived = 0
-UNION ALL
-SELECT 
-    '2025 Cases', 
-    COUNT(*) 
-FROM cases 
-WHERE case_id LIKE 'C-2025%'
-UNION ALL
-SELECT 
-    'Offense Types', 
-    COUNT(*) 
-FROM offense_types
-UNION ALL
-SELECT 
-    'Sanctions', 
-    COUNT(*) 
-FROM sanctions
-UNION ALL
-SELECT 
-    'Users', 
-    COUNT(*) 
-FROM users
-UNION ALL
-SELECT 
-    'Lost & Found Items', 
-    COUNT(*) 
-FROM lost_found_items;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
-PRINT '============================================';
-
--- Count by track/course
-SELECT 
-    track_course,
-    student_type,
-    COUNT(*) AS student_count
-FROM students
-GROUP BY track_course, student_type
-ORDER BY student_type, student_count DESC;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT '2025 CASES SUMMARY';
-PRINT '============================================';
-
-SELECT 
-    case_id AS 'Case ID',
-    student_id AS 'Student ID',
-    case_type AS 'Offense Type',
-    severity AS 'Severity',
-    status AS 'Status',
-    date_reported AS 'Date'
-FROM cases
-WHERE case_id LIKE 'C-2025%'
-ORDER BY date_reported;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'STUDENTS WITH MULTIPLE OFFENSES';
-PRINT '============================================';
-
-SELECT 
-    s.student_id AS 'Student ID',
-    s.first_name + ' ' + s.last_name AS 'Student Name',
-    s.track_course AS 'Track/Course',
-    s.total_offenses AS 'Total',
-    s.major_offenses AS 'Major',
-    s.minor_offenses AS 'Minor',
-    s.status AS 'Status'
-FROM students s
-WHERE s.total_offenses > 0
-ORDER BY s.total_offenses DESC, s.major_offenses DESC;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
-PRINT '============================================';
-PRINT '';
-PRINT 'SHS Students with Cases:';
-PRINT '  - 2024001234 (Juan Dela Cruz - STEM) - 2 cases';
-PRINT '  - 2024001238 (Carlos Mendoza - ABM) - 2 cases';
-PRINT '  - 2024001241 (Isabella Cruz - ABM - On Watch) - 2 cases';
-PRINT '  - 2024001242 (Luis Fernandez - HUMSS) - 1 case';
-PRINT '  - 2024001236 (Pedro Reyes - STEM) - 1 case';
-PRINT '';
-PRINT 'College Students with Cases:';
-PRINT '  - 2024002001 (Marco Villanueva - BSIT) - 2 cases';
-PRINT '  - 2024002007 (Andres Vargas - BSBA - On Watch) - 2 cases';
-PRINT '  - 2024002002 (Angela Castillo - BSIT) - 1 case';
-PRINT '  - 2024002006 (Valentina Romero - BSBA) - 1 case';
-PRINT '  - 2024002009 (Sebastian Martinez - BSCS) - 1 case';
-PRINT '';
-PRINT '✅ Database ready for use!';
-PRINT '✅ Includes 10 NEW 2025 cases with detailed information';
-PRINT '✅ All student offense counts updated';
-PRINT '✅ Watch list populated';
-PRINT '✅ Case history tracked';
-PRINT '============================================';
-GO
-
 -- Drop database if exists (careful in production!)
 IF EXISTS (SELECT * FROM sys.databases WHERE name = 'PrototypeDO_DB')
 BEGIN
@@ -290,8 +50,8 @@ CREATE TABLE students (
     first_name NVARCHAR(50) NOT NULL,
     last_name NVARCHAR(50) NOT NULL,
     middle_name NVARCHAR(50),
-    grade_year NVARCHAR(20) NOT NULL, -- '11', '12', '1st Year', '2nd Year', etc.
-    track_course NVARCHAR(100), -- 'STEM', 'ABM', 'BSIT', 'BSBA', etc.
+    grade_year NVARCHAR(20) NOT NULL,
+    track_course NVARCHAR(100),
     section NVARCHAR(50),
     student_type NVARCHAR(20) CHECK (student_type IN ('SHS', 'College')),
     status NVARCHAR(20) DEFAULT 'Good Standing' CHECK (status IN ('Good Standing', 'On Watch', 'On Probation')),
@@ -323,23 +83,23 @@ GO
 -- 4. CASES TABLE (Main discipline cases)
 -- ============================================
 CREATE TABLE cases (
-    case_id NVARCHAR(20) PRIMARY KEY, -- Format: C-1092
+    case_id NVARCHAR(20) PRIMARY KEY,
     student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
     offense_id INT NULL FOREIGN KEY REFERENCES offense_types(offense_id),
-    case_type NVARCHAR(100) NOT NULL, -- 'Tardiness', 'Dress Code', etc.
+    case_type NVARCHAR(100) NOT NULL,
     severity NVARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
-    offense_category NVARCHAR(50) NULL, -- Category A, B, C, D
+    offense_category NVARCHAR(50) NULL,
     status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Under Review', 'Resolved', 'Escalated', 'Dismissed')),
     date_reported DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     time_reported TIME,
     location NVARCHAR(200),
-    reported_by INT NULL FOREIGN KEY REFERENCES users(user_id), -- Teacher/Guard who reported
-    assigned_to INT NULL FOREIGN KEY REFERENCES users(user_id), -- DO staff handling case
+    reported_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+    assigned_to INT NULL FOREIGN KEY REFERENCES users(user_id),
     description NVARCHAR(MAX),
     witnesses NVARCHAR(500),
     action_taken NVARCHAR(500),
     notes NVARCHAR(MAX),
-    attachments NVARCHAR(MAX), -- JSON array of file paths
+    attachments NVARCHAR(MAX),
     next_hearing_date DATETIME,
     resolved_date DATE NULL,
     is_archived BIT DEFAULT 0,
@@ -356,7 +116,7 @@ GO
 CREATE TABLE sanctions (
     sanction_id INT IDENTITY(1,1) PRIMARY KEY,
     sanction_name NVARCHAR(200) NOT NULL,
-    severity_level INT NOT NULL CHECK (severity_level BETWEEN 1 AND 5), -- 1=lightest, 5=severest
+    severity_level INT NOT NULL CHECK (severity_level BETWEEN 1 AND 5),
     description NVARCHAR(500),
     is_active BIT DEFAULT 1,
     created_at DATETIME DEFAULT GETDATE()
@@ -371,7 +131,7 @@ CREATE TABLE case_sanctions (
     case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
     sanction_id INT FOREIGN KEY REFERENCES sanctions(sanction_id),
     applied_date DATE DEFAULT CAST(GETDATE() AS DATE),
-    duration_days INT NULL, -- For suspensions, etc.
+    duration_days INT NULL,
     is_completed BIT DEFAULT 0,
     completion_date DATE,
     notes NVARCHAR(500),
@@ -386,7 +146,7 @@ CREATE TABLE case_history (
     history_id INT IDENTITY(1,1) PRIMARY KEY,
     case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
     changed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    action NVARCHAR(50) NOT NULL, -- 'Created', 'Updated', 'Status Changed', 'Assigned', etc.
+    action NVARCHAR(50) NOT NULL,
     old_value NVARCHAR(MAX),
     new_value NVARCHAR(MAX),
     notes NVARCHAR(500),
@@ -398,9 +158,9 @@ GO
 -- 8. LOST_FOUND_ITEMS TABLE
 -- ============================================
 CREATE TABLE lost_found_items (
-    item_id NVARCHAR(20) PRIMARY KEY, -- Format: LF-1001
+    item_id NVARCHAR(20) PRIMARY KEY,
     item_name NVARCHAR(200) NOT NULL,
-    category NVARCHAR(50) NOT NULL, -- 'Electronics', 'Clothing', 'Accessories', 'Books', 'IDs', 'Others'
+    category NVARCHAR(50) NOT NULL,
     description NVARCHAR(MAX),
     found_location NVARCHAR(200) NOT NULL,
     date_found DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
@@ -427,8 +187,8 @@ CREATE TABLE notifications (
     user_id INT FOREIGN KEY REFERENCES users(user_id),
     title NVARCHAR(200) NOT NULL,
     message NVARCHAR(MAX) NOT NULL,
-    type NVARCHAR(50) NOT NULL, -- 'case_update', 'hearing_reminder', 'system', etc.
-    related_id NVARCHAR(50), -- case_id or item_id
+    type NVARCHAR(50) NOT NULL,
+    related_id NVARCHAR(50),
     is_read BIT DEFAULT 0,
     read_at DATETIME,
     created_at DATETIME DEFAULT GETDATE()
@@ -441,12 +201,12 @@ GO
 CREATE TABLE reports (
     report_id INT IDENTITY(1,1) PRIMARY KEY,
     report_name NVARCHAR(200) NOT NULL,
-    report_type NVARCHAR(50) NOT NULL, -- 'Disciplinary', 'Statistical', 'User Activity'
+    report_type NVARCHAR(50) NOT NULL,
     format NVARCHAR(10) NOT NULL CHECK (format IN ('PDF', 'Excel', 'CSV')),
     file_path NVARCHAR(500),
     generated_by INT NULL FOREIGN KEY REFERENCES users(user_id),
     date_generated DATETIME DEFAULT GETDATE(),
-    parameters NVARCHAR(MAX), -- JSON of filter parameters used
+    parameters NVARCHAR(MAX),
     file_size_kb INT
 );
 GO
@@ -529,9 +289,16 @@ CREATE INDEX idx_lost_found_status ON lost_found_items(status);
 CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
 GO
 
+PRINT '============================================';
+PRINT 'Tables created successfully!';
+PRINT 'Now inserting data...';
+PRINT '============================================';
+GO
+
 -- ============================================
 -- INSERT DEFAULT USERS
 -- ============================================
+PRINT 'Inserting users...';
 
 INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
 VALUES 
@@ -545,11 +312,14 @@ VALUES
  'security1@sti.edu', 'Carlos Dela Cruz', 'security', '09184561234'),
 ('student', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'student1@sti.edu', 'Alex Reyes', 'student', '09193456781');
+
+PRINT 'Users inserted: 5';
 GO
 
 -- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)
 -- ============================================
+PRINT 'Inserting offense types...';
 
 -- Minor Offenses
 INSERT INTO offense_types (offense_name, category, description) VALUES
@@ -563,32 +333,20 @@ INSERT INTO offense_types (offense_name, category, description) VALUES
 ('Classroom Disruption', 'Minor', 'Disrupting classes or school activities'),
 ('Possession of Cigarettes/Vapes', 'Minor', 'Having cigarettes or vapes on person'),
 ('Bringing Pets', 'Minor', 'Bringing pets to school premises'),
-('Public Display of Affection', 'Minor', 'Inappropriate displays of affection');
-GO
-
--- Major Offenses - Category A
-INSERT INTO offense_types (offense_name, category, description) VALUES
+('Public Display of Affection', 'Minor', 'Inappropriate displays of affection'),
 ('Repeated Minor Offenses', 'Major', 'More than three minor offenses'),
 ('Lending/Borrowing ID', 'Major', 'Using tampered or borrowed school ID'),
 ('Smoking/Vaping on Campus', 'Major', 'Smoking or vaping inside campus'),
 ('Intoxication', 'Major', 'Entering campus intoxicated or drinking liquor'),
 ('Allowing Non-STI Entry', 'Major', 'Allowing unauthorized person entry'),
 ('Cheating', 'Major', 'Academic dishonesty in any form'),
-('Plagiarism', 'Major', 'Copying work without proper attribution');
-GO
-
--- Major Offenses - Category B
-INSERT INTO offense_types (offense_name, category, description) VALUES
+('Plagiarism', 'Major', 'Copying work without proper attribution'),
 ('Vandalism', 'Major', 'Damaging or destroying property'),
 ('Cyberbullying/Defamation', 'Major', 'Posting disrespectful content online'),
 ('Privacy Violation', 'Major', 'Recording/uploading without consent'),
 ('Wearing Uniform in Ill Repute Places', 'Major', 'Going to inappropriate places in uniform'),
 ('False Testimony', 'Major', 'Lying during official investigations'),
-('Use of Profane Language', 'Major', 'Grave insult to community members');
-GO
-
--- Major Offenses - Category C
-INSERT INTO offense_types (offense_name, category, description) VALUES
+('Use of Profane Language', 'Major', 'Grave insult to community members'),
 ('Hacking', 'Major', 'Attacking computer systems'),
 ('Forgery', 'Major', 'Tampering records or receipts'),
 ('Theft', 'Major', 'Stealing school or personal property'),
@@ -600,11 +358,7 @@ INSERT INTO offense_types (offense_name, category, description) VALUES
 ('Physical Assault', 'Major', 'Fighting or inflicting physical injuries'),
 ('Drug Use', 'Major', 'Using prohibited drugs or chemicals'),
 ('False Alarms', 'Major', 'False fire alarms or bomb threats'),
-('Misuse of Fire Equipment', 'Major', 'Using fire equipment inappropriately');
-GO
-
--- Major Offenses - Category D (Expulsion-level)
-INSERT INTO offense_types (offense_name, category, description) VALUES
+('Misuse of Fire Equipment', 'Major', 'Using fire equipment inappropriately'),
 ('Drug Possession/Sale', 'Major', 'Possessing or selling prohibited drugs'),
 ('Repeated Drug Use', 'Major', 'Second positive drug test after intervention'),
 ('Weapons Possession', 'Major', 'Carrying firearms or deadly weapons'),
@@ -614,11 +368,14 @@ INSERT INTO offense_types (offense_name, category, description) VALUES
 ('Sexual Harassment', 'Major', 'Sexual harassment as per RA 7877'),
 ('Subversion/Sedition', 'Major', 'Acts of subversion, sedition, or insurgency'),
 ('Others', 'Minor', 'Other offenses not specifically listed');
+
+PRINT 'Offense types inserted: 45';
 GO
 
 -- ============================================
 -- INSERT SANCTIONS (Based on STI Handbook)
 -- ============================================
+PRINT 'Inserting sanctions...';
 
 INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Verbal/Oral Warning', 1, 'Verbal warning for first minor offense'),
@@ -634,15 +391,17 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Non-readmission', 4, 'Denied enrollment for next term'),
 ('Exclusion', 5, 'Immediately removed from school'),
 ('Expulsion', 5, 'Disqualified from all Philippine institutions');
+
+PRINT 'Sanctions inserted: 13';
 GO
 
 -- ============================================
 -- INSERT SAMPLE STUDENTS (32 Total)
 -- ============================================
+PRINT 'Inserting students...';
 
 INSERT INTO students (student_id, first_name, last_name, grade_year, track_course, student_type, status, guardian_name, guardian_contact)
 VALUES 
--- Original 8 students
 ('02000372341', 'Alex', 'Johnson', '12', 'STEM', 'SHS', 'Good Standing', 'Mary Johnson', '09171234567'),
 ('02000372342', 'Maria', 'Garcia', '11', 'ABM', 'SHS', 'Good Standing', 'Jose Garcia', '09181234567'),
 ('02000372343', 'James', 'Smith', '2nd Year', 'BSIT', 'College', 'Good Standing', 'John Smith', '09191234567'),
@@ -651,51 +410,41 @@ VALUES
 ('02000372346', 'Sophia', 'Brown', '11', 'STEM', 'SHS', 'Good Standing', 'Robert Brown', '09221234567'),
 ('02000372347', 'Michael', 'Wang', '3rd Year', 'BSCS', 'College', 'Good Standing', 'Wei Wang', '09231234567'),
 ('02000372348', 'Olivia', 'Martinez', '12', 'ABM', 'SHS', 'Good Standing', 'Carlos Martinez', '09241234567'),
-
--- New SHS Students - STEM Track
 ('2024001234', 'Juan', 'Dela Cruz', '11', 'STEM', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
 ('2024001235', 'Maria', 'Santos', '11', 'STEM', 'SHS', 'Good Standing', 'Jose Santos', '09171234002'),
 ('2024001236', 'Pedro', 'Reyes', '12', 'STEM', 'SHS', 'Good Standing', 'Ana Reyes', '09171234003'),
 ('2024001237', 'Ana', 'Garcia', '12', 'STEM', 'SHS', 'Good Standing', 'Carlos Garcia', '09171234004'),
-
--- New SHS Students - ABM Track
 ('2024001238', 'Carlos', 'Mendoza', '11', 'ABM', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
 ('2024001239', 'Sofia', 'Ramos', '11', 'ABM', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
 ('2024001240', 'Miguel', 'Torres', '12', 'ABM', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
 ('2024001241', 'Isabella', 'Cruz', '12', 'ABM', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
-
--- New SHS Students - HUMSS Track
 ('2024001242', 'Luis', 'Fernandez', '11', 'HUMSS', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
 ('2024001243', 'Carmen', 'Diaz', '11', 'HUMSS', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
 ('2024001244', 'Diego', 'Morales', '12', 'HUMSS', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
 ('2024001245', 'Lucia', 'Gutierrez', '12', 'HUMSS', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
-
--- New College Students - BSIT
 ('2024002001', 'Marco', 'Villanueva', '1st Year', 'BSIT', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
 ('2024002002', 'Angela', 'Castillo', '2nd Year', 'BSIT', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
 ('2024002003', 'Rafael', 'Herrera', '3rd Year', 'BSIT', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
 ('2024002004', 'Gabriela', 'Jimenez', '4th Year', 'BSIT', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
-
--- New College Students - BSBA
 ('2024002005', 'Daniel', 'Navarro', '1st Year', 'BSBA', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
 ('2024002006', 'Valentina', 'Romero', '2nd Year', 'BSBA', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
 ('2024002007', 'Andres', 'Vargas', '3rd Year', 'BSBA', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
 ('2024002008', 'Camila', 'Flores', '4th Year', 'BSBA', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
-
--- New College Students - BSCS
 ('2024002009', 'Sebastian', 'Martinez', '1st Year', 'BSCS', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
 ('2024002010', 'Nicole', 'Gonzalez', '2nd Year', 'BSCS', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
 ('2024002011', 'Adrian', 'Lopez', '3rd Year', 'BSCS', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
 ('2024002012', 'Bianca', 'Perez', '4th Year', 'BSCS', 'College', 'Good Standing', 'Ramon Perez', '09181234012');
+
+PRINT 'Students inserted: 32';
 GO
 
 -- ============================================
--- INSERT SAMPLE CASES (23 Total: 13 Old + 10 New 2025)
+-- INSERT SAMPLE CASES (23 Total)
 -- ============================================
+PRINT 'Inserting cases...';
 
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes)
 VALUES 
--- Original 2023 cases (8)
 ('C-1092', '02000372341', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2023-10-12', NULL, NULL, NULL, 2, 
  'Student was late to class for the third time this month.', NULL, NULL, 'Parent has been contacted via email on Oct 11.'),
 ('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2023-10-11', NULL, NULL, NULL, 2, 
@@ -712,8 +461,6 @@ VALUES
  'Uniform violation.', NULL, NULL, 'Corrected immediately.'),
 ('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2023-10-05', NULL, NULL, NULL, 2, 
  'Disruptive behavior.', NULL, NULL, 'Meeting scheduled with parents.'),
-
--- Additional 2024 cases (5)
 ('C-1093', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-15', NULL, NULL, NULL, 2, 
  'Late to class three times this week.', NULL, NULL, 'First warning issued.'),
 ('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Under Review', '2024-10-16', NULL, NULL, NULL, 2, 
@@ -724,8 +471,6 @@ VALUES
  'Caught with cheat sheet during exam.', NULL, NULL, 'Case forwarded to academic council.'),
 ('C-1097', '2024001241', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-19', NULL, NULL, NULL, 2, 
  'Multiple uniform violations.', NULL, NULL, 'Student placed on watch list.'),
-
--- NEW 2025 CASES (10)
 ('C-2025001', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2025-01-15', '08:15:00', 'Building A - Room 201', 3, 2, 
  'Student arrived 15 minutes late to first period class without valid excuse.', 'Class teacher - Maria Santos', 'Verbal warning issued', 'First offense for this semester. Student apologized and committed to punctuality.'),
 ('C-2025002', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2025-01-20', '07:45:00', 'Main Gate Entrance', 4, 2, 
@@ -746,4 +491,259 @@ VALUES
  'Student brought a small dog to campus in backpack. Animal was discovered during routine inspection.', 'Security guard at entrance', 'Pet removed from campus, parent called to pick up animal', 'Student unaware of policy. Educational discussion conducted. No malicious intent.'),
 ('C-2025010', '2024002006', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Pending', '2025-05-01', '09:00:00', 'Reported online, investigated in DO Office', 3, 2, 
  'Student posted derogatory and insulting comments about a classmate on social media group. Screenshots provided as evidence.', 'Victim student + 3 classmates who witnessed posts', 'Investigation ongoing, social media evidence collected', 'Serious case requiring thorough investigation. Both students and parents to be called for mediation. Potential suspension.');
+
+PRINT 'Cases inserted: 23';
+GO
+
+-- ============================================
+-- UPDATE STUDENT OFFENSE COUNTS
+-- ============================================
+PRINT 'Updating student offense counts...';
+
+UPDATE students 
+SET 
+    total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
+    major_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Major' AND is_archived = 0),
+    minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
+    last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
+WHERE student_id IN (
+    SELECT DISTINCT student_id FROM cases
+);
+
+PRINT 'Student offense counts updated!';
+GO
+
+-- ============================================
+-- INSERT CASE HISTORY FOR ALL CASES
+-- ============================================
+PRINT 'Inserting case history...';
+
+INSERT INTO case_history (case_id, changed_by, action, new_value, notes, timestamp)
+SELECT 
+    case_id,
+    2,
+    'Created',
+    'Status: ' + status,
+    'Case created and logged into system',
+    DATEADD(MINUTE, 5, CAST(date_reported AS DATETIME) + CAST(ISNULL(time_reported, '08:00:00') AS DATETIME))
+FROM cases;
+
+PRINT 'Case history inserted!';
+GO
+
+-- ============================================
+-- INSERT SAMPLE LOST & FOUND ITEMS
+-- ============================================
+PRINT 'Inserting Lost & Found items...';
+
+INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
+VALUES 
+('LF-1001', 'Blue Backpack', 'Electronics', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
+('LF-1002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
+('LF-1003', 'Math Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
+('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
+
+PRINT 'Lost & Found items inserted: 4';
+GO
+
+-- ============================================
+-- INSERT WATCH LIST ENTRIES
+-- ============================================
+PRINT 'Inserting watch list entries...';
+
+INSERT INTO watch_list (student_id, reason, added_by, added_date, notes)
+VALUES 
+('2024002007', 'Multiple major offenses: Cheating incidents in 2024 and 2025. Requires close monitoring.', 2, '2025-02-15', 
+ 'Student requires close monitoring. Consider probation if another offense occurs.'),
+('2024001241', 'Major offense: Smoking on campus. Multiple previous uniform violations.', 2, '2025-03-11', 
+ 'Requires behavioral intervention. Parent involvement necessary. Suspension under consideration.');
+
+PRINT 'Watch list entries inserted: 2';
+GO
+
+-- ============================================
+-- INSERT SAMPLE SANCTIONS APPLIED
+-- ============================================
+PRINT 'Inserting applied sanctions...';
+
+INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
+VALUES
+('C-2025001', 1, '2025-01-15', 1, '2025-01-15', 'Student acknowledged warning and committed to improvement'),
+('C-2025002', 3, '2025-01-20', 1, '2025-01-20', 'Written reprimand issued and filed'),
+('C-2025007', 1, '2025-03-20', 1, '2025-03-20', 'Counseling completed with both students'),
+('C-2025009', 1, '2025-04-15', 1, '2025-04-15', 'Educational discussion conducted about campus policies');
+
+PRINT 'Applied sanctions inserted: 4';
+GO
+
+-- ============================================
+-- INSERT SAMPLE NOTIFICATIONS
+-- ============================================
+PRINT 'Inserting notifications...';
+
+INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
+VALUES
+(2, 'New Case Reported', 'New cyberbullying case C-2025010 requires immediate attention', 'case_update', 'C-2025010', 0),
+(2, 'Case Under Review', 'Case C-2025006 (Smoking) requires decision on sanctions', 'case_update', 'C-2025006', 0),
+(2, 'Escalated Case', 'Case C-2025004 has been escalated to Academic Council', 'case_update', 'C-2025004', 1);
+
+PRINT 'Notifications inserted: 3';
+GO
+
+-- ============================================
+-- FINAL VERIFICATION & SUMMARY
+-- ============================================
+
+PRINT '';
+PRINT '============================================';
+PRINT 'Database Created Successfully!';
+PRINT '============================================';
+PRINT '';
+PRINT 'Default Login Credentials:';
+PRINT 'Username: admin';
+PRINT 'Password: password';
+PRINT '';
+PRINT 'OR';
+PRINT '';
+PRINT 'Username: do_staff';
+PRINT 'Password: password';
+PRINT '';
+PRINT '⚠️  IMPORTANT: Change passwords after first login!';
+PRINT '';
+
+SELECT 
+    'Total Students' AS metric, 
+    COUNT(*) AS count 
+FROM students
+UNION ALL
+SELECT 
+    'SHS Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'SHS'
+UNION ALL
+SELECT 
+    'College Students', 
+    COUNT(*) 
+FROM students 
+WHERE student_type = 'College'
+UNION ALL
+SELECT 
+    'Total Cases', 
+    COUNT(*) 
+FROM cases
+UNION ALL
+SELECT 
+    'Active Cases', 
+    COUNT(*) 
+FROM cases 
+WHERE is_archived = 0
+UNION ALL
+SELECT 
+    '2025 Cases', 
+    COUNT(*) 
+FROM cases 
+WHERE case_id LIKE 'C-2025%'
+UNION ALL
+SELECT 
+    'Offense Types', 
+    COUNT(*) 
+FROM offense_types
+UNION ALL
+SELECT 
+    'Sanctions', 
+    COUNT(*) 
+FROM sanctions
+UNION ALL
+SELECT 
+    'Users', 
+    COUNT(*) 
+FROM users
+UNION ALL
+SELECT 
+    'Lost & Found Items', 
+    COUNT(*) 
+FROM lost_found_items
+UNION ALL
+SELECT 
+    'Watch List Entries', 
+    COUNT(*) 
+FROM watch_list;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
+PRINT '============================================';
+
+SELECT 
+    track_course AS 'Track/Course',
+    student_type AS 'Type',
+    COUNT(*) AS 'Count'
+FROM students
+GROUP BY track_course, student_type
+ORDER BY student_type, COUNT(*) DESC;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT '2025 CASES SUMMARY';
+PRINT '============================================';
+
+SELECT 
+    case_id AS 'Case ID',
+    student_id AS 'Student ID',
+    case_type AS 'Offense Type',
+    severity AS 'Severity',
+    status AS 'Status',
+    date_reported AS 'Date'
+FROM cases
+WHERE case_id LIKE 'C-2025%'
+ORDER BY date_reported;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'STUDENTS WITH MULTIPLE OFFENSES';
+PRINT '============================================';
+
+SELECT 
+    s.student_id AS 'Student ID',
+    s.first_name + ' ' + s.last_name AS 'Student Name',
+    s.track_course AS 'Track/Course',
+    s.total_offenses AS 'Total',
+    s.major_offenses AS 'Major',
+    s.minor_offenses AS 'Minor',
+    s.status AS 'Status'
+FROM students s
+WHERE s.total_offenses > 0
+ORDER BY s.total_offenses DESC, s.major_offenses DESC;
+GO
+
+PRINT '';
+PRINT '============================================';
+PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
+PRINT '============================================';
+PRINT '';
+PRINT 'SHS Students with Cases:';
+PRINT '  - 2024001234 (Juan Dela Cruz - STEM) - 2 cases';
+PRINT '  - 2024001238 (Carlos Mendoza - ABM) - 2 cases';
+PRINT '  - 2024001241 (Isabella Cruz - ABM - On Watch) - 2 cases';
+PRINT '  - 2024001242 (Luis Fernandez - HUMSS) - 1 case';
+PRINT '  - 2024001236 (Pedro Reyes - STEM) - 1 case';
+PRINT '';
+PRINT 'College Students with Cases:';
+PRINT '  - 2024002001 (Marco Villanueva - BSIT) - 2 cases';
+PRINT '  - 2024002007 (Andres Vargas - BSBA - On Watch) - 2 cases';
+PRINT '  - 2024002002 (Angela Castillo - BSIT) - 1 case';
+PRINT '  - 2024002006 (Valentina Romero - BSBA) - 1 case';
+PRINT '  - 2024002009 (Sebastian Martinez - BSCS) - 1 case';
+PRINT '';
+PRINT '✅ Database ready for use!';
+PRINT '✅ Includes 10 NEW 2025 cases with detailed information';
+PRINT '✅ All student offense counts updated';
+PRINT '✅ Watch list populated';
+PRINT '✅ Case history tracked';
+PRINT '✅ Lost & Found items working correctly';
+PRINT '============================================';
 GO
