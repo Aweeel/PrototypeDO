@@ -299,6 +299,12 @@ VALUES
  'admin@sti.edu', 'System Administrator', 'super_admin', '09123456789'),
 ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'do@sti.edu', 'John Doe', 'discipline_office', '09187654321');
+('teacher', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
+ 'teacher1@sti.edu', 'Maria Santos', 'teacher', '09171234567'),
+('security', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
+ 'security1@sti.edu', 'Carlos Dela Cruz', 'security', '09184561234'),
+('student', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
+ 'student1@sti.edu', 'Alex Reyes', 'student', '09193456781');
 GO
 
 -- ============================================
