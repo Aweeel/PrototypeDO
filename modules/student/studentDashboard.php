@@ -3,8 +3,8 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 
 // Page metadata
-$pageTitle = "Page Title"; // 👈 Replace dynamically (e.g., “Cases”)
-$adminName = $_SESSION['admin_name'] ?? 'Admin'; 
+$pageTitle = "Dashboard"; // 👈 Replace dynamically (e.g., “Cases”)
+$adminName = $_SESSION['admin_name'] ?? 'student'; 
 ?>
 
 <!DOCTYPE html>

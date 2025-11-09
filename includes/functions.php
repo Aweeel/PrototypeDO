@@ -759,42 +759,37 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/do/shared/studentHandbook.php',
+                'path' => '/PrototypeDO/modules/student/studentDashboard.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
                 'label' => 'My Cases',
-                'path' => '/PrototypeDO/modules/student/myCases.php',
+                'path' => '/PrototypeDO/modules/do/cases.php',
                 'icon' => 'cases-icon.png'
-            ],
+            ],  
             [
                 'label' => 'Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
-                'icon' => 'handbook-icon.png'
-            ]
+                'icon' => 'Student-handbook-icon.png'
+            ],
         ];
     } elseif ($role === 'teacher' || $role === 'security') {
         $items = [
             [
-                'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/teacher/teacherDashboard.php',
-                'icon' => 'dashboard-icon.png'
-            ],
-            [
                 'label' => 'Report Student',
-                'path' => '/PrototypeDO/modules/teacher/reportStudent.php',
-                'icon' => 'report-icon.png'
+                'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
+                'icon' => 'Reports-icon.png'
             ],
             [
                 'label' => 'My Reports',
-                'path' => '/PrototypeDO/modules/teacher/myReports.php',
+                'path' => '/PrototypeDO/modules/do/cases.php',
                 'icon' => 'cases-icon.png'
-            ],
+            ],  
             [
                 'label' => 'Handbook',
-                'path' => 'PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
-            ]
+            ],
         ];
     }
     
