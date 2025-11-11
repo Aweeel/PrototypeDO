@@ -70,14 +70,18 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
               const content = document.querySelector("main");
               const countDisplay = document.getElementById("searchCount");
 
-              if (event && event.key === "Enter" && searchHighlights.length > 0) {
+              // Handle Enter key press - scroll to next match
+              if (event && event.key === "Enter") {
                 event.preventDefault();
-                currentIndex = (currentIndex + 1) % searchHighlights.length;
-                scrollToCurrent();
-                countDisplay.textContent = `Match ${currentIndex + 1} of ${searchHighlights.length}`;
+                if (searchHighlights.length > 0) {
+                  currentIndex = (currentIndex + 1) % searchHighlights.length;
+                  scrollToCurrent();
+                  countDisplay.textContent = `Match ${currentIndex + 1} of ${searchHighlights.length}`;
+                }
                 return;
               }
 
+              // Clear previous highlights if query changed
               if (currentQuery !== query) clearHighlights();
               currentQuery = query;
 
@@ -124,15 +128,39 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 parent.replaceChild(frag, node);
               }
 
+              // Show count but don't scroll until Enter is pressed
               countDisplay.textContent = count
                 ? `${count} result${count > 1 ? "s" : ""} found. Press Enter to jump.`
                 : "No matches found.";
 
+              // Set currentIndex to 0 but don't scroll yet
               if (count) {
                 currentIndex = 0;
-                scrollToCurrent();
               }
             };
+
+            // Smooth scroll for TOC links
+            document.querySelectorAll('aside a[href^="#"]').forEach(anchor => {
+              anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                if (targetElement) {
+                  targetElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                  });
+                  
+                  // Optional: Add a highlight effect to the target
+                  targetElement.style.transition = 'background-color 0.5s ease';
+                  targetElement.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                  setTimeout(() => {
+                    targetElement.style.backgroundColor = '';
+                  }, 1000);
+                }
+              });
+            });
           });
     </script>
 

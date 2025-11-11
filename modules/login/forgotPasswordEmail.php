@@ -84,8 +84,8 @@
         <!-- Right Side -->
         <div class="w-1/2 bg-white flex items-center justify-center p-12">
             <div class="w-full max-w-md">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Forgot Password?</h2>
-                <p class="text-gray-500 mb-8">Please provide the email address associated with your account to reset
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Contact Administrator</h2>
+                <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let administrator reset
                     your password.</p>
 
                 <form>
@@ -97,17 +97,11 @@
                             required>
                     </div>
 
-                    <button type="submit" onclick="window.location.href='forgotPassword.php';"
+                    <button type="submit" onclick="window.location.href='login.php';"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition mb-6">
-                        Reset Password
+                        Send Information
                     </button>
 
-
-                    <!-- Contact administrator -->
-                    <p class="text-center text-sm text-gray-600">
-                        Having a problem with your account? <a href="#" class="text-blue-500 hover:underline">Contact
-                            administrator</a>
-                    </p>
                 </form>
 
                 <!-- System Information -->
