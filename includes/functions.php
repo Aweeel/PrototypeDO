@@ -786,11 +786,6 @@ function get_sidebar_items($role) {
                 'icon' => 'Reports-icon.png'
             ],
             [
-                'label' => 'My Reports',
-                'path' => '/PrototypeDO/modules/do/cases.php',
-                'icon' => 'cases-icon.png'
-            ],  
-            [
                 'label' => 'Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
