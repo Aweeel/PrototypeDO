@@ -768,6 +768,11 @@ function get_sidebar_items($role) {
                 'icon' => 'cases-icon.png'
             ],  
             [
+                'label' => 'Lost & Found',
+                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
+                'icon' => 'Lost-and-found-icon.png'
+            ],
+            [
                 'label' => 'Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'

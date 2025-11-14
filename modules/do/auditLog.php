@@ -203,12 +203,19 @@ function getActionColor($action) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STI Discipline Office - Audit Logs</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' };
-        if (localStorage.getItem("theme") === "dark") {
-            document.documentElement.classList.add("dark");
-        }
-    </script>
+<script>
+    tailwind.config = { darkMode: 'class' };
+    
+    if (localStorage.getItem("theme") === "dark") {
+        document.documentElement.classList.add("dark");
+    }
+
+    function toggleDarkMode() {
+        const html = document.documentElement;
+        const isDark = html.classList.toggle("dark");
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+    }
+</script>
 </head>
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">

@@ -48,7 +48,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
             <div class="mb-8 relative z-10">
                 <div>
-                    <img src="../../assets/images/logos/STI-logo-big.png" alt="STI Logo" class="w-50 h-auto">
+                    <img src="../../assets/images/logos/doms-logo.png" alt="DOMS Logo" class="w-50 h-auto">
                 </div>
             </div>
             <!-- Text and Buttons (z-10 to be on top) -->
@@ -59,7 +59,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
                 <!-- Description -->
                 <p class="text-gray-300 max-w-md mb-12">
-                    Create your account to access our comprehensive education management platform and connect with the
+                    Login to your account to access our comprehensive education management platform and connect with the
                     STI community.
                 </p>
 
@@ -134,7 +134,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                                 class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                             <span class="ml-2 text-sm text-gray-600">Remember me</span>
                         </label>
-                        <a href="#" class="text-blue-500 text-sm hover:underline">Need help?</a>
+                        <a href="forgotPasswordEmail.php" class="text-blue-500 text-sm hover:underline">Need help?</a>
                     </div>
 
                     <!-- Sign In Button -->
@@ -145,7 +145,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
                     <!-- Contact administrator -->
                     <p class="text-center text-sm text-gray-600">
-                        Don't have an account? <a href="#" class="text-blue-500 hover:underline">Contact
+                        Don't have an account? <a href="forgotPasswordEmail.php" class="text-blue-500 hover:underline">Contact
                             administrator</a>
                     </p>
                 </form>
@@ -164,10 +164,10 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span class="text-sm text-gray-600">Last Update: 10/22/2025</span>
+                            <span class="text-sm text-gray-600">Last Update: 11/15/2025</span>
                             <div class="ml-auto">
                                 <div class="w-2 h-2 bg-pink-500 rounded-full inline-block"></div>
-                                <span class="text-sm text-gray-600 ml-2">Support: helpdesk.edu</span>
+                                <span class="text-sm text-gray-600 ml-2">Support: help.edu</span>
                             </div>
                         </div>
                     </div>
@@ -184,7 +184,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                         <h4 class="text-sm font-semibold text-gray-800 mb-1">Need assistance?</h4>
                         <p class="text-xs text-gray-600">If you're having trouble accessing your account, please contact
                             the IT Helpdesk at <span class="text-blue-600">support@sti.edu</span> or call <span
-                                class="text-blue-600">1-800-STI-HELP</span></p>
+                                class="text-blue-600">1-800-900-STI</span></p>
                     </div>
                 </div>
             </div>
