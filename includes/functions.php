@@ -769,7 +769,7 @@ function get_sidebar_items($role) {
             ],  
             [
                 'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
+                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
@@ -784,6 +784,11 @@ function get_sidebar_items($role) {
                 'label' => 'Report Student',
                 'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
                 'icon' => 'Reports-icon.png'
+            ],
+            [
+                'label' => 'Lost & Found',
+                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
+                'icon' => 'Lost-and-found-icon.png'
             ],
             [
                 'label' => 'Handbook',
