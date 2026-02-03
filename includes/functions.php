@@ -677,7 +677,7 @@ function get_sidebar_items($role) {
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
-                'label' => 'Student History',
+                'label' => 'Student List',
                 'path' => '/PrototypeDO/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
             ],
@@ -730,7 +730,7 @@ function get_sidebar_items($role) {
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
-                'label' => 'Student History',
+                'label' => 'Student List',
                 'path' => '/PrototypeDO/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
             ],
