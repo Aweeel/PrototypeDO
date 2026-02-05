@@ -44,7 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             $eventName = $_POST['eventName'] ?? '';
             $eventDate = $_POST['eventDate'] ?? '';
-            $eventTime = isset($_POST['eventTime']) && !empty(trim($_POST['eventTime'])) ? trim($_POST['eventTime']) : null;
+            $eventTime = isset($_POST['eventTime']) ? trim($_POST['eventTime']) : null;
+            if ($eventTime === '') {
+                $eventTime = null;
+            } elseif ($eventTime !== null) {
+                // Normalize to HH:MM:SS for SQL Server
+                if (preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
+                    $eventTime .= ':00';
+                }
+            }
             $category = $_POST['category'] ?? '';
             $description = isset($_POST['description']) && !empty(trim($_POST['description'])) ? trim($_POST['description']) : null;
             $location = isset($_POST['location']) && !empty(trim($_POST['location'])) ? trim($_POST['location']) : null;
