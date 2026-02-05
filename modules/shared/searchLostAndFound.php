@@ -188,12 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['search'])) {
                                         
                                         <div class="space-y-2 text-sm mb-4">
                                             <div class="flex items-center text-gray-700 dark:text-gray-300">
-                                                <i class="fas fa-map-marker-alt w-5 text-gray-500 dark:text-gray-400"></i>
-                                                <span>Found at: <strong><?php echo htmlspecialchars($item['found_location']); ?></strong></span>
-                                            </div>
-                                            <div class="flex items-center text-gray-700 dark:text-gray-300">
                                                 <i class="fas fa-calendar w-5 text-gray-500 dark:text-gray-400"></i>
-                                                <span>Date: <strong><?php echo date('M d, Y', strtotime($item['date_found'])); ?></strong></span>
+                                                <span>Date found: <strong><?php echo date('M d, Y', strtotime($item['date_found'])); ?></strong></span>
                                             </div>
                                             <div class="flex items-center text-gray-700 dark:text-gray-300">
                                                 <i class="fas fa-info-circle w-5 text-gray-500 dark:text-gray-400"></i>

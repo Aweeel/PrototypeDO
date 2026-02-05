@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         c.status,
                         c.date_reported,
                         c.description,
-                        CONCAT(u.full_name) as reported_by_name
+                        u.full_name as reported_by_name
                     FROM cases c
                     LEFT JOIN users u ON c.reported_by = u.user_id
                     WHERE c.student_id = ? AND c.is_archived = 0
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     }
 }
 
-$pageTitle = "Student History";
+$pageTitle = "Student List";
 $adminName = $_SESSION['admin_name'] ?? 'Admin';
 ?>
 
