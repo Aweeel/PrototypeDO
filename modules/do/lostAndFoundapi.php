@@ -1,4 +1,5 @@
 <?php
+//lostAndFoundapi.php
 // API Handler for Lost & Found AJAX requests
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
@@ -29,13 +30,13 @@ try {
                 'finder_student_id' => $_POST['finder_student_id'] ?? null
             ];
             
-            $result = addLostFoundItem($conn, $data);
+            $result = addLostFoundItem($data);
             echo json_encode($result);
             break;
             
         case 'get':
             $item_id = $_GET['item_id'];
-            $item = getItemById($conn, $item_id);
+            $item = getItemById($item_id);
             
             if ($item) {
                 echo json_encode(['success' => true, 'data' => $item]);
@@ -57,7 +58,7 @@ try {
                 'finder_student_id' => $_POST['finder_student_id'] ?? null
             ];
             
-            $result = updateItem($conn, $item_id, $data);
+            $result = updateItem($item_id, $data);
             echo json_encode($result);
             break;
             
@@ -68,19 +69,19 @@ try {
                 'claimer_student_id' => $_POST['claimer_student_id'] ?? null
             ];
             
-            $result = markAsClaimed($conn, $item_id, $claimer_data);
+            $result = markAsClaimed($item_id, $claimer_data);
             echo json_encode($result);
             break;
             
         case 'mark_unclaimed':
             $item_id = $_POST['item_id'];
-            $result = markAsUnclaimed($conn, $item_id);
+            $result = markAsUnclaimed($item_id);
             echo json_encode($result);
             break;
             
         case 'archive':
             $item_id = $_POST['item_id'];
-            $result = archiveItem($conn, $item_id);
+            $result = archiveItem($item_id);
             echo json_encode($result);
             break;
             

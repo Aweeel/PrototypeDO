@@ -1,10 +1,8 @@
 <?php
+//lostAndFound.php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/lostAndFoundFunctions.php';
-
-// Initialize database connection
-$conn = getDBConnection();
 
 // FIXED: Use user_role instead of role
 if (!in_array($_SESSION['user_role'], ['discipline_office', 'super_admin'])) {
@@ -16,7 +14,7 @@ $pageTitle = "Lost & Found Management";
 $adminName = $_SESSION['admin_name'] ?? 'Admin';
 
 // Get statistics
-$stats = getLostFoundStats($conn);
+$stats = getLostFoundStats();
 $categories = getCategories();
 
 // Get filter parameters
@@ -31,7 +29,7 @@ if ($filterCategory) $filters['category'] = $filterCategory;
 if ($searchTerm) $filters['search'] = $searchTerm;
 
 // Get items
-$items = getLostFoundItems($conn, $filters);
+$items = getLostFoundItems($filters);
 ?>
 
 <!DOCTYPE html>
