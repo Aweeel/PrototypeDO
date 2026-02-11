@@ -4,8 +4,25 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 // Handle AJAX requests
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_POST['action']))) {
     header('Content-Type: application/json');
+
+    // Mark notification as read
+    if (isset($_POST['action']) && $_POST['action'] === 'markNotificationAsRead') {
+        $notificationId = $_POST['notificationId'] ?? null;
+        
+        if ($notificationId) {
+            try {
+                markNotificationAsRead($notificationId);
+                echo json_encode(['success' => true, 'message' => 'Notification marked as read']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Notification ID required']);
+        }
+        exit;
+    }
 
     try {
         // Get all students for dropdown
@@ -417,6 +434,30 @@ if ($_POST['action'] === 'applySanction') {
     <script src="/PrototypeDO/assets/js/cases/pagination.js"></script>
     <script src="/PrototypeDO/assets/js/cases/main.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    
+    <!-- Auto-open case from notification -->
+    <script>
+        // Check if caseId is in URL params and open it
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const caseId = urlParams.get('caseId');
+            
+            if (caseId) {
+                // Wait for cases to be fully loaded, then open the specific case
+                const checkInterval = setInterval(() => {
+                    if (typeof allCases !== 'undefined' && allCases.length > 0 && typeof viewCase === 'function') {
+                        viewCase(caseId);
+                        clearInterval(checkInterval);
+                        // Clean URL
+                        window.history.replaceState({}, document.title, '/PrototypeDO/modules/do/cases.php');
+                    }
+                }, 100);
+                
+                // Timeout after 5 seconds to avoid infinite loop
+                setTimeout(() => clearInterval(checkInterval), 5000);
+            }
+        });
+    </script>
 </body>
 
 </html>
