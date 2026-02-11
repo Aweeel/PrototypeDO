@@ -3,6 +3,27 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($_POST['ajax']))) {
+    header('Content-Type: application/json');
+    
+    if (isset($_POST['action']) && $_POST['action'] === 'markNotificationAsRead') {
+        $notificationId = $_POST['notificationId'] ?? null;
+        
+        if ($notificationId) {
+            try {
+                markNotificationAsRead($notificationId);
+                echo json_encode(['success' => true, 'message' => 'Notification marked as read']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Notification ID required']);
+        }
+        exit;
+    }
+}
+
 // Get statistics from database
 $stats = getCaseStatistics();
 $lostFoundStats = getLostFoundStatistics();

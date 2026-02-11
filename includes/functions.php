@@ -451,6 +451,41 @@ function markNotificationAsRead($notificationId) {
     executeQuery($sql, [$notificationId]);
 }
 
+/**
+ * Notify all DO (Discipline Office) users of a new report submission
+ * 
+ * @param string $caseId The case ID of the new report
+ * @param string $studentName The student's name
+ * @param string $caseType The type of case
+ * @param string $severity The severity level (Major/Minor)
+ * @return int Number of notifications sent
+ */
+function notifyDOOnNewReport($caseId, $studentName, $caseType, $severity) {
+    try {
+        // Get all DO and super_admin users
+        $sql = "SELECT user_id, full_name FROM users WHERE (role = 'discipline_office' OR role = 'do' OR role = 'super_admin') AND is_active = 1";
+        $doUsers = fetchAll($sql);
+        
+        if (empty($doUsers)) {
+            return 0;
+        }
+        
+        $count = 0;
+        $title = "New Report Submitted - " . $severity;
+        
+        foreach ($doUsers as $doUser) {
+            $message = "New incident report submitted for $studentName. Case Type: $caseType. Severity: $severity. Case ID: $caseId";
+            createNotification($doUser['user_id'], $title, $message, 'report_submitted', $caseId);
+            $count++;
+        }
+        
+        return $count;
+    } catch (Exception $e) {
+        error_log("Error in notifyDOOnNewReport: " . $e->getMessage());
+        return 0;
+    }
+}
+
 
 // ==========================================
 // AUDIT LOG FUNCTIONS
