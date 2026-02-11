@@ -3,13 +3,13 @@
 // Close modals when clicking outside
 document.addEventListener('click', function(event) {
     const historyModal = document.getElementById('historyModal');
-    const noteModal = document.getElementById('noteModal');
+    const importModal = document.getElementById('importModal');
     
     if (event.target === historyModal) {
         closeHistoryModal();
     }
-    if (event.target === noteModal) {
-        closeNoteModal();
+    if (event.target === importModal) {
+        closeImportModal();
     }
 });
 
@@ -17,7 +17,7 @@ document.addEventListener('click', function(event) {
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         closeHistoryModal();
-        closeNoteModal();
+        closeImportModal();
     }
 });
 
@@ -28,8 +28,18 @@ function closeHistoryModal() {
     }
 }
 
-function closeNoteModal() {
-    const modal = document.getElementById('noteModal');
+function openImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.getElementById('csvFile').value = '';
+        document.getElementById('importResult').classList.add('hidden');
+        document.getElementById('importResult').innerHTML = '';
+    }
+}
+
+function closeImportModal() {
+    const modal = document.getElementById('importModal');
     if (modal) {
         modal.classList.add('hidden');
     }
