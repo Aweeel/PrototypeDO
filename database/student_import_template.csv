@@ -1,0 +1,5 @@
+student_id,first_name,last_name,middle_name,grade_year,track_course,section,student_type,guardian_name,guardian_contact
+2024-001,Juan,Dela Cruz,Santos,11,STEM,A,SHS,Maria Dela Cruz,09171234567
+2024-002,Maria,Garcia,Lopez,12,ABM,B,SHS,Pedro Garcia,09187654321
+2024-003,Jose,Reyes,Martin,1st Year,BSIT,1A,College,Carmen Reyes,09191234567
+2024-004,Ana,Santos,Cruz,2nd Year,BSCS,2B,College,Roberto Santos,09171112222

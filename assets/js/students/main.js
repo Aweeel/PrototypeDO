@@ -9,6 +9,12 @@ let currentStudentId = null;
 document.addEventListener('DOMContentLoaded', function () {
     console.log('Student History page loaded');
     loadStudents();
+    
+    // Setup CSV import form handler
+    const importForm = document.getElementById('importCsvForm');
+    if (importForm) {
+        importForm.addEventListener('submit', handleCsvImport);
+    }
 });
 
 // ====== Load Students from Database ======
@@ -129,10 +135,6 @@ function renderStudents() {
                     <button onclick="viewHistory('${student.id}')" 
                         class="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                         View Full History
-                    </button>
-                    <button onclick="addNote('${student.id}')" 
-                        class="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                        Add Note
                     </button>
                 </div>
             </div>
@@ -323,50 +325,122 @@ function closeHistoryModal() {
     document.getElementById('historyModal').classList.add('hidden');
 }
 
-// ====== Add Note Modal ======
-function addNote(studentId) {
-    currentStudentId = studentId;
-    const student = allStudents.find(s => s.id === studentId);
+// ====== CSV Import Functions ======
+// Note: openImportModal and closeImportModal are in modals.js
+
+// Handle CSV import form submission
+async function handleCsvImport(e) {
+    e.preventDefault();
     
-    document.getElementById('noteModal').classList.remove('hidden');
-    document.getElementById('noteText').value = '';
+    const fileInput = document.getElementById('csvFile');
+    const file = fileInput.files[0];
     
-    // Handle form submission
-    const form = document.getElementById('addNoteForm');
-    form.onsubmit = async (e) => {
-        e.preventDefault();
+    if (!file) {
+        showNotification('Please select a CSV file', 'error');
+        return;
+    }
+    
+    // Show progress
+    document.getElementById('importProgress').classList.remove('hidden');
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('importResult').classList.add('hidden');
+    
+    const formData = new FormData();
+    formData.append('csv_file', file);
+    formData.append('import_csv', '1');
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
+            method: 'POST',
+            body: formData
+        });
         
-        const note = document.getElementById('noteText').value.trim();
-        if (!note) {
-            showNotification('Please enter a note', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `ajax=1&action=addNote&studentId=${studentId}&note=${encodeURIComponent(note)}`
-            });
-
-            const data = await response.json();
+        const data = await response.json();
+        
+        // Hide progress
+        document.getElementById('importProgress').classList.add('hidden');
+        document.getElementById('importBtn').disabled = false;
+        
+        if (data.success) {
+            const resultDiv = document.getElementById('importResult');
+            resultDiv.classList.remove('hidden');
             
-            if (data.success) {
-                closeNoteModal();
-                showNotification('Note added successfully', 'success');
-            } else {
-                showNotification('Failed to add note: ' + data.error, 'error');
+            let errorHtml = '';
+            if (data.errors && data.errors.length > 0) {
+                errorHtml = `
+                    <div class="mt-2">
+                        <p class="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">Errors:</p>
+                        <ul class="text-xs text-red-600 dark:text-red-400 list-disc list-inside space-y-1">
+                            ${data.errors.slice(0, 5).map(err => `<li>${err}</li>`).join('')}
+                            ${data.errors.length > 5 ? `<li>...and ${data.errors.length - 5} more errors</li>` : ''}
+                        </ul>
+                    </div>
+                `;
             }
-        } catch (error) {
-            console.error('Error adding note:', error);
-            showNotification('An error occurred while adding the note', 'error');
+            
+            resultDiv.innerHTML = `
+                <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p class="font-semibold text-green-800 dark:text-green-300">Import Completed!</p>
+                    </div>
+                    <p class="text-sm text-green-700 dark:text-green-400">
+                        Successfully imported/updated: <strong>${data.imported}</strong> students<br>
+                        Skipped: <strong>${data.skipped}</strong> rows
+                    </p>
+                    ${errorHtml}
+                </div>
+            `;
+            
+            showNotification(`Imported ${data.imported} students successfully`, 'success');
+            
+            // Reload students after 2 seconds
+            setTimeout(() => {
+                loadStudents();
+                closeImportModal();
+            }, 2000);
+        } else {
+            const resultDiv = document.getElementById('importResult');
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = `
+                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <p class="font-semibold text-red-800 dark:text-red-300">Import Failed</p>
+                    </div>
+                    <p class="text-sm text-red-700 dark:text-red-400 mt-1">${data.error}</p>
+                </div>
+            `;
+            showNotification('Import failed: ' + data.error, 'error');
         }
-    };
+    } catch (error) {
+        console.error('Import error:', error);
+        document.getElementById('importProgress').classList.add('hidden');
+        document.getElementById('importBtn').disabled = false;
+        
+        const resultDiv = document.getElementById('importResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <p class="font-semibold text-red-800 dark:text-red-300">Network Error</p>
+                </div>
+                <p class="text-sm text-red-700 dark:text-red-400 mt-1">${error.message}</p>
+            </div>
+        `;
+        showNotification('Network error during import', 'error');
+    }
 }
 
-function closeNoteModal() {
-    document.getElementById('noteModal').classList.add('hidden');
-}
+// ====== Add Note Modal (Removed) ======
+// Note: Add Note functionality has been removed
 
 // ====== Notifications ======
 function showNotification(message, type = 'info') {
