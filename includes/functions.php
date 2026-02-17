@@ -329,9 +329,9 @@ function getCaseStatistics() {
         "SELECT COUNT(*) FROM cases WHERE status = 'Pending' AND is_archived = 0"
     );
     
-    // Urgent cases (Escalated or Major offenses)
+    // Urgent cases (Major offenses that are not resolved)
     $stats['urgent_cases'] = fetchValue(
-        "SELECT COUNT(*) FROM cases WHERE (status = 'Escalated' OR severity = 'Major') AND is_archived = 0"
+        "SELECT COUNT(*) FROM cases WHERE severity = 'Major' AND status != 'Resolved' AND is_archived = 0"
     );
     
     // Resolved cases
@@ -673,9 +673,8 @@ function formatDate($date, $format = 'M d, Y') {
 function getStatusColor($status) {
     $colors = [
         'Pending' => 'yellow',
-        'Under Review' => 'blue',
+        'On Going' => 'blue',
         'Resolved' => 'green',
-        'Escalated' => 'red',
         'Dismissed' => 'gray'
     ];
     

@@ -78,8 +78,9 @@ function getStatusText($status) {
     switch ($status) {
         case 'pending':
             return 'Pending';
+        case 'on_going':
         case 'under_review':
-            return 'Under Review';
+            return 'On Going';
         case 'resolved':
             return 'Resolved';
         default:

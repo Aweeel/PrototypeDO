@@ -34,28 +34,51 @@ function generateItemId() {
 function addLostFoundItem($data) {
     $item_id = generateItemId();
     
-    $sql = "INSERT INTO lost_found_items (
-        item_id, item_name, category, description, found_location, 
-        date_found, time_found, finder_name, finder_student_id, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed')";
+    // Convert empty strings to NULL
+    $time_found = (isset($data['time_found']) && trim($data['time_found']) !== '') ? $data['time_found'] : null;
+    $finder_name = (isset($data['finder_name']) && trim($data['finder_name']) !== '') ? $data['finder_name'] : null;
+    $finder_student_id = (isset($data['finder_student_id']) && trim($data['finder_student_id']) !== '') ? $data['finder_student_id'] : null;
+    $description = (isset($data['description']) && trim($data['description']) !== '') ? $data['description'] : null;
     
-    // Convert empty strings to NULL for proper SQL Server handling
-    $time_found = !empty($data['time_found']) ? $data['time_found'] : null;
-    $finder_name = !empty($data['finder_name']) ? $data['finder_name'] : null;
-    $finder_student_id = !empty($data['finder_student_id']) ? $data['finder_student_id'] : null;
-    $description = !empty($data['description']) ? $data['description'] : null;
+    // Build SQL based on whether time is provided (like calendar.php)
+    if ($time_found !== null) {
+        $sql = "INSERT INTO lost_found_items (
+            item_id, item_name, category, description, found_location, 
+            date_found, time_found, finder_name, finder_student_id, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed')";
+        
+        $params = [
+            $item_id,
+            $data['item_name'],
+            $data['category'],
+            $description,
+            $data['location'],
+            $data['date_found'],
+            $time_found,
+            $finder_name,
+            $finder_student_id
+        ];
+    } else {
+        $sql = "INSERT INTO lost_found_items (
+            item_id, item_name, category, description, found_location, 
+            date_found, finder_name, finder_student_id, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed')";
+        
+        $params = [
+            $item_id,
+            $data['item_name'],
+            $data['category'],
+            $description,
+            $data['location'],
+            $data['date_found'],
+            $finder_name,
+            $finder_student_id
+        ];
+    }
     
-    $params = [
-        $item_id,
-        $data['item_name'],
-        $data['category'],
-        $description,
-        $data['location'],
-        $data['date_found'],
-        $time_found,
-        $finder_name,
-        $finder_student_id
-    ];
+    // Debug logging
+    error_log("addLostFoundItem SQL: $sql");
+    error_log("addLostFoundItem Params: " . print_r($params, true));
     
     try {
         executeQuery($sql, $params);
@@ -182,35 +205,65 @@ function getItemById($item_id) {
  * Update item details
  */
 function updateItem($item_id, $data) {
-    $sql = "UPDATE lost_found_items SET 
-        item_name = ?,
-        category = ?,
-        description = ?,
-        found_location = ?,
-        date_found = ?,
-        time_found = ?,
-        finder_name = ?,
-        finder_student_id = ?,
-        updated_at = GETDATE()
-    WHERE item_id = ?";
+    // Convert empty strings to NULL
+    $time_found = (isset($data['time_found']) && trim($data['time_found']) !== '') ? $data['time_found'] : null;
+    $finder_name = (isset($data['finder_name']) && trim($data['finder_name']) !== '') ? $data['finder_name'] : null;
+    $finder_student_id = (isset($data['finder_student_id']) && trim($data['finder_student_id']) !== '') ? $data['finder_student_id'] : null;
+    $description = (isset($data['description']) && trim($data['description']) !== '') ? $data['description'] : null;
     
-    // Convert empty strings to NULL for proper SQL Server handling
-    $time_found = !empty($data['time_found']) ? $data['time_found'] : null;
-    $finder_name = !empty($data['finder_name']) ? $data['finder_name'] : null;
-    $finder_student_id = !empty($data['finder_student_id']) ? $data['finder_student_id'] : null;
-    $description = !empty($data['description']) ? $data['description'] : null;
+    // Build SQL based on whether time is provided (like calendar.php)
+    if ($time_found !== null) {
+        $sql = "UPDATE lost_found_items SET 
+            item_name = ?,
+            category = ?,
+            description = ?,
+            found_location = ?,
+            date_found = ?,
+            time_found = ?,
+            finder_name = ?,
+            finder_student_id = ?,
+            updated_at = GETDATE()
+        WHERE item_id = ?";
+        
+        $params = [
+            $data['item_name'],
+            $data['category'],
+            $description,
+            $data['location'],
+            $data['date_found'],
+            $time_found,
+            $finder_name,
+            $finder_student_id,
+            $item_id
+        ];
+    } else {
+        $sql = "UPDATE lost_found_items SET 
+            item_name = ?,
+            category = ?,
+            description = ?,
+            found_location = ?,
+            date_found = ?,
+            time_found = NULL,
+            finder_name = ?,
+            finder_student_id = ?,
+            updated_at = GETDATE()
+        WHERE item_id = ?";
+        
+        $params = [
+            $data['item_name'],
+            $data['category'],
+            $description,
+            $data['location'],
+            $data['date_found'],
+            $finder_name,
+            $finder_student_id,
+            $item_id
+        ];
+    }
     
-    $params = [
-        $data['item_name'],
-        $data['category'],
-        $description,
-        $data['location'],
-        $data['date_found'],
-        $time_found,
-        $finder_name,
-        $finder_student_id,
-        $item_id
-    ];
+    // Debug logging
+    error_log("updateItem SQL: $sql");
+    error_log("updateItem Params: " . print_r($params, true));
     
     try {
         executeQuery($sql, $params);
