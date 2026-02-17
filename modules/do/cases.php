@@ -71,7 +71,7 @@ if ($_POST['action'] === 'createCase') {
         'student_name' => $_POST['studentName'],
         'case_type' => $_POST['type'],
         'severity' => $_POST['severity'] ?? 'Minor',
-        'status' => $_POST['status'] ?? 'Pending',
+        'status' => 'Pending', // All new cases start as Pending
         'assigned_to' => $_SESSION['user_id'] ?? null,
         'reported_by' => $_SESSION['user_id'] ?? null,
         'description' => $_POST['description'],
@@ -174,6 +174,48 @@ if ($_POST['action'] === 'unarchiveCase') {
     exit;
 }
 
+        // Update sanction
+if ($_POST['action'] === 'updateSanction') {
+    $caseSanctionId = $_POST['caseSanctionId'];
+    $durationDays = $_POST['durationDays'] ?? null;
+    $notes = $_POST['notes'] ?? '';
+
+    $sql = "UPDATE case_sanctions SET duration_days = ?, notes = ? WHERE case_sanction_id = ?";
+    executeQuery($sql, [$durationDays, $notes, $caseSanctionId]);
+
+    // 🧾 Audit Log
+    $auditData = [
+        'duration_days' => $durationDays,
+        'notes' => $notes
+    ];
+    auditUpdate('case_sanctions', $caseSanctionId, [], sanitizeAuditData($auditData));
+
+    echo json_encode(['success' => true, 'message' => 'Sanction updated successfully']);
+    exit;
+}
+
+        // Remove sanction
+if ($_POST['action'] === 'removeSanction') {
+    $caseSanctionId = $_POST['caseSanctionId'];
+
+    // Get sanction info before deletion for logging
+    $sql = "SELECT * FROM case_sanctions WHERE case_sanction_id = ?";
+    $sanctionDataArray = fetchAll($sql, [$caseSanctionId]);
+    $sanctionData = $sanctionDataArray[0] ?? null;
+
+    // Delete the sanction
+    $sql = "DELETE FROM case_sanctions WHERE case_sanction_id = ?";
+    executeQuery($sql, [$caseSanctionId]);
+
+    // 🧾 Audit Log
+    if ($sanctionData) {
+        auditDelete('case_sanctions', $caseSanctionId, sanitizeAuditData($sanctionData));
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Sanction removed successfully']);
+    exit;
+}
+
 
     } catch (Exception $e) {
         error_log("Cases AJAX Error: " . $e->getMessage());
@@ -221,6 +263,10 @@ if ($_POST['action'] === 'applySanction') {
     $notes = $_POST['notes'] ?? '';
 
     applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
+    
+    // Update case status to "On Going" when sanction is applied
+    $sqlUpdateStatus = "UPDATE cases SET status = 'On Going' WHERE case_id = ?";
+    executeQuery($sqlUpdateStatus, [$caseId]);
 
     // 🧾 Audit Log
     $auditData = [
@@ -340,11 +386,19 @@ if ($_POST['action'] === 'applySanction') {
 
                 <!-- Tabs and Filters -->
                 <div class="mb-6 flex items-center justify-between flex-wrap gap-4">
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 items-center">
                         <button id="currentTab" onclick="switchTab('current')"
                             class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Current</button>
-                        <button id="archivedTab" onclick="switchTab('archived')"
-                            class="px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">Archived</button>
+                        <button id="resolvedTab" onclick="switchTab('resolved')"
+                            class="px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">Resolved</button>
+                        
+                        <!-- Archived Icon Button -->
+                        <button id="archivedTab" onclick="switchTab('archived')" title="View Archived Cases"
+                            class="p-2 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors ml-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                        </button>
                     </div>
 
                     <div class="flex gap-3 items-center flex-wrap">

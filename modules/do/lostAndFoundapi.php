@@ -19,16 +19,26 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 try {
     switch ($action) {
         case 'add':
+            // Convert empty strings to null for proper SQL Server handling
+            $time_found = !empty(trim($_POST['time_found'] ?? '')) ? trim($_POST['time_found']) : null;
+            // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+            if ($time_found && strlen($time_found) === 5 && substr_count($time_found, ':') === 1) {
+                $time_found .= ':00';
+            }
+            
             $data = [
                 'item_name' => $_POST['item_name'],
                 'category' => $_POST['category'],
-                'description' => $_POST['description'] ?? '',
+                'description' => !empty(trim($_POST['description'] ?? '')) ? trim($_POST['description']) : null,
                 'location' => $_POST['location'],
                 'date_found' => $_POST['date_found'],
-                'time_found' => $_POST['time_found'] ?? null,
-                'finder_name' => $_POST['finder_name'] ?? null,
-                'finder_student_id' => $_POST['finder_student_id'] ?? null
+                'time_found' => $time_found,
+                'finder_name' => !empty(trim($_POST['finder_name'] ?? '')) ? trim($_POST['finder_name']) : null,
+                'finder_student_id' => !empty(trim($_POST['finder_student_id'] ?? '')) ? trim($_POST['finder_student_id']) : null
             ];
+            
+            // Debug logging
+            error_log("Lost & Found Add - Data: " . print_r($data, true));
             
             $result = addLostFoundItem($data);
             echo json_encode($result);
@@ -47,16 +57,26 @@ try {
             
         case 'update':
             $item_id = $_POST['item_id'];
+            // Convert empty strings to null for proper SQL Server handling
+            $time_found = !empty(trim($_POST['time_found'] ?? '')) ? trim($_POST['time_found']) : null;
+            // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+            if ($time_found && strlen($time_found) === 5 && substr_count($time_found, ':') === 1) {
+                $time_found .= ':00';
+            }
+            
             $data = [
                 'item_name' => $_POST['item_name'],
                 'category' => $_POST['category'],
-                'description' => $_POST['description'] ?? '',
+                'description' => !empty(trim($_POST['description'] ?? '')) ? trim($_POST['description']) : null,
                 'location' => $_POST['location'],
                 'date_found' => $_POST['date_found'],
-                'time_found' => $_POST['time_found'] ?? null,
-                'finder_name' => $_POST['finder_name'] ?? null,
-                'finder_student_id' => $_POST['finder_student_id'] ?? null
+                'time_found' => $time_found,
+                'finder_name' => !empty(trim($_POST['finder_name'] ?? '')) ? trim($_POST['finder_name']) : null,
+                'finder_student_id' => !empty(trim($_POST['finder_student_id'] ?? '')) ? trim($_POST['finder_student_id']) : null
             ];
+            
+            // Debug logging
+            error_log("Lost & Found Update - Item ID: $item_id, Data: " . print_r($data, true));
             
             $result = updateItem($item_id, $data);
             echo json_encode($result);

@@ -34,14 +34,21 @@ function switchTab(tabName) {
     
     // Update button styles
     const currentBtn = document.getElementById('currentTab');
+    const resolvedBtn = document.getElementById('resolvedTab');
     const archivedBtn = document.getElementById('archivedTab');
     
+    // Reset all buttons to default styles
+    currentBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
+    resolvedBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
+    archivedBtn.className = 'p-2 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors ml-2';
+    
+    // Highlight selected tab
     if (tabName === 'current') {
         currentBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
-        archivedBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
-    } else {
-        archivedBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
-        currentBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
+    } else if (tabName === 'resolved') {
+        resolvedBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
+    } else if (tabName === 'archived') {
+        archivedBtn.className = 'p-2 bg-blue-600 text-white rounded-lg ml-2';
     }
     
     // Load cases based on tab
@@ -131,9 +138,8 @@ async function openAdvancedFilters() {
                         class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option value="">All Status</option>
                         <option value="Pending" ${activeFilters.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="Under Review" ${activeFilters.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                        <option value="On Going" ${activeFilters.status === 'On Going' ? 'selected' : ''}>On Going</option>
                         <option value="Resolved" ${activeFilters.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-                        <option value="Escalated" ${activeFilters.status === 'Escalated' ? 'selected' : ''}>Escalated</option>
                     </select>
                 </div>
 

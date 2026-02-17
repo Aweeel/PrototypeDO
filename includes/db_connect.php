@@ -51,6 +51,9 @@ function executeQuery($sql, $params = []) {
     try {
         $conn = getDBConnection();
         $stmt = $conn->prepare($sql);
+        
+        // For SQL Server ODBC, let PDO handle parameter binding automatically
+        // This avoids "Invalid character value for cast specification" errors
         $stmt->execute($params);
         return $stmt;
     } catch(PDOException $e) {

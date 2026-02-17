@@ -98,12 +98,10 @@ function getStatusColor(status) {
   switch (status) {
     case "Pending":
       return "yellow";
-    case "Under Review":
+    case "On Going":
       return "blue";
     case "Resolved":
       return "green";
-    case "Escalated":
-      return "red";
     default:
       return "gray";
   }
@@ -272,27 +270,15 @@ async function viewCase(caseId) {
                 </div>
             </div>
 
-            <div class="flex justify-between gap-2 mt-5">
-                <button onclick="archiveCaseConfirm('${
+            <div class="flex justify-end gap-2 mt-5">
+                <button onclick="editCase('${
                   caseData.id
-                }')" class="px-4 py-2 text-sm border border-orange-600 text-orange-600 rounded hover:bg-orange-50 dark:hover:bg-orange-900/20 font-medium">
-                    Archive
+                }'); closeModal(this);" class="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium">
+                    Edit
                 </button>
-                <div class="flex gap-2">
-                    <button onclick="markCaseResolved('${
-                      caseData.id
-                    }')" class="px-4 py-2 text-sm border border-green-600 text-green-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 font-medium">
-                        Mark Resolved
-                    </button>
-                    <button onclick="editCase('${
-                      caseData.id
-                    }'); closeModal(this);" class="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium">
-                        Edit
-                    </button>
-                    <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
-                        Close
-                    </button>
-                </div>
+                <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
+                    Close
+                </button>
             </div>
         </div>
     `;
@@ -388,10 +374,26 @@ async function confirmMarkResolved(caseId) {
     closeLoadingToast();
 
     if (data.success) {
-      // Reload cases
-      if (typeof loadCasesFromDB === "function") {
-        loadCasesFromDB();
+      // Update case status to "Resolved" in real-time
+      const caseIndex = allCases.findIndex(c => c.id === caseId);
+      if (caseIndex !== -1) {
+        allCases[caseIndex].status = 'Resolved';
+        allCases[caseIndex].statusColor = 'green';
       }
+      
+      // If we're in the current tab, remove resolved case from filtered list
+      if (currentTab === 'current') {
+        filteredCases = allCases.filter(c => c.status !== 'Resolved');
+        renderCases();
+      } else {
+        // Re-render the table to show updated status
+        if (typeof filterCases === 'function') {
+          filterCases();
+        } else if (typeof renderCases === 'function') {
+          renderCases();
+        }
+      }
+      
       showSuccessToast("Case marked as resolved successfully!");
     } else {
       showErrorToast("Failed to mark case as resolved: " + (data.error || "Unknown error"));
@@ -499,14 +501,11 @@ async function editCase(caseId) {
                           caseData.status === "Pending" ? "selected" : ""
                         }>Pending</option>
                         <option ${
-                          caseData.status === "Under Review" ? "selected" : ""
-                        }>Under Review</option>
+                          caseData.status === "On Going" ? "selected" : ""
+                        }>On Going</option>
                         <option ${
                           caseData.status === "Resolved" ? "selected" : ""
                         }>Resolved</option>
-                        <option ${
-                          caseData.status === "Escalated" ? "selected" : ""
-                        }>Escalated</option>
                     </select>
                 </div>
 
@@ -748,16 +747,6 @@ async function addCase() {
                 </div>
 
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Status</label>
-                    <select id="newStatus" class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                        <option>Pending</option>
-                        <option>Under Review</option>
-                        <option>Resolved</option>
-                        <option>Escalated</option>
-                    </select>
-                </div>
-
-                <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
                         Description <span id="newDescRequired" class="text-red-500" style="display: none;">*</span>
                     </label>
@@ -893,7 +882,6 @@ async function addCase() {
           : caseType
       );
       formData.append("severity", offenseType);
-      formData.append("status", document.getElementById("newStatus").value);
       formData.append("description", description);
       formData.append("notes", document.getElementById("newNotes").value);
 
@@ -1140,7 +1128,22 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes) {
             document.getElementById('durationDiv').style.display = 'none';
             document.getElementById('sanctionDescription').style.display = 'none';
             loadAppliedSanctions(caseId);
-            showSuccessToast('Sanction applied successfully!');
+            
+            // Update case status to "On Going" in real-time
+            const caseIndex = allCases.findIndex(c => c.id === caseId);
+            if (caseIndex !== -1) {
+                allCases[caseIndex].status = 'On Going';
+                allCases[caseIndex].statusColor = 'blue';
+            }
+            
+            // Re-render the table to show updated status
+            if (typeof filterCases === 'function') {
+                filterCases();
+            } else if (typeof renderCases === 'function') {
+                renderCases();
+            }
+            
+            showSuccessToast('Sanction applied and status updated to On Going!');
         } else {
             showErrorToast('Failed to apply sanction: ' + (data.error || 'Unknown error'));
         }
@@ -1238,7 +1241,7 @@ async function loadAppliedSanctions(caseId) {
                                 s.severity_level >= 2 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
                                 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                             }">Level ${s.severity_level || 'N/A'}</span>
-                            <button onclick="editSanction('${caseId}', '${s.applied_sanction_id}', '${s.sanction_name}', '${s.duration_days || ''}', \`${(s.notes || '').replace(/`/g, '\\`')}\`)" 
+                            <button onclick="editSanction('${caseId}', '${s.case_sanction_id}', '${s.sanction_name}', '${s.duration_days || ''}', \`${(s.notes || '').replace(/`/g, '\\`')}\`)" 
                                 class="text-xs px-2 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                                 Edit
                             </button>
@@ -1257,7 +1260,7 @@ async function loadAppliedSanctions(caseId) {
 
 // ====== EDIT SANCTION FUNCTION ======
 
-async function editSanction(caseId, appliedSanctionId, sanctionName, currentDuration, currentNotes) {
+async function editSanction(caseId, caseSanctionId, sanctionName, currentDuration, currentNotes) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
     modal.innerHTML = `
@@ -1294,7 +1297,7 @@ async function editSanction(caseId, appliedSanctionId, sanctionName, currentDura
                 </div>
 
                 <div class="flex justify-between gap-2 pt-3 border-t border-gray-200 dark:border-slate-700">
-                    <button type="button" onclick="removeSanctionFromEdit('${caseId}', '${appliedSanctionId}')" 
+                    <button type="button" onclick="removeSanctionFromEdit('${caseId}', '${caseSanctionId}')" 
                         class="px-4 py-2 text-sm border border-red-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                         Remove
                     </button>
@@ -1326,7 +1329,7 @@ async function editSanction(caseId, appliedSanctionId, sanctionName, currentDura
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'updateSanction');
-        formData.append('appliedSanctionId', appliedSanctionId);
+        formData.append('caseSanctionId', caseSanctionId);
         if (duration) formData.append('durationDays', duration);
         formData.append('notes', notes);
 
@@ -1357,16 +1360,16 @@ async function editSanction(caseId, appliedSanctionId, sanctionName, currentDura
 // ====== REMOVE SANCTION FUNCTION ======
 
 // Remove sanction from edit modal
-async function removeSanctionFromEdit(caseId, appliedSanctionId) {
+async function removeSanctionFromEdit(caseId, caseSanctionId) {
     // Close edit modal first
     const editModal = document.querySelectorAll('.fixed.inset-0')[1];
     if (editModal) editModal.remove();
     
     // Show confirmation modal
-    removeSanction(caseId, appliedSanctionId);
+    removeSanction(caseId, caseSanctionId);
 }
 
-async function removeSanction(caseId, appliedSanctionId) {
+async function removeSanction(caseId, caseSanctionId) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
     modal.innerHTML = `
@@ -1392,7 +1395,7 @@ async function removeSanction(caseId, appliedSanctionId) {
                     class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                     Cancel
                 </button>
-                <button onclick="confirmRemoveSanction('${caseId}', '${appliedSanctionId}')" 
+                <button onclick="confirmRemoveSanction('${caseId}', '${caseSanctionId}')" 
                     class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                     Remove Sanction
                 </button>
@@ -1402,7 +1405,7 @@ async function removeSanction(caseId, appliedSanctionId) {
     document.body.appendChild(modal);
 }
 
-async function confirmRemoveSanction(caseId, appliedSanctionId) {
+async function confirmRemoveSanction(caseId, caseSanctionId) {
     // Close confirmation modal
     const modals = document.querySelectorAll('.fixed.inset-0');
     if (modals.length > 0) modals[modals.length - 1].remove();
@@ -1412,7 +1415,7 @@ async function confirmRemoveSanction(caseId, appliedSanctionId) {
     const formData = new FormData();
     formData.append('ajax', '1');
     formData.append('action', 'removeSanction');
-    formData.append('appliedSanctionId', appliedSanctionId);
+    formData.append('caseSanctionId', caseSanctionId);
 
     try {
         const response = await fetch('/PrototypeDO/modules/do/cases.php', {

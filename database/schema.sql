@@ -89,7 +89,7 @@ CREATE TABLE cases (
     case_type NVARCHAR(100) NOT NULL,
     severity NVARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
     offense_category NVARCHAR(50) NULL,
-    status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Under Review', 'Resolved', 'Escalated', 'Dismissed')),
+    status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'On Going', 'Resolved', 'Dismissed')),
     date_reported DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     time_reported TIME,
     location NVARCHAR(200),
@@ -449,43 +449,43 @@ VALUES
  'Student was late to class for the third time this month.', NULL, NULL, 'Parent has been contacted via email on Oct 11.'),
 ('C-1091', '02000372342', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2023-10-11', NULL, NULL, NULL, 2, 
  'Inappropriate attire violation.', NULL, NULL, 'Issue resolved, student complied.'),
-('C-1090', '02000372343', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2023-10-10', NULL, NULL, NULL, 2, 
+('C-1090', '02000372343', 8, 'Classroom Disruption', 'Minor', NULL, 'On Going', '2023-10-10', NULL, NULL, NULL, 2, 
  'Talking loudly during class.', NULL, NULL, 'Reviewing incident with student.'),
-('C-1089', '02000372344', 17, 'Cheating', 'Major', NULL, 'Escalated', '2023-10-09', NULL, NULL, NULL, 2, 
- 'Cheating on exam.', NULL, NULL, 'Case escalated to principal.'),
+('C-1089', '02000372344', 17, 'Cheating', 'Major', NULL, 'On Going', '2023-10-09', NULL, NULL, NULL, 2, 
+ 'Cheating on exam.', NULL, NULL, 'Case under investigation.'),
 ('C-1088', '02000372345', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2023-10-08', NULL, NULL, NULL, 2, 
  'Multiple absences.', NULL, NULL, 'Medical documentation provided.'),
 ('C-1087', '02000372346', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2023-10-07', NULL, NULL, NULL, 2, 
  'Late to class.', NULL, NULL, ''),
 ('C-1086', '02000372347', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2023-10-06', NULL, NULL, NULL, 2, 
  'Uniform violation.', NULL, NULL, 'Corrected immediately.'),
-('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2023-10-05', NULL, NULL, NULL, 2, 
+('C-1085', '02000372348', 8, 'Classroom Disruption', 'Minor', NULL, 'On Going', '2023-10-05', NULL, NULL, NULL, 2, 
  'Disruptive behavior.', NULL, NULL, 'Meeting scheduled with parents.'),
 ('C-1093', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-15', NULL, NULL, NULL, 2, 
  'Late to class three times this week.', NULL, NULL, 'First warning issued.'),
-('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Under Review', '2024-10-16', NULL, NULL, NULL, 2, 
+('C-1094', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'On Going', '2024-10-16', NULL, NULL, NULL, 2, 
  'Wearing improper uniform on Monday.', NULL, NULL, 'Student explained forgot to wash uniform.'),
 ('C-1095', '2024002001', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2024-10-17', NULL, NULL, NULL, 2, 
  'Talking during lecture.', NULL, NULL, 'Apologized to instructor.'),
-('C-1096', '2024002007', 17, 'Cheating', 'Major', NULL, 'Escalated', '2024-10-18', NULL, NULL, NULL, 2, 
- 'Caught with cheat sheet during exam.', NULL, NULL, 'Case forwarded to academic council.'),
+('C-1096', '2024002007', 17, 'Cheating', 'Major', NULL, 'On Going', '2024-10-18', NULL, NULL, NULL, 2, 
+ 'Caught with cheat sheet during exam.', NULL, NULL, 'Case under investigation.'),
 ('C-1097', '2024001241', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2024-10-19', NULL, NULL, NULL, 2, 
  'Multiple uniform violations.', NULL, NULL, 'Student placed on watch list.'),
 ('C-2025001', '2024001234', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2025-01-15', '08:15:00', 'Building A - Room 201', 3, 2, 
  'Student arrived 15 minutes late to first period class without valid excuse.', 'Class teacher - Maria Santos', 'Verbal warning issued', 'First offense for this semester. Student apologized and committed to punctuality.'),
 ('C-2025002', '2024001238', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2025-01-20', '07:45:00', 'Main Gate Entrance', 4, 2, 
  'Student entered campus wearing casual clothes (jeans and t-shirt) instead of proper uniform.', 'Security guard - Carlos Dela Cruz', 'Written reprimand issued, student changed to proper uniform', 'Student claimed uniform was being washed. Parent notified.'),
-('C-2025003', '2024002001', 8, 'Classroom Disruption', 'Minor', NULL, 'Under Review', '2025-02-05', '10:30:00', 'Computer Laboratory 3', 3, 2, 
+('C-2025003', '2024002001', 8, 'Classroom Disruption', 'Minor', NULL, 'On Going', '2025-02-05', '10:30:00', 'Computer Laboratory 3', 3, 2, 
  'Student was repeatedly talking and laughing loudly during programming class, disturbing other students.', 'Teacher: Maria Santos; Classmates: 3 students', 'Student conference scheduled', 'Multiple warnings given during class. Pattern of disruptive behavior noted.'),
-('C-2025004', '2024002007', 17, 'Cheating', 'Major', 'Category A', 'Escalated', '2025-02-14', '14:00:00', 'Room B-305', 3, 2, 
- 'Student caught with written notes hidden in calculator case during Business Mathematics midterm exam.', 'Proctor: Maria Santos; Student seated nearby: 2 witnesses', 'Exam confiscated, case escalated to Academic Council', 'Second major offense this year. Student already on watch list. Parent conference required.'),
+('C-2025004', '2024002007', 17, 'Cheating', 'Major', 'Category A', 'On Going', '2025-02-14', '14:00:00', 'Room B-305', 3, 2, 
+ 'Student caught with written notes hidden in calculator case during Business Mathematics midterm exam.', 'Proctor: Maria Santos; Student seated nearby: 2 witnesses', 'Exam confiscated, case under investigation', 'Second major offense this year. Student already on watch list. Parent conference required.'),
 ('C-2025005', '2024001242', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Pending', '2025-03-01', '07:30:00', 'Main Gate', 4, 2, 
  'Student forgot ID for the third time this semester. Unable to enter campus without temporary pass.', 'Security guard on duty', 'Temporary ID issued, parent notification sent', 'This is the third occurrence. Pattern of negligence. Corrective action needed.'),
-('C-2025006', '2024001241', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Under Review', '2025-03-10', '12:15:00', 'Behind Gymnasium', 4, 2, 
+('C-2025006', '2024001241', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'On Going', '2025-03-10', '12:15:00', 'Behind Gymnasium', 4, 2, 
  'Student caught smoking cigarettes in restricted area behind the gymnasium during lunch break.', 'Security guard + 1 janitor', 'Student brought to DO office, cigarettes confiscated', 'Student admitted to offense. Parent contacted immediately. Suspension being considered.'),
 ('C-2025007', '2024002002', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2025-03-20', '16:45:00', 'Student Lounge', 3, 2, 
  'Students engaged in inappropriate public display of affection (prolonged embrace and kissing) in student common area.', 'Teacher on duty + 5 students present', 'Verbal warning, counseling session conducted', 'Both students counseled on appropriate campus behavior. First offense.'),
-('C-2025008', '2024001236', 19, 'Vandalism', 'Major', 'Category B', 'Under Review', '2025-04-02', '17:30:00', 'Restroom - 3rd Floor Building C', 4, 2, 
+('C-2025008', '2024001236', 19, 'Vandalism', 'Major', 'Category B', 'On Going', '2025-04-02', '17:30:00', 'Restroom - 3rd Floor Building C', 4, 2, 
  'Student caught spray painting graffiti on restroom walls. Security footage confirmed identity.', 'Security personnel, janitor who discovered vandalism', 'Student questioned, admitted to offense. Cleanup scheduled', 'Student to pay for repainting costs and perform community service. Parent meeting scheduled.'),
 ('C-2025009', '2024002009', 10, 'Bringing Pets', 'Minor', NULL, 'Resolved', '2025-04-15', '08:00:00', 'Parking Area', 4, 2, 
  'Student brought a small dog to campus in backpack. Animal was discovered during routine inspection.', 'Security guard at entrance', 'Pet removed from campus, parent called to pick up animal', 'Student unaware of policy. Educational discussion conducted. No malicious intent.'),
@@ -538,9 +538,9 @@ PRINT 'Inserting Lost & Found items...';
 
 INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
 VALUES 
-('LF-1001', 'Blue Backpack', 'Electronics', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
+('LF-1001', 'Backpack', 'Electronics', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
 ('LF-1002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
-('LF-1003', 'Math Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
+('LF-1003', 'Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
 ('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
 
 PRINT 'Lost & Found items inserted: 4';
@@ -584,8 +584,8 @@ PRINT 'Inserting notifications...';
 INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
 VALUES
 (2, 'New Case Reported', 'New cyberbullying case C-2025010 requires immediate attention', 'case_update', 'C-2025010', 0),
-(2, 'Case Under Review', 'Case C-2025006 (Smoking) requires decision on sanctions', 'case_update', 'C-2025006', 0),
-(2, 'Escalated Case', 'Case C-2025004 has been escalated to Academic Council', 'case_update', 'C-2025004', 1);
+(2, 'Case In Progress', 'Case C-2025006 (Smoking) requires decision on sanctions', 'case_update', 'C-2025006', 0),
+(2, 'Case In Progress', 'Case C-2025004 is currently under investigation', 'case_update', 'C-2025004', 1);
 
 PRINT 'Notifications inserted: 3';
 GO

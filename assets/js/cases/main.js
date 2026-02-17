@@ -71,11 +71,11 @@ function renderTableRows() {
     const end = start + casesPerPage;
     const casesToDisplay = filteredCases.slice(start, end);
 
-    if (casesToDisplay.length === 0) {
+            if (casesToDisplay.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                    ${currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.'}
+                    ${currentTab === 'archived' ? 'No archived cases found.' : currentTab === 'resolved' ? 'No resolved cases found.' : 'No cases found.'}
                 </td>
             </tr>
         `;
@@ -108,14 +108,17 @@ function renderTableRows() {
                             class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             View
                         </button>
-                        <button onclick="editCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
-                            Edit
-                        </button>
                         <button onclick="manageSanctions('${caseItem.id}')" 
                             class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Sanctions
                         </button>
+                        ${caseItem.status !== 'Resolved' ? `
+                        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                        <button onclick="markCaseResolved('${caseItem.id}')" 
+                            class="px-3 py-1.5 text-s text-green-600 hover:text-green-700 transition-colors font-medium">
+                            Mark Resolved
+                        </button>
+                        ` : ''}
                     `}
                 </div>
             </td>
@@ -129,10 +132,23 @@ function loadCasesFromDB() {
     
     const searchTerm = document.getElementById('searchInput')?.value || '';
     const typeFilter = document.getElementById('typeFilter')?.value || '';
-    const statusFilter = document.getElementById('statusFilter')?.value || '';
-    const archived = (typeof currentTab !== 'undefined' && currentTab === 'archived') ? 'true' : 'false';
+    let statusFilter = document.getElementById('statusFilter')?.value || '';
     
-    console.log('Filters:', { searchTerm, typeFilter, statusFilter, archived });
+    // Handle tab-based filtering
+    let archived = 'false';
+    if (typeof currentTab !== 'undefined') {
+        if (currentTab === 'archived') {
+            archived = 'true';
+        } else if (currentTab === 'resolved') {
+            // For resolved tab, filter by status=Resolved and not archived
+            statusFilter = 'Resolved';
+        } else if (currentTab === 'current') {
+            // For current tab, exclude resolved cases
+            // We'll handle this on the client side after fetching
+        }
+    }
+    
+    console.log('Filters:', { searchTerm, typeFilter, statusFilter, archived, currentTab });
     
     fetch('/PrototypeDO/modules/do/cases.php', {
         method: 'POST',
@@ -156,8 +172,16 @@ function loadCasesFromDB() {
             
             if (data.success) {
                 allCases = data.cases;
-                filteredCases = [...allCases];
-                console.log('Loaded cases:', allCases.length);
+                
+                // Filter cases based on current tab
+                if (currentTab === 'current') {
+                    // Exclude resolved cases from current tab
+                    filteredCases = allCases.filter(c => c.status !== 'Resolved');
+                } else {
+                    filteredCases = [...allCases];
+                }
+                
+                console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
                 renderCases();
             } else {
                 console.error('Failed to load cases:', data.error);
