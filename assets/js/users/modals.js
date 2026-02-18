@@ -59,23 +59,8 @@ function createAddModal() {
             </div>
             <form id="add_form" onsubmit="submitAddUser(event)" class="p-6 space-y-4">
                 <div>
-                    <label for="add_username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username *</label>
-                    <input type="text" id="add_username" name="username" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
-                    <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                    <input type="email" id="add_email" name="email" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
-                    <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                    <input type="text" id="add_full_name" name="full_name" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
                     <label for="add_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
-                    <select id="add_role" name="role" required 
+                    <select id="add_role" name="role" required onchange="handleRoleChange()"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
                         <option value="">-- Select Role --</option>
                         <option value="super_admin">Super Admin</option>
@@ -85,23 +70,36 @@ function createAddModal() {
                         <option value="student">Student</option>
                     </select>
                 </div>
+                <div id="student_id_display" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student ID</label>
+                    <input type="text" id="add_student_id" readonly
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100">
+                </div>
+                <div>
+                    <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                    <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe" oninput="updateStudentEmail()"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div id="email_container">
+                    <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+                    <input type="email" id="add_email" name="email" required
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
                 <div>
                     <label for="add_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
-                    <input type="tel" id="add_contact_number" name="contact_number" 
+                    <input type="tel" id="add_contact_number" name="contact_number"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
-                <div>
-                    <label for="add_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password *</label>
-                    <input type="password" id="add_password" name="password" required minlength="6"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 6 characters</p>
-                </div>
+                <!-- password will default to "password"; user must change on first login -->
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Accounts are created with the default password <strong>password</strong>. Users should change it on their first login.
+                </p>
                 <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="closeAddModal()" 
+                    <button type="button" onclick="closeAddModal()"
                         class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Cancel
                     </button>
-                    <button type="submit" 
+                    <button type="submit"
                         class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                         Create User
                     </button>
@@ -115,22 +113,19 @@ function createAddModal() {
 async function submitAddUser(event) {
     event.preventDefault();
     
-    const username = document.getElementById('add_username').value;
     const email = document.getElementById('add_email').value;
     const full_name = document.getElementById('add_full_name').value;
     const role = document.getElementById('add_role').value;
     const contact_number = document.getElementById('add_contact_number').value;
-    const password = document.getElementById('add_password').value;
 
     const formData = new FormData();
     formData.append('ajax', '1');
     formData.append('action', 'createUser');
-    formData.append('username', username);
+    // username and password are handled server‑side
     formData.append('email', email);
     formData.append('full_name', full_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
-    formData.append('password', password);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -141,7 +136,11 @@ async function submitAddUser(event) {
         const data = await response.json();
         
         if (data.success) {
-            showMessage('User created successfully', 'success');
+            let msg = 'User created successfully';
+            if (data.student_id) {
+                msg += ' (Student ID: ' + data.student_id + ')';
+            }
+            showMessage(msg, 'success');
             closeAddModal();
             loadUsers();
         } else {
@@ -177,10 +176,7 @@ function createEditModal() {
             </div>
             <form id="edit_form" onsubmit="submitEditUser(event)" class="p-6 space-y-4">
                 <input type="hidden" id="edit_user_id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-                    <p id="edit_username" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"></p>
-                </div>
+
                 <div>
                     <label for="edit_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                     <input type="email" id="edit_email" name="email" required 
@@ -294,8 +290,11 @@ function createResetPasswordModal() {
             <form id="reset_form" onsubmit="submitResetPassword(event)" class="p-6 space-y-4">
                 <input type="hidden" id="reset_user_id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                     <p id="reset_username" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"></p>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="setDefaultPassword()" class="text-sm text-blue-600 hover:underline">Use default password</button>
                 </div>
                 <div>
                     <label for="reset_new_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password *</label>
@@ -361,6 +360,69 @@ async function submitResetPassword(event) {
         console.error('Error:', error);
         showMessage('Error resetting password', 'error');
     }
+}
+
+// Helper to generate next student ID
+async function generateNextStudentID() {
+    try {
+        const response = await fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'ajax=1&action=getNextStudentID'
+        });
+        const data = await response.json();
+        return data.success ? data.student_id : null;
+    } catch (error) {
+        console.error('Error generating student ID:', error);
+        return null;
+    }
+}
+
+// Handle role change in add user form
+async function handleRoleChange() {
+    const role = document.getElementById('add_role').value;
+    const studentIdDisplay = document.getElementById('student_id_display');
+    const emailInput = document.getElementById('add_email');
+    
+    if (role === 'student') {
+        studentIdDisplay.classList.remove('hidden');
+        const studentId = await generateNextStudentID();
+        if (studentId) {
+            document.getElementById('add_student_id').value = studentId;
+            document.getElementById('add_student_id_value').value = studentId;
+        }
+        emailInput.readOnly = true;
+        emailInput.classList.add('bg-gray-50', 'dark:bg-slate-800');
+        updateStudentEmail();
+    } else {
+        studentIdDisplay.classList.add('hidden');
+        emailInput.readOnly = false;
+        emailInput.classList.remove('bg-gray-50', 'dark:bg-slate-800');
+        emailInput.value = '';
+    }
+}
+
+// Update email for student based on full name and student ID
+function updateStudentEmail() {
+    const role = document.getElementById('add_role').value;
+    if (role === 'student') {
+        const fullName = document.getElementById('add_full_name').value.trim();
+        const studentId = document.getElementById('add_student_id').value;
+        
+        if (fullName && studentId) {
+            const nameParts = fullName.split(/\s+/);
+            const lastName = nameParts[nameParts.length - 1].toLowerCase();
+            const lastSixDigits = studentId.slice(-6);
+            const email = `${lastName}.${lastSixDigits}@sti.edu`;
+            document.getElementById('add_email').value = email;
+        }
+    }
+}
+
+// helper to set default password in reset modal
+function setDefaultPassword() {
+    document.getElementById('reset_new_password').value = 'password';
+    document.getElementById('reset_confirm_password').value = 'password';
 }
 
 // ====== Initialize Modals ======

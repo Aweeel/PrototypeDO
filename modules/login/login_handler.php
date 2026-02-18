@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'role' => $user['role']
             ];
 
+
+
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
             $_SESSION['admin_name'] = $user['full_name'];

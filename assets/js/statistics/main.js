@@ -7,21 +7,129 @@ let monthlyTrendsChart = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    populateFilters();
     updateStatistics();
     initializeCasesByTypeChart();
     initializeCasesByGradeChart();
     updateMonthlyTrends();
 });
 
+// Populate all filters
+async function populateFilters() {
+    try {
+        // Fetch grade levels
+        let formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getGradeLevels');
+        
+        let response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+        
+        let result = await response.json();
+        if (result.success) {
+            const gradeLevelSelect = document.getElementById('gradeLevelFilter');
+            result.data.forEach(gradeLevel => {
+                const option = document.createElement('option');
+                option.value = gradeLevel.name;
+                option.textContent = gradeLevel.name;
+                gradeLevelSelect.appendChild(option);
+            });
+        }
+        
+        // Fetch year levels
+        formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getYearLevels');
+        
+        response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+        
+        result = await response.json();
+        if (result.success) {
+            const yearLevelSelect = document.getElementById('yearLevelFilter');
+            result.data.forEach(yearLevel => {
+                const option = document.createElement('option');
+                option.value = yearLevel.name;
+                option.textContent = yearLevel.name;
+                yearLevelSelect.appendChild(option);
+            });
+        }
+        
+        // Fetch strands
+        formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getStrands');
+        
+        response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+        
+        result = await response.json();
+        if (result.success) {
+            const strandSelect = document.getElementById('strandFilter');
+            result.data.forEach(strand => {
+                const option = document.createElement('option');
+                option.value = strand.name;
+                option.textContent = strand.name;
+                strandSelect.appendChild(option);
+            });
+        }
+        
+        // Fetch courses
+        formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getCourses');
+        
+        response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+        
+        result = await response.json();
+        if (result.success) {
+            const courseSelect = document.getElementById('courseFilter');
+            result.data.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.name;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating filters:', error);
+    }
+}
+
+// Update all charts and statistics when filters change
+function updateAllCharts() {
+    updateStatistics();
+    initializeCasesByTypeChart();
+    initializeCasesByGradeChart();
+    updateMonthlyTrends();
+}
+
 // Update statistics cards
 async function updateStatistics() {
     const dateRange = document.getElementById('dateRangeFilter').value;
+    const gradeLevel = document.getElementById('gradeLevelFilter').value;
+    const yearLevel = document.getElementById('yearLevelFilter').value;
+    const strand = document.getElementById('strandFilter').value;
+    const course = document.getElementById('courseFilter').value;
     
     try {
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getStatistics');
         formData.append('dateRange', dateRange);
+        formData.append('gradeLevel', gradeLevel);
+        formData.append('yearLevel', yearLevel);
+        formData.append('strand', strand);
+        formData.append('course', course);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -44,9 +152,18 @@ async function updateStatistics() {
 // Initialize Cases by Type Chart
 async function initializeCasesByTypeChart() {
     try {
+        const gradeLevel = document.getElementById('gradeLevelFilter').value;
+        const yearLevel = document.getElementById('yearLevelFilter').value;
+        const strand = document.getElementById('strandFilter').value;
+        const course = document.getElementById('courseFilter').value;
+        
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getCasesByType');
+        formData.append('gradeLevel', gradeLevel);
+        formData.append('yearLevel', yearLevel);
+        formData.append('strand', strand);
+        formData.append('course', course);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -121,9 +238,18 @@ async function initializeCasesByTypeChart() {
 // Initialize Cases by Grade Level Chart
 async function initializeCasesByGradeChart() {
     try {
+        const gradeLevel = document.getElementById('gradeLevelFilter').value;
+        const yearLevel = document.getElementById('yearLevelFilter').value;
+        const strand = document.getElementById('strandFilter').value;
+        const course = document.getElementById('courseFilter').value;
+        
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getCasesByGrade');
+        formData.append('gradeLevel', gradeLevel);
+        formData.append('yearLevel', yearLevel);
+        formData.append('strand', strand);
+        formData.append('course', course);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -194,12 +320,20 @@ async function initializeCasesByGradeChart() {
 // Update Monthly Trends Chart
 async function updateMonthlyTrends() {
     const year = document.getElementById('yearFilter').value;
+    const gradeLevel = document.getElementById('gradeLevelFilter').value;
+    const yearLevel = document.getElementById('yearLevelFilter').value;
+    const strand = document.getElementById('strandFilter').value;
+    const course = document.getElementById('courseFilter').value;
     
     try {
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getMonthlyTrends');
         formData.append('year', year);
+        formData.append('gradeLevel', gradeLevel);
+        formData.append('yearLevel', yearLevel);
+        formData.append('strand', strand);
+        formData.append('course', course);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
