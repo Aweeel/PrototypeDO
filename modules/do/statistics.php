@@ -8,29 +8,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
 
     try {
-        // Get cases by type
-        if ($_POST['action'] === 'getCasesByType') {
-            $sql = "SELECT case_type, COUNT(*) as count
-                    FROM cases
-                    WHERE is_archived = 0
-                    GROUP BY case_type
-                    ORDER BY count DESC";
+        // Get all grade levels (SHS only: 11, 12)
+        if ($_POST['action'] === 'getGradeLevels') {
+            $sql = "SELECT DISTINCT grade_year as name
+                    FROM students
+                    WHERE grade_year IN ('11', '12')
+                    ORDER BY grade_year DESC";
             
             $data = fetchAll($sql);
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
         }
 
+        // Get all year levels (College only: 1st-4th year)
+        if ($_POST['action'] === 'getYearLevels') {
+            $sql = "SELECT DISTINCT grade_year as name
+                    FROM students
+                    WHERE grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')
+                    ORDER BY grade_year";
+            
+            $data = fetchAll($sql);
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        // Get all strands (SHS track_course: STEM, ABM, HUMSS)
+        if ($_POST['action'] === 'getStrands') {
+            $sql = "SELECT DISTINCT track_course as name
+                    FROM students
+                    WHERE grade_year IN ('11', '12') AND track_course IS NOT NULL AND track_course != ''
+                    ORDER BY track_course";
+            
+            $data = fetchAll($sql);
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        // Get all courses (College track_course: BSBA, BSCS, BSIT, etc.)
+        if ($_POST['action'] === 'getCourses') {
+            $sql = "SELECT DISTINCT track_course as name
+                    FROM students
+                    WHERE grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year') AND track_course IS NOT NULL AND track_course != ''
+                    ORDER BY track_course";
+            
+            $data = fetchAll($sql);
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
+        // Get cases by type
+        if ($_POST['action'] === 'getCasesByType') {
+            $gradeLevel = $_POST['gradeLevel'] ?? '';
+            $yearLevel = $_POST['yearLevel'] ?? '';
+            $strand = $_POST['strand'] ?? '';
+            $course = $_POST['course'] ?? '';
+            
+            $joins = "FROM cases c JOIN students s ON c.student_id = s.student_id";
+            $where = "WHERE c.is_archived = 0";
+            $params = [];
+            
+            if ($gradeLevel) {
+                $where .= " AND s.grade_year = ?";
+                $params[] = $gradeLevel;
+            }
+            if ($yearLevel) {
+                $where .= " AND s.grade_year = ?";
+                $params[] = $yearLevel;
+            }
+            if ($strand) {
+                $where .= " AND s.track_course = ? AND s.grade_year IN ('11', '12')";
+                $params[] = $strand;
+            }
+            if ($course) {
+                $where .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
+                $params[] = $course;
+            }
+            
+            $sql = "SELECT c.case_type, COUNT(*) as count
+                    $joins
+                    $where
+                    GROUP BY c.case_type
+                    ORDER BY count DESC";
+            
+            $data = fetchAll($sql, $params);
+            echo json_encode(['success' => true, 'data' => $data]);
+            exit;
+        }
+
         // Get cases by grade level
         if ($_POST['action'] === 'getCasesByGrade') {
+            $gradeLevel = $_POST['gradeLevel'] ?? '';
+            $yearLevel = $_POST['yearLevel'] ?? '';
+            $strand = $_POST['strand'] ?? '';
+            $course = $_POST['course'] ?? '';
+            
+            $where = "WHERE c.is_archived = 0";
+            $params = [];
+            
+            if ($gradeLevel) {
+                $where .= " AND s.grade_year = ?";
+                $params[] = $gradeLevel;
+            }
+            if ($yearLevel) {
+                $where .= " AND s.grade_year = ?";
+                $params[] = $yearLevel;
+            }
+            if ($strand) {
+                $where .= " AND s.track_course = ? AND s.grade_year IN ('11', '12')";
+                $params[] = $strand;
+            }
+            if ($course) {
+                $where .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
+                $params[] = $course;
+            }
+            
             $sql = "SELECT s.grade_year, COUNT(c.case_id) as count
                     FROM cases c
                     JOIN students s ON c.student_id = s.student_id
-                    WHERE c.is_archived = 0
+                    $where
                     GROUP BY s.grade_year
                     ORDER BY s.grade_year";
             
-            $data = fetchAll($sql);
+            $data = fetchAll($sql, $params);
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
         }
@@ -38,16 +137,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         // Get monthly trends
         if ($_POST['action'] === 'getMonthlyTrends') {
             $year = $_POST['year'] ?? date('Y');
+            $gradeLevel = $_POST['gradeLevel'] ?? '';
+            $yearLevel = $_POST['yearLevel'] ?? '';
+            $strand = $_POST['strand'] ?? '';
+            $course = $_POST['course'] ?? '';
+            
+            $joins = "FROM cases c";
+            $where = "WHERE YEAR(c.date_reported) = ? AND c.is_archived = 0";
+            $params = [$year];
+            
+            if ($gradeLevel || $yearLevel || $strand || $course) {
+                $joins .= " JOIN students s ON c.student_id = s.student_id";
+                if ($gradeLevel) {
+                    $where .= " AND s.grade_year = ?";
+                    $params[] = $gradeLevel;
+                }
+                if ($yearLevel) {
+                    $where .= " AND s.grade_year = ?";
+                    $params[] = $yearLevel;
+                }
+                if ($strand) {
+                    $where .= " AND s.track_course = ? AND s.grade_year IN ('11', '12')";
+                    $params[] = $strand;
+                }
+                if ($course) {
+                    $where .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
+                    $params[] = $course;
+                }
+            }
             
             $sql = "SELECT 
-                        MONTH(date_reported) as month,
+                        MONTH(c.date_reported) as month,
                         COUNT(*) as count
-                    FROM cases
-                    WHERE YEAR(date_reported) = ? AND is_archived = 0
-                    GROUP BY MONTH(date_reported)
-                    ORDER BY MONTH(date_reported)";
+                    $joins
+                    $where
+                    GROUP BY MONTH(c.date_reported)
+                    ORDER BY MONTH(c.date_reported)";
             
-            $data = fetchAll($sql, [$year]);
+            $data = fetchAll($sql, $params);
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
         }
@@ -55,27 +182,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         // Get statistics overview
         if ($_POST['action'] === 'getStatistics') {
             $dateRange = $_POST['dateRange'] ?? 'all';
+            $gradeLevel = $_POST['gradeLevel'] ?? '';
+            $yearLevel = $_POST['yearLevel'] ?? '';
+            $strand = $_POST['strand'] ?? '';
+            $course = $_POST['course'] ?? '';
             
             // Build date filter
             $dateFilter = '';
+            $studentFilter = '';
             $params = [];
             
             switch ($dateRange) {
                 case 'this_month':
-                    $dateFilter = "AND MONTH(date_reported) = MONTH(GETDATE()) AND YEAR(date_reported) = YEAR(GETDATE())";
+                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(GETDATE()) AND YEAR(c.date_reported) = YEAR(GETDATE())";
                     break;
                 case 'last_month':
-                    $dateFilter = "AND MONTH(date_reported) = MONTH(DATEADD(month, -1, GETDATE())) AND YEAR(date_reported) = YEAR(DATEADD(month, -1, GETDATE()))";
+                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(DATEADD(month, -1, GETDATE())) AND YEAR(c.date_reported) = YEAR(DATEADD(month, -1, GETDATE()))";
                     break;
                 case 'this_year':
-                    $dateFilter = "AND YEAR(date_reported) = YEAR(GETDATE())";
+                    $dateFilter = "AND YEAR(c.date_reported) = YEAR(GETDATE())";
                     break;
             }
             
+            if ($gradeLevel || $yearLevel || $strand || $course) {
+                $studentFilter = "JOIN students s ON c.student_id = s.student_id";
+                if ($gradeLevel) {
+                    $dateFilter .= " AND s.grade_year = ?";
+                    $params[] = $gradeLevel;
+                }
+                if ($yearLevel) {
+                    $dateFilter .= " AND s.grade_year = ?";
+                    $params[] = $yearLevel;
+                }
+                if ($strand) {
+                    $dateFilter .= " AND s.track_course = ? AND s.grade_year IN ('11', '12')";
+                    $params[] = $strand;
+                }
+                if ($course) {
+                    $dateFilter .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
+                    $params[] = $course;
+                }
+            }
+            
             $stats = [
-                'totalCases' => fetchValue("SELECT COUNT(*) FROM cases WHERE is_archived = 0 $dateFilter", $params),
-                'resolvedCases' => fetchValue("SELECT COUNT(*) FROM cases WHERE status = 'Resolved' AND is_archived = 0 $dateFilter", $params),
-                'repeatOffenders' => fetchValue("SELECT COUNT(DISTINCT student_id) FROM cases WHERE student_id IN (SELECT student_id FROM cases WHERE is_archived = 0 GROUP BY student_id HAVING COUNT(*) > 1) $dateFilter", $params),
+                'totalCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.is_archived = 0 $dateFilter", $params),
+                'resolvedCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.status = 'Resolved' AND c.is_archived = 0 $dateFilter", $params),
+                'repeatOffenders' => fetchValue("SELECT COUNT(DISTINCT c.student_id) FROM cases c $studentFilter WHERE c.student_id IN (SELECT student_id FROM cases WHERE is_archived = 0 GROUP BY student_id HAVING COUNT(*) > 1) AND c.is_archived = 0 $dateFilter", $params),
                 'lostItemsClaimed' => fetchValue("SELECT CAST(COUNT(CASE WHEN status = 'Claimed' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) AS INT) FROM lost_found_items WHERE is_archived = 0", [])
             ];
             
@@ -125,8 +277,8 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Controls -->
                 <div class="mb-6 flex items-center justify-between">
-                    <div class="flex gap-3">
-                        <select id="dateRangeFilter" onchange="updateStatistics()" 
+                    <div class="flex gap-3 flex-wrap">
+                        <select id="dateRangeFilter" onchange="updateAllCharts()" 
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="all">All Time</option>
                             <option value="this_month">This Month</option>
@@ -134,9 +286,24 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                             <option value="this_year" selected>This Year</option>
                         </select>
 
-                        <select id="viewFilter" 
+                        <select id="gradeLevelFilter" onchange="updateAllCharts()" 
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                            <option value="all">All Strands/Courses</option>
+                            <option value="">All Grade Level</option>
+                        </select>
+
+                        <select id="yearLevelFilter" onchange="updateAllCharts()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="">All Year Level</option>
+                        </select>
+
+                        <select id="strandFilter" onchange="updateAllCharts()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="">All Strands</option>
+                        </select>
+
+                        <select id="courseFilter" onchange="updateAllCharts()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="">All Courses</option>
                         </select>
                     </div>
 
@@ -247,7 +414,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Cases by Grade Level</h3>
                             <select class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <option>All Grades</option>
+                                <option>All Grades/Year</option>
                                 <option>Strand/Course</option>
                             </select>
                         </div>

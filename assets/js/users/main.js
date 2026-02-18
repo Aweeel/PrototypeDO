@@ -6,7 +6,39 @@ let filteredUsers = [];
 document.addEventListener('DOMContentLoaded', function () {
     console.log('Admin Users page loaded');
     loadUsers();
+    setupEventDelegation();
 });
+
+// Setup event delegation for action buttons
+function setupEventDelegation() {
+    document.addEventListener('click', function(e) {
+        // Make sure we get the button even if SVG is clicked
+        const button = e.target.closest('button[data-action]');
+        
+        if (!button) return;
+        
+        const action = button.getAttribute('data-action');
+        const userId = parseInt(button.getAttribute('data-user-id'));
+        
+        console.log('Button clicked:', action, userId);
+        
+        switch(action) {
+            case 'edit':
+                editUser(userId);
+                break;
+            case 'reset':
+                resetPassword(userId);
+                break;
+            case 'toggle':
+                const status = button.getAttribute('data-status') === '1';
+                toggleUserStatus(userId, status);
+                break;
+            case 'delete':
+                deleteUser(userId);
+                break;
+        }
+    });
+}
 
 // ====== Load Users from Database ======
 async function loadUsers() {
@@ -35,6 +67,7 @@ async function loadUsers() {
             allUsers = data.users;
             filteredUsers = [...allUsers];
             console.log('Loaded users:', allUsers.length);
+            console.log('User IDs:', allUsers.map(u => u.user_id));
             renderUsers();
             loadStats();
         } else {
@@ -77,8 +110,11 @@ function renderUsers() {
         <tr class="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
             <td class="px-6 py-4">
                 <div>
-                    <p class="font-medium text-gray-900 dark:text-gray-100">${escapeHtml(user.username)}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">${escapeHtml(user.full_name)}</p>
+                    <p class="font-medium text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        ${escapeHtml(user.email)}
+                        ${user.student_id ? '<br><span class="text-xs">ID: ' + escapeHtml(user.student_id) + '</span>' : ''}
+                    </p>
                 </div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(user.email)}</td>
@@ -96,26 +132,26 @@ function renderUsers() {
             <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${user.last_login}</td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editUser(${user.user_id})" 
-                        class="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+                    <button data-action="edit" data-user-id="${user.user_id}" 
+                        class="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors cursor-pointer" title="Edit User">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                     </button>
-                    <button onclick="resetPassword(${user.user_id})" 
-                        class="px-3 py-1.5 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors" title="Reset Password">
+                    <button data-action="reset" data-user-id="${user.user_id}" 
+                        class="px-3 py-1.5 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors cursor-pointer" title="Reset Password">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                     </button>
-                    <button onclick="toggleUserStatus(${user.user_id}, ${user.is_active})" 
-                        class="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors" title="Toggle Status">
+                    <button data-action="toggle" data-user-id="${user.user_id}" data-status="${user.is_active}" 
+                        class="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors cursor-pointer" title="Toggle Status">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </button>
-                    <button onclick="deleteUser(${user.user_id})" 
-                        class="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+                    <button data-action="delete" data-user-id="${user.user_id}" 
+                        class="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer" title="Delete User">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -143,32 +179,59 @@ function updatePaginationButtons() {
 
 // ====== User Actions ======
 function editUser(userId) {
-    const user = allUsers.find(u => u.user_id === userId);
-    if (!user) return;
+    console.log('editUser called:', userId, 'allUsers:', allUsers.length);
+    const user = allUsers.find(u => u.user_id == userId);
+    if (!user) {
+        console.error('User not found:', userId);
+        return;
+    }
+    console.log('Found user:', user);
 
     const modal = document.getElementById('editModal');
-    document.getElementById('edit_user_id').value = user.user_id;
-    document.getElementById('edit_username').textContent = user.username;
-    document.getElementById('edit_email').value = user.email;
-    document.getElementById('edit_full_name').value = user.full_name;
-    document.getElementById('edit_role').value = user.role;
-    document.getElementById('edit_contact_number').value = user.contact_number || '';
-    document.getElementById('edit_is_active').checked = user.is_active === 1;
-    
-    modal.classList.remove('hidden');
+    if (!modal) {
+        console.log('Creating editModal...');
+        createEditModal();
+    }
+
+    try {
+        document.getElementById('edit_user_id').value = user.user_id;
+        document.getElementById('edit_email').value = user.email;
+        document.getElementById('edit_full_name').value = user.full_name;
+        document.getElementById('edit_role').value = user.role;
+        document.getElementById('edit_contact_number').value = user.contact_number || '';
+        document.getElementById('edit_is_active').checked = user.is_active === 1;
+        document.getElementById('editModal').classList.remove('hidden');
+        console.log('Modal opened');
+    } catch(e) {
+        console.error('Error in editUser:', e);
+    }
 }
 
 function resetPassword(userId) {
-    const user = allUsers.find(u => u.user_id === userId);
-    if (!user) return;
+    console.log('resetPassword called:', userId, 'allUsers:', allUsers.length);
+    const user = allUsers.find(u => u.user_id == userId);
+    if (!user) {
+        console.error('User not found:', userId);
+        return;
+    }
+    console.log('Found user:', user);
 
     const modal = document.getElementById('resetPasswordModal');
-    document.getElementById('reset_user_id').value = user.user_id;
-    document.getElementById('reset_username').textContent = user.username;
-    document.getElementById('reset_new_password').value = '';
-    document.getElementById('reset_confirm_password').value = '';
-    
-    modal.classList.remove('hidden');
+    if (!modal) {
+        console.log('Creating resetPasswordModal...');
+        createResetPasswordModal();
+    }
+
+    try {
+        document.getElementById('reset_user_id').value = user.user_id;
+        document.getElementById('reset_username').textContent = user.email;
+        document.getElementById('reset_new_password').value = '';
+        document.getElementById('reset_confirm_password').value = '';
+        document.getElementById('resetPasswordModal').classList.remove('hidden');
+        console.log('Modal opened');
+    } catch(e) {
+        console.error('Error in resetPassword:', e);
+    }
 }
 
 function toggleUserStatus(userId, currentStatus) {
@@ -201,10 +264,10 @@ function toggleUserStatus(userId, currentStatus) {
 }
 
 function deleteUser(userId) {
-    const user = allUsers.find(u => u.user_id === userId);
-    const username = user ? user.username : 'Unknown';
+    const user = allUsers.find(u => u.user_id == userId);
+    const identifier = user ? user.email : 'Unknown';
     
-    if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete user "${identifier}"? This action cannot be undone.`)) {
         return;
     }
 

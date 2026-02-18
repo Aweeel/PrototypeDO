@@ -112,7 +112,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     <!-- Email Address -->
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
-                        <input type="text" name="username" placeholder="Username" required
+                        <input type="text" name="username" placeholder="nameid@sti.edu" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
 

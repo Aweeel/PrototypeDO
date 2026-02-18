@@ -14,21 +14,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
 
     try {
+        // Get next student ID
+        if ($_POST['action'] === 'getNextStudentID') {
+            $prefix = '02000';
+            $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
+            $nextNum = 1;
+            if ($last) {
+                $num = intval(substr($last, strlen($prefix)));
+                $nextNum = $num + 1;
+            }
+            do {
+                $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
+                $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
+                $nextNum++;
+            } while ($exists);
+            
+            echo json_encode(['success' => true, 'student_id' => $studentId]);
+            exit;
+        }
+
         // Get all users
         if ($_POST['action'] === 'getUsers') {
             $search = $_POST['search'] ?? '';
             $role = $_POST['role'] ?? '';
             $status = $_POST['status'] ?? '';
 
-            $sql = "SELECT user_id, username, email, full_name, role, contact_number, 
-                           is_active, last_login, created_at
-                    FROM users
+            $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
+                           u.is_active, u.last_login, u.created_at,
+                           s.student_id
+                    FROM users u
+                    LEFT JOIN students s ON u.user_id = s.user_id
                     WHERE 1=1";
             
             $params = [];
 
             if (!empty($search)) {
-                $sql .= " AND (username LIKE ? OR full_name LIKE ? OR email LIKE ?)";
+                $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR s.student_id LIKE ?)";
                 $searchTerm = '%' . $search . '%';
                 $params[] = $searchTerm;
                 $params[] = $searchTerm;
@@ -52,11 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $formattedUsers = array_map(function ($user) {
                 return [
                     'user_id' => $user['user_id'],
-                    'username' => $user['username'],
                     'email' => $user['email'],
                     'full_name' => $user['full_name'],
                     'role' => $user['role'],
                     'contact_number' => $user['contact_number'] ?? 'N/A',
+                    'student_id' => $user['student_id'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
@@ -70,23 +91,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Create new user
         if ($_POST['action'] === 'createUser') {
-            $username = trim($_POST['username']);
+            // admin will not provide a username or password anymore
             $email = trim($_POST['email']);
             $full_name = trim($_POST['full_name']);
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
-            $password = $_POST['password'];
+
+            // default password for every new account
+            $password = 'password';
 
             // Validate required fields
-            if (empty($username) || empty($email) || empty($full_name) || empty($role) || empty($password)) {
-                echo json_encode(['success' => false, 'error' => 'All required fields must be filled']);
-                exit;
-            }
-
-            // Check if username already exists
-            $existingUser = fetchOne("SELECT user_id FROM users WHERE username = ?", [$username]);
-            if ($existingUser) {
-                echo json_encode(['success' => false, 'error' => 'Username already exists']);
+            if (empty($email) || empty($full_name) || empty($role)) {
+                echo json_encode(['success' => false, 'error' => 'Email, full name and role are required']);
                 exit;
             }
 
@@ -97,27 +113,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
 
-            // Hash password
+            // generate a username using the email (kept for compatibility and uniqueness)
+            $username = $email;
+
+            // Hash default password
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-            // Insert new user
+            // Insert new user record
             $sql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, 1, GETDATE())";
-            
             executeQuery($sql, [$username, $password_hash, $email, $full_name, $role, $contact_number]);
 
-            // Get the new user ID
-            $newUserId = fetchValue("SELECT user_id FROM users WHERE username = ?", [$username]);
+            // Get the new user ID (lookup by email since it's guaranteed unique)
+            $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
+
+            // if this is a student, create a linked student record with auto‑generated ID
+            if ($role === 'student') {
+                $prefix = '02000';
+                // find last student id with the prefix
+                $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
+                $nextNum = 1;
+                if ($last) {
+                    $num = intval(substr($last, strlen($prefix)));
+                    $nextNum = $num + 1;
+                }
+                // ensure uniqueness in a loop just in case
+                do {
+                    $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
+                    $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
+                    $nextNum++;
+                } while ($exists);
+
+                // split full name into first/last
+                $nameParts = preg_split('/\s+/', $full_name);
+                $firstName = $nameParts[0];
+                $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
+
+                $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)";
+                executeQuery($sqlStudent, [$studentId, $newUserId, $firstName, $lastName, 'N/A', 'College']);
+            }
 
             // Audit log
-            auditCreate('users', $newUserId, [
-                'username' => $username,
+            $logData = [
                 'email' => $email,
                 'full_name' => $full_name,
                 'role' => $role
-            ]);
+            ];
+            if (isset($studentId)) {
+                $logData['student_id'] = $studentId;
+            }
+            auditCreate('users', $newUserId, $logData);
 
-            echo json_encode(['success' => true, 'message' => 'User created successfully']);
+            $response = ['success' => true, 'message' => 'User created successfully'];
+            if (isset($studentId)) {
+                $response['student_id'] = $studentId;
+            }
+            echo json_encode($response);
             exit;
         }
 
@@ -146,6 +197,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     WHERE user_id = ?";
             
             executeQuery($sql, [$email, $full_name, $role, $contact_number, $is_active, $user_id]);
+
+            // if becoming a student and no corresponding student record exists, create one
+            if ($role === 'student') {
+                $existingStudent = fetchOne("SELECT student_id FROM students WHERE user_id = ?", [$user_id]);
+                if (!$existingStudent) {
+                    $prefix = '02000';
+                    $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
+                    $nextNum = 1;
+                    if ($last) {
+                        $num = intval(substr($last, strlen($prefix)));
+                        $nextNum = $num + 1;
+                    }
+                    do {
+                        $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
+                        $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
+                        $nextNum++;
+                    } while ($exists);
+
+                    $nameParts = preg_split('/\s+/', $full_name);
+                    $firstName = $nameParts[0];
+                    $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
+                    $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)";
+                    executeQuery($sqlStudent, [$studentId, $user_id, $firstName, $lastName, 'N/A', 'College']);
+                }
+            }
 
             // Audit log
             $newData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$user_id]);
@@ -209,6 +285,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // Get user data before deletion
             $userData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$user_id]);
+
+            // Delete associated audit logs first (foreign key constraint)
+            $sqlDeleteAudit = "DELETE FROM audit_log WHERE user_id = ?";
+            executeQuery($sqlDeleteAudit, [$user_id]);
 
             // Delete user
             $sql = "DELETE FROM users WHERE user_id = ?";
@@ -331,7 +411,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                     <table class="w-full">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Name</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Email</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Contact</th>
