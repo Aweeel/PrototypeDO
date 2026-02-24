@@ -38,7 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Expected columns: student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+        // Expected columns: first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+        // Student ID will be auto-generated based on most recent 02000XXXXXX number
         $imported = 0;
         $errors = [];
         $skipped = 0;
@@ -52,67 +53,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             // Map CSV columns to array
             $data = array_combine($header, $row);
 
-            // Validate required fields
-            if (empty($data['student_id']) || empty($data['first_name']) || empty($data['last_name']) || empty($data['grade_year'])) {
-                $errors[] = "Row skipped: Missing required fields (student_id, first_name, last_name, or grade_year)";
+            // Validate required fields (student_id is no longer required)
+            if (empty($data['first_name']) || empty($data['last_name']) || empty($data['grade_year'])) {
+                $errors[] = "Row skipped: Missing required fields (first_name, last_name, or grade_year)";
                 $skipped++;
                 continue;
             }
 
             try {
-                // Check if student already exists
+                // Auto-generate student_id based on most recent 02000XXXXXX format
+                $lastStudentSql = "SELECT TOP 1 student_id FROM students 
+                                   WHERE student_id LIKE '02000%' 
+                                   ORDER BY student_id DESC";
+                $lastStudent = fetchOne($lastStudentSql);
+                
+                if ($lastStudent && isset($lastStudent['student_id'])) {
+                    // Extract the numeric part and increment
+                    $lastNumber = intval(substr($lastStudent['student_id'], 5)); // Get numbers after '02000'
+                    $newNumber = $lastNumber + 1;
+                    $newStudentId = '02000' . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
+                } else {
+                    // No existing students, start from 02000000001
+                    $newStudentId = '02000000001';
+                }
+
+                // Check if auto-generated student_id already exists (safety check)
                 $checkSql = "SELECT student_id FROM students WHERE student_id = ?";
-                $existing = fetchOne($checkSql, [$data['student_id']]);
+                $existing = fetchOne($checkSql, [$newStudentId]);
 
                 if ($existing) {
-                    // Update existing student
-                    $updateSql = "UPDATE students SET 
-                                    first_name = ?,
-                                    last_name = ?,
-                                    middle_name = ?,
-                                    grade_year = ?,
-                                    track_course = ?,
-                                    section = ?,
-                                    student_type = ?,
-                                    guardian_name = ?,
-                                    guardian_contact = ?,
-                                    updated_at = GETDATE()
-                                  WHERE student_id = ?";
-                    
-                    executeQuery($updateSql, [
-                        $data['first_name'],
-                        $data['last_name'],
-                        $data['middle_name'] ?? null,
-                        $data['grade_year'],
-                        $data['track_course'] ?? null,
-                        $data['section'] ?? null,
-                        $data['student_type'] ?? null,
-                        $data['guardian_name'] ?? null,
-                        $data['guardian_contact'] ?? null,
-                        $data['student_id']
-                    ]);
-                } else {
-                    // Insert new student
-                    $insertSql = "INSERT INTO students (student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact)
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    
-                    executeQuery($insertSql, [
-                        $data['student_id'],
-                        $data['first_name'],
-                        $data['last_name'],
-                        $data['middle_name'] ?? null,
-                        $data['grade_year'],
-                        $data['track_course'] ?? null,
-                        $data['section'] ?? null,
-                        $data['student_type'] ?? null,
-                        $data['guardian_name'] ?? null,
-                        $data['guardian_contact'] ?? null
-                    ]);
+                    $errors[] = "Error: Auto-generated student ID {$newStudentId} already exists. Database may be out of sync.";
+                    $skipped++;
+                    continue;
                 }
+
+                // Auto-generate email: lastname.last6digits@sti.edu
+                $lastName = strtolower(str_replace(' ', '', $data['last_name'])); // Remove spaces and lowercase
+                $last6Digits = substr($newStudentId, -6); // Get last 6 digits
+                $email = $lastName . '.' . $last6Digits . '@sti.edu';
+
+                // Create user account for the student
+                $fullName = trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']);
+                $username = $email; // Use email as username
+                $defaultPassword = 'password'; // Default password for all students
+                $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+
+                // Check if email already exists
+                $emailCheck = fetchOne("SELECT user_id FROM users WHERE email = ?", [$email]);
+                if ($emailCheck) {
+                    $errors[] = "Error: Email {$email} already exists for student {$newStudentId}";
+                    $skipped++;
+                    continue;
+                }
+
+                // Insert user account
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, 'student', ?, 1, GETDATE())";
+                executeQuery($userSql, [
+                    $username,
+                    $passwordHash,
+                    $email,
+                    $fullName,
+                    $data['guardian_contact'] ?? null
+                ]);
+
+                // Get the newly created user_id
+                $userId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
+
+                // Insert new student with auto-generated ID and linked user_id
+                $insertSql = "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                executeQuery($insertSql, [
+                    $newStudentId,
+                    $userId,
+                    $data['first_name'],
+                    $data['last_name'],
+                    $data['middle_name'] ?? null,
+                    $data['grade_year'],
+                    $data['track_course'] ?? null,
+                    $data['section'] ?? null,
+                    $data['student_type'] ?? null,
+                    $data['guardian_name'] ?? null,
+                    $data['guardian_contact'] ?? null
+                ]);
 
                 $imported++;
             } catch (Exception $e) {
-                $errors[] = "Error importing student " . $data['student_id'] . ": " . $e->getMessage();
+                $errors[] = "Error importing student: " . $e->getMessage();
                 $skipped++;
             }
         }
