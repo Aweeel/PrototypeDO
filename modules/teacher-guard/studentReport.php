@@ -63,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $newCaseId = createCase($data);
             updateStudentOffenseCount($data['student_number']);
             
+            error_log("studentReport: New case created - $newCaseId for student {$data['student_number']}");
+            
             // Notify DO users of the new report
             notifyDOOnNewReport(
                 $newCaseId,
@@ -71,12 +73,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $data['severity']
             );
             
+            // Notify the student that they have been reported
+            $notificationSent = notifyStudentOnNewCase(
+                $data['student_number'],
+                $newCaseId,
+                $data['case_type'],
+                $data['severity']
+            );
+            
+            if ($notificationSent) {
+                error_log("studentReport: Student notification sent successfully");
+            } else {
+                error_log("studentReport: Student notification failed or student has no user_id");
+            }
+            
             echo json_encode([
                 'success' => true, 
                 'caseId' => $newCaseId, 
                 'message' => 'Report submitted successfully'
             ]);
         } catch (Exception $e) {
+            error_log("studentReport: Exception - " . $e->getMessage());
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
@@ -454,15 +471,21 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
 
         // Notification function
         function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
+            // Use the global notification function if available
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+            } else {
+                // Fallback for backward compatibility
+                const notification = document.createElement('div');
+                const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+                notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
         }
     </script>
 

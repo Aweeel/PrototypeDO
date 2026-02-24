@@ -80,9 +80,16 @@ if ($_POST['action'] === 'createCase') {
 
     $newCaseId = createCase($data);
 
-
-
     updateStudentOffenseCount($data['student_number']);
+    
+    // Notify the student that a case has been created for them
+    notifyStudentOnNewCase(
+        $data['student_number'],
+        $newCaseId,
+        $data['case_type'],
+        $data['severity']
+    );
+    
     echo json_encode(['success' => true, 'caseId' => $newCaseId, 'message' => 'Case created successfully']);
     exit;
 }
@@ -405,22 +412,22 @@ if ($_POST['action'] === 'applySanction') {
                         <!-- Minor/Major Filter Buttons -->
                         <div class="flex gap-2 border-r border-gray-300 dark:border-slate-600 pr-3">
                             <button id="allOffensesBtn" onclick="filterByOffenseType('')"
-                                class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
+                                class="px-4 py-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
                                 All
                             </button>
                             <button id="minorBtn" onclick="filterByOffenseType('Minor')"
-                                class="px-4 py-2 bg-white dark:bg-slate-800 border border-yellow-500 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium text-sm hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors">
+                                class="px-4 py-2.5 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-500 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium text-sm hover:bg-yellow-200 dark:hover:bg-yellow-900/40 transition-colors">
                                 Minor
                             </button>
                             <button id="majorBtn" onclick="filterByOffenseType('Major')"
-                                class="px-4 py-2 bg-white dark:bg-slate-800 border border-red-500 text-red-700 dark:text-red-300 rounded-lg font-medium text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                class="px-4 py-2.5 bg-red-100 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-300 rounded-lg font-medium text-sm hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors">
                                 Major
                             </button>
                         </div>
 
                         <!-- Advanced Filters Button -->
                         <button onclick="openAdvancedFilters()"
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2">
+                            class="px-4 py-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -430,7 +437,7 @@ if ($_POST['action'] === 'applySanction') {
 
                         <!-- Sort Dropdown -->
                         <select id="sortFilter" onchange="sortCases()"
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="px-4 py-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors cursor-pointer">
                             <option value="newest">Sort: Newest</option>
                             <option value="oldest">Sort: Oldest</option>
                             <option value="status">Sort: Status</option>
@@ -482,6 +489,7 @@ if ($_POST['action'] === 'applySanction') {
     </div>
 
     <!-- Load Scripts -->
+    <script src="/PrototypeDO/assets/js/notifications.js"></script>
     <script src="/PrototypeDO/assets/js/cases/data.js"></script>
     <script src="/PrototypeDO/assets/js/cases/filters.js"></script>
     <script src="/PrototypeDO/assets/js/cases/modals.js"></script>

@@ -486,6 +486,120 @@ function notifyDOOnNewReport($caseId, $studentName, $caseType, $severity) {
     }
 }
 
+/**
+ * Notify a student when a case is created/reported against them
+ * 
+ * @param string $studentId The student ID
+ * @param string $caseId The case ID
+ * @param string $caseType The type of case
+ * @param string $severity The severity level (Major/Minor)
+ * @return bool True if notification was sent
+ */
+function notifyStudentOnNewCase($studentId, $caseId, $caseType, $severity) {
+    try {
+        // Get student info
+        $sql = "SELECT user_id, first_name, last_name, student_id FROM students WHERE student_id = ?";
+        $student = fetchOne($sql, [$studentId]);
+        
+        if (!$student) {
+            error_log("notifyStudentOnNewCase: Student not found - $studentId");
+            return false;
+        }
+        
+        $userId = $student['user_id'];
+        
+        // If user_id is not linked, try to find it by matching username patterns
+        if (!$userId) {
+            error_log("notifyStudentOnNewCase: Student user_id is NULL, searching for matching user account");
+            
+            // Try to find user by searching for username containing student_id or matching name pattern
+            $searchUsername = '%' . substr($studentId, -4) . '%'; // Last 4 digits of student ID
+            $searchNamePattern = strtolower($student['first_name']) . '%';
+            
+            $sql = "SELECT user_id, role FROM users WHERE (
+                        username LIKE ? 
+                        OR username LIKE ?
+                        OR email LIKE ?
+                    ) LIMIT 1";
+            $foundUser = fetchOne($sql, [$searchUsername, $searchNamePattern, $searchUsername]);
+            
+            if ($foundUser) {
+                $userId = $foundUser['user_id'];
+                error_log("notifyStudentOnNewCase: Found matching user - user_id $userId with role {$foundUser['role']}");
+                
+                // Update the student record to link to this user
+                try {
+                    $updateSql = "UPDATE students SET user_id = ? WHERE student_id = ?";
+                    executeQuery($updateSql, [$userId, $studentId]);
+                    error_log("notifyStudentOnNewCase: Linked student $studentId to user_id $userId");
+                } catch (Exception $e) {
+                    error_log("notifyStudentOnNewCase: Could not update student record - " . $e->getMessage());
+                }
+                
+                // If the user's role is not 'student', update it to 'student'
+                if ($foundUser['role'] !== 'student') {
+                    try {
+                        $roleUpdateSql = "UPDATE users SET role = 'student' WHERE user_id = ?";
+                        executeQuery($roleUpdateSql, [$userId]);
+                        error_log("notifyStudentOnNewCase: Updated user role to 'student' for user_id $userId (was: {$foundUser['role']})");
+                    } catch (Exception $roleEx) {
+                        error_log("notifyStudentOnNewCase: Could not update user role - " . $roleEx->getMessage());
+                    }
+                }
+            } else {
+                error_log("notifyStudentOnNewCase: No matching user found, will create new account");
+                
+                // Create new user account as fallback
+                try {
+                    $tempPassword = password_hash('TempPassword123!', PASSWORD_BCRYPT);
+                    $username = strtolower(str_replace(' ', '.', $student['first_name'] . '.' . $student['last_name'] . '.' . substr($studentId, -4)));
+                    $email = 'student.' . $studentId . '@sti.edu.ph';
+                    
+                    $sql = "INSERT INTO users (username, password_hash, email, full_name, role, is_active)
+                            VALUES (?, ?, ?, ?, ?, 1)";
+                    executeQuery($sql, [
+                        $username,
+                        $tempPassword,
+                        $email,
+                        $student['first_name'] . ' ' . $student['last_name'],
+                        'student'
+                    ]);
+                    
+                    $newUser = fetchOne("SELECT user_id FROM users WHERE username = ?", [$username]);
+                    if ($newUser) {
+                        $userId = $newUser['user_id'];
+                        
+                        $updateSql = "UPDATE students SET user_id = ? WHERE student_id = ?";
+                        executeQuery($updateSql, [$userId, $studentId]);
+                        
+                        error_log("notifyStudentOnNewCase: Created new user account - user_id $userId for student $studentId");
+                    }
+                } catch (Exception $createUserEx) {
+                    error_log("notifyStudentOnNewCase: Failed to create user account - " . $createUserEx->getMessage());
+                    return false;
+                }
+            }
+        }
+        
+        if (!$userId) {
+            error_log("notifyStudentOnNewCase: Still no user_id available");
+            return false;
+        }
+        
+        $title = "New Case - " . $severity;
+        $message = "You have been reported for: $caseType. Severity: $severity. Case ID: $caseId. Please check the case details for more information.";
+        
+        createNotification($userId, $title, $message, 'case_reported', $caseId);
+        
+        error_log("notifyStudentOnNewCase: Notification sent to user_id {$userId} for case $caseId");
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in notifyStudentOnNewCase: " . $e->getMessage());
+        return false;
+    }
+}
+
 
 // ==========================================
 // AUDIT LOG FUNCTIONS
@@ -798,7 +912,7 @@ function get_sidebar_items($role) {
             ],
             [
                 'label' => 'My Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
+                'path' => '/PrototypeDO/modules/student/studentCases.php',
                 'icon' => 'cases-icon.png'
             ],  
             [

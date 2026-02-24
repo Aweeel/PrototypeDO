@@ -13,6 +13,8 @@ $unreadCount = count($unreadNotifications);
            border-b border-gray-200 dark:border-gray-700
            px-8 py-4
            transition-all duration-300">
+    <!-- Global Notifications System -->
+    <script src="/PrototypeDO/assets/js/notifications.js"></script>
     <div class="flex items-center justify-between">
         <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
             <?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Dashboard'; ?>
@@ -127,9 +129,16 @@ $unreadCount = count($unreadNotifications);
             const data = await response.json();
             
             if (data.success) {
-                // If there's a case ID, redirect to the case details
+                // If there's a case ID, redirect to the case details based on user role
                 if (relatedId) {
-                    window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;
+                    // Get the user role from the HTML data attribute or session
+                    const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
+                    
+                    if (userRole === 'student') {
+                        window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedId)}`;
+                    } else {
+                        window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;
+                    }
                 } else {
                     // Otherwise just reload the page
                     setTimeout(() => location.reload(), 300);

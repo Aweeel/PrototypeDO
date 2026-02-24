@@ -290,6 +290,16 @@ function applyClientSideFilters() {
     // Start with all cases
     filteredCases = [...allCases];
     
+    // First, filter by current tab status
+    if (currentTab === 'current') {
+        // Exclude resolved cases from current tab
+        filteredCases = filteredCases.filter(c => c.status !== 'Resolved');
+    } else if (currentTab === 'resolved') {
+        // Show only resolved cases for resolved tab
+        filteredCases = filteredCases.filter(c => c.status === 'Resolved');
+    }
+    // For archived tab, all cases should already be archived from the database query
+    
     // Apply offense type filter
     if (activeFilters.offenseType) {
         filteredCases = filteredCases.filter(c => c.severity === activeFilters.offenseType);

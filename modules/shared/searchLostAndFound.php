@@ -3,10 +3,29 @@
 // Don't require auth_check for public search
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/lostAndFoundFunctions.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 // Page metadata
 $pageTitle = "Search Lost & Found";
 $categories = getCategories();
+
+// Set user name for header
+$adminName = 'User';
+if (isset($_SESSION['user_id'])) {
+    if ($_SESSION['user_role'] === 'student') {
+        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
+        $student = fetchOne($sql, [$_SESSION['user_id']]);
+        if ($student) {
+            $adminName = $student['first_name'] . ' ' . $student['last_name'];
+        }
+    } else {
+        $sql = "SELECT full_name FROM users WHERE user_id = ?";
+        $user = fetchOne($sql, [$_SESSION['user_id']]);
+        if ($user) {
+            $adminName = $user['full_name'];
+        }
+    }
+}
 
 // Handle search
 $searchResults = [];

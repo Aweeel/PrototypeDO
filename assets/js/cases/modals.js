@@ -394,14 +394,14 @@ async function confirmMarkResolved(caseId) {
         }
       }
       
-      showSuccessToast("Case marked as resolved successfully!");
+      showNotification("Case marked as resolved successfully!", "success");
     } else {
-      showErrorToast("Failed to mark case as resolved: " + (data.error || "Unknown error"));
+      showNotification("Failed to mark case as resolved: " + (data.error || "Unknown error"), "error");
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error marking case as resolved:", error);
-    showErrorToast("Error marking case as resolved. Please try again.");
+    showNotification("Error marking case as resolved. Please try again.", "error");
   }
 }
 
@@ -569,7 +569,7 @@ async function editCase(caseId) {
 
       // Validate "Others" requires description
       if (caseType === "Others" && !description.trim()) {
-        alert('Description is required when Case Type is "Others"');
+        showNotification('Description is required when Case Type is "Others"', "warning");
         return;
       }
 
@@ -578,7 +578,7 @@ async function editCase(caseId) {
         const customOffense =
           document.getElementById("editCustomOffense").value;
         if (!customOffense.trim()) {
-          alert("Please specify the offense type");
+          showNotification("Please specify the offense type", "warning");
           return;
         }
       }
@@ -618,13 +618,13 @@ async function editCase(caseId) {
           if (typeof loadCasesFromDB === "function") {
             loadCasesFromDB();
           }
-          showSuccessToast("Case updated successfully!");
+          showNotification("Case updated successfully!", "success");
         } else {
-          alert("Error: " + (data.error || "Failed to update case"));
+          showNotification("Error: " + (data.error || "Failed to update case"), "error");
         }
       } catch (error) {
         console.error("Error updating case:", error);
-        alert("Error updating case. Please try again.");
+        showNotification("Error updating case. Please try again.", "error");
       }
     });
 }
@@ -836,30 +836,31 @@ async function addCase() {
 
       // Validate student exists
       if (!studentName) {
-        alert(
-          "Please enter a valid student number. Student must exist in the database."
+        showNotification(
+          "Please enter a valid student number. Student must exist in the database.",
+          "warning"
         );
         return;
       }
 
       if (!offenseType) {
-        alert("Please select an Offense Type (Minor or Major)");
+        showNotification("Please select an Offense Type (Minor or Major)", "warning");
         return;
       }
 
       if (!caseType) {
-        alert("Please select a Case Type");
+        showNotification("Please select a Case Type", "warning");
         return;
       }
 
       if (caseType === "Others") {
         if (!description.trim()) {
-          alert('Description is required when Case Type is "Others"');
+          showNotification('Description is required when Case Type is "Others"', "warning");
           return;
         }
         const customOffense = document.getElementById("newCustomOffense").value;
         if (!customOffense.trim()) {
-          alert("Please specify the offense type");
+          showNotification("Please specify the offense type", "warning");
           return;
         }
       }
@@ -896,13 +897,13 @@ async function addCase() {
         if (data.success) {
           closeModal(e.target);
           loadCasesFromDB();
-          showSuccessToast("Case created successfully!");
+          showNotification("Case created successfully!", "success");
         } else {
-          alert("Error: " + (data.error || "Failed to create case"));
+          showNotification("Error: " + (data.error || "Failed to create case"), "error");
         }
       } catch (error) {
         console.error("Error creating case:", error);
-        alert("Error creating case. Please try again.");
+        showNotification("Error creating case. Please try again.", "error");
       }
     });
 }
@@ -1047,13 +1048,13 @@ async function manageSanctions(caseId) {
         const notes = document.getElementById('sanctionNotes').value;
 
         if (!sanctionId) {
-            alert('Please select a sanction');
+            showNotification('Please select a sanction', "warning");
             return;
         }
 
         const durationDiv = document.getElementById('durationDiv');
         if (durationDiv.style.display !== 'none' && !duration) {
-            alert('Please enter the duration in days');
+            showNotification('Please enter the duration in days', "warning");
             return;
         }
 
@@ -1150,7 +1151,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes) {
     } catch (error) {
         closeLoadingToast();
         console.error('Error applying sanction:', error);
-        showErrorToast('Error applying sanction. Please try again.');
+        showNotification('Error applying sanction. Please try again.', "error");
     }
 }
 
@@ -1345,14 +1346,14 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
             
             if (data.success) {
                 loadAppliedSanctions(caseId);
-                showSuccessToast('Sanction updated successfully!');
+                showNotification('Sanction updated successfully!', "success");
             } else {
-                showErrorToast('Failed to update sanction: ' + (data.error || 'Unknown error'));
+                showNotification('Failed to update sanction: ' + (data.error || 'Unknown error'), "error");
             }
         } catch (error) {
             closeLoadingToast();
             console.error('Error updating sanction:', error);
-            showErrorToast('Error updating sanction. Please try again.');
+            showNotification('Error updating sanction. Please try again.', "error");
         }
     });
 }
@@ -1436,7 +1437,7 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
     } catch (error) {
         closeLoadingToast();
         console.error('Error removing sanction:', error);
-        showErrorToast('Error removing sanction. Please try again.');
+        showNotification('Error removing sanction. Please try again.', "error");
     }
 }
 
@@ -1515,16 +1516,16 @@ async function confirmArchiveCase(caseId) {
 
     if (data.success) {
       loadCasesFromDB();
-      showSuccessToast("Case archived successfully!");
+      showNotification("Case archived successfully!", "success");
     } else {
-      showErrorToast(
+      showNotification(
         "Failed to archive case: " + (data.error || "Unknown error")
       );
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error archiving case:", error);
-    showErrorToast("Error archiving case. Please try again.");
+    showNotification("Error archiving case. Please try again.", "error");
   }
 }
 
@@ -1594,9 +1595,9 @@ async function confirmUnarchiveCase(caseId) {
 
     if (data.success) {
       loadCasesFromDB();
-      showSuccessToast("Case restored successfully!");
+      showNotification("Case restored successfully!", "success");
     } else {
-      showErrorToast(
+      showNotification(
         "Failed to restore case: " + (data.error || "Unknown error")
       );
     }
@@ -1633,43 +1634,11 @@ function closeLoadingToast() {
 }
 
 function showSuccessToast(message) {
-  const toast = document.createElement("div");
-  toast.className =
-    "fixed top-4 right-4 z-50 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg shadow-lg p-4 flex items-center gap-3 transition-all duration-300 transform translate-x-full";
-  toast.innerHTML = `
-        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
-        <span class="text-green-800 dark:text-green-200 font-medium">${message}</span>
-    `;
-  document.body.appendChild(toast);
-
-  setTimeout(() => toast.classList.remove("translate-x-full"), 10);
-  setTimeout(() => {
-    toast.classList.add("translate-x-full");
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  // Delegate to unified notification system
+  showNotification(message, 'success');
 }
 
 function showErrorToast(message) {
-  const toast = document.createElement("div");
-  toast.className =
-    "fixed top-4 right-4 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg shadow-lg p-4 flex items-center gap-3 transition-all duration-300 transform translate-x-full";
-  toast.innerHTML = `
-        <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </div>
-        <span class="text-red-800 dark:text-red-200 font-medium">${message}</span>
-    `;
-  document.body.appendChild(toast);
-
-  setTimeout(() => toast.classList.remove("translate-x-full"), 10);
-  setTimeout(() => {
-    toast.classList.add("translate-x-full");
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  // Delegate to unified notification system
+  showNotification(message, 'error');
 }
