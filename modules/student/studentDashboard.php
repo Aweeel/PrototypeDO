@@ -1,12 +1,24 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 // Page metadata
 $pageTitle = "Dashboard";
 $adminName = $_SESSION['admin_name'] ?? 'Admin';
-$studentId = $_SESSION['student_id'] ?? null;
+$userId = $_SESSION['user_id'] ?? null;
+$studentId = null;
 
+// Get database connection
+$pdo = getDBConnection();
+
+// Get student_id from user_id
+if ($userId && $pdo) {
+    $stmt = $pdo->prepare("SELECT student_id FROM students WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $studentRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+    $studentId = $studentRecord['student_id'] ?? null;
+}
 
 // Fetch student dashboard data
 $totalCases = 0;
@@ -19,7 +31,7 @@ if ($studentId) {
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status IN ('pending', 'under_review') THEN 1 ELSE 0 END) as active
+            SUM(CASE WHEN status IN ('Pending', 'On Going') THEN 1 ELSE 0 END) as active
         FROM cases 
         WHERE student_id = ?
     ");
@@ -30,11 +42,11 @@ if ($studentId) {
 
     // Get next hearing date
     $stmt = $pdo->prepare("
-        SELECT MIN(hearing_date) as next_hearing
+        SELECT MIN(next_hearing_date) as next_hearing
         FROM cases 
         WHERE student_id = ? 
-        AND status IN ('pending', 'under_review')
-        AND hearing_date > NOW()
+        AND status IN ('Pending', 'On Going')
+        AND next_hearing_date > GETDATE()
     ");
     $stmt->execute([$studentId]);
     $hearingData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -42,7 +54,7 @@ if ($studentId) {
 
     // Get recent cases
     $stmt = $pdo->prepare("
-        SELECT 
+        SELECT TOP 5
             case_id,
             case_type,
             created_at,
@@ -50,10 +62,38 @@ if ($studentId) {
         FROM cases 
         WHERE student_id = ?
         ORDER BY created_at DESC
-        LIMIT 5
     ");
     $stmt->execute([$studentId]);
     $recentCases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Fetch notifications for the student
+$notifications = [];
+$unreadNotificationCount = 0;
+if ($userId) {
+    $notifications = getUnreadNotifications($userId);
+    $unreadNotificationCount = count($notifications);
+}
+
+// Handle AJAX requests for notifications
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    
+    if ($_POST['action'] === 'markNotificationAsRead') {
+        $notificationId = $_POST['notificationId'] ?? null;
+        
+        if ($notificationId) {
+            try {
+                markNotificationAsRead($notificationId);
+                echo json_encode(['success' => true, 'message' => 'Notification marked as read']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Notification ID required']);
+        }
+        exit;
+    }
 }
 
 // Format next hearing date
@@ -62,12 +102,14 @@ $nextHearingFormatted = $nextHearing ? date('M d', strtotime($nextHearing)) : 'N
 // Status badge colors
 function getStatusBadgeClass($status) {
     switch ($status) {
-        case 'pending':
+        case 'Pending':
             return 'bg-orange-500/10 text-orange-500 border border-orange-500/20';
-        case 'under_review':
+        case 'On Going':
             return 'bg-blue-500/10 text-blue-500 border border-blue-500/20';
-        case 'resolved':
+        case 'Resolved':
             return 'bg-green-500/10 text-green-500 border border-green-500/20';
+        case 'Dismissed':
+            return 'bg-gray-500/10 text-gray-500 border border-gray-500/20';
         default:
             return 'bg-gray-500/10 text-gray-500 border border-gray-500/20';
     }
@@ -76,13 +118,14 @@ function getStatusBadgeClass($status) {
 // Status display text
 function getStatusText($status) {
     switch ($status) {
-        case 'pending':
+        case 'Pending':
             return 'Pending';
-        case 'on_going':
-        case 'under_review':
+        case 'On Going':
             return 'On Going';
-        case 'resolved':
+        case 'Resolved':
             return 'Resolved';
+        case 'Dismissed':
+            return 'Dismissed';
         default:
             return ucfirst($status);
     }
@@ -128,6 +171,45 @@ function getStatusText($status) {
                 <div class="mb-8">
                     <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Student Dashboard</h1>
                 </div>
+
+                <!-- Notifications Section -->
+                <?php if (!empty($notifications)): ?>
+                    <div class="mb-8 space-y-3">
+                        <?php foreach ($notifications as $notification): ?>
+                            <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo htmlspecialchars($notification['related_id']); ?>" class="block">
+                                <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4 flex items-start justify-between notification-item hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors cursor-pointer" data-notification-id="<?php echo $notification['notification_id']; ?>">
+                                    <div class="flex items-start gap-4 flex-1">
+                                        <div class="w-10 h-10 flex-shrink-0 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                            </svg>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h3 class="font-semibold text-gray-900 dark:text-gray-100">
+                                                <?php echo htmlspecialchars($notification['title']); ?>
+                                            </h3>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                                <?php echo htmlspecialchars($notification['message']); ?>
+                                            </p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                                <?php echo date('M d, Y \a\t h:i A', strtotime($notification['created_at'])); ?>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        class="ml-4 flex-shrink-0 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mark-read-btn" 
+                                        onclick="event.preventDefault(); event.stopPropagation(); markNotificationAsRead(<?php echo $notification['notification_id']; ?>)"
+                                        title="Mark as read"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -181,7 +263,7 @@ function getStatusText($status) {
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
                     <div class="p-6 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Cases</h2>
-                        <a href="/cases" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all cases</a>
+                        <a href="/PrototypeDO/modules/student/studentCases.php" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all cases</a>
                     </div>
 
                     <div class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -195,23 +277,26 @@ function getStatusText($status) {
                             </div>
                         <?php else: ?>
                             <?php foreach ($recentCases as $case): ?>
-                                <div class="p-6 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400">
                                     <div class="flex items-center justify-between">
                                         <div class="flex-1">
-                                            <h3 class="font-medium text-gray-900 dark:text-gray-100 mb-1">
-                                                <?php echo htmlspecialchars(str_replace('_', ' ', ucwords($case['case_type'], '_'))); ?>
+                                            <h3 class="font-medium text-gray-900 dark:text-gray-100 mb-2 hover:text-blue-600 dark:hover:text-blue-400">
+                                                Case #<?php echo htmlspecialchars($case['case_id']); ?> - <?php echo htmlspecialchars(str_replace('_', ' ', ucwords($case['case_type'], '_'))); ?>
                                             </h3>
                                             <p class="text-sm text-gray-500 dark:text-gray-400">
                                                 <?php echo date('M d, Y', strtotime($case['created_at'])); ?>
                                             </p>
                                         </div>
-                                        <div>
+                                        <div class="flex items-center gap-4">
                                             <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo getStatusBadgeClass($case['status']); ?>">
                                                 <?php echo getStatusText($case['status']); ?>
                                             </span>
+                                            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                            </svg>
                                         </div>
                                     </div>
-                                </div>
+                                </a>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
@@ -221,5 +306,43 @@ function getStatusText($status) {
     </div>
 
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script>
+        function markNotificationAsRead(notificationId) {
+            const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+            
+            fetch('<?php echo $_SERVER['PHP_SELF']; ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=markNotificationAsRead&notificationId=' + notificationId
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the notification with fade animation
+                    if (notificationElement) {
+                        notificationElement.style.transition = 'opacity 0.3s ease-out';
+                        notificationElement.style.opacity = '0';
+                        setTimeout(() => {
+                            notificationElement.remove();
+                            
+                            // If no more notifications, optionally show a message
+                            const allNotifications = document.querySelectorAll('.notification-item');
+                            if (allNotifications.length === 0) {
+                                const container = document.querySelector('main > div');
+                                if (container && container.classList.contains('mb-8')) {
+                                    container.parentElement.style.display = 'none';
+                                }
+                            }
+                        }, 300);
+                    }
+                } else {
+                    console.error('Failed to mark notification as read:', data.error);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
 </body>
 </html>
