@@ -203,11 +203,6 @@ function createEditModal() {
                     <input type="tel" id="edit_contact_number" name="contact_number" 
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
-                <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
-                    <input type="checkbox" id="edit_is_active" name="is_active" 
-                        class="w-4 h-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500">
-                    <label for="edit_is_active" class="text-sm font-medium text-gray-700 dark:text-gray-300">Active</label>
-                </div>
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="closeEditModal()" 
                         class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
@@ -232,7 +227,6 @@ async function submitEditUser(event) {
     const full_name = document.getElementById('edit_full_name').value;
     const role = document.getElementById('edit_role').value;
     const contact_number = document.getElementById('edit_contact_number').value;
-    const is_active = document.getElementById('edit_is_active').checked ? 1 : 0;
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -242,7 +236,6 @@ async function submitEditUser(event) {
     formData.append('full_name', full_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
-    formData.append('is_active', is_active);
 
     try {
         const response = await fetch(window.location.pathname, {

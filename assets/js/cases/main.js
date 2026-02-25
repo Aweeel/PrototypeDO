@@ -82,8 +82,8 @@ function renderTableRows() {
         return;
     }
 
-    tbody.innerHTML = casesToDisplay.map(caseItem => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+    let tableHTML = casesToDisplay.map(caseItem => `
+        <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
             <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">${caseItem.id}</td>
             <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
@@ -124,6 +124,18 @@ function renderTableRows() {
             </td>
         </tr>
     `).join('');
+
+    // Add empty rows to maintain consistent table height
+    const emptyRowsCount = casesPerPage - casesToDisplay.length;
+    for (let i = 0; i < emptyRowsCount; i++) {
+        tableHTML += `
+            <tr class="h-[72px] border-b border-gray-100 dark:border-slate-700">
+                <td colspan="6"></td>
+            </tr>
+        `;
+    }
+
+    tbody.innerHTML = tableHTML;
 }
 
 // Load cases from database

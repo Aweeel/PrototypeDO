@@ -116,8 +116,8 @@ function renderTable() {
         return;
     }
 
-    tbody.innerHTML = logsToShow.map(log => `
-      <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+    let tableHTML = logsToShow.map(log => `
+      <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">#${log.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${log.user}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.role}</td>
@@ -128,6 +128,18 @@ function renderTable() {
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.ipAddress}</td>
       </tr>
     `).join('');
+
+    // Add empty rows to maintain consistent table height
+    const emptyRowsCount = logsPerPage - logsToShow.length;
+    for (let i = 0; i < emptyRowsCount; i++) {
+        tableHTML += `
+            <tr class="h-[72px]">
+                <td colspan="6"></td>
+            </tr>
+        `;
+    }
+
+    tbody.innerHTML = tableHTML;
 }
 
 // Filter logs

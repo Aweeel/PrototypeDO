@@ -79,8 +79,8 @@ function renderReports() {
         return;
     }
 
-    tbody.innerHTML = reportsToShow.map(report => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+    let tableHTML = reportsToShow.map(report => `
+        <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
             <td class="px-6 py-4">
                 <div class="flex items-center">
                     <svg class="w-5 h-5 ${report.format === 'PDF' ? 'text-red-500' : 'text-green-500'} mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,6 +118,18 @@ function renderReports() {
             </td>
         </tr>
     `).join('');
+
+    // Add empty rows to maintain consistent table height
+    const emptyRowsCount = reportsPerPage - reportsToShow.length;
+    for (let i = 0; i < emptyRowsCount; i++) {
+        tableHTML += `
+            <tr class="h-[72px]">
+                <td colspan="4"></td>
+            </tr>
+        `;
+    }
+
+    tbody.innerHTML = tableHTML;
 }
 
 // Update pagination

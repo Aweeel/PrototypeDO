@@ -9,6 +9,117 @@ if ($_SESSION['user_role'] !== 'super_admin') {
     exit;
 }
 
+// Handle CSV Import for Teachers
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
+    header('Content-Type: application/json');
+
+    try {
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error occurred']);
+            exit;
+        }
+
+        $file = $_FILES['csv_file'];
+        $fileName = $file['tmp_name'];
+
+        // Validate file type
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($fileExtension !== 'csv') {
+            echo json_encode(['success' => false, 'error' => 'Only CSV files are allowed']);
+            exit;
+        }
+
+        // Open and parse CSV
+        $handle = fopen($fileName, 'r');
+        if (!$handle) {
+            echo json_encode(['success' => false, 'error' => 'Could not open the CSV file']);
+            exit;
+        }
+
+        // Read header row
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            echo json_encode(['success' => false, 'error' => 'CSV file is empty']);
+            exit;
+        }
+
+        // Expected columns: first_name, last_name, middle_name, contact_number
+        $imported = 0;
+        $errors = [];
+        $skipped = 0;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            // Skip empty rows
+            if (empty(array_filter($row))) {
+                continue;
+            }
+
+            // Map CSV columns to array
+            $data = array_combine($header, $row);
+
+            // Validate required fields
+            if (empty($data['first_name']) || empty($data['last_name'])) {
+                $errors[] = "Row skipped: Missing required fields (first_name or last_name)";
+                $skipped++;
+                continue;
+            }
+
+            try {
+                // Auto-generate email: firstname.lastname@sti.edu
+                $firstName = strtolower(str_replace(' ', '', $data['first_name']));
+                $lastName = strtolower(str_replace(' ', '', $data['last_name']));
+                $emailBase = $firstName . '.' . $lastName . '@sti.edu';
+                $email = $emailBase;
+                
+                // Check if email already exists, if so add a number
+                $counter = 1;
+                while (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
+                    $email = $firstName . '.' . $lastName . $counter . '@sti.edu';
+                    $counter++;
+                }
+
+                // Create user account for the teacher
+                $fullName = trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']);
+                $username = $email; // Use email as username
+                $defaultPassword = 'password'; // Default password for all teachers
+                $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+
+                // Insert user account
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, 'teacher', ?, 1, GETDATE())";
+                executeQuery($userSql, [
+                    $username,
+                    $passwordHash,
+                    $email,
+                    $fullName,
+                    $data['contact_number'] ?? null
+                ]);
+
+                $imported++;
+            } catch (Exception $e) {
+                $errors[] = "Error importing teacher: " . $e->getMessage();
+                $skipped++;
+            }
+        }
+
+        fclose($handle);
+
+        echo json_encode([
+            'success' => true,
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'errors' => $errors
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        error_log("CSV Import Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -179,10 +290,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $full_name = trim($_POST['full_name']);
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
-            $is_active = $_POST['is_active'] ?? 1;
 
             // Get old data for audit
             $oldData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$user_id]);
+
+            // Get current is_active status (not changed via edit form)
+            $is_active = $oldData['is_active'];
 
             // Check if email already exists for another user
             $existingEmail = fetchOne("SELECT user_id FROM users WHERE email = ? AND user_id != ?", [$email, $user_id]);
@@ -317,6 +430,163 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        // Bulk set active
+        if ($_POST['action'] === 'setActive') {
+            $userIds = json_decode($_POST['user_ids'] ?? '[]', true);
+            
+            if (empty($userIds)) {
+                echo json_encode(['success' => false, 'error' => 'No users selected']);
+                exit;
+            }
+
+            $successCount = 0;
+            $errors = [];
+
+            foreach ($userIds as $userId) {
+                try {
+                    $userId = intval($userId);
+                    
+                    // Prevent deactivating self
+                    if ($userId === (int)$_SESSION['user_id']) {
+                        $errors[] = "Cannot modify your own account";
+                        continue;
+                    }
+
+                    // Check if user exists
+                    if (!fetchOne("SELECT user_id FROM users WHERE user_id = ?", [$userId])) {
+                        $errors[] = "User ID $userId not found";
+                        continue;
+                    }
+
+                    $sql = "UPDATE users SET is_active = 1, updated_at = GETDATE() WHERE user_id = ?";
+                    executeQuery($sql, [$userId]);
+
+                    // Audit log
+                    logAudit($_SESSION['user_id'], 'User Activated (Bulk)', 'users', $userId, null, [
+                        'action' => 'Activated via bulk action'
+                    ]);
+
+                    $successCount++;
+                } catch (Exception $e) {
+                    $errors[] = "Error activating user $userId: " . $e->getMessage();
+                }
+            }
+
+            $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " activated successfully";
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " error(s) occurred";
+            }
+
+            echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
+            exit;
+        }
+
+        // Bulk set inactive
+        if ($_POST['action'] === 'setInactive') {
+            $userIds = json_decode($_POST['user_ids'] ?? '[]', true);
+            
+            if (empty($userIds)) {
+                echo json_encode(['success' => false, 'error' => 'No users selected']);
+                exit;
+            }
+
+            $successCount = 0;
+            $errors = [];
+
+            foreach ($userIds as $userId) {
+                try {
+                    $userId = intval($userId);
+                    
+                    // Prevent deactivating self
+                    if ($userId === (int)$_SESSION['user_id']) {
+                        $errors[] = "Cannot modify your own account";
+                        continue;
+                    }
+
+                    // Check if user exists
+                    if (!fetchOne("SELECT user_id FROM users WHERE user_id = ?", [$userId])) {
+                        $errors[] = "User ID $userId not found";
+                        continue;
+                    }
+
+                    $sql = "UPDATE users SET is_active = 0, updated_at = GETDATE() WHERE user_id = ?";
+                    executeQuery($sql, [$userId]);
+
+                    // Audit log
+                    logAudit($_SESSION['user_id'], 'User Deactivated (Bulk)', 'users', $userId, null, [
+                        'action' => 'Deactivated via bulk action'
+                    ]);
+
+                    $successCount++;
+                } catch (Exception $e) {
+                    $errors[] = "Error deactivating user $userId: " . $e->getMessage();
+                }
+            }
+
+            $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " deactivated successfully";
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " error(s) occurred";
+            }
+
+            echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
+            exit;
+        }
+
+        // Bulk delete users
+        if ($_POST['action'] === 'deleteUsers') {
+            $userIds = json_decode($_POST['user_ids'] ?? '[]', true);
+            
+            if (empty($userIds)) {
+                echo json_encode(['success' => false, 'error' => 'No users selected']);
+                exit;
+            }
+
+            $successCount = 0;
+            $errors = [];
+
+            foreach ($userIds as $userId) {
+                try {
+                    $userId = intval($userId);
+                    
+                    // Prevent deleting self
+                    if ($userId === (int)$_SESSION['user_id']) {
+                        $errors[] = "Cannot delete your own account";
+                        continue;
+                    }
+
+                    // Check if user exists
+                    $userData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$userId]);
+                    if (!$userData) {
+                        $errors[] = "User ID $userId not found";
+                        continue;
+                    }
+
+                    // Delete associated audit logs first (foreign key constraint)
+                    $sqlDeleteAudit = "DELETE FROM audit_log WHERE user_id = ?";
+                    executeQuery($sqlDeleteAudit, [$userId]);
+
+                    // Delete user
+                    $sql = "DELETE FROM users WHERE user_id = ?";
+                    executeQuery($sql, [$userId]);
+
+                    // Audit log
+                    auditDelete('users', $userId, sanitizeAuditData($userData));
+
+                    $successCount++;
+                } catch (Exception $e) {
+                    $errors[] = "Error deleting user $userId: " . $e->getMessage();
+                }
+            }
+
+            $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " deleted successfully";
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " error(s) occurred";
+            }
+
+            echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
+            exit;
+        }
+
     } catch (Exception $e) {
         error_log("Users AJAX Error: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -358,7 +628,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
 
             <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
-                <div class="mb-6 flex items-center justify-between">
+                <div class="mb-6 flex items-center justify-between gap-4">
                     <div class="relative flex-1 max-w-md">
                         <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -370,13 +640,24 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                             oninput="filterUsers()">
                     </div>
 
-                    <button onclick="openAddModal()"
-                        class="ml-4 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add User
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openImportTeachersModal()"
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            Import Teachers
+                        </button>
+
+                        <button onclick="openAddModal()"
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add User
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Filters -->
@@ -406,11 +687,41 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                     </button>
                 </div>
 
+                <!-- Bulk Actions Bar -->
+                <div id="bulkActionsBar" class="hidden mb-4 bg-transparent border border-blue-400 dark:border-blue-600 rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <span id="selectedCount" class="text-blue-900 dark:text-blue-300 font-semibold text-sm">0 users selected</span>
+                            <div class="h-6 w-px bg-blue-300 dark:bg-blue-500"></div>
+                            <div class="flex gap-2">
+                                <button onclick="bulkSetActive()" class="px-3 py-1.5 border border-green-500 text-green-600 dark:text-green-400 text-xs font-medium rounded hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors">
+                                    Activate
+                                </button>
+                                <button onclick="bulkSetInactive()" class="px-3 py-1.5 border border-yellow-500 text-yellow-600 dark:text-yellow-400 text-xs font-medium rounded hover:bg-yellow-50 dark:hover:bg-yellow-900/10 transition-colors">
+                                    Deactivate
+                                </button>
+                                <button onclick="bulkDelete()" class="px-3 py-1.5 border border-red-500 text-red-600 dark:text-red-400 text-xs font-medium rounded hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        <button onclick="clearSelection()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium transition-colors flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Users Table -->
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
                     <table class="w-full">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" class="rounded border-gray-300 text-blue-600 cursor-pointer">
+                                </th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Name</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Email</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
@@ -428,7 +739,21 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
 
                 <!-- Pagination -->
                 <div class="mt-6 flex items-center justify-between">
-                    <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+                    <div class="flex items-center gap-4">
+                        <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+                        <div class="flex items-center gap-2">
+                            <label for="itemsPerPageSelect" class="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+                            <select id="itemsPerPageSelect" onchange="changeItemsPerPage(this.value)" 
+                                class="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer text-sm">
+                                <option value="7" selected>7</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">per page</span>
+                        </div>
+                    </div>
                     <div id="paginationButtons" class="flex gap-2">
                         <!-- Populated by JavaScript -->
                     </div>
@@ -437,8 +762,157 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
         </div>
     </div>
 
+    <!-- Import Teachers Modal -->
+    <div id="importTeachersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Teachers from CSV</h3>
+                <button onclick="closeImportTeachersModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
+                <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">The CSV file must have the following columns:</p>
+                <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
+                    first_name, last_name, middle_name, contact_number
+                </code>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">* Required fields: first_name, last_name</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">* Email will be auto-generated as: firstname.lastname@sti.edu</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">* Default password: password</p>
+            </div>
+
+            <form id="importTeachersForm" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select CSV File
+                    </label>
+                    <input type="file" id="teachersCsvFile" name="csv_file" accept=".csv" required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400">
+                </div>
+
+                <div id="importTeachersProgress" class="hidden mb-4">
+                    <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Importing teachers...</span>
+                    </div>
+                </div>
+
+                <div id="importTeachersResult" class="hidden mb-4"></div>
+
+                <div class="flex gap-3">
+                    <button type="submit" id="importTeachersBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Upload and Import
+                    </button>
+                    <button type="button" onclick="closeImportTeachersModal()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/PrototypeDO/assets/js/users/main.js"></script>
     <script src="/PrototypeDO/assets/js/users/modals.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+
+    <script>
+        // Teacher CSV Import Functions
+        function openImportTeachersModal() {
+            document.getElementById('importTeachersModal').classList.remove('hidden');
+            document.getElementById('importTeachersForm').reset();
+            document.getElementById('importTeachersProgress').classList.add('hidden');
+            document.getElementById('importTeachersResult').classList.add('hidden');
+            document.getElementById('importTeachersBtn').disabled = false;
+        }
+
+        function closeImportTeachersModal() {
+            document.getElementById('importTeachersModal').classList.add('hidden');
+        }
+
+        document.getElementById('importTeachersForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('teachersCsvFile');
+            if (!fileInput.files.length) {
+                alert('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csv_file', fileInput.files[0]);
+            formData.append('import_csv', true);
+
+            document.getElementById('importTeachersProgress').classList.remove('hidden');
+            document.getElementById('importTeachersResult').classList.add('hidden');
+            document.getElementById('importTeachersBtn').disabled = true;
+
+            try {
+                const response = await fetch('/PrototypeDO/modules/super-admin/adminUsers.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                document.getElementById('importTeachersProgress').classList.add('hidden');
+
+                if (result.success) {
+                    const resultDiv = document.getElementById('importTeachersResult');
+                    let html = `<div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <h4 class="font-semibold text-green-900 dark:text-green-300 mb-2">Import Completed!</h4>
+                        <p class="text-sm text-green-800 dark:text-green-400">
+                            ✓ ${result.imported} teacher(s) imported successfully
+                        </p>`;
+                    
+                    if (result.skipped > 0) {
+                        html += `<p class="text-sm text-yellow-700 dark:text-yellow-400 mt-2">⚠ ${result.skipped} row(s) skipped</p>`;
+                    }
+
+                    if (result.errors && result.errors.length > 0) {
+                        html += `<div class="mt-3 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900 p-2 rounded max-h-48 overflow-y-auto">`;
+                        result.errors.forEach(err => {
+                            html += `<p class="text-yellow-700 dark:text-yellow-400">• ${err}</p>`;
+                        });
+                        html += `</div>`;
+                    }
+
+                    html += `</div>`;
+                    resultDiv.innerHTML = html;
+                    resultDiv.classList.remove('hidden');
+
+                    if (result.imported > 0) {
+                        setTimeout(() => {
+                            closeImportTeachersModal();
+                            loadUsers();
+                        }, 2000);
+                    }
+                } else {
+                    const resultDiv = document.getElementById('importTeachersResult');
+                    resultDiv.innerHTML = `<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <h4 class="font-semibold text-red-900 dark:text-red-300 mb-2">Import Failed</h4>
+                        <p class="text-sm text-red-800 dark:text-red-400">${result.error}</p>
+                    </div>`;
+                    resultDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                document.getElementById('importTeachersProgress').classList.add('hidden');
+                const resultDiv = document.getElementById('importTeachersResult');
+                resultDiv.innerHTML = `<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <h4 class="font-semibold text-red-900 dark:text-red-300 mb-2">Error</h4>
+                    <p class="text-sm text-red-800 dark:text-red-400">${error.message}</p>
+                </div>`;
+                resultDiv.classList.remove('hidden');
+            } finally {
+                document.getElementById('importTeachersBtn').disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>
