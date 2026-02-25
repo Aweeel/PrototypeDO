@@ -255,16 +255,67 @@ if ($_POST['action'] === 'removeSanction') {
     $sanctionDataArray = fetchAll($sql, [$caseSanctionId]);
     $sanctionData = $sanctionDataArray[0] ?? null;
 
-    // Delete the sanction
-    $sql = "DELETE FROM case_sanctions WHERE case_sanction_id = ?";
-    executeQuery($sql, [$caseSanctionId]);
-
-    // 🧾 Audit Log
     if ($sanctionData) {
+        $caseId = $sanctionData['case_id'];
+        
+        // If there was a scheduled event, try to delete it from calendar
+        if (!empty($sanctionData['scheduled_date'])) {
+            try {
+                // Get case and sanction details to match event name
+                $case = getCaseById($caseId);
+                $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+                $sanction = fetchOne($sanctionSql, [$sanctionData['sanction_id']]);
+                
+                if ($case && $sanction) {
+                    $studentName = $case['student_name'] ?? 'Student';
+                    $sanctionName = $sanction['sanction_name'] ?? 'Sanction';
+                    $eventName = "Sanction: {$sanctionName} - {$studentName} (Case {$caseId})";
+                    
+                    // Delete calendar event matching this name and date
+                    $deleteEventSql = "DELETE FROM calendar_events 
+                                      WHERE event_name = ? 
+                                      AND event_date = ? 
+                                      AND category = 'Hearing'";
+                    executeQuery($deleteEventSql, [$eventName, $sanctionData['scheduled_date']]);
+                    error_log("Calendar event deleted for removed sanction");
+                }
+            } catch (Exception $e) {
+                error_log("Error deleting calendar event for removed sanction: " . $e->getMessage());
+                // Continue with sanction removal even if calendar deletion fails
+            }
+        }
+
+        // Delete the sanction
+        $sql = "DELETE FROM case_sanctions WHERE case_sanction_id = ?";
+        executeQuery($sql, [$caseSanctionId]);
+
+        // Check if there are any remaining sanctions for this case
+        $remainingSanctionsSql = "SELECT COUNT(*) as count FROM case_sanctions WHERE case_id = ?";
+        $remainingCount = fetchValue($remainingSanctionsSql, [$caseId]);
+        
+        $newStatus = null;
+        // If no more sanctions, change case status to Pending
+        if ($remainingCount == 0) {
+            $updateStatusSql = "UPDATE cases SET status = 'Pending' WHERE case_id = ?";
+            executeQuery($updateStatusSql, [$caseId]);
+            
+            // Log the status change
+            logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Status Changed', 'On Going', 'Pending - All sanctions removed');
+            
+            $newStatus = 'Pending';
+            error_log("Case {$caseId} status changed to Pending (all sanctions removed)");
+        }
+
+        // 🧾 Audit Log
         auditDelete('case_sanctions', $caseSanctionId, sanitizeAuditData($sanctionData));
     }
 
-    echo json_encode(['success' => true, 'message' => 'Sanction removed successfully']);
+    echo json_encode([
+        'success' => true, 
+        'message' => 'Sanction removed successfully',
+        'statusChanged' => $newStatus !== null,
+        'newStatus' => $newStatus
+    ]);
     exit;
 }
 
@@ -313,18 +364,67 @@ if ($_POST['action'] === 'applySanction') {
     $sanctionId = $_POST['sanctionId'];
     $durationDays = $_POST['durationDays'] ?? null;
     $notes = $_POST['notes'] ?? '';
+    $scheduleDate = $_POST['scheduleDate'] ?? null;
+    $scheduleTime = !empty(trim($_POST['scheduleTime'] ?? '')) ? trim($_POST['scheduleTime']) : null;
+    $scheduleNotes = $_POST['scheduleNotes'] ?? '';
+    
+    // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+    if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
+        $scheduleTime .= ':00';
+    }
 
-    applySanctionToCase($caseId, $sanctionId, $durationDays, $notes);
+    applySanctionToCase($caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes);
     
     // Update case status to "On Going" when sanction is applied
     $sqlUpdateStatus = "UPDATE cases SET status = 'On Going' WHERE case_id = ?";
     executeQuery($sqlUpdateStatus, [$caseId]);
 
+    // Notify student if schedule is set
+    if (!empty($scheduleDate)) {
+        // Get student's user_id from the case
+        $case = getCaseById($caseId);
+        if ($case && !empty($case['student_id'])) {
+            $studentSql = "SELECT user_id FROM students WHERE student_id = ?";
+            $student = fetchOne($studentSql, [$case['student_id']]);
+            
+            if ($student && !empty($student['user_id'])) {
+                // Get sanction name
+                $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+                $sanction = fetchOne($sanctionSql, [$sanctionId]);
+                $sanctionName = $sanction['sanction_name'] ?? 'Sanction';
+                
+                // Format date and time for notification
+                $scheduleDateTime = date('F j, Y', strtotime($scheduleDate));
+                if (!empty($scheduleTime)) {
+                    $scheduleDateTime .= ' at ' . date('g:i A', strtotime($scheduleTime));
+                }
+                
+                // Create notification
+                $notificationTitle = "Scheduled Sanction: {$sanctionName}";
+                $notificationMessage = "A sanction has been scheduled for your case {$caseId} on {$scheduleDateTime}.";
+                if (!empty($scheduleNotes)) {
+                    $notificationMessage .= " Note: {$scheduleNotes}";
+                }
+                
+                createNotification(
+                    $student['user_id'],
+                    $notificationTitle,
+                    $notificationMessage,
+                    'sanction',
+                    $caseId
+                );
+            }
+        }
+    }
+
     // 🧾 Audit Log
     $auditData = [
         'sanction_id' => $sanctionId,
         'duration_days' => $durationDays,
-        'notes' => $notes
+        'notes' => $notes,
+        'scheduled_date' => $scheduleDate,
+        'scheduled_time' => $scheduleTime,
+        'schedule_notes' => $scheduleNotes
     ];
     auditCreate('case_sanctions', $caseId, sanitizeAuditData($auditData));
 
