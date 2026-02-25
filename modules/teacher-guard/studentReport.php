@@ -35,23 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         exit;
     }
     
-    if ($_POST['action'] === 'getOffenseTypes') {
-        $category = $_POST['category'] ?? '';
-        if ($category) {
-            $offenses = getOffenseTypesByCategory($category);
-        } else {
-            $offenses = getAllOffenseTypes();
-        }
-        echo json_encode(['success' => true, 'offenses' => $offenses]);
-        exit;
-    }
     
     if ($_POST['action'] === 'submitReport') {
         $data = [
             'student_number' => $_POST['studentNumber'],
             'student_name' => $_POST['studentName'],
             'case_type' => $_POST['caseType'],
-            'severity' => $_POST['severity'] ?? 'Minor',
+            'severity' => $_POST['severity'] ?? 'Minor', // Default to Minor if not specified
             'status' => 'Pending',
             'assigned_to' => null, // Will be assigned by DO
             'reported_by' => $_SESSION['user_id'] ?? null,
@@ -186,49 +176,26 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                             </div>
                         </div>
 
-                        <!-- Offense Type -->
+                        <!-- Case Type -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Offense Type <span class="text-red-500">*</span>
-                            </label>
-                            <select id="offenseType" 
-                                    required 
-                                    onchange="handleOffenseTypeChange()"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <option value="">Select offense type...</option>
-                                <option value="Minor">Minor</option>
-                                <option value="Major">Major</option>
-                            </select>
-                        </div>
-
-                        <!-- Case Type (hidden until offense type selected) -->
-                        <div id="caseTypeDiv" style="display: none;">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Case Type <span class="text-red-500">*</span>
                             </label>
-                            <div class="relative">
-                                <input list="caseTypeList" 
-                                       id="caseType" 
-                                       required
-                                       onchange="handleCaseTypeChange()"
-                                       placeholder="Type to search or select..."
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <datalist id="caseTypeList">
-                                    <!-- Populated dynamically -->
-                                </datalist>
-                            </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Start typing to filter options</p>
-                        </div>
-
-                        <!-- Custom Offense Type (shown when "Others" selected) -->
-                        <div id="customOffenseDiv" style="display: none;">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Specify Offense Type <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="customOffense"
-                                   placeholder="Enter custom offense type..."
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <select id="caseType" 
+                                    required 
+                                    onchange="handleCaseTypeChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                <option value="">Select case type...</option>
+                                <option value="Cheating">Cheating</option>
+                                <option value="Losing/Forgetting ID">Losing/Forgetting ID</option>
+                                <option value="Inappropriate Campus Attire">Inappropriate Campus Attire</option>
+                                <option value="Non-wearing of School Uniform">Non-wearing of School Uniform</option>
+                                <option value="Possession of Cigarettes/Vapes">Possession of Cigarettes/Vapes</option>
+                                <option value="Smoking/Vaping on Campus">Smoking/Vaping on Campus</option>
+                                <option value="Lending/Borrowing ID">Lending/Borrowing ID</option>
+                                <option value="Public Display of Affection">Public Display of Affection</option>
+                                <option value="Other">Other (Specify in description)</option>
+                            </select>
                         </div>
 
                         <!-- Description -->
@@ -253,6 +220,52 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                                       class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none"></textarea>
                         </div>
 
+                        <!-- Image Attachments -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Attach Images
+                            </label>
+                            
+                            <!-- Drag and Drop Area -->
+                            <div id="uploadDropZone" 
+                                 class="relative w-full p-8 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+                                 ondrop="handleDrop(event)"
+                                 ondragover="handleDragOver(event)"
+                                 ondragleave="handleDragLeave(event)">
+                                
+                                <input type="file" 
+                                       id="imageAttachments" 
+                                       multiple 
+                                       accept="image/*"
+                                       onchange="handleImageSelect()"
+                                       class="hidden">
+                                
+                                <div class="text-center">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                        <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <circle cx="21" cy="34" r="8" stroke-width="2"/>
+                                        <path d="M35 12l-8 8m0 0l-8-8m8 8v-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        <button type="button" 
+                                                onclick="document.getElementById('imageAttachments').click()"
+                                                class="text-blue-600 dark:text-blue-400 hover:underline">
+                                            Click to upload
+                                        </button>
+                                        or drag and drop
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        JPG, PNG, GIF, WebP (Max 5MB each)
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Image Preview Container -->
+                            <div id="imagePreviewContainer" class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 hidden">
+                                <!-- Previews will be added here -->
+                            </div>
+                        </div>
+
                         <!-- Action Buttons -->
                         <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
                             <button type="button" 
@@ -272,6 +285,116 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
     </div>
 
     <script>
+        // Notification function - define early so it's available to all handlers
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Test if form exists and button click works
+        console.log('Script loaded');
+        
+        const reportFormTest = document.getElementById('reportForm');
+        console.log('Form found:', !!reportFormTest);
+        
+        // Add click listener to submit button directly
+        const submitBtn = document.querySelector('button[type="submit"]');
+        console.log('Submit button found:', !!submitBtn);
+        
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function(e) {
+                console.log('Submit button clicked');
+            });
+        }
+        
+        // Original form submission handler
+        const reportForm = document.getElementById('reportForm');
+        console.log('Report form element:', reportForm);
+        
+        if (reportForm) {
+            reportForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Form submit event triggered');
+                
+                const studentName = document.getElementById('studentName').value;
+                const caseType = document.getElementById('caseType').value;
+                const description = document.getElementById('description').value;
+                
+                console.log('Form values - Student:', studentName, 'Case Type:', caseType, 'Description:', description);
+                
+                // Validation
+                if (!studentName) {
+                    showNotification('Please enter a valid student number', 'error');
+                    return;
+                }
+                
+                if (!caseType) {
+                    showNotification('Please select a Case Type', 'error');
+                    return;
+                }
+                
+                if (caseType === 'Other') {
+                    if (!description.trim()) {
+                        showNotification('Description is required when Case Type is "Other"', 'error');
+                        return;
+                    }
+                }
+                
+                // Submit
+                console.log('Validation passed, submitting...');
+                showNotification('Submitting report...', 'info');
+                
+                const formData = new FormData();
+                formData.append('ajax', '1');
+                formData.append('action', 'submitReport');
+                formData.append('studentNumber', document.getElementById('studentNumber').value);
+                formData.append('studentName', studentName);
+                formData.append('caseType', caseType);
+                formData.append('severity', 'Minor');
+                formData.append('description', description);
+                formData.append('notes', document.getElementById('notes').value);
+                
+                // Add image files
+                const imageFiles = document.getElementById('imageAttachments').files;
+                for (let i = 0; i < imageFiles.length; i++) {
+                    formData.append('images[]', imageFiles[i]);
+                }
+                
+                try {
+                    console.log('Sending fetch request...');
+                    const response = await fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    const data = await response.json();
+                    console.log('Response data:', data);
+                    
+                    if (data.success) {
+                        showNotification('Report submitted successfully!', 'success');
+                        setTimeout(() => window.history.back(), 1500);
+                    } else {
+                        showNotification('Error: ' + (data.error || 'Failed to submit report'), 'error');
+                        console.error('Server error:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Submit error:', error);
+                    showNotification('Error submitting report. Please try again.', 'error');
+                }
+            });
+        } else {
+            console.error('Report form not found in DOM');
+        }
+
         // Student lookup with debounce
         let lookupTimeout;
         document.getElementById('studentNumber').addEventListener('input', (e) => {
@@ -335,158 +458,111 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             }, 500);
         });
 
-        // Handle offense type change
-        async function handleOffenseTypeChange() {
-            const offenseType = document.getElementById('offenseType').value;
-            const caseTypeDiv = document.getElementById('caseTypeDiv');
-            const caseTypeInput = document.getElementById('caseType');
-            const datalist = document.getElementById('caseTypeList');
-            
-            if (!offenseType) {
-                caseTypeDiv.style.display = 'none';
-                return;
-            }
-            
-            caseTypeDiv.style.display = 'block';
-            
-            try {
-                const formData = new FormData();
-                formData.append('ajax', '1');
-                formData.append('action', 'getOffenseTypes');
-                formData.append('category', offenseType);
-
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    const hasOthers = data.offenses.some(o => o.offense_name === 'Others');
-                    const options = data.offenses.map(o => 
-                        `<option value="${o.offense_name}">${o.offense_name}</option>`
-                    ).join('');
-                    const othersOption = !hasOthers ? '<option value="Others">Others (Specify in description)</option>' : '';
-                    
-                    datalist.innerHTML = options + othersOption;
-                }
-            } catch (error) {
-                console.error('Error loading offense types:', error);
-            }
-            
-            caseTypeInput.value = '';
-        }
-
         // Handle case type change
         function handleCaseTypeChange() {
             const caseType = document.getElementById('caseType').value;
             const description = document.getElementById('description');
             const descRequired = document.getElementById('descRequired');
-            const customOffenseDiv = document.getElementById('customOffenseDiv');
-            const customOffenseInput = document.getElementById('customOffense');
             
-            if (caseType === 'Others') {
+            if (caseType === 'Other') {
                 description.required = true;
                 descRequired.style.display = 'inline';
-                customOffenseDiv.style.display = 'block';
-                customOffenseInput.required = true;
             } else {
                 description.required = false;
                 descRequired.style.display = 'none';
-                customOffenseDiv.style.display = 'none';
-                customOffenseInput.required = false;
             }
         }
 
-        // Form submission
-        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+        // Handle drag over
+        function handleDragOver(e) {
             e.preventDefault();
-            
-            const studentName = document.getElementById('studentName').value;
-            const offenseType = document.getElementById('offenseType').value;
-            const caseType = document.getElementById('caseType').value;
-            const description = document.getElementById('description').value;
-            
-            // Validation
-            if (!studentName) {
-                showNotification('Please enter a valid student number', 'error');
-                return;
-            }
-            
-            if (!offenseType) {
-                showNotification('Please select an Offense Type', 'error');
-                return;
-            }
-            
-            if (!caseType) {
-                showNotification('Please select a Case Type', 'error');
-                return;
-            }
-            
-            if (caseType === 'Others') {
-                if (!description.trim()) {
-                    showNotification('Description is required when Case Type is "Others"', 'error');
-                    return;
-                }
-                const customOffense = document.getElementById('customOffense').value;
-                if (!customOffense.trim()) {
-                    showNotification('Please specify the offense type', 'error');
-                    return;
-                }
-            }
-            
-            // Submit
-            showNotification('Submitting report...', 'info');
-            
-            const formData = new FormData();
-            formData.append('ajax', '1');
-            formData.append('action', 'submitReport');
-            formData.append('studentNumber', document.getElementById('studentNumber').value);
-            formData.append('studentName', studentName);
-            formData.append('caseType', caseType === 'Others' ? document.getElementById('customOffense').value : caseType);
-            formData.append('severity', offenseType);
-            formData.append('description', description);
-            formData.append('notes', document.getElementById('notes').value);
-            
-            try {
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showNotification('Report submitted successfully!', 'success');
-                    setTimeout(() => window.history.back(), 1500);
-                } else {
-                    showNotification('Error: ' + (data.error || 'Failed to submit report'), 'error');
-                }
-            } catch (error) {
-                console.error('Submit error:', error);
-                showNotification('Error submitting report. Please try again.', 'error');
-            }
-        });
-
-        // Notification function
-        function showNotification(message, type = 'info') {
-            // Use the global notification function if available
-            if (typeof window.showNotification === 'function') {
-                window.showNotification(message, type);
-            } else {
-                // Fallback for backward compatibility
-                const notification = document.createElement('div');
-                const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-                notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`;
-                notification.textContent = message;
-                document.body.appendChild(notification);
-                setTimeout(() => {
-                    notification.style.opacity = '0';
-                    setTimeout(() => notification.remove(), 300);
-                }, 3000);
-            }
+            e.stopPropagation();
+            const dropZone = document.getElementById('uploadDropZone');
+            dropZone.classList.add('border-blue-400', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+            dropZone.classList.remove('border-gray-300', 'dark:border-slate-600', 'bg-gray-50', 'dark:bg-slate-800/50');
         }
+
+        // Handle drag leave
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropZone = document.getElementById('uploadDropZone');
+            dropZone.classList.remove('border-blue-400', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+            dropZone.classList.add('border-gray-300', 'dark:border-slate-600', 'bg-gray-50', 'dark:bg-slate-800/50');
+        }
+
+        // Handle drop
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const dropZone = document.getElementById('uploadDropZone');
+            dropZone.classList.remove('border-blue-400', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+            dropZone.classList.add('border-gray-300', 'dark:border-slate-600', 'bg-gray-50', 'dark:bg-slate-800/50');
+            
+            const files = e.dataTransfer.files;
+            document.getElementById('imageAttachments').files = files;
+            handleImageSelect();
+        }
+
+        // Handle image selection and preview
+        function handleImageSelect() {
+            const fileInput = document.getElementById('imageAttachments');
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            const files = fileInput.files;
+            
+            previewContainer.innerHTML = '';
+            
+            if (files.length === 0) {
+                previewContainer.classList.add('hidden');
+                return;
+            }
+            
+            previewContainer.classList.remove('hidden');
+            
+            Array.from(files).forEach((file, index) => {
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showNotification(`File "${file.name}" exceeds 5MB limit`, 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewDiv = document.createElement('div');
+                    previewDiv.className = 'relative bg-white dark:bg-slate-700 rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-slate-600 hover:shadow-md transition-shadow';
+                    previewDiv.innerHTML = `
+                        <div class="relative">
+                            <img src="${e.target.result}" alt="Preview" class="w-full h-40 object-cover">
+                            <button type="button" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg leading-none transition-colors shadow-md" onclick="removeImage(${index})" title="Remove image">×</button>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-slate-800 border-t border-gray-200 dark:border-slate-600">
+                            <p class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">${file.name}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${(file.size / 1024).toFixed(2)} KB</p>
+                        </div>
+                    `;
+                    previewContainer.appendChild(previewDiv);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Remove image from selection
+        function removeImage(index) {
+            const fileInput = document.getElementById('imageAttachments');
+            const dataTransfer = new DataTransfer();
+            const files = fileInput.files;
+            
+            Array.from(files).forEach((file, i) => {
+                if (i !== index) {
+                    dataTransfer.items.add(file);
+                }
+            });
+            
+            fileInput.files = dataTransfer.files;
+            handleImageSelect();
+        }
+
     </script>
 
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
