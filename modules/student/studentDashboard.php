@@ -58,10 +58,11 @@ if ($studentId) {
             case_id,
             case_type,
             created_at,
-            status
+            status,
+            is_archived
         FROM cases 
         WHERE student_id = ?
-        ORDER BY created_at DESC
+        ORDER BY is_archived ASC, created_at DESC
     ");
     $stmt->execute([$studentId]);
     $recentCases = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -277,7 +278,8 @@ function getStatusText($status) {
                             </div>
                         <?php else: ?>
                             <?php foreach ($recentCases as $case): ?>
-                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400">
+                                <?php $isArchived = isset($case['is_archived']) && $case['is_archived'] == 1; ?>
+                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400 <?php echo $isArchived ? 'opacity-70' : ''; ?>">
                                     <div class="flex items-center justify-between">
                                         <div class="flex-1">
                                             <h3 class="font-medium text-gray-900 dark:text-gray-100 mb-2 hover:text-blue-600 dark:hover:text-blue-400">
@@ -287,10 +289,15 @@ function getStatusText($status) {
                                                 <?php echo date('M d, Y', strtotime($case['created_at'])); ?>
                                             </p>
                                         </div>
-                                        <div class="flex items-center gap-4">
+                                        <div class="flex items-center gap-3">
                                             <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo getStatusBadgeClass($case['status']); ?>">
                                                 <?php echo getStatusText($case['status']); ?>
                                             </span>
+                                            <?php if ($isArchived): ?>
+                                                <span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
+                                                    Archived
+                                                </span>
+                                            <?php endif; ?>
                                             <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                             </svg>

@@ -181,6 +181,51 @@ if ($_POST['action'] === 'unarchiveCase') {
     exit;
 }
 
+        // Unarchive multiple cases
+if ($_POST['action'] === 'unarchiveCases') {
+    $caseIds = $_POST['caseIds'] ?? [];
+    
+    if (empty($caseIds) || !is_array($caseIds)) {
+        echo json_encode(['success' => false, 'error' => 'No cases selected']);
+        exit;
+    }
+
+    $restoredCount = 0;
+    $failedCount = 0;
+    
+    foreach ($caseIds as $caseId) {
+        try {
+            $sql = "UPDATE cases SET is_archived = 0, archived_at = NULL, manually_restored = 1 WHERE case_id = ? AND is_archived = 1";
+            $stmt = executeQuery($sql, [$caseId]);
+            $affected = $stmt->rowCount();
+
+            if ($affected > 0) {
+                logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Unarchived', null, 'Case bulk restored by user');
+
+                // 🧾 Audit Log
+                $oldData = getRecordForAudit('cases', 'case_id', $caseId);
+                $oldStatus = $oldData['status'] ?? 'Archived';
+                auditRestore('cases', $caseId, $oldStatus);
+                
+                $restoredCount++;
+            } else {
+                $failedCount++;
+            }
+        } catch (Exception $e) {
+            error_log("Failed to restore case {$caseId}: " . $e->getMessage());
+            $failedCount++;
+        }
+    }
+
+    $message = "{$restoredCount} case(s) restored successfully";
+    if ($failedCount > 0) {
+        $message .= ", {$failedCount} failed";
+    }
+
+    echo json_encode(['success' => true, 'message' => $message, 'restored' => $restoredCount, 'failed' => $failedCount]);
+    exit;
+}
+
         // Update sanction
 if ($_POST['action'] === 'updateSanction') {
     $caseSanctionId = $_POST['caseSanctionId'];
@@ -382,13 +427,24 @@ if ($_POST['action'] === 'applySanction') {
                             oninput="filterCases()">
                     </div>
 
-                    <button onclick="addCase()"
-                        class="ml-4 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        New Case
-                    </button>
+                    <div class="ml-4 flex items-center gap-3">
+                        <!-- Bulk Restore Button (Hidden by default, shown when cases are selected) -->
+                        <button id="bulkRestoreBtn" onclick="bulkRestoreCases()" 
+                            class="hidden px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Restore <span class="count">0</span> Selected
+                        </button>
+
+                        <button onclick="addCase()"
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            New Case
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Tabs and Filters -->

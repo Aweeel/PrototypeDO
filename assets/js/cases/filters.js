@@ -51,6 +51,13 @@ function switchTab(tabName) {
         archivedBtn.className = 'p-2 bg-blue-600 text-white rounded-lg ml-2';
     }
     
+    // Hide bulk restore button and clear selections when not in archived tab
+    const bulkRestoreBtn = document.getElementById('bulkRestoreBtn');
+    if (bulkRestoreBtn && tabName !== 'archived') {
+        bulkRestoreBtn.classList.add('hidden');
+        clearCaseSelections();
+    }
+    
     // Load cases based on tab
     loadCasesFromDB();
 }

@@ -7,6 +7,9 @@ let currentPage = 1;
 const casesPerPage = 8;
 let currentTab = 'current';
 
+// Track selected cases across pages
+let selectedCaseIds = new Set();
+
 const statusColors = {
     yellow: 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
     blue: 'bg-blue-100 text-blue-800 dark:bg-[#1E3A8A] dark:text-blue-100',

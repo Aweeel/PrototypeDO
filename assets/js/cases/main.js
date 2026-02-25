@@ -70,11 +70,15 @@ function renderTableRows() {
     const start = (currentPage - 1) * casesPerPage;
     const end = start + casesPerPage;
     const casesToDisplay = filteredCases.slice(start, end);
+    
+    // Update table header based on current tab
+    updateTableHeader();
 
             if (casesToDisplay.length === 0) {
+        const colSpan = currentTab === 'archived' ? '7' : '6';
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="${colSpan}" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     ${currentTab === 'archived' ? 'No archived cases found.' : currentTab === 'resolved' ? 'No resolved cases found.' : 'No cases found.'}
                 </td>
             </tr>
@@ -122,6 +126,19 @@ function renderTableRows() {
                     `}
                 </div>
             </td>
+            ${currentTab === 'archived' ? `
+                <td class="px-4 py-4 text-center cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
+                    onclick="toggleCaseCheckbox('${caseItem.id}')" 
+                    title="Click to select/deselect">
+                    <input type="checkbox" 
+                        id="checkbox-${caseItem.id}" 
+                        class="case-checkbox w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer" 
+                        data-case-id="${caseItem.id}" 
+                        ${selectedCaseIds.has(caseItem.id.toString()) ? 'checked' : ''}
+                        onchange="handleCheckboxChange('${caseItem.id}', this.checked)" 
+                        onclick="event.stopPropagation()">
+                </td>
+            ` : ''}
         </tr>
     `).join('');
 }
@@ -209,4 +226,89 @@ function loadCasesFromDB() {
             </td></tr>
         `;
     });
+}
+
+// Update table header based on current tab
+function updateTableHeader() {
+    const thead = document.querySelector('thead tr');
+    if (!thead) return;
+    
+    if (currentTab === 'archived') {
+        // Remove old checkbox header if exists
+        const oldCheckboxTh = thead.querySelector('.checkbox-header');
+        if (oldCheckboxTh) {
+            oldCheckboxTh.remove();
+        }
+        
+        // Add checkbox column
+        const checkboxTh = document.createElement('th');
+        checkboxTh.className = 'checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20';
+        checkboxTh.innerHTML = `
+            <div class="flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Select
+            </div>
+        `;
+        thead.appendChild(checkboxTh);
+    } else {
+        // Remove checkbox column if exists
+        const checkboxTh = thead.querySelector('.checkbox-header');
+        if (checkboxTh) {
+            checkboxTh.remove();
+        }
+    }
+}
+
+// Toggle all checkboxes
+function toggleAllCheckboxes(checked) {
+    const checkboxes = document.querySelectorAll('.case-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+    updateBulkRestoreButton();
+}
+
+// Toggle checkbox when clicking on the cell
+function toggleCaseCheckbox(caseId) {
+    const checkbox = document.getElementById(`checkbox-${caseId}`);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        handleCheckboxChange(caseId, checkbox.checked);
+    }
+}
+
+// Handle checkbox state changes
+function handleCheckboxChange(caseId, isChecked) {
+    const caseIdStr = caseId.toString();
+    
+    if (isChecked) {
+        selectedCaseIds.add(caseIdStr);
+    } else {
+        selectedCaseIds.delete(caseIdStr);
+    }
+    
+    updateBulkRestoreButton();
+}
+
+// Update the visibility and text of bulk restore button
+function updateBulkRestoreButton() {
+    const bulkRestoreBtn = document.getElementById('bulkRestoreBtn');
+    
+    if (bulkRestoreBtn) {
+        const selectedCount = selectedCaseIds.size;
+        if (selectedCount > 0) {
+            bulkRestoreBtn.classList.remove('hidden');
+            bulkRestoreBtn.querySelector('.count').textContent = selectedCount;
+        } else {
+            bulkRestoreBtn.classList.add('hidden');
+        }
+    }
+}
+
+// Clear all selections
+function clearCaseSelections() {
+    selectedCaseIds.clear();
+    updateBulkRestoreButton();
 }
