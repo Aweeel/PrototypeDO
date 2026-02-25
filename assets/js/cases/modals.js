@@ -704,7 +704,7 @@ async function addCase() {
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Student Number <span class="text-red-500">*</span></label>
                     <input type="text" id="newStudentNumber" required 
                         class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="e.g., 02000372341">
+                        placeholder="e.g., 02000000001">
                     <p id="studentLookupStatus" class="text-xs mt-1 hidden"></p>
                 </div>
 
@@ -961,8 +961,9 @@ async function manageSanctions(caseId) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl p-5 max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Manage Sanctions - ${caseData.id}</h3>
                 <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -971,7 +972,8 @@ async function manageSanctions(caseId) {
                 </button>
             </div>
 
-            <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
+            <div class="p-5 flex-shrink-0">
+                <div class="p-3 bg-gray-50 dark:bg-slate-700 rounded">
                 <p class="text-sm text-gray-600 dark:text-gray-400">
                     <strong class="text-gray-900 dark:text-gray-100">Student:</strong> ${caseData.student}
                 </p>
@@ -982,8 +984,10 @@ async function manageSanctions(caseId) {
                     <strong class="text-gray-900 dark:text-gray-100">Offense Type:</strong> 
                     <span class="inline-block px-2 py-0.5 text-xs font-medium rounded ${caseData.severity === 'Major' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'}">${caseData.severity}</span>
                 </p>
+                </div>
             </div>
 
+            <div class="overflow-y-auto flex-1 px-5" style="min-height: 0;">
             <form id="applySanctionForm" class="space-y-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Select Sanction <span class="text-red-500">*</span></label>
@@ -991,7 +995,7 @@ async function manageSanctions(caseId) {
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option value="">Choose a sanction...</option>
                         ${sanctions.map(s => `
-                            <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}">
+                            <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
                                 ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
                             </option>
                         `).join('')}
@@ -1006,6 +1010,51 @@ async function manageSanctions(caseId) {
                     <input type="number" id="sanctionDuration" min="1" 
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                         placeholder="Enter number of days...">
+                </div>
+
+                <!-- Schedule Button -->
+                <div>
+                    <button type="button" onclick="toggleScheduleSection()" id="scheduleToggleBtn"
+                        class="w-full px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span id="scheduleButtonText">Add Schedule</span>
+                        <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded">Required</span>
+                    </button>
+                </div>
+
+                <!-- Schedule Date and Time -->
+                <div id="scheduleSection" class="border border-gray-200 dark:border-slate-600 rounded-lg p-3 space-y-3" style="display: none;">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Schedule Event Details</label>
+                        <button type="button" onclick="toggleScheduleSection()" class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date</label>
+                            <input type="date" id="sanctionScheduleDate" 
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Time</label>
+                            <input type="time" id="sanctionScheduleTime" 
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Schedule Notes</label>
+                        <input type="text" id="sanctionScheduleNotes" 
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                            placeholder="e.g., Counseling session, Hearing, etc.">
+                    </div>
                 </div>
 
                 <div>
@@ -1026,8 +1075,9 @@ async function manageSanctions(caseId) {
                     </button>
                 </div>
             </form>
+            </div>
 
-            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
+            <div class="border-t border-gray-200 dark:border-slate-700 p-5 flex-shrink-0" style="max-height: 250px; overflow-y: auto;">
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Applied Sanctions</h4>
                 <div id="appliedSanctionsList" class="space-y-2">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Loading sanctions...</p>
@@ -1046,9 +1096,21 @@ async function manageSanctions(caseId) {
         const sanctionId = document.getElementById('sanctionSelect').value;
         const duration = document.getElementById('sanctionDuration').value;
         const notes = document.getElementById('sanctionNotes').value;
+        const scheduleDate = document.getElementById('sanctionScheduleDate').value;
+        const scheduleTime = document.getElementById('sanctionScheduleTime').value;
+        const scheduleNotes = document.getElementById('sanctionScheduleNotes').value;
 
         if (!sanctionId) {
             showNotification('Please select a sanction', "warning");
+            return;
+        }
+
+        const selectedOption = document.getElementById('sanctionSelect').options[document.getElementById('sanctionSelect').selectedIndex];
+        const requiresSchedule = selectedOption.dataset.requiresSchedule === '1';
+        
+        // Validate schedule if required
+        if (requiresSchedule && !scheduleDate) {
+            showNotification('This sanction requires a scheduled date', "warning");
             return;
         }
 
@@ -1058,7 +1120,6 @@ async function manageSanctions(caseId) {
             return;
         }
 
-        const selectedOption = document.getElementById('sanctionSelect').options[document.getElementById('sanctionSelect').selectedIndex];
         const sanctionName = selectedOption.text;
         
         const confirmModal = document.createElement('div');
@@ -1080,6 +1141,8 @@ async function manageSanctions(caseId) {
                 <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
                     <p class="text-sm"><strong>Sanction:</strong> ${sanctionName}</p>
                     ${duration ? `<p class="text-sm"><strong>Duration:</strong> ${duration} days</p>` : ''}
+                    ${scheduleDate ? `<p class="text-sm"><strong>Scheduled:</strong> ${new Date(scheduleDate).toLocaleDateString()} ${scheduleTime ? 'at ' + scheduleTime : ''}</p>` : ''}
+                    ${scheduleNotes ? `<p class="text-sm"><strong>Schedule Info:</strong> ${scheduleNotes}</p>` : ''}
                     ${notes ? `<p class="text-sm"><strong>Notes:</strong> ${notes}</p>` : ''}
                 </div>
                 
@@ -1088,7 +1151,7 @@ async function manageSanctions(caseId) {
                         class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Cancel
                     </button>
-                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`)" 
+                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`)" 
                         class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
                         Confirm & Apply
                     </button>
@@ -1100,7 +1163,7 @@ async function manageSanctions(caseId) {
 }
 
 // Confirm apply sanction
-async function confirmApplySanction(caseId, sanctionId, duration, notes) {
+async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleNotes) {
     const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
     if (confirmModal) confirmModal.remove();
 
@@ -1113,6 +1176,9 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes) {
     formData.append('sanctionId', sanctionId);
     if (duration) formData.append('durationDays', duration);
     formData.append('notes', notes);
+    if (scheduleDate) formData.append('scheduleDate', scheduleDate);
+    if (scheduleTime) formData.append('scheduleTime', scheduleTime);
+    if (scheduleNotes) formData.append('scheduleNotes', scheduleNotes);
 
     try {
         const response = await fetch('/PrototypeDO/modules/do/cases.php', {
@@ -1158,6 +1224,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes) {
 // Handle sanction selection change
 function handleSanctionChange() {
     const select = document.getElementById('sanctionSelect');
+    const scheduleSection = document.getElementById('scheduleSection');
     const selectedOption = select.options[select.selectedIndex];
     const durationDiv = document.getElementById('durationDiv');
     const durationInput = document.getElementById('sanctionDuration');
@@ -1172,6 +1239,25 @@ function handleSanctionChange() {
     const defaultDays = selectedOption.dataset.defaultDays;
     const sanctionName = selectedOption.text.toLowerCase();
     const description = selectedOption.dataset.description;
+    const requiresSchedule = selectedOption.dataset.requiresSchedule === '1';
+    
+    // Update schedule button based on sanction type
+    const scheduleBtn = document.getElementById('scheduleToggleBtn');
+    const scheduleBadge = document.getElementById('scheduleRequiredBadge');
+    
+    if (requiresSchedule) {
+        scheduleBadge.classList.remove('hidden');
+        scheduleBtn.classList.add('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20', 'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'text-red-700', 'dark:text-red-300');
+        scheduleBtn.classList.remove('border-blue-200', 'dark:border-blue-700', 'bg-blue-50', 'dark:bg-blue-900/20', 'hover:bg-blue-100', 'dark:hover:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-300');
+        // Auto-open schedule section if required
+        document.getElementById('scheduleSection').style.display = 'block';
+        document.getElementById('scheduleButtonText').textContent = 'Schedule Event (Required)';
+    } else {
+        scheduleBadge.classList.add('hidden');
+        scheduleBtn.classList.remove('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20', 'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'text-red-700', 'dark:text-red-300');
+        scheduleBtn.classList.add('border-blue-200', 'dark:border-blue-700', 'bg-blue-50', 'dark:bg-blue-900/20', 'hover:bg-blue-100', 'dark:hover:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-300');
+        document.getElementById('scheduleButtonText').textContent = 'Add Schedule';
+    }
     
     if (description && description !== 'null' && description !== '') {
         descriptionDiv.innerHTML = `<strong>Description:</strong> ${description}`;
@@ -1205,6 +1291,31 @@ function handleSanctionChange() {
         durationDiv.style.display = 'none';
         durationInput.required = false;
         durationInput.value = '';
+    }
+}
+
+// Toggle schedule section visibility
+function toggleScheduleSection() {
+    const scheduleSection = document.getElementById('scheduleSection');
+    const buttonText = document.getElementById('scheduleButtonText');
+    const isVisible = scheduleSection.style.display !== 'none';
+    
+    if (isVisible) {
+        scheduleSection.style.display = 'none';
+        const currentText = buttonText.textContent;
+        if (currentText.includes('Required')) {
+            buttonText.textContent = 'Schedule Event (Required)';
+        } else {
+            buttonText.textContent = 'Add Schedule';
+        }
+    } else {
+        scheduleSection.style.display = 'block';
+        const currentText = buttonText.textContent;
+        if (currentText.includes('Required')) {
+            buttonText.textContent = 'Hide Schedule';
+        } else {
+            buttonText.textContent = 'Hide Schedule';
+        }
     }
 }
 
@@ -1430,7 +1541,31 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
         
         if (data.success) {
             loadAppliedSanctions(caseId);
-            showSuccessToast('Sanction removed successfully!');
+            
+            // If the status changed, update it in real-time
+            if (data.statusChanged && data.newStatus) {
+                const caseIndex = allCases.findIndex(c => c.id === caseId);
+                if (caseIndex !== -1) {
+                    allCases[caseIndex].status = data.newStatus;
+                    allCases[caseIndex].statusColor = getStatusColor(data.newStatus);
+                }
+                
+                // Update filtered cases as well
+                const filteredIndex = filteredCases.findIndex(c => c.id === caseId);
+                if (filteredIndex !== -1) {
+                    filteredCases[filteredIndex].status = data.newStatus;
+                    filteredCases[filteredIndex].statusColor = getStatusColor(data.newStatus);
+                }
+                
+                // Re-render the table to show updated status
+                if (typeof renderCases === 'function') {
+                    renderCases();
+                }
+                
+                showSuccessToast('Sanction removed successfully! Status updated to ' + data.newStatus);
+            } else {
+                showSuccessToast('Sanction removed successfully!');
+            }
         } else {
             showErrorToast('Failed to remove sanction: ' + (data.error || 'Unknown error'));
         }
@@ -1439,6 +1574,17 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
         console.error('Error removing sanction:', error);
         showNotification('Error removing sanction. Please try again.', "error");
     }
+}
+
+// Helper function to get status color
+function getStatusColor(status) {
+    const colorMap = {
+        'Pending': 'yellow',
+        'On Going': 'blue',
+        'Resolved': 'green',
+        'Closed': 'gray'
+    };
+    return colorMap[status] || 'gray';
 }
 
 // ====== ARCHIVE FUNCTIONS ======
@@ -1605,6 +1751,101 @@ async function confirmUnarchiveCase(caseId) {
     closeLoadingToast();
     console.error("Error restoring case:", error);
     showErrorToast("Error restoring case. Please try again.");
+  }
+}
+
+// Bulk restore cases
+async function bulkRestoreCases() {
+  if (selectedCaseIds.size === 0) {
+    showNotification("Please select at least one case to restore", "error");
+    return;
+  }
+
+  const caseIds = Array.from(selectedCaseIds);
+  
+  // Show confirmation modal
+  const modal = document.createElement("div");
+  modal.className =
+    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200";
+  modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Restore Multiple Cases?</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">${caseIds.length} case(s) selected</p>
+                </div>
+            </div>
+            
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-6">
+                All selected cases will be restored to active cases and moved back to the Current tab.
+            </p>
+            
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal(this)" 
+                    class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmBulkRestore(${JSON.stringify(caseIds).replace(/"/g, '&quot;')})" 
+                    class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    Restore ${caseIds.length} Case(s)
+                </button>
+            </div>
+        </div>
+    `;
+  document.body.appendChild(modal);
+
+  setTimeout(() => {
+    const modalContent = modal.querySelector("div > div");
+    modalContent.classList.remove("scale-95", "opacity-0");
+    modalContent.classList.add("scale-100", "opacity-100");
+  }, 10);
+}
+
+async function confirmBulkRestore(caseIds) {
+  const modal = document.querySelector(".fixed.inset-0");
+  if (modal) modal.remove();
+
+  showLoadingToast(`Restoring ${caseIds.length} case(s)...`);
+
+  const formData = new FormData();
+  formData.append("ajax", "1");
+  formData.append("action", "unarchiveCases");
+  
+  // Append each case ID as an array element
+  caseIds.forEach(id => {
+    formData.append("caseIds[]", id);
+  });
+
+  try {
+    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    closeLoadingToast();
+
+    if (data.success) {
+      // Clear selections and reload
+      clearCaseSelections();
+      loadCasesFromDB();
+      showNotification(data.message, "success");
+    } else {
+      showNotification(
+        "Failed to restore cases: " + (data.error || "Unknown error"),
+        "error"
+      );
+    }
+  } catch (error) {
+    closeLoadingToast();
+    console.error("Error restoring cases:", error);
+    showErrorToast("Error restoring cases. Please try again.");
   }
 }
 

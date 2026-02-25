@@ -977,14 +977,60 @@ function getAllSanctions() {
     return fetchAll($sql);
 }
 
-function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '') {
-    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes)
-            VALUES (?, ?, ?, ?)";
+function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '') {
+    // scheduleTime should already be in HH:MM:SS format from cases.php
+    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, schedule_notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)";
     
-    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes]);
+    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes]);
     
     // Log the sanction
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied");
+    
+    // If a schedule date is provided, create a calendar event
+    if ($scheduleDate) {
+        try {
+            // Get case and sanction details for the event name
+            $case = getCaseById($caseId);
+            $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+            $sanction = fetchOne($sanctionSql, [$sanctionId]);
+            
+            $studentName = $case['student_name'] ?? 'Student';
+            $sanctionName = $sanction['sanction_name'] ?? 'Sanction';
+            
+            $eventName = "Sanction: {$sanctionName} - {$studentName} (Case {$caseId})";
+            $description = $scheduleNotes ?: "Scheduled sanction event for Case {$caseId}";
+            
+            // Create calendar event
+            if ($scheduleTime) {
+                $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, category, description, location, created_by, created_at)
+                            VALUES (?, ?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                executeQuery($eventSql, [
+                    $eventName,
+                    $scheduleDate,
+                    $scheduleTime,
+                    $description,
+                    'Discipline Office',
+                    $_SESSION['user_id'] ?? null
+                ]);
+            } else {
+                $eventSql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, created_at)
+                            VALUES (?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                executeQuery($eventSql, [
+                    $eventName,
+                    $scheduleDate,
+                    $description,
+                    'Discipline Office',
+                    $_SESSION['user_id'] ?? null
+                ]);
+            }
+            
+            error_log("Calendar event created for sanction schedule on {$scheduleDate}");
+        } catch (Exception $e) {
+            error_log("Error creating calendar event for sanction: " . $e->getMessage());
+            // Don't fail the sanction application if calendar event fails
+        }
+    }
 }
 
 function getCaseSanctions($caseId) {

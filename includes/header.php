@@ -129,16 +129,24 @@ $unreadCount = count($unreadNotifications);
             const data = await response.json();
             
             if (data.success) {
+                // Show notification that will persist across redirect
+                if (typeof showNotification === 'function') {
+                    showNotification('Notification marked as read', 'success', 3000, true);
+                }
+                
                 // If there's a case ID, redirect to the case details based on user role
                 if (relatedId) {
                     // Get the user role from the HTML data attribute or session
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
                     
-                    if (userRole === 'student') {
-                        window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedId)}`;
-                    } else {
-                        window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;
-                    }
+                    // Small delay to allow notification to be stored
+                    setTimeout(() => {
+                        if (userRole === 'student') {
+                            window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedId)}`;
+                        } else {
+                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;
+                        }
+                    }, 100);
                 } else {
                     // Otherwise just reload the page
                     setTimeout(() => location.reload(), 300);

@@ -119,6 +119,7 @@ CREATE TABLE sanctions (
     sanction_name NVARCHAR(200) NOT NULL,
     severity_level INT NOT NULL CHECK (severity_level BETWEEN 1 AND 5),
     description NVARCHAR(500),
+    requires_schedule BIT DEFAULT 0,
     is_active BIT DEFAULT 1,
     created_at DATETIME DEFAULT GETDATE()
 );
@@ -136,6 +137,9 @@ CREATE TABLE case_sanctions (
     is_completed BIT DEFAULT 0,
     completion_date DATE,
     notes NVARCHAR(500),
+    scheduled_date DATE NULL,
+    scheduled_time TIME NULL,
+    schedule_notes NVARCHAR(500),
     created_at DATETIME DEFAULT GETDATE()
 );
 GO

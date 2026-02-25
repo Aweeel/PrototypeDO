@@ -35,15 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Get cases for only this student
+        // Get cases for only this student (including archived)
         $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
                 CONCAT(s.first_name, ' ', s.last_name) as student_name,
                 u.full_name as assigned_to_name
                 FROM cases c
                 LEFT JOIN students s ON c.student_id = s.student_id
                 LEFT JOIN users u ON c.assigned_to = u.user_id
-                WHERE c.student_id = ? AND c.is_archived = 0
-                ORDER BY c.date_reported DESC, c.created_at DESC";
+                WHERE c.student_id = ?
+                ORDER BY c.is_archived ASC, c.date_reported DESC, c.created_at DESC";
         
         $cases = fetchAll($sql, [$studentId]);
 
@@ -60,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'statusColor' => getStatusColor($case['status']),
                 'description' => $case['description'] ?? '',
                 'notes' => $case['notes'] ?? '',
-                'severity' => $case['severity'] ?? 'Minor'
+                'severity' => $case['severity'] ?? 'Minor',
+                'isArchived' => $case['is_archived'] == 1
             ];
         }, $cases);
 
@@ -161,12 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Severity</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Assigned To</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Archive</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="casesTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
                                 <tr>
-                                    <td colspan="7" class="px-6 py-12 text-center">
+                                    <td colspan="8" class="px-6 py-12 text-center">
                                         <div class="inline-block">
                                             <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mb-3"></div>
                                             <p class="text-gray-500 dark:text-gray-400">Loading cases...</p>
@@ -275,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             emptyState.classList.add('hidden');
             tbody.innerHTML = allCases.map(caseItem => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
                     <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(caseItem.id)}</td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.type)}</td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.date)}</td>
@@ -290,6 +292,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.assignedTo)}</td>
+                    <td class="px-6 py-4 text-sm">
+                        ${caseItem.isArchived ? 
+                            '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : 
+                            '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-600">Active</span>'}
+                    </td>
                     <td class="px-6 py-4 text-sm">
                         <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors">
                             View
@@ -324,7 +331,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                 if (data.success) {
                     const caseData = data.case;
-                    modalTitle.textContent = `Case ${escapeHtml(caseData.case_id)} Details`;
+                    const isArchived = caseData.is_archived == 1;
+                    modalTitle.innerHTML = `Case ${escapeHtml(caseData.case_id)} Details ${isArchived ? '<span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-200 border border-gray-400">Archived</span>' : ''}`;
                     
                     modalContent.innerHTML = `
                         <div class="space-y-4">

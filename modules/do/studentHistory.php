@@ -395,7 +395,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
                 <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">The CSV file must have the following columns:</p>
                 <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                    student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+                    first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
                 </code>
                 <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">* Required fields: student_id, first_name, last_name, grade_year</p>
             </div>

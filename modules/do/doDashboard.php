@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
 $stats = getCaseStatistics();
 $lostFoundStats = getLostFoundStatistics();
 $recentCases = getRecentCases(5);
-$caseTypes = getCaseTypeDistribution();
+$caseTypes = array_slice(getCaseTypeDistribution(), 0, 7);
 $recentLostFound = getRecentLostFoundItems(4);
 $pendingCases = fetchAll("SELECT TOP 4 c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.student_id as student_number
                           FROM cases c
@@ -176,8 +176,7 @@ $progressColors = generateCaseTypeColors($caseTypes);
                         <!-- Two Column Layout -->
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                             <!-- Recent Cases -->
-                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300
-                                transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases
                                     </h2>
@@ -215,11 +214,14 @@ $progressColors = generateCaseTypeColors($caseTypes);
                             </div>
 
                             <!-- Case Types - Dynamic Colors Only with Tailwind -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300
-                                transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Case Types
                                     </h2>
+                                    <a href="../do/statistics.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 
+          font-medium transition-all duration-200 active:scale-95">
+                                        View All
+                                    </a>
                                 </div>
                                 <div class="space-y-4">
                                     <?php foreach ($caseTypes as $type): 
@@ -242,8 +244,7 @@ $progressColors = generateCaseTypeColors($caseTypes);
                         <!-- Two Column Layout - Lost & Found and Pending Cases -->
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                             <!-- Lost & Found Items -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300
-                                transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Lost & Found
                                         Items
@@ -272,8 +273,7 @@ $progressColors = generateCaseTypeColors($caseTypes);
                             </div>
 
                             <!-- Pending Cases -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300
-                                transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Pending
                                         Cases</h2>
