@@ -977,12 +977,82 @@ function getAllSanctions() {
     return fetchAll($sql);
 }
 
-function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '') {
-    // scheduleTime should already be in HH:MM:SS format from cases.php
-    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, schedule_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?)";
+/**
+ * Check for scheduling conflicts
+ * @param string $scheduleDate - Date in YYYY-MM-DD format
+ * @param string $scheduleStartTime - Start time in HH:MM:SS format
+ * @param string $scheduleEndTime - End time in HH:MM:SS format (optional)
+ * @param int $excludeEventId - Event ID to exclude from conflict check (for updates)
+ * @return array - Array of conflicting events or empty array if no conflicts
+ */
+function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEndTime = null, $excludeEventId = null) {
+    if (empty($scheduleDate) || empty($scheduleStartTime)) {
+        return [];
+    }
     
-    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes]);
+    // If no end time provided, assume 1-hour duration
+    if (empty($scheduleEndTime)) {
+        $scheduleEndTime = date('H:i:s', strtotime($scheduleStartTime) + 3600);
+    }
+    
+    // Only check calendar_events table since all scheduled sanctions create calendar events
+    // This prevents duplicate conflict messages
+    $sql = "SELECT 
+                event_id,
+                event_name,
+                event_date,
+                event_time,
+                event_end_time,
+                category
+            FROM calendar_events 
+            WHERE event_date = ?
+            AND category = 'Hearing'
+            AND event_time IS NOT NULL";
+    
+    $params = [$scheduleDate];
+    
+    if ($excludeEventId !== null) {
+        $sql .= " AND event_id != ?";
+        $params[] = $excludeEventId;
+    }
+    
+    $events = fetchAll($sql, $params);
+    $conflicts = [];
+    
+    foreach ($events as $event) {
+        $eventStart = $event['event_time'];
+        $eventEnd = $event['event_end_time'] ?? date('H:i:s', strtotime($eventStart) + 3600);
+        
+        // Check if time ranges overlap
+        // Overlap occurs if: (StartA < EndB) AND (EndA > StartB)
+        if (($scheduleStartTime < $eventEnd) && ($scheduleEndTime > $eventStart)) {
+            $conflicts[] = [
+                'event_name' => $event['event_name'],
+                'event_date' => $event['event_date'],
+                'event_time' => $eventStart,
+                'event_end_time' => $eventEnd,
+                'type' => 'calendar_event'
+            ];
+        }
+    }
+    
+    return $conflicts;
+}
+
+function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null) {
+    // Check for scheduling conflicts if date and time are provided
+    if (!empty($scheduleDate) && !empty($scheduleTime)) {
+        $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);
+        if (!empty($conflicts)) {
+            throw new Exception('Scheduling conflict detected: ' . $conflicts[0]['event_name'] . ' is already scheduled at this time.');
+        }
+    }
+    
+    // scheduleTime should already be in HH:MM:SS format from cases.php
+    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleEndTime, $scheduleNotes]);
     
     // Log the sanction
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied");
@@ -1003,12 +1073,13 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
             
             // Create calendar event
             if ($scheduleTime) {
-                $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, category, description, location, created_by, created_at)
-                            VALUES (?, ?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
+                            VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, GETDATE())";
                 executeQuery($eventSql, [
                     $eventName,
                     $scheduleDate,
                     $scheduleTime,
+                    $scheduleEndTime,
                     $description,
                     'Discipline Office',
                     $_SESSION['user_id'] ?? null

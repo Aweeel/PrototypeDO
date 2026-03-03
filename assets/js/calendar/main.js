@@ -292,9 +292,16 @@ function openAddEventModal(preselectedDate = null) {
                         <input type="date" id="eventDate" value="${dateStr}" required class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
                         <input type="time" id="eventTime" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
+                        <input type="time" id="eventEndTime" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div></div>
                 </div>
                 
                 <div>
@@ -342,6 +349,7 @@ function openAddEventModal(preselectedDate = null) {
         formData.append('eventName', document.getElementById('eventName').value);
         formData.append('eventDate', document.getElementById('eventDate').value);
         formData.append('eventTime', document.getElementById('eventTime').value);
+        formData.append('eventEndTime', document.getElementById('eventEndTime').value);
         formData.append('category', document.getElementById('eventCategory').value);
         formData.append('location', document.getElementById('eventLocation').value);
         formData.append('description', document.getElementById('eventDescription').value);
@@ -480,22 +488,60 @@ function editEvent(event) {
     document.querySelector('.fixed.inset-0').remove();
     
     // FIX: Ensure time is in correct format for time input (HH:MM)
+    // Parse time range "9:00 AM - 10:30 AM" into start and end times
     let timeValue = '';
+    let endTimeValue = '';
     if (event.time) {
-        // Convert "3:30 PM" to "15:30" format
-        const timeParts = event.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (timeParts) {
-            let hours = parseInt(timeParts[1]);
-            const minutes = timeParts[2];
-            const period = timeParts[3].toUpperCase();
-            
-            if (period === 'PM' && hours !== 12) {
-                hours += 12;
-            } else if (period === 'AM' && hours === 12) {
-                hours = 0;
+        // Check if it's a time range
+        const timeRange = event.time.split(' - ');
+        if (timeRange.length === 2) {
+            // Parse start time
+            const startParts = timeRange[0].match(/(\d+):(\d+)\s*(AM|PM)/i);
+            if (startParts) {
+                let hours = parseInt(startParts[1]);
+                const minutes = startParts[2];
+                const period = startParts[3].toUpperCase();
+                
+                if (period === 'PM' && hours !== 12) {
+                    hours += 12;
+                } else if (period === 'AM' && hours === 12) {
+                    hours = 0;
+                }
+                
+                timeValue = `${String(hours).padStart(2, '0')}:${minutes}`;
             }
             
-            timeValue = `${String(hours).padStart(2, '0')}:${minutes}`;
+            // Parse end time
+            const endParts = timeRange[1].match(/(\d+):(\d+)\s*(AM|PM)/i);
+            if (endParts) {
+                let hours = parseInt(endParts[1]);
+                const minutes = endParts[2];
+                const period = endParts[3].toUpperCase();
+                
+                if (period === 'PM' && hours !== 12) {
+                    hours += 12;
+                } else if (period === 'AM' && hours === 12) {
+                    hours = 0;
+                }
+                
+                endTimeValue = `${String(hours).padStart(2, '0')}:${minutes}`;
+            }
+        } else {
+            // Single time (backward compatibility)
+            const timeParts = event.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+            if (timeParts) {
+                let hours = parseInt(timeParts[1]);
+                const minutes = timeParts[2];
+                const period = timeParts[3].toUpperCase();
+                
+                if (period === 'PM' && hours !== 12) {
+                    hours += 12;
+                } else if (period === 'AM' && hours === 12) {
+                    hours = 0;
+                }
+                
+                timeValue = `${String(hours).padStart(2, '0')}:${minutes}`;
+            }
         }
     }
     
@@ -524,9 +570,16 @@ function editEvent(event) {
                         <input type="date" id="editEventDate" value="${event.date}" required class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
                         <input type="time" id="editEventTime" value="${timeValue}" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
+                        <input type="time" id="editEventEndTime" value="${endTimeValue}" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div></div>
                 </div>
                 
                 <div>
@@ -574,6 +627,7 @@ function editEvent(event) {
         formData.append('eventName', document.getElementById('editEventName').value);
         formData.append('eventDate', document.getElementById('editEventDate').value);
         formData.append('eventTime', document.getElementById('editEventTime').value);
+        formData.append('eventEndTime', document.getElementById('editEventEndTime').value);
         formData.append('category', document.getElementById('editEventCategory').value);
         formData.append('location', document.getElementById('editEventLocation').value);
         formData.append('description', document.getElementById('editEventDescription').value);

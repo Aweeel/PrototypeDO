@@ -366,14 +366,24 @@ if ($_POST['action'] === 'applySanction') {
     $notes = $_POST['notes'] ?? '';
     $scheduleDate = $_POST['scheduleDate'] ?? null;
     $scheduleTime = !empty(trim($_POST['scheduleTime'] ?? '')) ? trim($_POST['scheduleTime']) : null;
+    $scheduleEndTime = !empty(trim($_POST['scheduleEndTime'] ?? '')) ? trim($_POST['scheduleEndTime']) : null;
     $scheduleNotes = $_POST['scheduleNotes'] ?? '';
     
     // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
     if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
         $scheduleTime .= ':00';
     }
+    
+    if ($scheduleEndTime && strlen($scheduleEndTime) === 5 && substr_count($scheduleEndTime, ':') === 1) {
+        $scheduleEndTime .= ':00';
+    }
 
-    applySanctionToCase($caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes);
+    try {
+        applySanctionToCase($caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes, $scheduleEndTime);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
     
     // Update case status to "On Going" when sanction is applied
     $sqlUpdateStatus = "UPDATE cases SET status = 'On Going' WHERE case_id = ?";
@@ -397,6 +407,9 @@ if ($_POST['action'] === 'applySanction') {
                 $scheduleDateTime = date('F j, Y', strtotime($scheduleDate));
                 if (!empty($scheduleTime)) {
                     $scheduleDateTime .= ' at ' . date('g:i A', strtotime($scheduleTime));
+                    if (!empty($scheduleEndTime)) {
+                        $scheduleDateTime .= ' - ' . date('g:i A', strtotime($scheduleEndTime));
+                    }
                 }
                 
                 // Create notification
@@ -424,6 +437,7 @@ if ($_POST['action'] === 'applySanction') {
         'notes' => $notes,
         'scheduled_date' => $scheduleDate,
         'scheduled_time' => $scheduleTime,
+        'scheduled_end_time' => $scheduleEndTime,
         'schedule_notes' => $scheduleNotes
     ];
     auditCreate('case_sanctions', $caseId, sanitizeAuditData($auditData));
@@ -469,6 +483,61 @@ if ($_POST['action'] === 'applySanction') {
         $caseId = $_POST['caseId'];
         $sanctions = getCaseSanctions($caseId);
         echo json_encode(['success' => true, 'sanctions' => $sanctions]);
+        exit;
+    }
+
+    // Check for scheduling conflicts (real-time)
+    if ($_POST['action'] === 'checkConflicts') {
+        $scheduleDate = $_POST['scheduleDate'] ?? null;
+        $scheduleTime = $_POST['scheduleTime'] ?? null;
+        $scheduleEndTime = $_POST['scheduleEndTime'] ?? null;
+        
+        if (empty($scheduleDate) || empty($scheduleTime)) {
+            echo json_encode(['success' => true, 'hasConflict' => false, 'conflicts' => []]);
+            exit;
+        }
+        
+        // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+        if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
+            $scheduleTime .= ':00';
+        }
+        
+        if ($scheduleEndTime && strlen($scheduleEndTime) === 5 && substr_count($scheduleEndTime, ':') === 1) {
+            $scheduleEndTime .= ':00';
+        }
+        
+        try {
+            $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);
+            
+            if (!empty($conflicts)) {
+                // Format conflicts for display
+                $formattedConflicts = array_map(function($conflict) {
+                    $timeRange = date('g:i A', strtotime($conflict['event_time']));
+                    if (!empty($conflict['event_end_time'])) {
+                        $timeRange .= ' - ' . date('g:i A', strtotime($conflict['event_end_time']));
+                    }
+                    return [
+                        'name' => $conflict['event_name'],
+                        'time' => $timeRange,
+                        'date' => date('M j, Y', strtotime($conflict['event_date']))
+                    ];
+                }, $conflicts);
+                
+                echo json_encode([
+                    'success' => true,
+                    'hasConflict' => true,
+                    'conflicts' => $formattedConflicts
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => true,
+                    'hasConflict' => false,
+                    'conflicts' => []
+                ]);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
     }
 }
