@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $month = $_POST['month'] ?? date('n');
             $year = $_POST['year'] ?? date('Y');
             
-            $sql = "SELECT event_id, event_name, event_date, event_time, category, description, location
+            $sql = "SELECT event_id, event_name, event_date, event_time, event_end_time, category, description, location
                     FROM calendar_events 
                     WHERE MONTH(event_date) = ? AND YEAR(event_date) = ?
                     ORDER BY event_date, event_time";
@@ -22,11 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             // Format events
             $formattedEvents = array_map(function($event) {
+                // Format time range
+                $timeDisplay = null;
+                if ($event['event_time']) {
+                    $timeDisplay = date('g:i A', strtotime($event['event_time']));
+                    if ($event['event_end_time']) {
+                        $timeDisplay .= ' - ' . date('g:i A', strtotime($event['event_end_time']));
+                    }
+                }
+                
                 return [
                     'id' => $event['event_id'],
                     'name' => $event['event_name'],
                     'date' => $event['event_date'],
-                    'time' => $event['event_time'] ? date('g:i A', strtotime($event['event_time'])) : null,
+                    'time' => $timeDisplay,
                     'category' => $event['category'],
                     'description' => $event['description'],
                     'location' => $event['location'],
@@ -53,6 +62,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $eventTime .= ':00';
                 }
             }
+            
+            $eventEndTime = isset($_POST['eventEndTime']) ? trim($_POST['eventEndTime']) : null;
+            if ($eventEndTime === '') {
+                $eventEndTime = null;
+            } elseif ($eventEndTime !== null) {
+                // Normalize to HH:MM:SS for SQL Server
+                if (preg_match('/^\d{2}:\d{2}$/', $eventEndTime)) {
+                    $eventEndTime .= ':00';
+                }
+            }
+            
             $category = $_POST['category'] ?? '';
             $description = isset($_POST['description']) && !empty(trim($_POST['description'])) ? trim($_POST['description']) : null;
             $location = isset($_POST['location']) && !empty(trim($_POST['location'])) ? trim($_POST['location']) : null;
@@ -66,12 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             // Build SQL based on whether time is provided
             if ($eventTime !== null) {
-                $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, category, description, location, created_by, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
                 $params = [
                     $eventName,
                     $eventDate,
                     $eventTime,
+                    $eventEndTime,
                     $category,
                     $description,
                     $location,
@@ -112,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $eventName = $_POST['eventName'] ?? '';
             $eventDate = $_POST['eventDate'] ?? '';
             $eventTime = isset($_POST['eventTime']) && !empty(trim($_POST['eventTime'])) ? trim($_POST['eventTime']) : null;
+            $eventEndTime = isset($_POST['eventEndTime']) && !empty(trim($_POST['eventEndTime'])) ? trim($_POST['eventEndTime']) : null;
             $category = $_POST['category'] ?? '';
             $description = isset($_POST['description']) && !empty(trim($_POST['description'])) ? trim($_POST['description']) : null;
             $location = isset($_POST['location']) && !empty(trim($_POST['location'])) ? trim($_POST['location']) : null;
@@ -121,14 +143,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
             
+            // Normalize times to HH:MM:SS for SQL Server
+            if ($eventTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
+                $eventTime .= ':00';
+            }
+            if ($eventEndTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventEndTime)) {
+                $eventEndTime .= ':00';
+            }
+            
             $sql = "UPDATE calendar_events 
-                    SET event_name = ?, event_date = ?, event_time = ?, category = ?, description = ?, location = ?, updated_at = GETDATE()
+                    SET event_name = ?, event_date = ?, event_time = ?, event_end_time = ?, category = ?, description = ?, location = ?, updated_at = GETDATE()
                     WHERE event_id = ?";
             
             $params = [
                 $eventName,
                 $eventDate,
                 $eventTime,
+                $eventEndTime,
                 $category,
                 $description,
                 $location,

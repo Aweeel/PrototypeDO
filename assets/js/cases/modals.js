@@ -987,7 +987,7 @@ async function manageSanctions(caseId) {
                 </div>
             </div>
 
-            <div class="overflow-y-auto flex-1 px-5" style="min-height: 0;">
+            <div class="overflow-y-auto flex-1 px-5">
             <form id="applySanctionForm" class="space-y-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Select Sanction <span class="text-red-500">*</span></label>
@@ -1002,7 +1002,7 @@ async function manageSanctions(caseId) {
                     </select>
                 </div>
 
-                <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none;">
+                <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none; min-height: 60px;">
                 </div>
 
                 <div id="durationDiv" style="display: none;">
@@ -1014,7 +1014,7 @@ async function manageSanctions(caseId) {
 
                 <!-- Schedule Button -->
                 <div>
-                    <button type="button" onclick="toggleScheduleSection()" id="scheduleToggleBtn"
+                    <button type="button" onclick="openSchedulePopup()" id="scheduleToggleBtn"
                         class="w-full px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1022,38 +1022,21 @@ async function manageSanctions(caseId) {
                         <span id="scheduleButtonText">Add Schedule</span>
                         <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded">Required</span>
                     </button>
-                </div>
-
-                <!-- Schedule Date and Time -->
-                <div id="scheduleSection" class="border border-gray-200 dark:border-slate-600 rounded-lg p-3 space-y-3" style="display: none;">
-                    <div class="flex items-center gap-2 mb-2">
-                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Schedule Event Details</label>
-                        <button type="button" onclick="toggleScheduleSection()" class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date</label>
-                            <input type="date" id="sanctionScheduleDate" 
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <!-- Hidden inputs to store schedule data -->
+                    <input type="hidden" id="sanctionScheduleDate" value="">
+                    <input type="hidden" id="sanctionScheduleTime" value="">
+                    <input type="hidden" id="sanctionScheduleEndTime" value="">
+                    <input type="hidden" id="sanctionScheduleNotes" value="">
+                    <!-- Schedule display -->
+                    <div id="scheduleDisplay" class="hidden mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs">
+                        <div class="flex items-center justify-between">
+                            <span id="scheduleDisplayText" class="text-blue-800 dark:text-blue-300"></span>
+                            <button type="button" onclick="clearSchedule()" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Time</label>
-                            <input type="time" id="sanctionScheduleTime" 
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Schedule Notes</label>
-                        <input type="text" id="sanctionScheduleNotes" 
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                            placeholder="e.g., Counseling session, Hearing, etc.">
                     </div>
                 </div>
 
@@ -1098,6 +1081,7 @@ async function manageSanctions(caseId) {
         const notes = document.getElementById('sanctionNotes').value;
         const scheduleDate = document.getElementById('sanctionScheduleDate').value;
         const scheduleTime = document.getElementById('sanctionScheduleTime').value;
+        const scheduleEndTime = document.getElementById('sanctionScheduleEndTime').value;
         const scheduleNotes = document.getElementById('sanctionScheduleNotes').value;
 
         if (!sanctionId) {
@@ -1113,6 +1097,20 @@ async function manageSanctions(caseId) {
             showNotification('This sanction requires a scheduled date', "warning");
             return;
         }
+        
+        // Validate time range if schedule date is provided
+        if (scheduleDate && scheduleTime) {
+            if (!scheduleEndTime) {
+                showNotification('Please enter an end time for the hearing', "warning");
+                return;
+            }
+            
+            // Check if end time is after start time
+            if (scheduleEndTime <= scheduleTime) {
+                showNotification('End time must be after start time', "warning");
+                return;
+            }
+        }
 
         const durationDiv = document.getElementById('durationDiv');
         if (durationDiv.style.display !== 'none' && !duration) {
@@ -1121,6 +1119,12 @@ async function manageSanctions(caseId) {
         }
 
         const sanctionName = selectedOption.text;
+        
+        // Format time range for display
+        let timeRangeDisplay = '';
+        if (scheduleTime && scheduleEndTime) {
+            timeRangeDisplay = `${scheduleTime} - ${scheduleEndTime}`;
+        }
         
         const confirmModal = document.createElement('div');
         confirmModal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
@@ -1141,7 +1145,7 @@ async function manageSanctions(caseId) {
                 <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
                     <p class="text-sm"><strong>Sanction:</strong> ${sanctionName}</p>
                     ${duration ? `<p class="text-sm"><strong>Duration:</strong> ${duration} days</p>` : ''}
-                    ${scheduleDate ? `<p class="text-sm"><strong>Scheduled:</strong> ${new Date(scheduleDate).toLocaleDateString()} ${scheduleTime ? 'at ' + scheduleTime : ''}</p>` : ''}
+                    ${scheduleDate ? `<p class="text-sm"><strong>Scheduled:</strong> ${new Date(scheduleDate).toLocaleDateString()} ${timeRangeDisplay}</p>` : ''}
                     ${scheduleNotes ? `<p class="text-sm"><strong>Schedule Info:</strong> ${scheduleNotes}</p>` : ''}
                     ${notes ? `<p class="text-sm"><strong>Notes:</strong> ${notes}</p>` : ''}
                 </div>
@@ -1151,7 +1155,7 @@ async function manageSanctions(caseId) {
                         class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Cancel
                     </button>
-                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`)" 
+                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', '${scheduleEndTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`)" 
                         class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
                         Confirm & Apply
                     </button>
@@ -1163,7 +1167,7 @@ async function manageSanctions(caseId) {
 }
 
 // Confirm apply sanction
-async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleNotes) {
+async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleEndTime, scheduleNotes) {
     const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
     if (confirmModal) confirmModal.remove();
 
@@ -1178,6 +1182,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
     formData.append('notes', notes);
     if (scheduleDate) formData.append('scheduleDate', scheduleDate);
     if (scheduleTime) formData.append('scheduleTime', scheduleTime);
+    if (scheduleEndTime) formData.append('scheduleEndTime', scheduleEndTime);
     if (scheduleNotes) formData.append('scheduleNotes', scheduleNotes);
 
     try {
@@ -1194,6 +1199,10 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
             document.getElementById('applySanctionForm').reset();
             document.getElementById('durationDiv').style.display = 'none';
             document.getElementById('sanctionDescription').style.display = 'none';
+            
+            // Clear schedule fields and display
+            clearSchedule();
+            
             loadAppliedSanctions(caseId);
             
             // Update case status to "On Going" in real-time
@@ -1294,29 +1303,472 @@ function handleSanctionChange() {
     }
 }
 
-// Toggle schedule section visibility
+// Toggle schedule section visibility (deprecated - replaced with popup)
 function toggleScheduleSection() {
-    const scheduleSection = document.getElementById('scheduleSection');
-    const buttonText = document.getElementById('scheduleButtonText');
-    const isVisible = scheduleSection.style.display !== 'none';
+    openSchedulePopup();
+}
+
+// Open schedule popup modal
+function openSchedulePopup() {
+    const existingData = {
+        date: document.getElementById('sanctionScheduleDate')?.value || '',
+        time: document.getElementById('sanctionScheduleTime')?.value || '',
+        endTime: document.getElementById('sanctionScheduleEndTime')?.value || '',
+        notes: document.getElementById('sanctionScheduleNotes')?.value || ''
+    };
     
-    if (isVisible) {
-        scheduleSection.style.display = 'none';
-        const currentText = buttonText.textContent;
-        if (currentText.includes('Required')) {
-            buttonText.textContent = 'Schedule Event (Required)';
-        } else {
-            buttonText.textContent = 'Add Schedule';
+    const modal = document.createElement('div');
+    modal.id = 'schedulePopupModal';
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md">
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Schedule Hearing</h3>
+                <button onclick="closeSchedulePopup()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-5 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span class="text-red-500">*</span></label>
+                        <input type="date" id="popupScheduleDate" value="${existingData.date}"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time <span class="text-red-500">*</span></label>
+                        <input type="time" id="popupScheduleTime" value="${existingData.time}"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time <span class="text-red-500">*</span></label>
+                        <input type="time" id="popupScheduleEndTime" value="${existingData.endTime}"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div class="flex items-end">
+                        <span id="popupScheduleDuration" class="text-xs text-gray-500 dark:text-gray-400 pb-2"></span>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Schedule Notes</label>
+                    <input type="text" id="popupScheduleNotes" value="${existingData.notes}"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                        placeholder="e.g., Counseling session, Hearing, etc.">
+                </div>
+                
+                <!-- Conflict Warning -->
+                <div id="popupConflictWarning" class="hidden p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">⚠️ Scheduling Conflict</h4>
+                            <div id="popupConflictDetails" class="text-xs text-red-700 dark:text-red-400 space-y-1"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 p-5 border-t border-gray-200 dark:border-slate-700">
+                <button onclick="closeSchedulePopup()" class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700">
+                    Cancel
+                </button>
+                <button onclick="saveSchedule()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Save Schedule
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    initializePopupListeners();
+}
+
+// Close schedule popup
+function closeSchedulePopup() {
+    const modal = document.getElementById('schedulePopupModal');
+    if (modal) modal.remove();
+}
+
+// Save schedule from popup
+function saveSchedule() {
+    const date = document.getElementById('popupScheduleDate').value;
+    const time = document.getElementById('popupScheduleTime').value;
+    const endTime = document.getElementById('popupScheduleEndTime').value;
+    const notes = document.getElementById('popupScheduleNotes').value;
+    
+    // Validation
+    if (!date) {
+        showNotification('Please select a date', 'warning');
+        return;
+    }
+    
+    if (!time) {
+        showNotification('Please select a start time', 'warning');
+        return;
+    }
+    
+    if (!endTime) {
+        showNotification('Please select an end time', 'warning');
+        return;
+    }
+    
+    if (endTime <= time) {
+        showNotification('End time must be after start time', 'warning');
+        return;
+    }
+    
+    // Check for conflicts
+    const conflictWarning = document.getElementById('popupConflictWarning');
+    if (conflictWarning && !conflictWarning.classList.contains('hidden')) {
+        showNotification('Cannot save - there is a time conflict. Please choose a different time.', 'error');
+        return;
+    }
+    
+    // Save to hidden fields
+    document.getElementById('sanctionScheduleDate').value = date;
+    document.getElementById('sanctionScheduleTime').value = time;
+    document.getElementById('sanctionScheduleEndTime').value = endTime;
+    document.getElementById('sanctionScheduleNotes').value = notes;
+    
+    // Update display
+    updateScheduleDisplay();
+    
+    // Close popup
+    closeSchedulePopup();
+    
+    showNotification('Schedule saved successfully', 'success');
+}
+
+// Clear schedule data
+function clearSchedule() {
+    document.getElementById('sanctionScheduleDate').value = '';
+    document.getElementById('sanctionScheduleTime').value = '';
+    document.getElementById('sanctionScheduleEndTime').value = '';
+    document.getElementById('sanctionScheduleNotes').value = '';
+    
+    const display = document.getElementById('scheduleDisplay');
+    if (display) display.classList.add('hidden');
+    
+    const buttonText = document.getElementById('scheduleButtonText');
+    if (buttonText) buttonText.textContent = 'Add Schedule';
+}
+
+// Update schedule display
+function updateScheduleDisplay() {
+    const date = document.getElementById('sanctionScheduleDate').value;
+    const time = document.getElementById('sanctionScheduleTime').value;
+    const endTime = document.getElementById('sanctionScheduleEndTime').value;
+    const notes = document.getElementById('sanctionScheduleNotes').value;
+    
+    const display = document.getElementById('scheduleDisplay');
+    const displayText = document.getElementById('scheduleDisplayText');
+    const buttonText = document.getElementById('scheduleButtonText');
+    
+    if (date && time && endTime) {
+        const dateObj = new Date(date);
+        const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = `${time} - ${endTime}`;
+        
+        let scheduleText = `📅 ${dateStr} at ${timeStr}`;
+        if (notes) {
+            scheduleText += ` - ${notes}`;
         }
+        
+        displayText.textContent = scheduleText;
+        display.classList.remove('hidden');
+        buttonText.textContent = 'Edit Schedule';
     } else {
-        scheduleSection.style.display = 'block';
-        const currentText = buttonText.textContent;
-        if (currentText.includes('Required')) {
-            buttonText.textContent = 'Hide Schedule';
-        } else {
-            buttonText.textContent = 'Hide Schedule';
+        display.classList.add('hidden');
+        buttonText.textContent = 'Add Schedule';
+    }
+}
+
+// Initialize popup event listeners
+function initializePopupListeners() {
+    const dateInput = document.getElementById('popupScheduleDate');
+    const timeInput = document.getElementById('popupScheduleTime');
+    const endTimeInput = document.getElementById('popupScheduleEndTime');
+    
+    if (dateInput && timeInput && endTimeInput) {
+        dateInput.addEventListener('change', () => {
+            calculatePopupDuration();
+            checkPopupConflicts();
+        });
+        
+        timeInput.addEventListener('change', () => {
+            calculatePopupDuration();
+            checkPopupConflicts();
+        });
+        
+        endTimeInput.addEventListener('change', () => {
+            calculatePopupDuration();
+            checkPopupConflicts();
+        });
+        
+        // Initial calculation        calculatePopupDuration();
+        if (dateInput.value && timeInput.value && endTimeInput.value) {
+            checkPopupConflicts();
         }
     }
+}
+
+// Calculate and display hearing duration
+function calculateScheduleDuration() {
+    const startTime = document.getElementById('sanctionScheduleTime')?.value;
+    const endTime = document.getElementById('sanctionScheduleEndTime')?.value;
+    const durationSpan = document.getElementById('scheduleDuration');
+    
+    if (!durationSpan) return;
+    
+    if (startTime && endTime) {
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        const diffMinutes = endMinutes - startMinutes;
+        
+        if (diffMinutes > 0) {
+            const hours = Math.floor(diffMinutes / 60);
+            const minutes = diffMinutes % 60;
+            
+            let durationText = 'Duration: ';
+            if (hours > 0) {
+                durationText += `${hours} hour${hours > 1 ? 's' : ''}`;
+            }
+            if (minutes > 0) {
+                if (hours > 0) durationText += ' ';
+                durationText += `${minutes} min${minutes > 1 ? 's' : ''}`;
+            }
+            
+            durationSpan.textContent = durationText;
+            durationSpan.className = 'text-xs text-green-600 dark:text-green-400 pb-2';
+        } else {
+            durationSpan.textContent = 'End time must be after start time';
+            durationSpan.className = 'text-xs text-red-600 dark:text-red-400 pb-2';
+        }
+    } else {
+        durationSpan.textContent = '';
+    }
+}
+
+// Initialize time calculation listeners
+function initializeTimeCalculation() {
+    const startTimeInput = document.getElementById('sanctionScheduleTime');
+    const endTimeInput = document.getElementById('sanctionScheduleEndTime');
+    const dateInput = document.getElementById('sanctionScheduleDate');
+    
+    if (startTimeInput && endTimeInput) {
+        // Remove existing listeners to avoid duplicates
+        startTimeInput.removeEventListener('change', calculateScheduleDuration);
+        endTimeInput.removeEventListener('change', calculateScheduleDuration);
+        startTimeInput.removeEventListener('change', checkScheduleConflicts);
+        endTimeInput.removeEventListener('change', checkScheduleConflicts);
+        
+        // Add new listeners for duration calculation
+        startTimeInput.addEventListener('change', calculateScheduleDuration);
+        endTimeInput.addEventListener('change', calculateScheduleDuration);
+        
+        // Add new listeners for conflict checking
+        startTimeInput.addEventListener('change', checkScheduleConflicts);
+        endTimeInput.addEventListener('change', checkScheduleConflicts);
+    }
+    
+    if (dateInput) {
+        dateInput.removeEventListener('change', checkScheduleConflicts);
+        dateInput.addEventListener('change', checkScheduleConflicts);
+    }
+}
+
+// Check for scheduling conflicts in real-time
+let conflictCheckTimeout = null;
+async function checkScheduleConflicts() {
+    // Clear previous timeout
+    if (conflictCheckTimeout) {
+        clearTimeout(conflictCheckTimeout);
+    }
+    
+    const dateInput = document.getElementById('sanctionScheduleDate');
+    const startTimeInput = document.getElementById('sanctionScheduleTime');
+    const endTimeInput = document.getElementById('sanctionScheduleEndTime');
+    const conflictWarning = document.getElementById('conflictWarning');
+    const conflictDetails = document.getElementById('conflictDetails');
+    
+    if (!dateInput || !startTimeInput || !endTimeInput || !conflictWarning || !conflictDetails) {
+        return;
+    }
+    
+    const scheduleDate = dateInput.value;
+    const scheduleTime = startTimeInput.value;
+    const scheduleEndTime = endTimeInput.value;
+    
+    // Hide warning if inputs are incomplete
+    if (!scheduleDate || !scheduleTime || !scheduleEndTime) {
+        conflictWarning.classList.add('hidden');
+        return;
+    }
+    
+    // Validate end time is after start time
+    if (scheduleEndTime <= scheduleTime) {
+        conflictWarning.classList.add('hidden');
+        return;
+    }
+    
+    // Debounce the API call
+    conflictCheckTimeout = setTimeout(async () => {
+        try {
+            const formData = new FormData();
+            formData.append('ajax', '1');
+            formData.append('action', 'checkConflicts');
+            formData.append('scheduleDate', scheduleDate);
+            formData.append('scheduleTime', scheduleTime);
+            formData.append('scheduleEndTime', scheduleEndTime);
+            
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.hasConflict && data.conflicts.length > 0) {
+                // Show conflict warning
+                conflictDetails.innerHTML = data.conflicts.map(conflict => `
+                    <div class="flex items-start gap-1">
+                        <span class="text-red-600 dark:text-red-400">\u2022</span>
+                        <span><strong>${conflict.name}</strong> is already scheduled at ${conflict.time}</span>
+                    </div>
+                `).join('');
+                conflictWarning.classList.remove('hidden');
+            } else {
+                // Hide conflict warning
+                conflictWarning.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error checking conflicts:', error);
+            conflictWarning.classList.add('hidden');
+        }
+    }, 500); // 500ms debounce
+}
+
+// Calculate duration for popup
+function calculatePopupDuration() {
+    const startTime = document.getElementById('popupScheduleTime')?.value;
+    const endTime = document.getElementById('popupScheduleEndTime')?.value;
+    const durationSpan = document.getElementById('popupScheduleDuration');
+    
+    if (!durationSpan) return;
+    
+    if (startTime && endTime) {
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        const diffMinutes = endMinutes - startMinutes;
+        
+        if (diffMinutes > 0) {
+            const hours = Math.floor(diffMinutes / 60);
+            const minutes = diffMinutes % 60;
+            
+            let durationText = '';
+            if (hours > 0) {
+                durationText += `${hours} hr${hours > 1 ? 's' : ''}`;
+            }
+            if (minutes > 0) {
+                if (hours > 0) durationText += ' ';
+                durationText += `${minutes} min`;
+            }
+            
+            durationSpan.textContent = durationText;
+            durationSpan.className = 'text-xs text-green-600 dark:text-green-400 pb-2';
+        } else {
+            durationSpan.textContent = 'Invalid time range';
+            durationSpan.className = 'text-xs text-red-600 dark:text-red-400 pb-2';
+        }
+    } else {
+        durationSpan.textContent = '';
+    }
+}
+
+// Check conflicts for popup
+let popupConflictCheckTimeout = null;
+async function checkPopupConflicts() {
+    // Clear previous timeout
+    if (popupConflictCheckTimeout) {
+        clearTimeout(popupConflictCheckTimeout);
+    }
+    
+    const dateInput = document.getElementById('popupScheduleDate');
+    const startTimeInput = document.getElementById('popupScheduleTime');
+    const endTimeInput = document.getElementById('popupScheduleEndTime');
+    const conflictWarning = document.getElementById('popupConflictWarning');
+    const conflictDetails = document.getElementById('popupConflictDetails');
+    
+    if (!dateInput || !startTimeInput || !endTimeInput || !conflictWarning || !conflictDetails) {
+        return;
+    }
+    
+    const scheduleDate = dateInput.value;
+    const scheduleTime = startTimeInput.value;
+    const scheduleEndTime = endTimeInput.value;
+    
+    // Hide warning if inputs are incomplete
+    if (!scheduleDate || !scheduleTime || !scheduleEndTime) {
+        conflictWarning.classList.add('hidden');
+        return;
+    }
+    
+    // Validate end time is after start time
+    if (scheduleEndTime <= scheduleTime) {
+        conflictWarning.classList.add('hidden');
+        return;
+    }
+    
+    // Debounce the API call
+    popupConflictCheckTimeout = setTimeout(async () => {
+        try {
+            const formData = new FormData();
+            formData.append('ajax', '1');
+            formData.append('action', 'checkConflicts');
+            formData.append('scheduleDate', scheduleDate);
+            formData.append('scheduleTime', scheduleTime);
+            formData.append('scheduleEndTime', scheduleEndTime);
+            
+            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.hasConflict && data.conflicts.length > 0) {
+                // Show conflict warning
+                conflictDetails.innerHTML = data.conflicts.map(conflict => `
+                    <div class="flex items-start gap-1">
+                        <span class="text-red-600 dark:text-red-400">•</span>
+                        <span><strong>${conflict.name}</strong> at ${conflict.time}</span>
+                    </div>
+                `).join('');
+                conflictWarning.classList.remove('hidden');
+            } else {
+                // Hide conflict warning
+                conflictWarning.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error checking conflicts:', error);
+            conflictWarning.classList.add('hidden');
+        }
+    }, 500); // 500ms debounce
 }
 
 // Load applied sanctions for a case
@@ -1337,12 +1789,34 @@ async function loadAppliedSanctions(caseId) {
         const listDiv = document.getElementById('appliedSanctionsList');
         
         if (data.success && data.sanctions && data.sanctions.length > 0) {
-            listDiv.innerHTML = data.sanctions.map(s => `
+            listDiv.innerHTML = data.sanctions.map(s => {
+                // Format scheduled time range if available
+                let scheduledInfo = '';
+                if (s.scheduled_date) {
+                    const dateStr = new Date(s.scheduled_date).toLocaleDateString();
+                    if (s.scheduled_time && s.scheduled_end_time) {
+                        // Format time range
+                        const startTime = s.scheduled_time.substring(0, 5); // HH:MM
+                        const endTime = s.scheduled_end_time.substring(0, 5); // HH:MM
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} (${startTime} - ${endTime})</p>`;
+                    } else if (s.scheduled_time) {
+                        const timeStr = s.scheduled_time.substring(0, 5);
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} at ${timeStr}</p>`;
+                    } else {
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr}</p>`;
+                    }
+                    if (s.schedule_notes) {
+                        scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400 italic">${s.schedule_notes}</p>`;
+                    }
+                }
+                
+                return `
                 <div class="p-3 bg-gray-50 dark:bg-slate-700 rounded">
                     <div class="flex justify-between items-start gap-3">
                         <div class="flex-1">
                             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${s.sanction_name}</p>
                             ${s.duration_days ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>` : ''}
+                            ${scheduledInfo}
                             ${s.notes ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>` : ''}
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Applied on: ${new Date(s.applied_date).toLocaleDateString()}</p>
                         </div>
@@ -1360,7 +1834,8 @@ async function loadAppliedSanctions(caseId) {
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         } else {
             listDiv.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No sanctions applied yet.</p>';
         }

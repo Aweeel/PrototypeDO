@@ -139,6 +139,7 @@ CREATE TABLE case_sanctions (
     notes NVARCHAR(500),
     scheduled_date DATE NULL,
     scheduled_time TIME NULL,
+    scheduled_end_time TIME NULL,
     schedule_notes NVARCHAR(500),
     created_at DATETIME DEFAULT GETDATE()
 );
@@ -224,6 +225,7 @@ CREATE TABLE calendar_events (
     event_name NVARCHAR(200) NOT NULL,
     event_date DATE NOT NULL,
     event_time TIME,
+    event_end_time TIME NULL,
     category NVARCHAR(50) NOT NULL CHECK (category IN ('Meeting', 'Conference', 'Deadline', 'Hearing', 'Holiday', 'Other')),
     description NVARCHAR(MAX),
     location NVARCHAR(200),
