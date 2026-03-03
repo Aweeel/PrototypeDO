@@ -88,13 +88,26 @@ $unreadCount = count($unreadNotifications);
                 </div>
             </div>
 
-            <!-- Admin Info -->
-            <div class="flex items-center space-x-2">
-                <span class="text-m text-gray-600 dark:text-gray-400">
-                    <?php echo isset($adminName) ? htmlspecialchars($adminName) : 'Admin Name'; ?>
+            <!-- Admin Info - Profile Link -->
+            <a href="/PrototypeDO/modules/shared/userProfile.php" 
+               class="flex items-center space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                <span class="text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    <?php echo isset($adminName) ? htmlspecialchars($adminName) : 'User'; ?>
                 </span>
-                <div class="w-8 h-8 bg-gray-300 rounded-full"></div>
-            </div>
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center cursor-pointer">
+                    <span class="text-xs font-bold text-white">
+                        <?php 
+                        $adminName = isset($adminName) ? htmlspecialchars($adminName) : 'U';
+                        $names = explode(' ', $adminName);
+                        $initials = strtoupper(substr($names[0], 0, 1));
+                        if (isset($names[1])) {
+                            $initials .= strtoupper(substr($names[1], 0, 1));
+                        }
+                        echo $initials;
+                        ?>
+                    </span>
+                </div>
+            </a>
         </div>
     </div>
 </header>

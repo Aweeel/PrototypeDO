@@ -45,6 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
 
             // Format data for JavaScript
             $formattedCases = array_map(function ($case) {
+                $attachments = [];
+                if (!empty($case['attachments'])) {
+                    $attachments = json_decode($case['attachments'], true);
+                    if (!is_array($attachments)) {
+                        $attachments = [];
+                    }
+                }
+                
                 return [
                     'id' => $case['case_id'],
                     'student' => $case['student_name'],
@@ -56,7 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'statusColor' => getStatusColor($case['status']),
                     'description' => $case['description'] ?? '',
                     'notes' => $case['notes'] ?? '',
-                    'severity' => $case['severity'] ?? 'Minor'
+                    'severity' => $case['severity'] ?? 'Minor',
+                    'attachments' => $attachments
                 ];
             }, $cases);
 

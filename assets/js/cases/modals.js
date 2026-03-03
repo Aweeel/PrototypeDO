@@ -126,6 +126,29 @@ function closeModal(element) {
   if (modal) modal.remove();
 }
 
+// Open image in larger view modal
+function openImageModal(imageSrc) {
+  const modal = document.createElement("div");
+  modal.className =
+    "fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4";
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl max-h-[90vh] overflow-auto flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Attachment Preview</h3>
+        <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 flex items-center justify-center p-4">
+        <img src="${imageSrc}" alt="Attachment" class="max-w-full max-h-[calc(90vh-140px)] object-contain">
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
 // ====== VIEW CASE MODAL ======
 
 async function viewCase(caseId) {
@@ -227,6 +250,32 @@ async function viewCase(caseId) {
                         ${caseData.notes || "No notes available."}
                     </div>
                 </div>
+
+                ${
+                  caseData.attachments && caseData.attachments.length > 0
+                    ? `
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Attachments (${caseData.attachments.length})</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${caseData.attachments
+                          .map(
+                            (attachment) => `
+                            <div class="relative bg-gray-100 dark:bg-slate-700 rounded overflow-hidden border border-gray-300 dark:border-slate-600 cursor-pointer hover:border-blue-400 dark:hover:border-blue-400 transition-colors" onclick="openImageModal('${attachment}')">
+                                <img src="${attachment}" alt="Case attachment" class="w-full h-24 object-cover">
+                                <div class="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white opacity-0 hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        `
+                          )
+                          .join("")}
+                    </div>
+                </div>
+                `
+                    : ""
+                }
 
                 <!-- Applied Sanctions Section - Collapsible -->
                 <div class="pt-3 border-t border-gray-200 dark:border-slate-700">

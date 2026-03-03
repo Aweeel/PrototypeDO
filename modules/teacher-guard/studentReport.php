@@ -55,6 +55,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             error_log("studentReport: New case created - $newCaseId for student {$data['student_number']}");
             
+            // Handle image attachments
+            if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
+                $attachmentPaths = [];
+                $imageCount = count($_FILES['images']['name']);
+                
+                for ($i = 0; $i < $imageCount; $i++) {
+                    $file = [
+                        'name' => $_FILES['images']['name'][$i],
+                        'type' => $_FILES['images']['type'][$i],
+                        'tmp_name' => $_FILES['images']['tmp_name'][$i],
+                        'error' => $_FILES['images']['error'][$i],
+                        'size' => $_FILES['images']['size'][$i]
+                    ];
+                    
+                    $attachmentPath = saveAttachmentForCase($newCaseId, $file);
+                    if ($attachmentPath) {
+                        $attachmentPaths[] = $attachmentPath;
+                        error_log("studentReport: Image attachment saved - $attachmentPath");
+                    } else {
+                        error_log("studentReport: Failed to save image attachment - {$file['name']}");
+                    }
+                }
+                
+                // Add attachments to case if any were saved
+                if (!empty($attachmentPaths)) {
+                    addCaseAttachments($newCaseId, $attachmentPaths);
+                    error_log("studentReport: Added " . count($attachmentPaths) . " attachments to case");
+                }
+            }
+            
             // Notify DO users of the new report
             notifyDOOnNewReport(
                 $newCaseId,
@@ -92,6 +122,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
 $pageTitle = "Report Student Incident";
 $adminName = $_SESSION['admin_name'] ?? 'Admin';
+
+// Fetch top 5 most common case types with their severity categories and descriptions
+$sql = "SELECT case_type, 
+        ISNULL((SELECT TOP 1 category FROM offense_types WHERE offense_name = cases.case_type), 'Minor') as severity,
+        ISNULL((SELECT TOP 1 description FROM offense_types WHERE offense_name = cases.case_type), '') as description,
+        COUNT(*) as count
+        FROM cases
+        WHERE is_archived = 0
+        GROUP BY case_type
+        ORDER BY count DESC
+        OFFSET 0 ROWS FETCH NEXT 5 ROWS ONLY";
+$topCaseTypes = fetchAll($sql);
+$caseTypesList = array_column($topCaseTypes, 'case_type');
+$caseTypeSeverityMap = array_combine(
+    array_column($topCaseTypes, 'case_type'),
+    array_column($topCaseTypes, 'severity')
+);
+$caseTypeDescriptionMap = array_combine(
+    array_column($topCaseTypes, 'case_type'),
+    array_column($topCaseTypes, 'description')
+);
 ?>
 
 <!DOCTYPE html>
@@ -186,16 +237,25 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                                     onchange="handleCaseTypeChange()"
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                                 <option value="">Select case type...</option>
-                                <option value="Cheating">Cheating</option>
-                                <option value="Losing/Forgetting ID">Losing/Forgetting ID</option>
-                                <option value="Inappropriate Campus Attire">Inappropriate Campus Attire</option>
-                                <option value="Non-wearing of School Uniform">Non-wearing of School Uniform</option>
-                                <option value="Possession of Cigarettes/Vapes">Possession of Cigarettes/Vapes</option>
-                                <option value="Smoking/Vaping on Campus">Smoking/Vaping on Campus</option>
-                                <option value="Lending/Borrowing ID">Lending/Borrowing ID</option>
-                                <option value="Public Display of Affection">Public Display of Affection</option>
+                                <?php foreach ($caseTypesList as $caseType): ?>
+                                    <option value="<?php echo htmlspecialchars($caseType); ?>"><?php echo htmlspecialchars($caseType); ?></option>
+                                <?php endforeach; ?>
                                 <option value="Other">Other (Specify in description)</option>
                             </select>
+                        </div>
+
+                        <!-- Severity (Auto-detected) -->
+                        <div style="display: none;">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Incident Severity
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input type="hidden" id="severity" value="">
+                                <div class="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100">
+                                    <span id="severityDisplay" class="font-medium">Select a case type...</span>
+                                </div>
+                                <span id="severityBadge" class="px-3 py-2 rounded-lg font-semibold text-sm hidden" style="min-width: 80px; text-align: center;"></span>
+                            </div>
                         </div>
 
                         <!-- Description -->
@@ -285,6 +345,10 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
     </div>
 
     <script>
+        // Severity and description mappings from server
+        const caseTypeSeverityMap = <?php echo json_encode($caseTypeSeverityMap); ?>;
+        const caseTypeDescriptionMap = <?php echo json_encode($caseTypeDescriptionMap); ?>;
+
         // Notification function - define early so it's available to all handlers
         function showNotification(message, type = 'info') {
             // Create notification element
@@ -358,7 +422,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 formData.append('studentNumber', document.getElementById('studentNumber').value);
                 formData.append('studentName', studentName);
                 formData.append('caseType', caseType);
-                formData.append('severity', 'Minor');
+                formData.append('severity', document.getElementById('severity').value);
                 formData.append('description', description);
                 formData.append('notes', document.getElementById('notes').value);
                 
@@ -463,11 +527,48 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             const caseType = document.getElementById('caseType').value;
             const description = document.getElementById('description');
             const descRequired = document.getElementById('descRequired');
+            const severityInput = document.getElementById('severity');
+            const severityDisplay = document.getElementById('severityDisplay');
+            const severityBadge = document.getElementById('severityBadge');
             
-            if (caseType === 'Other') {
+            // Handle severity auto-detection and description auto-population
+            if (caseType === '') {
+                severityInput.value = '';
+                severityDisplay.textContent = 'Select a case type...';
+                severityBadge.classList.add('hidden');
+                description.value = '';
+                description.required = false;
+                descRequired.style.display = 'none';
+            } else if (caseType === 'Other') {
+                // For "Other" cases, default to Minor and clear description
+                severityInput.value = 'Minor';
+                severityDisplay.textContent = 'Minor';
+                severityBadge.textContent = 'Minor';
+                severityBadge.className = 'px-3 py-2 rounded-lg font-semibold text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+                severityBadge.classList.remove('hidden');
+                description.value = '';
                 description.required = true;
                 descRequired.style.display = 'inline';
-            } else {
+            } else if (caseTypeSeverityMap[caseType]) {
+                const severity = caseTypeSeverityMap[caseType];
+                severityInput.value = severity;
+                severityDisplay.textContent = severity;
+                
+                // Apply appropriate badge styling
+                if (severity === 'Major') {
+                    severityBadge.textContent = severity;
+                    severityBadge.className = 'px-3 py-2 rounded-lg font-semibold text-sm bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+                } else {
+                    severityBadge.textContent = severity;
+                    severityBadge.className = 'px-3 py-2 rounded-lg font-semibold text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+                }
+                severityBadge.classList.remove('hidden');
+                
+                // Auto-populate description if available
+                if (caseTypeDescriptionMap[caseType]) {
+                    description.value = caseTypeDescriptionMap[caseType];
+                }
+                
                 description.required = false;
                 descRequired.style.display = 'none';
             }
