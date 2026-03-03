@@ -5,6 +5,11 @@ if (isset($_SESSION['user_id'])) {
     $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
 }
 $unreadCount = count($unreadNotifications);
+
+// Get consistent user name for header - use database value to ensure consistency
+if (!isset($adminName) || empty($adminName)) {
+    $adminName = getFormattedUserName();
+}
 ?>
 
 <header

@@ -9,22 +9,11 @@ require_once __DIR__ . '/../../includes/functions.php';
 $pageTitle = "Search Lost & Found";
 $categories = getCategories();
 
-// Set user name for header
-$adminName = 'User';
+// Set user name for header - use consistent function
 if (isset($_SESSION['user_id'])) {
-    if ($_SESSION['user_role'] === 'student') {
-        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
-        $student = fetchOne($sql, [$_SESSION['user_id']]);
-        if ($student) {
-            $adminName = $student['first_name'] . ' ' . $student['last_name'];
-        }
-    } else {
-        $sql = "SELECT full_name FROM users WHERE user_id = ?";
-        $user = fetchOne($sql, [$_SESSION['user_id']]);
-        if ($user) {
-            $adminName = $user['full_name'];
-        }
-    }
+    $adminName = getFormattedUserName();
+} else {
+    $adminName = 'User';
 }
 
 // Handle search

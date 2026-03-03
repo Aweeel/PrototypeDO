@@ -34,7 +34,7 @@ if ($pdo && $userId) {
 }
 
 // Set admin name for header
-$adminName = $user['full_name'] ?? ($_SESSION['admin_name'] ?? 'User');
+$adminName = getFormattedUserName();
 
 // Handle profile update
 $message = '';

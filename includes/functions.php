@@ -32,6 +32,51 @@ function authenticateUser($username, $password) {
     return false;
 }
 
+/**
+ * Get the full name of a user for consistent display
+ * Format: First Name Last Name (without middle name)
+ * For students: Uses first_name last_name from students table
+ * For others: Extracts first and last from full_name in users table
+ */
+function getFormattedUserName($userId = null) {
+    if ($userId === null && isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+    }
+    
+    if (!$userId) {
+        return 'User';
+    }
+    
+    // Check if user is a student and get their name from students table
+    $role = $_SESSION['user_role'] ?? null;
+    if ($role === 'student') {
+        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
+        $student = fetchOne($sql, [$userId]);
+        if ($student) {
+            return $student['first_name'] . ' ' . $student['last_name'];
+        }
+    }
+    
+    // For non-students, extract first and last name from full_name field
+    $user = getUserById($userId);
+    if ($user && !empty($user['full_name'])) {
+        $nameParts = explode(' ', trim($user['full_name']));
+        
+        if (count($nameParts) === 1) {
+            // Single name, return as-is
+            return $nameParts[0];
+        } elseif (count($nameParts) === 2) {
+            // First and Last name
+            return $nameParts[0] . ' ' . $nameParts[1];
+        } else {
+            // Multiple names - take first and last, skip middle names
+            return $nameParts[0] . ' ' . end($nameParts);
+        }
+    }
+    
+    return 'User';
+}
+
 // ==========================================
 // AUTO-ARCHIVE FUNCTIONS
 // ==========================================

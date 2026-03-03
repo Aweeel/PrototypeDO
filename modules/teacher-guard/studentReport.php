@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 }
 
 $pageTitle = "Report Student Incident";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName();
 
 // Fetch top 5 most common case types with their severity categories and descriptions
 $sql = "SELECT case_type, 

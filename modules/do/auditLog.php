@@ -224,7 +224,7 @@ function getActionColor($action) {
         <div class="flex-1 overflow-y-auto ml-64">
             <?php
             $pageTitle = "Audit Logs";
-            $adminName = $_SESSION['admin_name'] ?? 'Admin';
+            $adminName = getFormattedUserName();
             include __DIR__ . '/../../includes/header.php';
             ?>
             <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
