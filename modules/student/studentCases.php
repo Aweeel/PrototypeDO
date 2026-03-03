@@ -145,9 +145,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             <!-- Page Content -->
             <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
                 <!-- Page Title -->
-                <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">My Cases</h1>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">View all the discipline cases you are involved in</p>
+                <div class="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">My Cases</h1>
+                        <p class="text-gray-600 dark:text-gray-400 mt-2">View all the discipline cases you are involved in</p>
+                    </div>
+                    <button id="toggleArchivedBtn" onclick="toggleArchivedCases()" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        <span id="toggleArchivedText">Show Archived</span>
+                    </button>
                 </div>
 
                 <!-- Cases Table -->
@@ -162,13 +170,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Severity</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Assigned To</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Archive</th>
                                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="casesTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
                                 <tr>
-                                    <td colspan="8" class="px-6 py-12 text-center">
+                                    <td colspan="7" class="px-6 py-12 text-center">
                                         <div class="inline-block">
                                             <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mb-3"></div>
                                             <p class="text-gray-500 dark:text-gray-400">Loading cases...</p>
@@ -223,6 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
     <script>
         let allCases = [];
+        let showArchived = false;
 
         // Load cases on page load
         document.addEventListener('DOMContentLoaded', function () {
@@ -269,16 +277,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const tbody = document.getElementById('casesTableBody');
             const emptyState = document.getElementById('emptyState');
 
-            if (allCases.length === 0) {
+            // Filter cases based on showArchived flag
+            const filteredCases = showArchived ? allCases : allCases.filter(c => !c.isArchived);
+
+            if (filteredCases.length === 0) {
                 tbody.innerHTML = '';
                 emptyState.classList.remove('hidden');
                 return;
             }
 
             emptyState.classList.add('hidden');
-            tbody.innerHTML = allCases.map(caseItem => `
+            tbody.innerHTML = filteredCases.map(caseItem => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
-                    <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(caseItem.id)}</td>
+                    <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        ${escapeHtml(caseItem.id)}
+                        ${caseItem.isArchived ? '<span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : ''}
+                    </td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.type)}</td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.date)}</td>
                     <td class="px-6 py-4 text-sm">
@@ -292,11 +306,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(caseItem.assignedTo)}</td>
-                    <td class="px-6 py-4 text-sm">
-                        ${caseItem.isArchived ? 
-                            '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : 
-                            '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-600">Active</span>'}
-                    </td>
                     <td class="px-6 py-4 text-sm">
                         <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors">
                             View
@@ -422,6 +431,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         function closeCaseModal() {
             document.getElementById('caseModal').classList.add('hidden');
+        }
+
+        function toggleArchivedCases() {
+            showArchived = !showArchived;
+            const toggleBtn = document.getElementById('toggleArchivedText');
+            toggleBtn.textContent = showArchived ? 'Hide Archived' : 'Show Archived';
+            renderCases();
         }
 
         function showEmptyState() {
