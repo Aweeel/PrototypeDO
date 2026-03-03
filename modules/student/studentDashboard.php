@@ -40,17 +40,28 @@ if ($studentId) {
     $totalCases = $caseStats['total'] ?? 0;
     $activeCases = $caseStats['active'] ?? 0;
 
-    // Get next hearing date
+    // Get next scheduled hearing from calendar_events
+    // Find hearings that mention any of this student's cases
     $stmt = $pdo->prepare("
-        SELECT MIN(next_hearing_date) as next_hearing
-        FROM cases 
-        WHERE student_id = ? 
-        AND status IN ('Pending', 'On Going')
-        AND next_hearing_date > GETDATE()
+        SELECT TOP 1 
+            ce.event_date,
+            ce.event_time,
+            ce.event_end_time,
+            ce.event_name,
+            ce.location
+        FROM calendar_events ce
+        WHERE ce.category = 'Hearing'
+        AND ce.event_date >= CAST(GETDATE() AS DATE)
+        AND EXISTS (
+            SELECT 1 FROM cases c 
+            WHERE c.student_id = ?
+            AND ce.event_name LIKE '%Case ' + CAST(c.case_id AS VARCHAR) + ')%'
+        )
+        ORDER BY ce.event_date ASC, ce.event_time ASC
     ");
     $stmt->execute([$studentId]);
     $hearingData = $stmt->fetch(PDO::FETCH_ASSOC);
-    $nextHearing = $hearingData['next_hearing'] ?? null;
+    $nextHearing = $hearingData;
 
     // Get recent cases
     $stmt = $pdo->prepare("
@@ -97,8 +108,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// Format next hearing date
-$nextHearingFormatted = $nextHearing ? date('M d', strtotime($nextHearing)) : 'Not Scheduled';
+// Format next hearing date and time
+if ($nextHearing && isset($nextHearing['event_date'])) {
+    $hearingDate = date('M d, Y', strtotime($nextHearing['event_date']));
+    $hearingTime = '';
+    if ($nextHearing['event_time']) {
+        $startTime = date('g:i A', strtotime($nextHearing['event_time']));
+        if ($nextHearing['event_end_time']) {
+            $endTime = date('g:i A', strtotime($nextHearing['event_end_time']));
+            $hearingTime = $startTime . ' - ' . $endTime;
+        } else {
+            $hearingTime = $startTime;
+        }
+    }
+    $nextHearingFormatted = $hearingDate;
+    $nextHearingTimeFormatted = $hearingTime;
+    $nextHearingLocation = $nextHearing['location'] ?? 'TBA';
+} else {
+    $nextHearingFormatted = 'Not Scheduled';
+    $nextHearingTimeFormatted = '';
+    $nextHearingLocation = '';
+}
 
 // Status badge colors
 function getStatusBadgeClass($status) {
@@ -213,30 +243,15 @@ function getStatusText($status) {
                 <?php endif; ?>
 
                 <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <!-- Total Cases -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Cases</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo $totalCases; ?></p>
-                            </div>
-                            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-full flex items-center justify-center">
-                                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <!-- Active Cases -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700">
-                        <div class="flex items-center justify-between">
-                            <div>
+                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[140px] flex items-center">
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex-1">
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Active Cases</p>
                                 <p class="text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo $activeCases; ?></p>
                             </div>
-                            <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-500/10 rounded-full flex items-center justify-center">
+                            <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
                                 <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -244,14 +259,29 @@ function getStatusText($status) {
                         </div>
                     </div>
 
-                    <!-- Next Hearing -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700">
+                    <!-- Scheduled Hearing -->
+                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[140px]">
                         <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Next Hearing</p>
+                            <div class="flex-1">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Scheduled Hearing</p>
                                 <p class="text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo htmlspecialchars($nextHearingFormatted); ?></p>
+                                <?php if ($nextHearingTimeFormatted): ?>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <?php echo htmlspecialchars($nextHearingTimeFormatted); ?>
+                                    </p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <?php echo htmlspecialchars($nextHearingLocation); ?>
+                                    </p>
+                                <?php endif; ?>
                             </div>
-                            <div class="w-12 h-12 bg-green-100 dark:bg-green-500/10 rounded-full flex items-center justify-center">
+                            <div class="w-12 h-12 bg-green-100 dark:bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
                                 <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
