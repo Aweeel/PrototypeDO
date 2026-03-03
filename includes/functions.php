@@ -32,6 +32,51 @@ function authenticateUser($username, $password) {
     return false;
 }
 
+/**
+ * Get the full name of a user for consistent display
+ * Format: First Name Last Name (without middle name)
+ * For students: Uses first_name last_name from students table
+ * For others: Extracts first and last from full_name in users table
+ */
+function getFormattedUserName($userId = null) {
+    if ($userId === null && isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+    }
+    
+    if (!$userId) {
+        return 'User';
+    }
+    
+    // Check if user is a student and get their name from students table
+    $role = $_SESSION['user_role'] ?? null;
+    if ($role === 'student') {
+        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
+        $student = fetchOne($sql, [$userId]);
+        if ($student) {
+            return $student['first_name'] . ' ' . $student['last_name'];
+        }
+    }
+    
+    // For non-students, extract first and last name from full_name field
+    $user = getUserById($userId);
+    if ($user && !empty($user['full_name'])) {
+        $nameParts = explode(' ', trim($user['full_name']));
+        
+        if (count($nameParts) === 1) {
+            // Single name, return as-is
+            return $nameParts[0];
+        } elseif (count($nameParts) === 2) {
+            // First and Last name
+            return $nameParts[0] . ' ' . $nameParts[1];
+        } else {
+            // Multiple names - take first and last, skip middle names
+            return $nameParts[0] . ' ' . end($nameParts);
+        }
+    }
+    
+    return 'User';
+}
+
 // ==========================================
 // AUTO-ARCHIVE FUNCTIONS
 // ==========================================
@@ -1123,5 +1168,74 @@ function markCaseAsResolved($caseId) {
     executeQuery($sql, [$caseId]);
     
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Resolved', 'Previous Status', 'Case marked as resolved');
+}
+
+// ==========================================
+// CASE ATTACHMENTS/IMAGES FUNCTIONS
+// ==========================================
+
+function saveAttachmentForCase($caseId, $file) {
+    if (!isset($file) || $file['error'] !== UPLOAD_ERR_OK) {
+        return false;
+    }
+    
+    // Create attachments directory if it doesn't exist
+    $attachmentsDir = __DIR__ . '/../assets/case_attachments';
+    if (!is_dir($attachmentsDir)) {
+        mkdir($attachmentsDir, 0755, true);
+    }
+    
+    // Validate file is an image
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowedMimes)) {
+        return false;
+    }
+    
+    // Validate file size (max 5MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        return false;
+    }
+    
+    // Generate unique filename
+    $filename = uniqid('case_' . $caseId . '_') . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filepath = $attachmentsDir . '/' . $filename;
+    
+    // Move uploaded file
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        return false;
+    }
+    
+    // Return relative path for storage in database
+    return '/PrototypeDO/assets/case_attachments/' . $filename;
+}
+
+function addCaseAttachments($caseId, $attachmentPaths) {
+    // Get current attachments
+    $case = getCaseById($caseId);
+    $currentAttachments = !empty($case['attachments']) ? json_decode($case['attachments'], true) : [];
+    
+    // Add new attachments
+    if (is_array($attachmentPaths)) {
+        $currentAttachments = array_merge($currentAttachments, $attachmentPaths);
+    } else {
+        $currentAttachments[] = $attachmentPaths;
+    }
+    
+    // Update case with new attachments
+    $attachmentsJson = json_encode(array_unique($currentAttachments));
+    $sql = "UPDATE cases SET attachments = ?, updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$attachmentsJson, $caseId]);
+    
+    return true;
+}
+
+function getCaseAttachments($caseId) {
+    $case = getCaseById($caseId);
+    if (empty($case['attachments'])) {
+        return [];
+    }
+    
+    $attachments = json_decode($case['attachments'], true);
+    return is_array($attachments) ? $attachments : [];
 }
 ?>

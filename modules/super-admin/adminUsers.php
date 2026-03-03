@@ -595,7 +595,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 }
 
 $pageTitle = "User Management";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName();
 ?>
 
 <!DOCTYPE html>

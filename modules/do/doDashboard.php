@@ -101,7 +101,7 @@ $progressColors = generateCaseTypeColors($caseTypes);
                     <!-- Header -->
                     <?php
                     $pageTitle = "Dashboard";
-                    $adminName = $_SESSION['admin_name'] ?? 'Admin';
+                    $adminName = getFormattedUserName();
                     include __DIR__ . '/../../includes/header.php';
                     ?>
 

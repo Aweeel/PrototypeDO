@@ -28,7 +28,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
-            $_SESSION['admin_name'] = $user['full_name'];
+            
+            // Set display name - always use First Name Last Name format (without middle names)
+            if ($user['role'] === 'student') {
+                $pdo = getDBConnection();
+                if ($pdo) {
+                    $stmt = $pdo->prepare("SELECT first_name, last_name FROM students WHERE user_id = ?");
+                    $stmt->execute([$user['user_id']]);
+                    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($student) {
+                        $_SESSION['admin_name'] = $student['first_name'] . ' ' . $student['last_name'];
+                    } else {
+                        $_SESSION['admin_name'] = $user['full_name'];
+                    }
+                } else {
+                    $_SESSION['admin_name'] = $user['full_name'];
+                }
+            } else {
+                // Extract first and last name from full_name (skip middle names)
+                $nameParts = explode(' ', trim($user['full_name']));
+                if (count($nameParts) === 1) {
+                    $_SESSION['admin_name'] = $nameParts[0];
+                } elseif (count($nameParts) === 2) {
+                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . $nameParts[1];
+                } else {
+                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . end($nameParts);
+                }
+            }
+            
             $_SESSION['last_activity'] = time();
 
             // Log successful login to file

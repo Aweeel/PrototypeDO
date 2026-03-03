@@ -244,7 +244,7 @@ function getCategoryColor($category) {
 }
 
 $pageTitle = "Calendar";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName();
 ?>
 
 <!DOCTYPE html>

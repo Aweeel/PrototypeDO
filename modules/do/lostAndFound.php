@@ -2,6 +2,7 @@
 //lostAndFound.php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
+require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/lostAndFoundFunctions.php';
 
 // FIXED: Use user_role instead of role
@@ -11,7 +12,7 @@ if (!in_array($_SESSION['user_role'], ['discipline_office', 'super_admin'])) {
 }
 
 $pageTitle = "Lost & Found Management";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName();
 
 // Get statistics
 $stats = getLostFoundStats();

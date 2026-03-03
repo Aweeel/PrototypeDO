@@ -1,9 +1,10 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
 ?>
 
 <!DOCTYPE html>

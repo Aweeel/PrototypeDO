@@ -18,10 +18,10 @@ $student = fetchOne($sql, [$_SESSION['user_id']]);
 if (!$student) {
     // No student record for this user account
     $studentId = null;
-    $adminName = 'Student';
+    $adminName = getFormattedUserName();
 } else {
     $studentId = $student['student_id'];
-    $adminName = $student['first_name'] . ' ' . $student['last_name'];
+    $adminName = getFormattedUserName();
 }
 
 // Handle AJAX requests

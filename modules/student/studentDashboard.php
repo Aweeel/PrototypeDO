@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 // Page metadata
 $pageTitle = "Dashboard";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName();
 $userId = $_SESSION['user_id'] ?? null;
 $studentId = null;
 
