@@ -347,6 +347,22 @@ if ($_POST['action'] === 'removeSanction') {
         exit;
     }
 
+    // Get recommended sanction based on escalation algorithm
+    if ($_POST['action'] === 'getRecommendedSanction') {
+        $studentId = $_POST['studentId'] ?? '';
+        $caseType = $_POST['caseType'] ?? '';
+        $severity = $_POST['severity'] ?? 'Minor';
+        
+        if (empty($studentId) || empty($caseType)) {
+            echo json_encode(['success' => false, 'error' => 'Missing required parameters']);
+            exit;
+        }
+        
+        $recommendation = getRecommendedSanction($studentId, $caseType, $severity);
+        echo json_encode(['success' => true, 'recommendation' => $recommendation]);
+        exit;
+    }
+
     // Get all sanctions
     if ($_POST['action'] === 'getSanctions') {
         $sanctions = getAllSanctions();

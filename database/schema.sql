@@ -478,18 +478,15 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Verbal/Oral Warning', 1, 'Verbal warning for first minor offense'),
 ('Written Apology', 1, 'Required to write apology letter'),
 ('Written Reprimand', 2, 'Formal written notice of violation'),
-('Corrective Reinforcement (3 days)', 2, 'Attend classes + after-school tasks for 3 days'),
-('Corrective Reinforcement (7 days)', 2, 'Attend classes + after-school tasks for 7 days'),
+('Corrective Reinforcement (3-7 days)', 2, 'Attend classes + after-school tasks for 3 to 7 days'),
 ('Conference with Discipline Committee', 2, 'Meeting with parents/guardians required'),
-('Suspension from Class (3 days)', 3, 'Cannot attend classes for 3 days'),
-('Suspension from Class (7 days)', 3, 'Cannot attend classes for 7 days'),
-('Suspension from Class (10 days)', 4, 'Cannot attend classes for 10 days'),
+('Suspension from Class (3-10 days)', 3, 'Cannot attend classes for 3 to 10 days'),
 ('Preventive Suspension', 3, 'Suspended during investigation period'),
 ('Non-readmission', 4, 'Denied enrollment for next term'),
 ('Exclusion', 5, 'Immediately removed from school'),
 ('Expulsion', 5, 'Disqualified from all Philippine institutions');
 
-PRINT 'Sanctions inserted: 13';
+PRINT 'Sanctions inserted: 10';
 GO
 
 -- ============================================
@@ -678,11 +675,11 @@ VALUES
 ('C-2025003', 3, '2025-05-10', 1, '2025-05-12', 'Written warning issued after conference'),
 ('C-2025004', 4, '2025-06-14', 1, '2025-06-20', '3-day corrective reinforcement completed'),
 ('C-2025005', 3, '2025-07-01', 1, '2025-07-01', 'Written warning issued for third ID violation'),
-('C-2025006', 7, '2025-08-10', 1, '2025-08-17', '7-day suspension completed. Major offense documented'),
+('C-2025006', 6, '2025-08-10', 1, '2025-08-17', '7-day suspension completed. Major offense documented'),
 ('C-2025007', 1, '2025-09-20', 1, '2025-09-20', 'Counseling session completed with both students'),
 ('C-2025008', 2, '2025-10-02', 1, '2025-10-15', 'Community service and restitution completed'),
 ('C-2025009', 1, '2025-11-15', 1, '2025-11-15', 'Educational discussion conducted about campus policies'),
-('C-2025010', 8, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
+('C-2025010', 6, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
 
 PRINT 'Applied sanctions inserted: 17';
 GO
