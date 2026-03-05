@@ -1092,7 +1092,7 @@ async function manageSanctions(caseId) {
                             <h5 class="font-semibold ${textColor} mb-2 text-sm"> Recommendation</h5>
                             <p class="text-xs ${textColor} mb-2">
                                 <strong>Suggested:</strong> ${recommendationData.sanction_name}
-                                ${recommendationData.duration_range ? `<br><span class="opacity-80">${recommendationData.duration_range}</span>` : ''}
+                                ${recommendationData.duration_range && !recommendationData.sanction_name.toLowerCase().includes(recommendationData.duration_range.toLowerCase()) ? `<br><span class="opacity-80">${recommendationData.duration_range}</span>` : ''}
                             </p>
                             <p class="text-xs ${textColor} opacity-90 mb-2">
                                 ${recommendationData.reason.replace(/(first|second|third|fourth|1st|2nd|3rd|4th)/gi, `<span class="font-bold px-1 py-0.5 rounded ${isHighSeverity ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100' : 'bg-blue-200 dark:bg-blue-700 text-blue-900 dark:text-blue-100'}">$1</span>`)}
