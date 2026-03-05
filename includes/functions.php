@@ -472,6 +472,248 @@ function updateStudentOffenseCount($studentId) {
     executeQuery($sql, [$studentId, $studentId, $studentId, $studentId, $studentId]);
 }
 
+/**
+ * Categorize a major offense into Category A, B, C, or D based on STI Handbook
+ * @param string $offenseName The name of the offense
+ * @return string Category A, B, C, or D
+ */
+function categorizeMajorOffense($offenseName) {
+    // Category A - Lighter major offenses
+    $categoryA = [
+        'Repeated Minor Offenses',
+        'Lending/Borrowing ID',
+        'Smoking/Vaping on Campus',
+        'Intoxication',
+        'Allowing Non-STI Entry',
+        'Cheating',
+        'Plagiarism'
+    ];
+    
+    // Category B - Property/image damage
+    $categoryB = [
+        'Vandalism',
+        'Cyberbullying/Defamation',
+        'Privacy Violation',
+        'Wearing Uniform in Ill Repute Places',
+        'False Testimony',
+        'Use of Profane Language'
+    ];
+    
+    // Category C - Serious offenses
+    $categoryC = [
+        'Hacking',
+        'Forgery',
+        'Theft',
+        'Unauthorized Material Distribution',
+        'Embezzlement',
+        'Illegal Assembly',
+        'Immorality',
+        'Bullying',
+        'Physical Assault',
+        'Drug Use',
+        'False Alarms',
+        'Misuse of Fire Equipment'
+    ];
+    
+    // Category D - Criminal offenses
+    $categoryD = [
+        'Drug Possession/Sale',
+        'Repeated Drug Use',
+        'Weapons Possession',
+        'Fraternity/Sorority Membership',
+        'Hazing',
+        'Moral Turpitude',
+        'Sexual Harassment',
+        'Subversion/Sedition'
+    ];
+    
+    if (in_array($offenseName, $categoryA)) return 'A';
+    if (in_array($offenseName, $categoryB)) return 'B';
+    if (in_array($offenseName, $categoryC)) return 'C';
+    if (in_array($offenseName, $categoryD)) return 'D';
+    
+    // Default to Category A if not found
+    return 'A';
+}
+
+/**
+ * Get recommended sanction based on student's offense history and current offense
+ * Following STI Student Handbook escalation rules
+ * 
+ * @param string $studentId The student ID
+ * @param string $currentOffenseType The current offense type (e.g., "Cheating", "Smoking", etc.)
+ * @param string $severity Either "Minor" or "Major"
+ * @return array Recommended sanction information
+ */
+function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
+    // Get student's offense history
+    $student = getStudentById($studentId);
+    
+    if (!$student) {
+        return [
+            'sanction_name' => 'Verbal/Oral Warning',
+            'reason' => 'New student - first offense',
+            'offense_count' => 0,
+            'category' => $severity,
+            'subcategory' => null,
+            'duration_days' => null
+        ];
+    }
+    
+    $minorCount = (int)($student['minor_offenses'] ?? 0);
+    $majorCount = (int)($student['major_offenses'] ?? 0);
+    
+    // For Minor Offenses
+    if ($severity === 'Minor') {
+        // The current case is already counted in minor_offenses, so use the count as-is
+        // Ensure minimum of 1 (in case we're applying sanctions before the count updates)
+        $offenseNumber = max(1, $minorCount);
+        
+        if ($offenseNumber === 1) {
+            return [
+                'sanction_name' => 'Verbal/Oral Warning',
+                'reason' => 'First minor offense',
+                'offense_count' => 1,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => null
+            ];
+        } elseif ($offenseNumber === 2) {
+            return [
+                'sanction_name' => 'Written Reprimand',
+                'reason' => 'Second minor offense',
+                'offense_count' => 2,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => null
+            ];
+        } else {
+            return [
+                'sanction_name' => 'Corrective Reinforcement (3-7 days)',
+                'reason' => 'Third or subsequent minor offense',
+                'offense_count' => $offenseNumber,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => 3,
+                'duration_range' => '3-7 days'
+            ];
+        }
+    }
+    
+    // For Major Offenses
+    if ($severity === 'Major') {
+        $category = categorizeMajorOffense($currentOffenseType);
+        // The current case is already counted in major_offenses, so use the count as-is
+        // Ensure minimum of 1 (in case we're applying sanctions before the count updates)
+        $offenseNumber = max(1, $majorCount);
+        
+        // Category A: Lighter major offenses
+        if ($category === 'A') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Corrective Reinforcement (3-7 days)',
+                    'reason' => 'First major offense (Category A)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days'
+                ];
+            } elseif ($offenseNumber === 2) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'Second major offense (Category A)',
+                    'offense_count' => 2,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days'
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Third major offense (Category A)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => null
+                ];
+            }
+        }
+        
+        // Category B: Property/image damage
+        if ($category === 'B') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'First major offense (Category B)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'B',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days'
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Second or subsequent major offense (Category B)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'B',
+                    'duration_days' => null
+                ];
+            }
+        }
+        
+        // Category C: Serious offenses
+        if ($category === 'C') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'First major offense (Category C)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'C',
+                    'duration_days' => 8,
+                    'duration_range' => '7-10 days'
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Second or subsequent major offense (Category C)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'C',
+                    'duration_days' => null
+                ];
+            }
+        }
+        
+        // Category D: Criminal offenses
+        if ($category === 'D') {
+            return [
+                'sanction_name' => 'Exclusion',
+                'reason' => 'Criminal offense (Category D) - immediate exclusion/expulsion',
+                'offense_count' => $offenseNumber,
+                'category' => 'Major',
+                'subcategory' => 'D',
+                'duration_days' => null,
+                'requires_ched_approval' => true
+            ];
+        }
+    }
+    
+    // Fallback
+    return [
+        'sanction_name' => 'Verbal/Oral Warning',
+        'reason' => 'Unable to determine appropriate sanction',
+        'offense_count' => 0,
+        'category' => $severity,
+        'subcategory' => null,
+        'duration_days' => null
+    ];
+}
+
 // ==========================================
 // NOTIFICATION FUNCTIONS
 // ==========================================
