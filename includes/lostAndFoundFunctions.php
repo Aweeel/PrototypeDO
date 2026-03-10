@@ -29,6 +29,59 @@ function generateItemId() {
 }
 
 /**
+ * Handle image file upload for Lost & Found items
+ * 
+ * @param array $file - $_FILES array element
+ * @param string $item_id - Item ID for naming the file
+ * @return array - ['success' => bool, 'path' => string or 'error' => string]
+ */
+function handleLostFoundImageUpload($file, $item_id) {
+    // Define upload directory
+    $uploadDir = __DIR__ . '/../assets/case_attachments/lost_found/';
+    
+    // Create directory if it doesn't exist
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    // Validate file
+    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return ['success' => false, 'error' => 'No valid file uploaded'];
+    }
+    
+    // Check file size (5MB limit)
+    $maxSize = 5 * 1024 * 1024;
+    if ($file['size'] > $maxSize) {
+        return ['success' => false, 'error' => 'File size exceeds 5MB limit'];
+    }
+    
+    // Validate MIME type
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    if (!in_array($mimeType, $allowedMimes)) {
+        return ['success' => false, 'error' => 'Invalid file type. Only images are allowed'];
+    }
+    
+    // Generate unique filename
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = $item_id . '_' . time() . '.' . $ext;
+    $filepath = $uploadDir . $filename;
+    
+    // Move uploaded file
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        // Return relative path for database storage
+        $relativePath = '/PrototypeDO/assets/case_attachments/lost_found/' . $filename;
+        return ['success' => true, 'path' => $relativePath];
+    } else {
+        error_log("Failed to move uploaded file: " . $file['tmp_name'] . " to " . $filepath);
+        return ['success' => false, 'error' => 'Failed to save file'];
+    }
+}
+
+/**
  * Add a new lost or found item
  */
 function addLostFoundItem($data) {
@@ -39,13 +92,14 @@ function addLostFoundItem($data) {
     $finder_name = (isset($data['finder_name']) && trim($data['finder_name']) !== '') ? $data['finder_name'] : null;
     $finder_student_id = (isset($data['finder_student_id']) && trim($data['finder_student_id']) !== '') ? $data['finder_student_id'] : null;
     $description = (isset($data['description']) && trim($data['description']) !== '') ? $data['description'] : null;
+    $image_path = (isset($data['image_path']) && trim($data['image_path']) !== '') ? $data['image_path'] : null;
     
     // Build SQL based on whether time is provided (like calendar.php)
     if ($time_found !== null) {
         $sql = "INSERT INTO lost_found_items (
             item_id, item_name, category, description, found_location, 
-            date_found, time_found, finder_name, finder_student_id, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed')";
+            date_found, time_found, finder_name, finder_student_id, status, image_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed', ?)";
         
         $params = [
             $item_id,
@@ -56,13 +110,14 @@ function addLostFoundItem($data) {
             $data['date_found'],
             $time_found,
             $finder_name,
-            $finder_student_id
+            $finder_student_id,
+            $image_path
         ];
     } else {
         $sql = "INSERT INTO lost_found_items (
             item_id, item_name, category, description, found_location, 
-            date_found, finder_name, finder_student_id, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed')";
+            date_found, finder_name, finder_student_id, status, image_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unclaimed', ?)";
         
         $params = [
             $item_id,
@@ -72,7 +127,8 @@ function addLostFoundItem($data) {
             $data['location'],
             $data['date_found'],
             $finder_name,
-            $finder_student_id
+            $finder_student_id,
+            $image_path
         ];
     }
     

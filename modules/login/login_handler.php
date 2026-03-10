@@ -58,6 +58,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $_SESSION['last_activity'] = time();
 
+            // Handle "Remember Me" checkbox
+            if (isset($_POST['remember_me'])) {
+                // Create a secure token for "remember me" functionality
+                $rememberToken = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $rememberToken);
+                $expiryDate = date('Y-m-d H:i:s', strtotime('+30 days'));
+                
+                // Store token in database
+                $pdo = getDBConnection();
+                if ($pdo) {
+                    try {
+                        $stmt = $pdo->prepare("UPDATE users SET remember_token = ?, remember_token_expiry = ? WHERE user_id = ?");
+                        $stmt->execute([$tokenHash, $expiryDate, $user['user_id']]);
+                    } catch (Exception $e) {
+                        write_log("Remember Me Error: " . $e->getMessage(), 'error');
+                    }
+                }
+                
+                // Set the cookie with the actual token (expires in 30 days)
+                setcookie('remember_me_token', $rememberToken, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+            }
+
             // Log successful login to file
             write_log("LOGIN SUCCESS: {$user['username']} ({$user['role']})", 'login');
             

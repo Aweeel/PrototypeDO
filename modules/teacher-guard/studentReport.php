@@ -167,6 +167,41 @@ $caseTypeDescriptionMap = array_combine(
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     
+    <!-- Image Upload Consent Modal -->
+    <div id="imageConsentModal" class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <div class="flex gap-3">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <svg class="h-6 w-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            Consent Required
+                        </h2>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-700 dark:text-gray-300 mb-6 leading-relaxed">
+                    Before capturing or uploading any photos related to an incident report, ensure that <strong>written or verbal consent has been obtained from all individuals who appear in the image.</strong>
+                </p>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mb-6">
+                    Uploading photos without proper consent may violate privacy laws and institutional policies. By clicking "I Understand," you acknowledge this requirement.
+                </p>
+            </div>
+            <div class="p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end">
+                <button type="button" 
+                        onclick="acknowledgeImageConsent()"
+                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+                    I Understand
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
     <div class="flex h-screen">
@@ -282,6 +317,20 @@ $caseTypeDescriptionMap = array_combine(
 
                         <!-- Image Attachments -->
                         <div>
+                            <!-- Consent Disclaimer -->
+                            <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                <div class="flex gap-3">
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                                            Important: Consent Required
+                                        </h3>
+                                        <p class="text-sm text-amber-800 dark:text-amber-300">
+                                            Before capturing or uploading any photos related to an incident report, ensure that written or verbal consent has been obtained from all individuals who appear in the image.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Attach Images
                             </label>
@@ -289,7 +338,7 @@ $caseTypeDescriptionMap = array_combine(
                             <!-- Drag and Drop Area -->
                             <div id="uploadDropZone" 
                                  class="relative w-full p-8 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
-                                 ondrop="handleDrop(event)"
+                                 ondrop="handleDropWithConsent(event)"
                                  ondragover="handleDragOver(event)"
                                  ondragleave="handleDragLeave(event)">
                                 
@@ -297,7 +346,7 @@ $caseTypeDescriptionMap = array_combine(
                                        id="imageAttachments" 
                                        multiple 
                                        accept="image/*"
-                                       onchange="handleImageSelect()"
+                                       onchange="handleImageSelectWithConsent()"
                                        class="hidden">
                                 
                                 <div class="text-center">
@@ -308,7 +357,7 @@ $caseTypeDescriptionMap = array_combine(
                                     </svg>
                                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         <button type="button" 
-                                                onclick="document.getElementById('imageAttachments').click()"
+                                                onclick="openImageConsentModal(event)"
                                                 class="text-blue-600 dark:text-blue-400 hover:underline">
                                             Click to upload
                                         </button>
@@ -662,6 +711,42 @@ $caseTypeDescriptionMap = array_combine(
             
             fileInput.files = dataTransfer.files;
             handleImageSelect();
+        }
+
+        // Image upload consent modal functions
+        function openImageConsentModal(e) {
+            e.preventDefault();
+            if (!sessionStorage.getItem('imageConsentAcknowledged')) {
+                document.getElementById('imageConsentModal').classList.remove('hidden');
+            } else {
+                document.getElementById('imageAttachments').click();
+            }
+        }
+
+        function acknowledgeImageConsent() {
+            sessionStorage.setItem('imageConsentAcknowledged', 'true');
+            document.getElementById('imageConsentModal').classList.add('hidden');
+            document.getElementById('imageAttachments').click();
+        }
+
+        function handleImageSelectWithConsent() {
+            if (!sessionStorage.getItem('imageConsentAcknowledged')) {
+                document.getElementById('imageConsentModal').classList.remove('hidden');
+                // Clear the file input
+                document.getElementById('imageAttachments').value = '';
+                return;
+            }
+            handleImageSelect();
+        }
+
+        function handleDropWithConsent(event) {
+            if (!sessionStorage.getItem('imageConsentAcknowledged')) {
+                event.preventDefault();
+                event.stopPropagation();
+                document.getElementById('imageConsentModal').classList.remove('hidden');
+                return;
+            }
+            handleDrop(event);
         }
 
     </script>

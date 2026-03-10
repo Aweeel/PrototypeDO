@@ -156,6 +156,7 @@ async function initializeCasesByTypeChart() {
         const yearLevel = document.getElementById('yearLevelFilter').value;
         const strand = document.getElementById('strandFilter').value;
         const course = document.getElementById('courseFilter').value;
+        const dateRange = document.getElementById('casesByTypeDateRangeFilter').value;
         
         const formData = new FormData();
         formData.append('ajax', '1');
@@ -164,6 +165,7 @@ async function initializeCasesByTypeChart() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('dateRange', dateRange);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -199,6 +201,7 @@ async function initializeCasesByTypeChart() {
                     }]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
@@ -212,7 +215,7 @@ async function initializeCasesByTypeChart() {
                         }
                     },
                     scales: {
-                        y: {
+                        x: {
                             beginAtZero: true,
                             ticks: {
                                 precision: 0
@@ -221,7 +224,7 @@ async function initializeCasesByTypeChart() {
                                 color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
-                        x: {
+                        y: {
                             grid: {
                                 display: false
                             }
@@ -242,6 +245,7 @@ async function initializeCasesByGradeChart() {
         const yearLevel = document.getElementById('yearLevelFilter').value;
         const strand = document.getElementById('strandFilter').value;
         const course = document.getElementById('courseFilter').value;
+        const groupBy = document.getElementById('gradesGroupByFilter').value;
         
         const formData = new FormData();
         formData.append('ajax', '1');
@@ -250,6 +254,7 @@ async function initializeCasesByGradeChart() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('groupBy', groupBy);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -261,7 +266,7 @@ async function initializeCasesByGradeChart() {
         if (result.success) {
             const ctx = document.getElementById('casesByGradeChart').getContext('2d');
             
-            const labels = result.data.map(item => item.grade_year);
+            const labels = result.data.map(item => item.name);
             const data = result.data.map(item => item.count);
             
             if (casesByGradeChart) {

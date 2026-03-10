@@ -161,11 +161,31 @@ function getAllCases($filters = []) {
     
     // Apply other filters
     if (!empty($filters['search'])) {
-        $sql .= " AND (s.first_name LIKE ? OR s.last_name LIKE ? OR c.case_id LIKE ?)";
-        $searchTerm = '%' . $filters['search'] . '%';
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
+        // Check if search contains space (full name search)
+        if (strpos($filters['search'], ' ') !== false) {
+            // Split the search term
+            $parts = explode(' ', trim($filters['search']));
+            $firstName = $parts[0];
+            $lastName = isset($parts[1]) ? $parts[1] : '';
+            
+            // Search for first name + last name combination
+            $sql .= " AND (c.case_id LIKE ? OR (s.first_name LIKE ? AND s.last_name LIKE ?) OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $firstNameTerm = '%' . $firstName . '%';
+            $lastNameTerm = '%' . $lastName . '%';
+            $params[] = $searchTerm;
+            $params[] = $firstNameTerm;
+            $params[] = $lastNameTerm;
+            $params[] = $searchTerm; // Also search for full term in first_name
+            $params[] = $searchTerm; // Also search for full term in last_name
+        } else {
+            // Single word search (matching original behavior)
+            $sql .= " AND (s.first_name LIKE ? OR s.last_name LIKE ? OR c.case_id LIKE ?)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
     }
     
     if (!empty($filters['type'])) {

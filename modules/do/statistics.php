@@ -62,10 +62,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $dateRange = $_POST['dateRange'] ?? 'this_year';
             
             $joins = "FROM cases c JOIN students s ON c.student_id = s.student_id";
             $where = "WHERE c.is_archived = 0";
             $params = [];
+            
+            // Add date range filter
+            switch ($dateRange) {
+                case 'last_30_days':
+                    $where .= " AND c.date_reported >= DATEADD(day, -30, CAST(GETDATE() AS DATE))";
+                    break;
+                case 'last_3_months':
+                    $where .= " AND c.date_reported >= DATEADD(month, -3, CAST(GETDATE() AS DATE))";
+                    break;
+                case 'last_6_months':
+                    $where .= " AND c.date_reported >= DATEADD(month, -6, CAST(GETDATE() AS DATE))";
+                    break;
+                case 'this_year':
+                    $where .= " AND YEAR(c.date_reported) = YEAR(GETDATE())";
+                    break;
+            }
             
             if ($gradeLevel) {
                 $where .= " AND s.grade_year = ?";
@@ -101,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $groupBy = $_POST['groupBy'] ?? 'grade_year';
             
             $where = "WHERE c.is_archived = 0";
             $params = [];
@@ -122,12 +140,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params[] = $course;
             }
             
-            $sql = "SELECT s.grade_year, COUNT(c.case_id) as count
+            // Determine which field to group by
+            $groupField = ($groupBy === 'track_course') ? 's.track_course' : 's.grade_year';
+            $orderField = $groupField;
+            
+            $sql = "SELECT $groupField as name, COUNT(c.case_id) as count
                     FROM cases c
                     JOIN students s ON c.student_id = s.student_id
                     $where
-                    GROUP BY s.grade_year
-                    ORDER BY s.grade_year";
+                    GROUP BY $groupField
+                    ORDER BY $orderField";
             
             $data = fetchAll($sql, $params);
             echo json_encode(['success' => true, 'data' => $data]);
@@ -397,11 +419,11 @@ $adminName = getFormattedUserName();
                     <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Cases by Type</h3>
-                            <select class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <option>Last 30 Days</option>
-                                <option>Last 3 Months</option>
-                                <option>Last 6 Months</option>
-                                <option>This Year</option>
+                            <select id="casesByTypeDateRangeFilter" onchange="updateAllCharts()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                <option value="last_30_days">Last 30 Days</option>
+                                <option value="last_3_months">Last 3 Months</option>
+                                <option value="last_6_months">Last 6 Months</option>
+                                <option value="this_year" selected>This Year</option>
                             </select>
                         </div>
                         <div class="h-80">
@@ -413,9 +435,9 @@ $adminName = getFormattedUserName();
                     <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Cases by Grade Level</h3>
-                            <select class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <option>All Grades/Year</option>
-                                <option>Strand/Course</option>
+                            <select id="gradesGroupByFilter" onchange="updateAllCharts()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                <option value="grade_year">By Grade/Year Level</option>
+                                <option value="track_course">By Strand/Course</option>
                             </select>
                         </div>
                         <div class="h-80">
@@ -429,9 +451,9 @@ $adminName = getFormattedUserName();
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Monthly Trends</h3>
                         <select id="yearFilter" onchange="updateMonthlyTrends()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                            <option value="2025">This Year</option>
+                            <option value="2026">This Year</option>
+                            <option value="2025">2025</option>
                             <option value="2024">2024</option>
-                            <option value="2023">2023</option>
                         </select>
                     </div>
                     <div class="h-80">
