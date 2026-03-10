@@ -173,6 +173,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $grade = $_POST['grade'] ?? '';
             $status = $_POST['status'] ?? '';
 
+            // ── Sync student statuses based on handbook offense categories ──
+            //
+            // Category A (1st = Corrective Reinforcement, 2nd = Suspension, 3rd = Non-readmission)
+            // Category B (1st = Suspension, 2nd = Non-readmission)
+            // Category C (1st = Suspension 7-10d, 2nd = Non-readmission)
+            // Category D (1st = Exclusion / Expulsion)
+            //
+            // On Probation : 1+ active Cat B/C/D  OR  2+ active Cat A
+            // On Watch     : 1 active Cat A  OR  3+ active minor  (if not On Probation)
+            // Good Standing: everything else
+
+            // Step 1 – Elevate to On Probation (highest priority, overwrites any lower status)
+            executeQuery(
+                "UPDATE students
+                SET status = 'On Probation'
+                WHERE (
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category IN ('Category B','Category C','Category D')
+                       AND c.is_archived = 0) >= 1
+                    OR
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) >= 2
+                )"
+            );
+
+            // Step 2 – Revert On Probation if conditions no longer met
+            //          (drop to On Watch or Good Standing as appropriate)
+            executeQuery(
+                "UPDATE students
+                SET status = CASE
+                    WHEN (SELECT COUNT(*) FROM cases c
+                          WHERE c.student_id = students.student_id
+                            AND c.severity = 'Minor'
+                            AND c.is_archived = 0) >= 3
+                         OR
+                         (SELECT COUNT(*) FROM cases c
+                          WHERE c.student_id = students.student_id
+                            AND c.severity = 'Major'
+                            AND c.offense_category = 'Category A'
+                            AND c.is_archived = 0) >= 1
+                    THEN 'On Watch'
+                    ELSE 'Good Standing'
+                END
+                WHERE status = 'On Probation'
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category IN ('Category B','Category C','Category D')
+                       AND c.is_archived = 0) = 0
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) < 2"
+            );
+
+            // Step 3 – Set On Watch (not already On Probation)
+            //          3+ active minor  OR  1 active Category A major
+            executeQuery(
+                "UPDATE students
+                SET status = 'On Watch'
+                WHERE status != 'On Probation'
+                AND (
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Minor'
+                       AND c.is_archived = 0) >= 3
+                    OR
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) >= 1
+                )"
+            );
+
+            // Step 4 – Revert On Watch to Good Standing if below both thresholds
+            executeQuery(
+                "UPDATE students
+                SET status = 'Good Standing'
+                WHERE status = 'On Watch'
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Minor'
+                       AND c.is_archived = 0) < 3
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) < 1"
+            );
+
             // Build SQL query with filters
             $sql = "SELECT 
                         s.student_id,
@@ -184,7 +281,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         s.major_offenses,
                         s.minor_offenses,
                         s.last_incident_date,
-                        s.status
+                        s.status,
+                        (SELECT COUNT(*) FROM cases c WHERE c.student_id = s.student_id AND c.is_archived = 1) AS archived_cases
                     FROM students s
                     WHERE 1=1";
             
@@ -226,6 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'incidents' => $student['total_offenses'] ?? 0,
                     'majorOffenses' => $student['major_offenses'] ?? 0,
                     'minorOffenses' => $student['minor_offenses'] ?? 0,
+                    'archivedCases' => $student['archived_cases'] ?? 0,
                     'lastIncident' => $student['last_incident_date'] ?? null,
                     'status' => $student['status'] ?? 'Good Standing'
                 ];
@@ -244,13 +343,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         c.case_type,
                         c.severity,
                         c.status,
+                        c.is_archived,
                         c.date_reported,
                         c.description,
                         u.full_name as reported_by_name
                     FROM cases c
                     LEFT JOIN users u ON c.reported_by = u.user_id
-                    WHERE c.student_id = ? AND c.is_archived = 0
-                    ORDER BY c.date_reported DESC";
+                    WHERE c.student_id = ?
+                    ORDER BY c.is_archived ASC, c.date_reported DESC";
             
             $cases = fetchAll($sql, [$studentId]);
             

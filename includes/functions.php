@@ -537,180 +537,206 @@ function categorizeMajorOffense($offenseName) {
 }
 
 /**
- * Get recommended sanction based on student's offense history and current offense
- * Following STI Student Handbook escalation rules
- * 
+ * Get recommended sanction based on student's offense history for the SAME offense type
+ * Following STI Student Handbook escalation rules:
+ * - Escalation only triggers for repeated offenses of the same type
+ * - 3 occurrences of the same minor offense escalates to Major (Repeated Minor Offenses)
+ *
  * @param string $studentId The student ID
- * @param string $currentOffenseType The current offense type (e.g., "Cheating", "Smoking", etc.)
+ * @param string $currentOffenseType The current offense type (matches cases.case_type)
  * @param string $severity Either "Minor" or "Major"
  * @return array Recommended sanction information
  */
 function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
-    // Get student's offense history
     $student = getStudentById($studentId);
-    
+
     if (!$student) {
         return [
             'sanction_name' => 'Verbal/Oral Warning',
             'reason' => 'New student - first offense',
-            'offense_count' => 0,
+            'offense_count' => 1,
             'category' => $severity,
             'subcategory' => null,
             'duration_days' => null
         ];
     }
-    
-    $minorCount = (int)($student['minor_offenses'] ?? 0);
-    $majorCount = (int)($student['major_offenses'] ?? 0);
-    
-    // For Minor Offenses
+
+    // Count active (non-archived) cases of the SAME offense type for this student
+    // Only count On Going and Resolved — Pending cases haven't been processed yet
+    $sameTypeCountSql = "SELECT COUNT(*) FROM cases 
+                         WHERE student_id = ? 
+                           AND case_type = ? 
+                           AND severity = ?
+                           AND status IN ('On Going', 'Resolved')
+                           AND is_archived = 0";
+    $sameTypeCount = (int) fetchValue($sameTypeCountSql, [$studentId, $currentOffenseType, $severity]);
+    // Add 1 for the current case (which is still Pending and not counted above)
+    $sameTypeCount = $sameTypeCount + 1;
+
+    // Count archived cases of the same offense type (for informational note only)
+    $archivedCountSql = "SELECT COUNT(*) FROM cases 
+                         WHERE student_id = ? 
+                           AND case_type = ? 
+                           AND severity = ?
+                           AND is_archived = 1";
+    $archivedSameTypeCount = (int) fetchValue($archivedCountSql, [$studentId, $currentOffenseType, $severity]);
+
+    // For Minor Offenses — escalate based on same-type repeat count
     if ($severity === 'Minor') {
-        // The current case is already counted in minor_offenses, so use the count as-is
-        // Ensure minimum of 1 (in case we're applying sanctions before the count updates)
-        $offenseNumber = max(1, $minorCount);
-        
-        if ($offenseNumber === 1) {
+        if ($sameTypeCount === 1) {
             return [
                 'sanction_name' => 'Verbal/Oral Warning',
-                'reason' => 'First minor offense',
+                'reason' => 'First offense of this type',
                 'offense_count' => 1,
                 'category' => 'Minor',
                 'subcategory' => null,
-                'duration_days' => null
+                'duration_days' => null,
+                'archived_same_type_count' => $archivedSameTypeCount
             ];
-        } elseif ($offenseNumber === 2) {
+        } elseif ($sameTypeCount === 2) {
             return [
                 'sanction_name' => 'Written Reprimand',
-                'reason' => 'Second minor offense',
+                'reason' => 'Second offense of the same type',
                 'offense_count' => 2,
                 'category' => 'Minor',
                 'subcategory' => null,
-                'duration_days' => null
+                'duration_days' => null,
+                'archived_same_type_count' => $archivedSameTypeCount
             ];
         } else {
+            // 3rd or more of the same minor offense → escalates to Major (Repeated Minor Offenses)
             return [
                 'sanction_name' => 'Corrective Reinforcement (3-7 days)',
-                'reason' => 'Third or subsequent minor offense',
-                'offense_count' => $offenseNumber,
-                'category' => 'Minor',
-                'subcategory' => null,
+                'reason' => 'Third or more offense of the same type — escalates to Major (Repeated Minor Offenses)',
+                'offense_count' => $sameTypeCount,
+                'category' => 'Major',
+                'subcategory' => 'A',
                 'duration_days' => 3,
-                'duration_range' => '3-7 days'
+                'duration_range' => '3-7 days',
+                'escalated_to_major' => true,
+                'archived_same_type_count' => $archivedSameTypeCount
             ];
         }
     }
-    
-    // For Major Offenses
+
+    // For Major Offenses — count same-type major cases
     if ($severity === 'Major') {
         $category = categorizeMajorOffense($currentOffenseType);
-        // The current case is already counted in major_offenses, so use the count as-is
-        // Ensure minimum of 1 (in case we're applying sanctions before the count updates)
-        $offenseNumber = max(1, $majorCount);
-        
+        $offenseNumber = $sameTypeCount;
+
         // Category A: Lighter major offenses
         if ($category === 'A') {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Corrective Reinforcement (3-7 days)',
-                    'reason' => 'First major offense (Category A)',
+                    'reason' => 'First offense of this type (Category A major)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'A',
                     'duration_days' => 3,
-                    'duration_range' => '3-7 days'
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             } elseif ($offenseNumber === 2) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'Second major offense (Category A)',
+                    'reason' => 'Second offense of the same type (Category A major)',
                     'offense_count' => 2,
                     'category' => 'Major',
                     'subcategory' => 'A',
                     'duration_days' => 3,
-                    'duration_range' => '3-7 days'
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Third major offense (Category A)',
+                    'reason' => 'Third or more offense of the same type (Category A major)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'A',
-                    'duration_days' => null
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             }
         }
-        
+
         // Category B: Property/image damage
         if ($category === 'B') {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'First major offense (Category B)',
+                    'reason' => 'First offense of this type (Category B major)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'B',
                     'duration_days' => 3,
-                    'duration_range' => '3-7 days'
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Second or subsequent major offense (Category B)',
+                    'reason' => 'Second or more offense of the same type (Category B major)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'B',
-                    'duration_days' => null
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             }
         }
-        
+
         // Category C: Serious offenses
         if ($category === 'C') {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'First major offense (Category C)',
+                    'reason' => 'First offense of this type (Category C major)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'C',
                     'duration_days' => 8,
-                    'duration_range' => '7-10 days'
+                    'duration_range' => '7-10 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Second or subsequent major offense (Category C)',
+                    'reason' => 'Second or more offense of the same type (Category C major)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'C',
-                    'duration_days' => null
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
                 ];
             }
         }
-        
-        // Category D: Criminal offenses
+
+        // Category D: Criminal offenses — immediate exclusion regardless of count
         if ($category === 'D') {
             return [
                 'sanction_name' => 'Exclusion',
-                'reason' => 'Criminal offense (Category D) - immediate exclusion/expulsion',
+                'reason' => 'Criminal offense of this type (Category D) — immediate exclusion/expulsion',
                 'offense_count' => $offenseNumber,
                 'category' => 'Major',
                 'subcategory' => 'D',
                 'duration_days' => null,
-                'requires_ched_approval' => true
+                'requires_ched_approval' => true,
+                'archived_same_type_count' => $archivedSameTypeCount
             ];
         }
     }
-    
+
     // Fallback
     return [
         'sanction_name' => 'Verbal/Oral Warning',
         'reason' => 'Unable to determine appropriate sanction',
-        'offense_count' => 0,
+        'offense_count' => 1,
         'category' => $severity,
         'subcategory' => null,
-        'duration_days' => null
+        'duration_days' => null,
+        'archived_same_type_count' => $archivedSameTypeCount ?? 0
     ];
 }
 
@@ -1284,6 +1310,9 @@ function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEn
     
     // Only check calendar_events table since all scheduled sanctions create calendar events
     // This prevents duplicate conflict messages
+    // Filter by current user (DO) - each DO has their own schedule
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    
     $sql = "SELECT 
                 event_id,
                 event_name,
@@ -1294,9 +1323,10 @@ function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEn
             FROM calendar_events 
             WHERE event_date = ?
             AND category = 'Hearing'
-            AND event_time IS NOT NULL";
+            AND event_time IS NOT NULL
+            AND created_by = ?";
     
-    $params = [$scheduleDate];
+    $params = [$scheduleDate, $currentUserId];
     
     if ($excludeEventId !== null) {
         $sql .= " AND event_id != ?";
@@ -1392,13 +1422,36 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
 }
 
 function getCaseSanctions($caseId) {
+    // First get the basic sanction info
     $sql = "SELECT cs.*, s.sanction_name, s.severity_level, s.description
             FROM case_sanctions cs
             JOIN sanctions s ON cs.sanction_id = s.sanction_id
             WHERE cs.case_id = ?
             ORDER BY cs.applied_date DESC";
     
-    return fetchAll($sql, [$caseId]);
+    $sanctions = fetchAll($sql, [$caseId]);
+    
+    // For each sanction with a schedule, try to find the corresponding calendar event
+    foreach ($sanctions as &$sanction) {
+        if ($sanction['scheduled_date']) {
+            $eventSql = "SELECT TOP 1 u.full_name as scheduled_by_name
+                        FROM calendar_events ce
+                        JOIN users u ON ce.created_by = u.user_id
+                        WHERE ce.category = 'Hearing'
+                        AND ce.event_date = ?
+                        AND ce.event_name LIKE ?
+                        ORDER BY ce.created_at DESC";
+            
+            $eventPattern = '%Case ' . $caseId . ')%';
+            $eventData = fetchOne($eventSql, [$sanction['scheduled_date'], $eventPattern]);
+            
+            if ($eventData) {
+                $sanction['scheduled_by_name'] = $eventData['scheduled_by_name'];
+            }
+        }
+    }
+    
+    return $sanctions;
 }
 
 // ==========================================
