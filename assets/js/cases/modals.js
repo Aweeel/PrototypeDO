@@ -302,6 +302,16 @@ async function viewCase(caseId) {
                                     : ""
                                 }
                                 ${
+                                  s.scheduled_date
+                                    ? `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${new Date(s.scheduled_date).toLocaleDateString()}${s.scheduled_time ? ' at ' + s.scheduled_time.substring(0, 5) : ''}</p>`
+                                    : ""
+                                }
+                                ${
+                                  s.scheduled_by_name
+                                    ? `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`
+                                    : ""
+                                }
+                                ${
                                   s.notes
                                     ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>`
                                     : ""
@@ -1007,6 +1017,129 @@ async function manageSanctions(caseId) {
     
     const sanctions = await loadSanctions();
     
+    // Fetch student data for offense history
+    let studentOffenseData = null;
+    try {
+        const studentResponse = await fetch('/PrototypeDO/modules/do/cases.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `ajax=1&action=getStudentByNumber&studentNumber=${caseData.studentId}`
+        });
+        const studentResult = await studentResponse.json();
+        if (studentResult.success && studentResult.student) {
+            // Fetch full student details including offense counts
+            const detailResponse = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `ajax=1&action=getStudents`
+            });
+            const detailResult = await detailResponse.json();
+            if (detailResult.success) {
+                studentOffenseData = detailResult.students.find(s => s.id === caseData.studentId);
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching student data:', error);
+    }
+    
+    // Fetch recommended sanction based on escalation algorithm
+    let recommendationHTML = '';
+    let recommendationData = null;
+    try {
+        recommendationData = await fetchRecommendedSanction(caseData.studentId, caseData.type, caseData.severity);
+        if (recommendationData && recommendationData.sanction_name) {
+            const isHighSeverity = recommendationData.subcategory === 'D' || 
+                                  recommendationData.sanction_name.includes('Non-readmission') || 
+                                  recommendationData.sanction_name.includes('Exclusion') ||
+                                  recommendationData.sanction_name.includes('Expulsion');
+            
+            const colorClass = isHighSeverity 
+                ? 'bg-red-50 dark:bg-slate-800 border-red-200 dark:border-red-500' 
+                : 'bg-blue-50 dark:bg-slate-800 border-blue-200 dark:border-blue-500';
+            const iconColor = isHighSeverity ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
+            const textColor = isHighSeverity ? 'text-red-900 dark:text-red-100' : 'text-blue-900 dark:text-blue-100';
+            const buttonColor = isHighSeverity
+                ? 'bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800'
+                : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800';
+            
+            // Build offense history display
+            let offenseHistoryHTML = '';
+            if (studentOffenseData) {
+                const totalOffenses = studentOffenseData.incidents || 0;
+                const majorOffenses = studentOffenseData.majorOffenses || 0;
+                const minorOffenses = studentOffenseData.minorOffenses || 0;
+                
+                offenseHistoryHTML = `
+                    <div class="mt-2 pt-2 border-t ${isHighSeverity ? 'border-red-200 dark:border-red-800' : 'border-blue-200 dark:border-blue-800'}">
+                        <p class="text-xs ${textColor} font-semibold mb-2">Offense History:</p>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <div class="text-center p-1.5 bg-white dark:bg-slate-900/30 rounded">
+                                <p class="text-sm font-bold ${textColor}">${totalOffenses}</p>
+                                <p class="text-xs ${textColor} opacity-70">Total</p>
+                            </div>
+                            <div class="text-center p-1.5 bg-white dark:bg-slate-900/30 rounded">
+                                <p class="text-sm font-bold text-red-600 dark:text-red-400">${majorOffenses}</p>
+                                <p class="text-xs ${textColor} opacity-70">Major</p>
+                            </div>
+                            <div class="text-center p-1.5 bg-white dark:bg-slate-900/30 rounded">
+                                <p class="text-sm font-bold text-yellow-600 dark:text-yellow-400">${minorOffenses}</p>
+                                <p class="text-xs ${textColor} opacity-70">Minor</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            recommendationHTML = `
+                <div class="p-4 ${colorClass} border rounded-lg shadow-xl">
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0">
+                            <svg class="w-5 h-5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold ${textColor} mb-2 text-sm"> Recommendation</h5>
+                            ${recommendationData.escalated_to_major ? `
+                                <p class="text-xs font-semibold mb-2 px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-700">
+                                    ⚠️ Escalated to Major — 3rd repeated minor offense
+                                </p>
+                            ` : ''}
+                            <p class="text-xs ${textColor} mb-2">
+                                <strong>Suggested:</strong> ${recommendationData.sanction_name}
+                                ${recommendationData.duration_range && !recommendationData.sanction_name.toLowerCase().includes(recommendationData.duration_range.toLowerCase()) ? `<br><span class="opacity-80">${recommendationData.duration_range}</span>` : ''}
+                            </p>
+                            <p class="text-xs ${textColor} opacity-90 mb-2">
+                                ${recommendationData.reason.replace(/(first|second|third|fourth|1st|2nd|3rd|4th)/gi, `<span class="font-bold px-1 py-0.5 rounded ${isHighSeverity ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100' : 'bg-blue-200 dark:bg-blue-700 text-blue-900 dark:text-blue-100'}">$1</span>`)}
+                                ${recommendationData.subcategory ? `<br><span class="opacity-75">Category ${recommendationData.subcategory}</span>` : ''}
+                            </p>
+                            ${recommendationData.requires_ched_approval ? `
+                                <p class="mt-2 text-xs ${textColor} font-semibold">
+                                    ⚠️ CHED approval required
+                                </p>
+                            ` : ''}
+                            ${offenseHistoryHTML}
+                            ${(recommendationData.archived_same_type_count > 0) ? `
+                                <p class="mt-2 text-xs opacity-70 ${textColor} italic">
+                                    📁 ${recommendationData.archived_same_type_count} archived case${recommendationData.archived_same_type_count > 1 ? 's' : ''} of this type
+                                </p>
+                            ` : ''}
+                            <button type="button" onclick="applyRecommendedSanction('${recommendationData.sanction_name}', ${recommendationData.duration_days || 'null'})" 
+                                class="mt-3 w-full px-3 py-1.5 ${buttonColor} text-white text-xs rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Apply Recommendation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error fetching recommendation:', error);
+    }
+    
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
     modal.innerHTML = `
@@ -1038,27 +1171,45 @@ async function manageSanctions(caseId) {
 
             <div class="overflow-y-auto flex-1 px-5">
             <form id="applySanctionForm" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Select Sanction <span class="text-red-500">*</span></label>
-                    <select id="sanctionSelect" required onchange="handleSanctionChange()" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                        <option value="">Choose a sanction...</option>
-                        ${sanctions.map(s => `
-                            <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
-                                ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
-                            </option>
-                        `).join('')}
-                    </select>
+                <div class="relative">
+                    <div class="flex gap-2 items-end">
+                        <div class="flex-1 min-w-0">
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Select Sanction <span class="text-red-500">*</span>
+                                ${recommendationData ? `
+                                    <span class="relative inline-block ml-1 handbook-tooltip-trigger">
+                                        <button type="button" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-help" onmouseenter="showHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </button>
+                                        <!-- Tooltip content -->
+                                        <div id="handbookTooltip" class="hidden absolute left-full top-0 ml-2 z-50 w-80 transition-all duration-200" style="max-height: 500px; overflow-y: auto;" onmouseenter="keepHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
+                                            ${recommendationHTML}
+                                        </div>
+                                    </span>
+                                ` : ''}
+                            </label>
+                            <select id="sanctionSelect" required onchange="handleSanctionChange()" 
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                <option value="">Choose...</option>
+                                ${sanctions.map(s => `
+                                    <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
+                                        ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div id="durationDiv" class="w-28 flex-shrink-0" style="display: none;">
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Days <span class="text-red-500">*</span></label>
+                            <input type="number" id="sanctionDuration" min="1" 
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-center"
+                                placeholder="0">
+                        </div>
+                    </div>
                 </div>
 
                 <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none; min-height: 60px;">
-                </div>
-
-                <div id="durationDiv" style="display: none;">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (Days) <span class="text-red-500">*</span></label>
-                    <input type="number" id="sanctionDuration" min="1" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="Enter number of days...">
                 </div>
 
                 <!-- Schedule Button -->
@@ -1121,6 +1272,13 @@ async function manageSanctions(caseId) {
 
     loadAppliedSanctions(caseId);
     window.sanctionsData = sanctions;
+
+    // Auto-select the recommended sanction if available
+    if (recommendationData && recommendationData.sanction_name) {
+        setTimeout(() => {
+            applyRecommendedSanction(recommendationData.sanction_name, recommendationData.duration_days || null, true);
+        }, 100);
+    }
 
     document.getElementById('applySanctionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1279,6 +1437,72 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
     }
 }
 
+/**
+ * Apply the recommended sanction to the form (auto-fill)
+ * @param {string} sanctionName - The name of the recommended sanction
+ * @param {number|null} durationDays - Recommended duration in days
+ */
+function applyRecommendedSanction(sanctionName, durationDays, silent = false) {
+    const sanctionSelect = document.getElementById('sanctionSelect');
+    const durationInput = document.getElementById('sanctionDuration');
+    
+    if (!sanctionSelect) {
+        console.error('Sanction select element not found');
+        return;
+    }
+    
+    // Find the matching sanction option by name
+    let matchedOption = null;
+    for (let i = 0; i < sanctionSelect.options.length; i++) {
+        const option = sanctionSelect.options[i];
+        const optionText = option.text.toLowerCase();
+        const searchName = sanctionName.toLowerCase();
+        
+        // Try exact match first
+        if (optionText === searchName || option.text === sanctionName) {
+            matchedOption = option;
+            break;
+        }
+        
+        // Try partial match (for cases like "Suspension (7 days)" matching "Suspension from Class")
+        if (optionText.includes(searchName) || searchName.includes(optionText.split('(')[0].trim().toLowerCase())) {
+            matchedOption = option;
+            break;
+        }
+    }
+    
+    if (matchedOption) {
+        // Select the sanction
+        sanctionSelect.value = matchedOption.value;
+        
+        // Trigger change event to update dependencies (duration field, description, etc.)
+        handleSanctionChange();
+        
+        // Wait a moment for the duration field to be shown, then set the value
+        setTimeout(() => {
+            if (durationDays && durationInput) {
+                durationInput.value = durationDays;
+            }
+        }, 100);
+        
+        // Scroll to the form
+        document.getElementById('applySanctionForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+        // Hide the tooltip
+        const tooltip = document.getElementById('handbookTooltip');
+        if (tooltip) {
+            tooltip.classList.add('hidden');
+        }
+        
+        // Show success feedback
+        if (!silent) showNotification(`Recommended sanction "${sanctionName}" has been selected`, 'success');
+    } else {
+        // If exact match not found, show available sanctions that are close
+        console.warn('Could not find exact match for:', sanctionName);
+        showNotification(`Could not auto-select "${sanctionName}". Please select it manually from the dropdown.`, 'warning');
+    }
+}
+
 // Handle sanction selection change
 function handleSanctionChange() {
     const select = document.getElementById('sanctionSelect');
@@ -1324,21 +1548,44 @@ function handleSanctionChange() {
         descriptionDiv.style.display = 'none';
     }
     
+    // Sanctions that should never show a duration field
+    const noDurationSanctions = ['preventive suspension'];
+
+    // Explicit default durations by sanction name pattern
+    const durationDefaults = {
+        'corrective reinforcement': 3,
+        'suspension from class': 3,
+    };
+
+    // Check if this sanction explicitly should not have a duration
+    const skipDuration = noDurationSanctions.some(n => sanctionName.includes(n));
+
+    let smartDefault = null;
+    for (const [key, days] of Object.entries(durationDefaults)) {
+        if (sanctionName.includes(key)) {
+            smartDefault = days;
+            break;
+        }
+    }
+
+    // Also extract first number from name as fallback (e.g. "Suspension (7 days)")
     const durationMatch = sanctionName.match(/(\d+)\s*days?/i);
-    const extractedDays = durationMatch ? durationMatch[1] : null;
-    
-    const requiresDuration = sanctionName.includes('suspension') || 
-                            sanctionName.includes('probation') || 
+    const extractedDays = durationMatch ? parseInt(durationMatch[1]) : null;
+
+    const requiresDuration = !skipDuration && (
+                            smartDefault !== null ||
+                            extractedDays !== null ||
+                            sanctionName.includes('probation') ||
                             sanctionName.includes('community service') ||
-                            sanctionName.includes('reinforcement') ||
-                            extractedDays ||
-                            defaultDays;
-    
+                            (defaultDays && defaultDays !== 'null' && defaultDays !== ''));
+
     if (requiresDuration) {
         durationDiv.style.display = 'block';
         durationInput.required = true;
-        
-        if (extractedDays) {
+
+        if (smartDefault !== null) {
+            durationInput.value = smartDefault;
+        } else if (extractedDays) {
             durationInput.value = extractedDays;
         } else if (defaultDays && defaultDays !== 'null' && defaultDays !== '') {
             durationInput.value = defaultDays;
@@ -1837,8 +2084,11 @@ async function loadAppliedSanctions(caseId) {
         
         const listDiv = document.getElementById('appliedSanctionsList');
         
+        console.log('Applied Sanctions Data:', data); // Debug log
+        
         if (data.success && data.sanctions && data.sanctions.length > 0) {
             listDiv.innerHTML = data.sanctions.map(s => {
+                console.log('Sanction:', s.sanction_name, 'Scheduled by:', s.scheduled_by_name); // Debug log
                 // Format scheduled time range if available
                 let scheduledInfo = '';
                 if (s.scheduled_date) {
@@ -1853,6 +2103,9 @@ async function loadAppliedSanctions(caseId) {
                         scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} at ${timeStr}</p>`;
                     } else {
                         scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr}</p>`;
+                    }
+                    if (s.scheduled_by_name) {
+                        scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`;
                     }
                     if (s.schedule_notes) {
                         scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400 italic">${s.schedule_notes}</p>`;
@@ -2406,4 +2659,72 @@ function showSuccessToast(message) {
 function showErrorToast(message) {
   // Delegate to unified notification system
   showNotification(message, 'error');
+}
+
+/**
+ * Fetch recommended sanction based on student's offense history
+ * @param {string} studentId - The student ID
+ * @param {string} caseType - The type of offense (e.g., "Cheating", "Smoking")
+ * @param {string} severity - Either "Minor" or "Major"
+ * @returns {Promise<Object>} Recommendation object
+ */
+async function fetchRecommendedSanction(studentId, caseType, severity) {
+  try {
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'getRecommendedSanction');
+    formData.append('studentId', studentId);
+    formData.append('caseType', caseType);
+    formData.append('severity', severity);
+
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      return data.recommendation;
+    } else {
+      console.error('Failed to fetch recommendation:', data.error);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching recommended sanction:', error);
+    return null;
+  }
+}
+
+// Tooltip control variables
+let handbookTooltipTimeout = null;
+
+/**
+ * Show the handbook recommendation tooltip
+ */
+function showHandbookTooltip() {
+  clearTimeout(handbookTooltipTimeout);
+  const tooltip = document.getElementById('handbookTooltip');
+  if (tooltip) {
+    tooltip.classList.remove('hidden');
+  }
+}
+
+/**
+ * Keep the handbook tooltip visible (when hovering over it)
+ */
+function keepHandbookTooltip() {
+  clearTimeout(handbookTooltipTimeout);
+}
+
+/**
+ * Schedule hiding the handbook tooltip with a small delay
+ */
+function scheduleHideHandbookTooltip() {
+  handbookTooltipTimeout = setTimeout(() => {
+    const tooltip = document.getElementById('handbookTooltip');
+    if (tooltip) {
+      tooltip.classList.add('hidden');
+    }
+  }, 200); // 200ms delay to allow moving mouse to tooltip
 }
