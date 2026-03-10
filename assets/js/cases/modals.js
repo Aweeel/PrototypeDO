@@ -1247,7 +1247,7 @@ async function manageSanctions(caseId) {
                         placeholder="Any additional information about this sanction..."></textarea>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-slate-700 mb-6">
+                <div class="flex justify-end gap-2 pt-1 mb-6">
                     <button type="button" onclick="closeModal(this)" 
                         class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
                         Cancel
