@@ -1,9 +1,80 @@
 // Lost & Found Management JavaScript
 
+// Image upload handling
+function setupImageUpload() {
+    const dropZone = document.getElementById('imageDropZone');
+    const fileInput = document.getElementById('itemImageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePrompt = document.getElementById('imagePrompt');
+    
+    if (!dropZone || !fileInput) return;
+    
+    // Click to select file
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            displayImagePreview(e.target.files[0]);
+        }
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+        
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                fileInput.files = e.dataTransfer.files;
+                displayImagePreview(file);
+            } else {
+                showNotification('Error', 'Please drop an image file', 'error');
+            }
+        }
+    });
+}
+
+function displayImagePreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePrompt = document.getElementById('imagePrompt');
+        const previewImg = document.getElementById('previewImg');
+        
+        previewImg.src = e.target.result;
+        imagePreview.classList.remove('hidden');
+        imagePrompt.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearImagePreview() {
+    const fileInput = document.getElementById('itemImageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePrompt = document.getElementById('imagePrompt');
+    
+    fileInput.value = '';
+    imagePreview.classList.add('hidden');
+    imagePrompt.classList.remove('hidden');
+}
+
 // Modal management
 function openAddModal() {
     document.getElementById('addModal').classList.remove('hidden');
     document.getElementById('addItemForm').reset();
+    clearImagePreview();
+    setupImageUpload();
 }
 
 function closeAddModal() {
@@ -141,6 +212,13 @@ function showViewModal(item) {
                 <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
                 <p class="text-gray-900 dark:text-gray-100">${item.description || 'No description provided'}</p>
             </div>
+            
+            ${item.image_path ? `
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Item Picture</label>
+                    <img src="${item.image_path}" alt="Item image" class="w-full max-h-96 object-cover rounded-lg border border-gray-200 dark:border-slate-700">
+                </div>
+            ` : ''}
             
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -367,14 +445,15 @@ function markClaimed(itemId) {
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer Name *</label>
-                    <input type="text" name="claimer_name" required placeholder="Full name of person claiming item"
+                    <input type="text" name="claimer_name" id="claimerNameInput" required placeholder="Full name of person claiming item"
                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer Student ID (Optional)</label>
-                    <input type="text" name="claimer_student_id" placeholder="Optional"
+                    <input type="text" name="claimer_student_id" id="claimerStudentIdInput" placeholder="Enter student ID"
                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Entering a student ID will automatically fill the name field</p>
                 </div>
                 
                 <div class="flex gap-3 pt-4">
@@ -392,6 +471,31 @@ function markClaimed(itemId) {
     `;
     
     modal.classList.remove('hidden');
+    
+    // Add event listener to student ID input for auto-lookup
+    const studentIdInput = document.getElementById('claimerStudentIdInput');
+    const claimerNameInput = document.getElementById('claimerNameInput');
+    
+    studentIdInput.addEventListener('blur', async function() {
+        const studentId = this.value.trim();
+        
+        if (!studentId) {
+            return; // Don't do anything if empty
+        }
+        
+        try {
+            const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get_student&student_id=${encodeURIComponent(studentId)}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                claimerNameInput.value = result.data.full_name;
+            } else {
+                showNotification('Info', 'Student not found', 'info');
+            }
+        } catch (error) {
+            console.error('Error fetching student:', error);
+        }
+    });
     
     // Attach submit handler
     document.getElementById('claimItemForm').addEventListener('submit', async function(e) {
@@ -491,3 +595,8 @@ function showNotification(title, message, type = 'info') {
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
+
+// Initialize image upload when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    setupImageUpload();
+});

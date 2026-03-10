@@ -290,11 +290,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // Search filter
             if (!empty($search)) {
-                $sql .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)";
-                $searchTerm = '%' . $search . '%';
-                $params[] = $searchTerm;
-                $params[] = $searchTerm;
-                $params[] = $searchTerm;
+                // Check if search contains space (full name search)
+                if (strpos($search, ' ') !== false) {
+                    // Split the search term
+                    $parts = explode(' ', trim($search));
+                    $firstName = $parts[0];
+                    $lastName = isset($parts[1]) ? $parts[1] : '';
+                    
+                    // Search for first name + last name combination
+                    $sql .= " AND (s.student_id LIKE ? OR (s.first_name LIKE ? AND s.last_name LIKE ?) OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+                    $searchTerm = '%' . $search . '%';
+                    $firstNameTerm = '%' . $firstName . '%';
+                    $lastNameTerm = '%' . $lastName . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $firstNameTerm;
+                    $params[] = $lastNameTerm;
+                    $params[] = $searchTerm; // Also search for full term in first_name
+                    $params[] = $searchTerm; // Also search for full term in last_name
+                } else {
+                    // Single word search (matching original behavior)
+                    $sql .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+                    $searchTerm = '%' . $search . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                }
             }
 
             // Grade filter

@@ -26,6 +26,20 @@ try {
                 $time_found .= ':00';
             }
             
+            // Handle image upload if present
+            $image_path = null;
+            if (isset($_FILES['item_image']) && $_FILES['item_image']['size'] > 0) {
+                // Generate temporary item ID for file naming (will use actual one after insert)
+                $temp_item_id = 'LF-' . time();
+                $upload_result = handleLostFoundImageUpload($_FILES['item_image'], $temp_item_id);
+                
+                if (!$upload_result['success']) {
+                    echo json_encode(['success' => false, 'message' => $upload_result['error']]);
+                    exit;
+                }
+                $image_path = $upload_result['path'];
+            }
+            
             $data = [
                 'item_name' => $_POST['item_name'],
                 'category' => $_POST['category'],
@@ -34,7 +48,8 @@ try {
                 'date_found' => $_POST['date_found'],
                 'time_found' => $time_found,
                 'finder_name' => !empty(trim($_POST['finder_name'] ?? '')) ? trim($_POST['finder_name']) : null,
-                'finder_student_id' => !empty(trim($_POST['finder_student_id'] ?? '')) ? trim($_POST['finder_student_id']) : null
+                'finder_student_id' => !empty(trim($_POST['finder_student_id'] ?? '')) ? trim($_POST['finder_student_id']) : null,
+                'image_path' => $image_path
             ];
             
             // Debug logging
@@ -103,6 +118,39 @@ try {
             $item_id = $_POST['item_id'];
             $result = archiveItem($item_id);
             echo json_encode($result);
+            break;
+            
+        case 'get_student':
+            $student_id = $_GET['student_id'] ?? '';
+            
+            if (!$student_id) {
+                echo json_encode(['success' => false, 'message' => 'Student ID required']);
+                break;
+            }
+            
+            // Query to get student information
+            $sql = "SELECT student_id, first_name, last_name FROM students WHERE student_id = ?";
+            
+            try {
+                $student = fetchOne($sql, [$student_id]);
+                
+                if ($student) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [
+                            'student_id' => $student['student_id'],
+                            'first_name' => $student['first_name'],
+                            'last_name' => $student['last_name'],
+                            'full_name' => $student['first_name'] . ' ' . $student['last_name']
+                        ]
+                    ]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Student not found']);
+                }
+            } catch (Exception $e) {
+                error_log("get_student error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Error fetching student']);
+            }
             break;
             
         default:

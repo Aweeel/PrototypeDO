@@ -113,6 +113,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
                         <input type="text" name="username" placeholder="nameid@sti.edu" required
+                            value="<?php echo isset($_GET['email']) ? htmlspecialchars($_GET['email']) : ''; ?>"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
 
@@ -130,7 +131,8 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     <!-- Remember me & Need help -->
                     <div class="flex justify-between items-center mb-6">
                         <label class="flex items-center">
-                            <input type="checkbox"
+                            <input type="checkbox" name="remember_me"
+                                <?php echo isset($_GET['remember_me']) ? 'checked' : ''; ?>
                                 class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                             <span class="ml-2 text-sm text-gray-600">Remember me</span>
                         </label>

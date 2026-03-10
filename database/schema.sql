@@ -37,6 +37,8 @@ CREATE TABLE users (
     contact_number NVARCHAR(20),
     is_active BIT DEFAULT 1,
     last_login DATETIME,
+    remember_token NVARCHAR(64) NULL,
+    remember_token_expiry DATETIME NULL,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -324,12 +326,36 @@ PRINT 'Users inserted: 5';
 GO
 
 -- ============================================
+-- INSERT ADDITIONAL STAFF (2 DO, 4 Security, 4 Teachers)
+-- ============================================
+PRINT 'Inserting additional staff accounts...';
+
+-- Default password for all staff: 'password'
+DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+
+INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
+VALUES 
+-- Discipline Office Staff (2 additional)
+('torres.discipline@sti.edu', @defaultPassword, 'torres.discipline@sti.edu', 'Patricia Torres', 'discipline_office', '09189876543'),
+('reyes.discipline@sti.edu', @defaultPassword, 'reyes.discipline@sti.edu', 'Miguel Reyes', 'discipline_office', '09186543210'),
+-- Security Staff (4)
+('santos.security1@sti.edu', @defaultPassword, 'santos.security1@sti.edu', 'Robert Santos', 'security', '09184567891'),
+('cruz.security2@sti.edu', @defaultPassword, 'cruz.security2@sti.edu', 'Fernando Cruz', 'security', '09184567892'),
+('diaz.security3@sti.edu', @defaultPassword, 'diaz.security3@sti.edu', 'Eduardo Diaz', 'security', '09184567893'),
+('herrera.security4@sti.edu', @defaultPassword, 'herrera.security4@sti.edu', 'Manuel Herrera', 'security', '09184567894'),
+-- Teachers (4)
+('garcia.teacher@sti.edu', @defaultPassword, 'garcia.teacher@sti.edu', 'Lisa Garcia', 'teacher', '09173334567'),
+('morales.teacher@sti.edu', @defaultPassword, 'morales.teacher@sti.edu', 'Vincent Morales', 'teacher', '09173334568'),
+('gutierrez.teacher@sti.edu', @defaultPassword, 'gutierrez.teacher@sti.edu', 'Rachel Gutierrez', 'teacher', '09173334569'),
+('lopez.teacher@sti.edu', @defaultPassword, 'lopez.teacher@sti.edu', 'Francisco Lopez', 'teacher', '09173334570');
+
+PRINT 'Additional staff inserted: 10';
+GO
+
+-- ============================================
 -- INSERT STUDENT USER ACCOUNTS (Auto-generated emails)
 -- ============================================
 PRINT 'Inserting student user accounts...';
-
--- Default password for all students: 'password'
-DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
 INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active)
 VALUES 

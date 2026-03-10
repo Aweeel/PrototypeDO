@@ -49,10 +49,17 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
             let currentIndex = 0;
 
             function clearHighlights() {
-              searchHighlights.forEach(span => {
-                const parent = span.parentNode;
-                parent.replaceChild(document.createTextNode(span.textContent), span);
-                parent.normalize();
+              // Restore all marked elements back to plain text
+              const marks = document.querySelectorAll("mark");
+              marks.forEach(mark => {
+                const parent = mark.parentNode;
+                if (parent) {
+                  // Replace the mark element with its text content
+                  const textNode = document.createTextNode(mark.textContent);
+                  parent.replaceChild(textNode, mark);
+                  // Normalize to merge adjacent text nodes
+                  parent.normalize();
+                }
               });
               searchHighlights = [];
               currentIndex = 0;
@@ -75,9 +82,9 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
               if (event && event.key === "Enter") {
                 event.preventDefault();
                 if (searchHighlights.length > 0) {
-                  currentIndex = (currentIndex + 1) % searchHighlights.length;
                   scrollToCurrent();
                   countDisplay.textContent = `Match ${currentIndex + 1} of ${searchHighlights.length}`;
+                  currentIndex = (currentIndex + 1) % searchHighlights.length;
                 }
                 return;
               }
@@ -91,7 +98,9 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
                 return;
               }
 
-              const regex = new RegExp(query, "gi");
+              // Escape regex special characters in the query
+              const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const regex = new RegExp(escapedQuery, "gi");
               let count = 0;
 
               const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null, false);
@@ -109,6 +118,7 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
                 let lastIndex = 0;
                 let match;
 
+                regex.lastIndex = 0;
                 while ((match = regex.exec(text)) !== null) {
                   const before = text.slice(lastIndex, match.index);
                   if (before) frag.appendChild(document.createTextNode(before));
@@ -2266,16 +2276,14 @@ and sports activities.
   <div id="security-safety">
     <h4 class="font-semibold text-2xl">Security and Safety Services</h4>
     <p>
-          <p>
-  Security and Safety Services are provided by the school, your second home. The following measures are implemented to ensure a safe and sound learning environment for all students: <br><br>
-</p>
+      Security and Safety Services are provided by the school, your second home. The following measures are implemented to ensure a safe and sound learning environment for all students: <br><br>
+    </p>
 
 <ol class="pl-6 space-y-3">
   <li>a.  Installation of CCTV cameras in the campus</li>
   <li>b.  Deployment of licensed and competent security personnel to do periodic rounds and random bag inspection and frisking</li>
   <li>c.  Safe, accessible (for persons with disabilities), and secure environment, buildings, and facilities that comply with government standards</li>
 </ol>
-    </p>
   </div>
 
   <div id="maintenance">
@@ -3153,7 +3161,7 @@ and institutional rules and regulations.
     </ol>
   </div>
     
-  <div id="offenses">
+  <div id="unlisted-offenses">
     <h4 class="font-semibold text-2xl">Disciplinary Cases or Offenses Not Written in the Student Handbook</h4>
     <p><br>Disciplinary cases or offenses not written in the Student Handbook are subject to the review
 of the Discipline Committee and school administration in the interest of upholding the ideal
@@ -3485,7 +3493,7 @@ learning environment and of the STI Community.</p>
     <li><a href="#major-offenses-category-b" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category B</a></li>
     <li><a href="#major-offenses-category-c" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category C</a></li>
     <li><a href="#major-offenses-category-d" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category D</a></li>
-    <li><a href="#offenses" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Unlisted Disciplinary Cases</a></li>
+    <li><a href="#unlisted-offenses" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Unlisted Disciplinary Cases</a></li>
   </ul>
 </li>
 
@@ -3512,5 +3520,7 @@ learning environment and of the STI Community.</p>
         </main>
 </div>
 </div>
+  </body>
+</html>
 
 
