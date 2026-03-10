@@ -114,6 +114,7 @@ function renderStudents() {
                 <div class="px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Incidents</p>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${student.incidents}</p>
+                    ${student.archivedCases > 0 ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${student.archivedCases} archived</p>` : ''}
                 </div>
 
                 <!-- Last Incident -->
@@ -148,9 +149,9 @@ function renderStudents() {
 // Get status badge HTML
 function getStatusBadge(status) {
     const statusConfig = {
-        'Watch List': 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100',
         'Good Standing': 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100',
-        'Resolved': 'bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-gray-100'
+        'On Watch':      'bg-orange-100 text-orange-800 dark:bg-[#7C2D12] dark:text-orange-100',
+        'On Probation':  'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100'
     };
 
     const colorClass = statusConfig[status] || statusConfig['Good Standing'];
@@ -258,10 +259,14 @@ async function viewHistory(studentId) {
                     <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-4">Incident History</h5>
                     <div class="space-y-3">
                         ${cases.length > 0 ? cases.map(c => `
-                            <div class="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
+                            <div class="rounded-lg p-4 border ${
+                                c.is_archived == 1
+                                    ? 'bg-gray-100 dark:bg-slate-800/30 border-gray-300 dark:border-slate-600 opacity-70'
+                                    : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+                            }">
                                 <div class="flex items-start justify-between mb-2">
                                     <div class="flex-1">
-                                        <div class="flex items-center gap-3 mb-1">
+                                        <div class="flex items-center gap-3 mb-1 flex-wrap">
                                             <span class="font-semibold text-gray-900 dark:text-gray-100">${c.case_type}</span>
                                             <span class="px-2 py-0.5 text-xs font-medium rounded-full ${
                                                 c.severity === 'Major' 
@@ -269,6 +274,7 @@ async function viewHistory(studentId) {
                                                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                                             }">${c.severity}</span>
                                             <span class="px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColorClass(c.status)}">${c.status}</span>
+                                            ${c.is_archived == 1 ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-600 dark:bg-slate-600 dark:text-gray-300">Archived</span>' : ''}
                                         </div>
                                         <p class="text-sm text-gray-600 dark:text-gray-400">
                                             Case ID: ${c.case_id} • ${formatDate(c.date_reported)}

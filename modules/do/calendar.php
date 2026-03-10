@@ -13,10 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $month = $_POST['month'] ?? date('n');
             $year = $_POST['year'] ?? date('Y');
             
-            $sql = "SELECT event_id, event_name, event_date, event_time, event_end_time, category, description, location
-                    FROM calendar_events 
-                    WHERE MONTH(event_date) = ? AND YEAR(event_date) = ?
-                    ORDER BY event_date, event_time";
+            $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
+                           ce.category, ce.description, ce.location, ce.created_by,
+                           u.full_name as created_by_name
+                    FROM calendar_events ce
+                    LEFT JOIN users u ON ce.created_by = u.user_id
+                    WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?
+                    ORDER BY ce.event_date, ce.event_time";
             
             $events = fetchAll($sql, [$month, $year]);
             
@@ -39,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'category' => $event['category'],
                     'description' => $event['description'],
                     'location' => $event['location'],
+                    'createdBy' => $event['created_by_name'],
                     'color' => getCategoryColor($event['category'])
                 ];
             }, $events);

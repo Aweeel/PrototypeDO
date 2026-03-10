@@ -302,6 +302,16 @@ async function viewCase(caseId) {
                                     : ""
                                 }
                                 ${
+                                  s.scheduled_date
+                                    ? `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${new Date(s.scheduled_date).toLocaleDateString()}${s.scheduled_time ? ' at ' + s.scheduled_time.substring(0, 5) : ''}</p>`
+                                    : ""
+                                }
+                                ${
+                                  s.scheduled_by_name
+                                    ? `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`
+                                    : ""
+                                }
+                                ${
                                   s.notes
                                     ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${s.notes}</p>`
                                     : ""
@@ -1090,6 +1100,11 @@ async function manageSanctions(caseId) {
                         </div>
                         <div class="flex-1">
                             <h5 class="font-semibold ${textColor} mb-2 text-sm"> Recommendation</h5>
+                            ${recommendationData.escalated_to_major ? `
+                                <p class="text-xs font-semibold mb-2 px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-700">
+                                    ⚠️ Escalated to Major — 3rd repeated minor offense
+                                </p>
+                            ` : ''}
                             <p class="text-xs ${textColor} mb-2">
                                 <strong>Suggested:</strong> ${recommendationData.sanction_name}
                                 ${recommendationData.duration_range && !recommendationData.sanction_name.toLowerCase().includes(recommendationData.duration_range.toLowerCase()) ? `<br><span class="opacity-80">${recommendationData.duration_range}</span>` : ''}
@@ -1104,6 +1119,11 @@ async function manageSanctions(caseId) {
                                 </p>
                             ` : ''}
                             ${offenseHistoryHTML}
+                            ${(recommendationData.archived_same_type_count > 0) ? `
+                                <p class="mt-2 text-xs opacity-70 ${textColor} italic">
+                                    📁 ${recommendationData.archived_same_type_count} archived case${recommendationData.archived_same_type_count > 1 ? 's' : ''} of this type
+                                </p>
+                            ` : ''}
                             <button type="button" onclick="applyRecommendedSanction('${recommendationData.sanction_name}', ${recommendationData.duration_days || 'null'})" 
                                 class="mt-3 w-full px-3 py-1.5 ${buttonColor} text-white text-xs rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1252,6 +1272,13 @@ async function manageSanctions(caseId) {
 
     loadAppliedSanctions(caseId);
     window.sanctionsData = sanctions;
+
+    // Auto-select the recommended sanction if available
+    if (recommendationData && recommendationData.sanction_name) {
+        setTimeout(() => {
+            applyRecommendedSanction(recommendationData.sanction_name, recommendationData.duration_days || null, true);
+        }, 100);
+    }
 
     document.getElementById('applySanctionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1415,7 +1442,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
  * @param {string} sanctionName - The name of the recommended sanction
  * @param {number|null} durationDays - Recommended duration in days
  */
-function applyRecommendedSanction(sanctionName, durationDays) {
+function applyRecommendedSanction(sanctionName, durationDays, silent = false) {
     const sanctionSelect = document.getElementById('sanctionSelect');
     const durationInput = document.getElementById('sanctionDuration');
     
@@ -1468,7 +1495,7 @@ function applyRecommendedSanction(sanctionName, durationDays) {
         }
         
         // Show success feedback
-        showNotification(`Recommended sanction "${sanctionName}" has been selected`, 'success');
+        if (!silent) showNotification(`Recommended sanction "${sanctionName}" has been selected`, 'success');
     } else {
         // If exact match not found, show available sanctions that are close
         console.warn('Could not find exact match for:', sanctionName);
@@ -2057,8 +2084,11 @@ async function loadAppliedSanctions(caseId) {
         
         const listDiv = document.getElementById('appliedSanctionsList');
         
+        console.log('Applied Sanctions Data:', data); // Debug log
+        
         if (data.success && data.sanctions && data.sanctions.length > 0) {
             listDiv.innerHTML = data.sanctions.map(s => {
+                console.log('Sanction:', s.sanction_name, 'Scheduled by:', s.scheduled_by_name); // Debug log
                 // Format scheduled time range if available
                 let scheduledInfo = '';
                 if (s.scheduled_date) {
@@ -2073,6 +2103,9 @@ async function loadAppliedSanctions(caseId) {
                         scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} at ${timeStr}</p>`;
                     } else {
                         scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr}</p>`;
+                    }
+                    if (s.scheduled_by_name) {
+                        scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`;
                     }
                     if (s.schedule_notes) {
                         scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400 italic">${s.schedule_notes}</p>`;
