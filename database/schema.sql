@@ -357,6 +357,9 @@ GO
 -- ============================================
 PRINT 'Inserting student user accounts...';
 
+-- Re-declare variable (DECLARE scope is per-batch in SQL Server)
+DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+
 INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active)
 VALUES 
 -- SHS Students
