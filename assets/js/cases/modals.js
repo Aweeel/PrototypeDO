@@ -958,7 +958,7 @@ async function addCase() {
           loadCasesFromDB();
           showNotification("Case created successfully!", "success");
         } else {
-          showNotification("Error: " + (data.error || "Failed to create case"), "error");
+          showNotification("Error: " + (data.message || "Failed to create case"), "error");
         }
       } catch (error) {
         console.error("Error creating case:", error);
@@ -1298,6 +1298,23 @@ async function manageSanctions(caseId) {
 
         const selectedOption = document.getElementById('sanctionSelect').options[document.getElementById('sanctionSelect').selectedIndex];
         const requiresSchedule = selectedOption.dataset.requiresSchedule === '1';
+        const sanctionNameLower = selectedOption.text.toLowerCase();
+        
+        // Validate duration against sanction limits
+        if (duration) {
+            const durationNum = parseInt(duration);
+            if (sanctionNameLower.includes('suspension from class')) {
+                if (durationNum < 3 || durationNum > 10) {
+                    showNotification('Suspension from Class duration must be between 3-10 days', "warning");
+                    return;
+                }
+            } else if (sanctionNameLower.includes('corrective reinforcement')) {
+                if (durationNum < 3 || durationNum > 7) {
+                    showNotification('Corrective Reinforcement duration must be between 3-7 days', "warning");
+                    return;
+                }
+            }
+        }
         
         // Validate schedule if required
         if (requiresSchedule && !scheduleDate) {
@@ -1427,6 +1444,12 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
             }
             
             showSuccessToast('Sanction applied and status updated to On Going!');
+            
+            // Close the sanctions modal after successful apply
+            setTimeout(() => {
+              const confirmModal = document.querySelectorAll('.fixed.inset-0')[0];
+              if (confirmModal) confirmModal.remove();
+            }, 500);
         } else {
             showErrorToast('Failed to apply sanction: ' + (data.error || 'Unknown error'));
         }
@@ -1582,6 +1605,21 @@ function handleSanctionChange() {
     if (requiresDuration) {
         durationDiv.style.display = 'block';
         durationInput.required = true;
+
+        // Set min and max based on sanction type
+        if (sanctionName.includes('suspension from class')) {
+            durationInput.min = '3';
+            durationInput.max = '10';
+            durationInput.title = 'Duration must be between 3-10 days';
+        } else if (sanctionName.includes('corrective reinforcement')) {
+            durationInput.min = '3';
+            durationInput.max = '7';
+            durationInput.title = 'Duration must be between 3-7 days';
+        } else {
+            durationInput.min = '1';
+            durationInput.removeAttribute('max');
+            durationInput.removeAttribute('title');
+        }
 
         if (smartDefault !== null) {
             durationInput.value = smartDefault;
@@ -2172,9 +2210,10 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
 
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (Days)</label>
-                    <input type="number" id="editSanctionDuration" min="1" value="${currentDuration}"
+                    <input type="number" id="editSanctionDuration" min="${sanctionName.toLowerCase().includes('suspension from class') ? '3' : sanctionName.toLowerCase().includes('corrective reinforcement') ? '3' : '1'}" max="${sanctionName.toLowerCase().includes('suspension from class') ? '10' : sanctionName.toLowerCase().includes('corrective reinforcement') ? '7' : ''}" value="${currentDuration}"
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="Enter number of days...">
+                        placeholder="Enter number of days..."
+                        title="${sanctionName.toLowerCase().includes('suspension from class') ? 'Duration must be between 3-10 days' : sanctionName.toLowerCase().includes('corrective reinforcement') ? 'Duration must be between 3-7 days' : ''}">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
                 </div>
 
@@ -2211,6 +2250,23 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
         
         const duration = document.getElementById('editSanctionDuration').value;
         const notes = document.getElementById('editSanctionNotes').value;
+        
+        // Validate duration against sanction limits
+        if (duration) {
+            const durationNum = parseInt(duration);
+            const sanctionNameLower = sanctionName.toLowerCase();
+            if (sanctionNameLower.includes('suspension from class')) {
+                if (durationNum < 3 || durationNum > 10) {
+                    showNotification('Suspension from Class duration must be between 3-10 days', "warning");
+                    return;
+                }
+            } else if (sanctionNameLower.includes('corrective reinforcement')) {
+                if (durationNum < 3 || durationNum > 7) {
+                    showNotification('Corrective Reinforcement duration must be between 3-7 days', "warning");
+                    return;
+                }
+            }
+        }
 
         closeModal(e.target);
         showLoadingToast("Updating sanction...");
@@ -2727,4 +2783,887 @@ function scheduleHideHandbookTooltip() {
       tooltip.classList.add('hidden');
     }
   }, 200); // 200ms delay to allow moving mouse to tooltip
+}
+
+// ====== COMMUNITY SERVICE CHECK-IN ======
+
+async function openCheckInModal(caseId) {
+  const caseData = allCases.find(c => c.id === caseId);
+  if (!caseData) return;
+
+  // Load sanctions for this case and filter to time-based ones (duration_days > 0)
+  const sanctions = await loadAppliedSanctionsForView(caseId);
+  const csSanctions = sanctions.filter(s => s.duration_days && parseInt(s.duration_days) > 0);
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
+
+  if (csSanctions.length === 0) {
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
+          <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="text-center py-8">
+          <div class="w-14 h-14 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-300">No time-based sanctions found</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5 px-4">Apply a sanction with a duration (e.g., Corrective Reinforcement) to enable check-in tracking.</p>
+        </div>
+        <div class="flex justify-end mt-2">
+          <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Close</button>
+        </div>
+      </div>
+    `;
+  } else {
+    // Load real check-in data
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+    });
+    const result = await response.json();
+    
+    if (!result.success || !result.sanctions.length) {
+      // Fallback to UI demo
+      const activeSanction = csSanctions[0];
+      const totalDays = parseInt(activeSanction.duration_days);
+      const sanctionName = activeSanction.sanction_name || 'Community Service';
+      const completedDays = totalDays <= 1 ? 0 : Math.floor((totalDays - 1) / 2);
+      const activeDayNum = completedDays + 1;
+      const progressPercent = Math.round((completedDays / totalDays) * 100);
+
+      let dayCardsHTML = getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, caseData.student, sanctionName);
+      
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent);
+    } else {
+      // Use real data
+      const sanction = result.sanctions[0];
+      const activeSanction = csSanctions[0];
+      const totalDays = sanction.duration_days;
+      const sanctionName = sanction.sanction_name || 'Community Service';
+      
+      // Calculate completed days and active day
+      const days = sanction.days;
+      const completedDays = Object.values(days).filter(d => d.check_in_time && d.check_out_time).length;
+      const activeDayNum = completedDays + 1;
+      const progressPercent = Math.round((completedDays / totalDays) * 100);
+
+      let dayCardsHTML = getDayCardsHTMLFromData(days, caseId, caseData.student, sanctionName, sanction.case_sanction_id);
+      
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent);
+    }
+  }
+
+  document.body.appendChild(modal);
+}
+
+function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, studentName, sanctionName) {
+  let dayCardsHTML = '';
+  for (let day = 1; day <= totalDays; day++) {
+    if (day <= completedDays) {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="font-medium text-green-600 dark:text-green-400">In:</span> 8:00 AM
+              </span>
+              <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="font-medium text-green-600 dark:text-green-400">Out:</span> 5:00 PM
+              </span>
+            </div>
+          </div>
+          <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+        </div>`;
+    } else if (day === activeDayNum) {
+      const escapedStudent = studentName.replace(/"/g, '&quot;');
+      const escapedSanction = sanctionName.replace(/"/g, '&quot;');
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500">
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Day ${day}
+              <span class="text-xs font-normal text-blue-600 dark:text-blue-400 ml-1">— Today</span>
+            </p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">In:</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+              </span>
+              <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">Out:</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+              </span>
+            </div>
+          </div>
+          <button
+            data-day="${day}"
+            data-caseid="${caseId}"
+            data-student="${escapedStudent}"
+            data-sanction="${escapedSanction}"
+            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction)"
+            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            Gen. QR
+          </button>
+        </div>`;
+    } else {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-55">
+          <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${day}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming</p>
+          </div>
+          <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">—</span>
+        </div>`;
+    }
+  }
+  return dayCardsHTML;
+}
+
+function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId) {
+  let dayCardsHTML = '';
+  const totalDays = Object.keys(days).length;
+  
+  // Calculate active day (first incomplete)
+  let activeDayNum = totalDays + 1;
+  for (let day = 1; day <= totalDays; day++) {
+    const dayData = days[day] || {};
+    if (!(dayData.check_in_time && dayData.check_out_time)) {
+      activeDayNum = day;
+      break;
+    }
+  }
+  
+  for (let day = 1; day <= totalDays; day++) {
+    const dayData = days[day] || {};
+    const isCompleted = dayData.check_in_time && dayData.check_out_time;
+    const hasCheckIn = dayData.check_in_time !== null;
+    const isActiveDay = day === activeDayNum;
+    
+    if (isCompleted) {
+      const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const outTime = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="font-medium text-green-600 dark:text-green-400">In:</span> ${inTime}
+              </span>
+              <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${outTime}
+              </span>
+            </div>
+          </div>
+          <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+        </div>`;
+    } else if (hasCheckIn) {
+      const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const escapedStudent = studentName.replace(/"/g, '&quot;');
+      const escapedSanction = sanctionName.replace(/"/g, '&quot;');
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">In:</span> <span data-check-in-time>${inTime}</span>
+              </span>
+              <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">Out:</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Awaiting checkout</span>
+              </span>
+            </div>
+          </div>
+          <button
+            data-day="${day}"
+            data-caseid="${caseId}"
+            data-casesanctionid="${caseSanctionId}"
+            data-student="${escapedStudent}"
+            data-sanction="${escapedSanction}"
+            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid, true)"
+            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Checkout
+          </button>
+        </div>`;
+    } else if (isActiveDay) {
+      const escapedStudent = studentName.replace(/"/g, '&quot;');
+      const escapedSanction = sanctionName.replace(/"/g, '&quot;');
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day} <span class="text-xs font-normal text-blue-600 dark:text-blue-400">— Today</span></p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">In:</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+              </span>
+              <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+              <span class="text-xs text-gray-500">
+                <span class="font-medium text-blue-500">Out:</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+              </span>
+            </div>
+          </div>
+          <button
+            data-day="${day}"
+            data-caseid="${caseId}"
+            data-casesanctionid="${caseSanctionId}"
+            data-student="${escapedStudent}"
+            data-sanction="${escapedSanction}"
+            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid)"
+            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            Gen. QR
+          </button>
+        </div>`;
+    } else {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-50">
+          <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${day}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming</p>
+          </div>
+          <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">—</span>
+        </div>`;
+    }
+  }
+  return dayCardsHTML;
+}
+
+function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent) {
+  const sanctionName = activeSanction.sanction_name || 'Community Service';
+  
+  modal.setAttribute('data-checkin-modal', 'true');
+  modal.setAttribute('data-case-id', caseId);
+  
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-5 max-h-[90vh] flex flex-col">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4 flex-shrink-0">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
+        </div>
+        <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Student + Sanction Info Card -->
+      <div class="bg-gray-50 dark:bg-slate-700/60 rounded-lg p-3 mb-4 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-gray-300 dark:bg-gray-600 rounded-full flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">${caseData.student}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${sanctionName}</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${totalDays}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 -mt-0.5">days total</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="mb-4 flex-shrink-0">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Progress</span>
+          <span class="text-xs font-bold text-gray-900 dark:text-gray-100">${completedDays} / ${totalDays} days completed</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2.5">
+          <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${progressPercent}%" data-progress-bar></div>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <span data-progress-text>${progressPercent}% done</span>
+        </p>
+        <div hidden data-total-days>${totalDays}</div>
+      </div>
+
+      <!-- Day Cards (scrollable) -->
+      <div class="space-y-2 overflow-y-auto flex-1 pr-1">
+        ${dayCardsHTML}
+      </div>
+
+      <!-- Info Note -->
+      <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 flex-shrink-0">
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p class="text-xs text-amber-700 dark:text-amber-300">
+            Generate a QR code for each day. The student must scan it upon arrival <strong>(check-in)</strong> and again before leaving <strong>(check-out)</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end mt-4 flex-shrink-0">
+        <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
+          Close
+        </button>
+      </div>
+
+    </div>
+  `;
+}
+
+// ====== QR CODE MODAL ======
+
+function showQRCodeModal(dayNumber, caseId, studentName, sanctionName, caseSanctionId, isCheckout = false) {
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  const timeGenerated = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-[60] p-4';
+  modal.setAttribute('data-case-id', caseId);
+  modal.setAttribute('data-student-name', studentName);
+  modal.setAttribute('data-sanction-name', sanctionName);
+  
+  const handleCheckIn = () => {
+    recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modal);
+  };
+  
+  const handleCheckOut = () => {
+    recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modal);
+  };
+  
+  let actionButtonsHTML = '';
+  if (isCheckout) {
+    actionButtonsHTML = `
+      <button onclick="handleCheckOut(${caseSanctionId}, ${dayNumber}, this.closest('.fixed'))"
+        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Check Out Now
+      </button>
+    `;
+  } else {
+    actionButtonsHTML = `
+      <button onclick="handleCheckIn(${caseSanctionId}, ${dayNumber}, this.closest('.fixed'))"
+        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+        </svg>
+        Check In Now
+      </button>
+    `;
+  }
+  
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">QR Code &mdash; Day ${dayNumber}</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${sanctionName}</p>
+        </div>
+        <button onclick="closeQRModalAndRefresh(this.closest('.fixed'))" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- QR Code Placeholder -->
+      <div class="flex flex-col items-center">
+        <div class="w-52 h-52 bg-white border-2 border-gray-200 dark:border-slate-500 rounded-xl p-3 shadow-inner">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+            <!-- Top-left finder pattern -->
+            <rect x="14" y="14" width="56" height="56" rx="4" fill="black"/>
+            <rect x="22" y="22" width="40" height="40" rx="2" fill="white"/>
+            <rect x="30" y="30" width="24" height="24" rx="1" fill="black"/>
+            <!-- Top-right finder pattern -->
+            <rect x="130" y="14" width="56" height="56" rx="4" fill="black"/>
+            <rect x="138" y="22" width="40" height="40" rx="2" fill="white"/>
+            <rect x="146" y="30" width="24" height="24" rx="1" fill="black"/>
+            <!-- Bottom-left finder pattern -->
+            <rect x="14" y="130" width="56" height="56" rx="4" fill="black"/>
+            <rect x="22" y="138" width="40" height="40" rx="2" fill="white"/>
+            <rect x="30" y="146" width="24" height="24" rx="1" fill="black"/>
+            <!-- Format / alignment modules -->
+            <rect x="78" y="14" width="8" height="8" fill="black"/>
+            <rect x="94" y="14" width="8" height="8" fill="black"/>
+            <rect x="110" y="14" width="8" height="8" fill="black"/>
+            <rect x="78" y="22" width="8" height="8" fill="black"/>
+            <rect x="110" y="22" width="8" height="8" fill="black"/>
+            <rect x="94" y="30" width="8" height="8" fill="black"/>
+            <rect x="78" y="38" width="8" height="8" fill="black"/>
+            <rect x="110" y="38" width="8" height="8" fill="black"/>
+            <rect x="14" y="78" width="8" height="8" fill="black"/>
+            <rect x="14" y="94" width="8" height="8" fill="black"/>
+            <rect x="14" y="110" width="8" height="8" fill="black"/>
+            <!-- Data modules -->
+            <rect x="78" y="78" width="8" height="8" fill="black"/>
+            <rect x="94" y="78" width="8" height="8" fill="black"/>
+            <rect x="110" y="78" width="8" height="8" fill="black"/>
+            <rect x="126" y="78" width="8" height="8" fill="black"/>
+            <rect x="142" y="78" width="8" height="8" fill="black"/>
+            <rect x="158" y="78" width="8" height="8" fill="black"/>
+            <rect x="174" y="78" width="8" height="8" fill="black"/>
+            <rect x="78" y="94" width="8" height="8" fill="black"/>
+            <rect x="110" y="94" width="8" height="8" fill="black"/>
+            <rect x="142" y="94" width="8" height="8" fill="black"/>
+            <rect x="174" y="94" width="8" height="8" fill="black"/>
+            <rect x="86" y="102" width="8" height="8" fill="black"/>
+            <rect x="118" y="102" width="8" height="8" fill="black"/>
+            <rect x="150" y="102" width="8" height="8" fill="black"/>
+            <rect x="78" y="110" width="8" height="8" fill="black"/>
+            <rect x="94" y="110" width="8" height="8" fill="black"/>
+            <rect x="126" y="110" width="8" height="8" fill="black"/>
+            <rect x="158" y="110" width="8" height="8" fill="black"/>
+            <rect x="174" y="110" width="8" height="8" fill="black"/>
+            <rect x="78" y="126" width="8" height="8" fill="black"/>
+            <rect x="102" y="126" width="8" height="8" fill="black"/>
+            <rect x="126" y="126" width="8" height="8" fill="black"/>
+            <rect x="150" y="126" width="8" height="8" fill="currentColor"/>
+            <rect x="174" y="126" width="8" height="8" fill="currentColor"/>
+            <rect x="86" y="134" width="8" height="8" fill="currentColor"/>
+            <rect x="110" y="134" width="8" height="8" fill="currentColor"/>
+            <rect x="134" y="134" width="8" height="8" fill="currentColor"/>
+            <rect x="158" y="134" width="8" height="8" fill="currentColor"/>
+            <rect x="78" y="142" width="8" height="8" fill="currentColor"/>
+            <rect x="94" y="142" width="8" height="8" fill="currentColor"/>
+            <rect x="118" y="142" width="8" height="8" fill="currentColor"/>
+            <rect x="142" y="142" width="8" height="8" fill="currentColor"/>
+            <rect x="166" y="142" width="8" height="8" fill="currentColor"/>
+            <rect x="86" y="150" width="8" height="8" fill="currentColor"/>
+            <rect x="110" y="150" width="8" height="8" fill="currentColor"/>
+            <rect x="134" y="150" width="8" height="8" fill="currentColor"/>
+            <rect x="158" y="150" width="8" height="8" fill="currentColor"/>
+            <rect x="174" y="150" width="8" height="8" fill="currentColor"/>
+            <rect x="78" y="158" width="8" height="8" fill="currentColor"/>
+            <rect x="102" y="158" width="8" height="8" fill="currentColor"/>
+            <rect x="126" y="158" width="8" height="8" fill="currentColor"/>
+            <rect x="150" y="158" width="8" height="8" fill="currentColor"/>
+            <rect x="94" y="166" width="8" height="8" fill="currentColor"/>
+            <rect x="118" y="166" width="8" height="8" fill="currentColor"/>
+            <rect x="142" y="166" width="8" height="8" fill="currentColor"/>
+            <rect x="166" y="166" width="8" height="8" fill="currentColor"/>
+          </svg>
+        </div>
+
+        <!-- Student Info -->
+        <div class="mt-4 text-center">
+          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">${studentName}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId} &bull; Day ${dayNumber}</p>
+        </div>
+
+        <!-- Validity -->
+        <div class="mt-3 w-full bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <div>
+              <p class="text-xs font-medium text-blue-800 dark:text-blue-300">Valid for: ${today}</p>
+              <p class="text-xs text-blue-600 dark:text-blue-400">Generated at ${timeGenerated} &bull; Single-day use only</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scan In / Scan Out guide -->
+        <div class="mt-3 w-full grid grid-cols-2 gap-2">
+          <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-2.5 border border-green-200 dark:border-green-800 text-center">
+            <svg class="w-5 h-5 text-green-600 dark:text-green-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            <p class="text-xs font-semibold text-green-700 dark:text-green-300">Scan In</p>
+            <p class="text-xs text-green-600 dark:text-green-400">Upon arrival</p>
+          </div>
+          <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2.5 border border-orange-200 dark:border-orange-800 text-center">
+            <svg class="w-5 h-5 text-orange-600 dark:text-orange-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <p class="text-xs font-semibold text-orange-700 dark:text-orange-300">Scan Out</p>
+            <p class="text-xs text-orange-600 dark:text-orange-400">Before leaving</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-2 mt-5">
+        ${actionButtonsHTML}
+        <button onclick="this.closest('.fixed').remove()"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+          Close
+        </button>
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+// ====== Check-in / Check-out Helper ======
+
+function handleCheckIn(caseSanctionId, dayNumber, modalElement) {
+  recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modalElement);
+}
+
+function handleCheckOut(caseSanctionId, dayNumber, modalElement) {
+  recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modalElement);
+}
+
+// ====== Toast Notification ======
+
+function showNotification(message, type = 'success', onClose = null) {
+  const existingToast = document.querySelector('[data-notification-toast]');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.setAttribute('data-notification-toast', 'true');
+  
+  let bgColor = 'bg-green-500';
+  let iconSVG = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+  
+  if (type === 'error') {
+    bgColor = 'bg-red-500';
+    iconSVG = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+  }
+  
+  toast.className = 'fixed top-4 right-4 z-50 ' + bgColor + ' text-white rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-md';
+  toast.innerHTML = iconSVG + '<span class="text-sm font-medium">' + message + '</span>';
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.remove();
+      if (onClose) onClose();
+    }
+  }, 2500);
+}
+
+// ====== QR Modal Helpers ======
+
+function closeQRModalAndRefresh(qrModal) {
+  // Get the case ID from the QR modal
+  const caseId = qrModal.getAttribute('data-case-id');
+  
+  // Find and close the old check-in modal
+  const checkInModal = document.querySelector('[data-checkin-modal]');
+  if (checkInModal && checkInModal.parentNode) {
+    checkInModal.remove();
+  }
+  
+  // Remove the QR modal
+  qrModal.remove();
+  
+  // Refresh the check-in modal behind it (if it exists)
+  if (caseId) {
+    openCheckInModal(caseId);
+  }
+}
+
+function updateDayCardInModal(dayNumber, caseSanctionId, action, timeStr, studentName, sanctionName, caseId) {
+  // Find the day card for this specific day
+  const dayCard = document.querySelector(`[data-day="${dayNumber}"][data-casesanctionid="${caseSanctionId}"]`)?.closest('[data-day-card]');
+  if (!dayCard) return false;
+  
+  if (action === 'recordCheckOut') {
+    // Day completed - transition from check-in pending to completed state
+    // Get check-in time from the current card
+    const inTimeSpan = dayCard.querySelector('[data-check-in-time]');
+    const inTime = inTimeSpan ? inTimeSpan.textContent : timeStr;
+    
+    // Create completed card
+    const completedHTML = `
+      <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800" data-day-card>
+        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              <span class="font-medium text-green-600 dark:text-green-400">In:</span> ${inTime}
+            </span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              <span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${timeStr}
+            </span>
+          </div>
+        </div>
+        <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+      </div>`;
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = completedHTML.trim();
+    dayCard.replaceWith(tempDiv.firstChild);
+    
+    // Update progress bar
+    const checkInModal = document.querySelector('[data-checkin-modal="true"]');
+    if (checkInModal) {
+      // Count all day cards (look for direct children in the scrollable container)
+      const dayCardsContainer = checkInModal.querySelector('.space-y-2.overflow-y-auto');
+      if (dayCardsContainer) {
+        // Get direct div children that are day cards
+        const allChildDivs = Array.from(dayCardsContainer.querySelectorAll(':scope > div'));
+        
+        let newCompletedCount = 0;
+        // Completed cards have green styling in their classes
+        allChildDivs.forEach(div => {
+          const className = div.getAttribute('class') || '';
+          if (className.includes('bg-green-50') || className.includes('bg-green-900')) {
+            newCompletedCount++;
+          }
+        });
+        
+        const totalDaysCount = allChildDivs.length;
+        
+        // Update progress bar if it exists
+        const progressBar = checkInModal.querySelector('[data-progress-bar]');
+        const progressText = checkInModal.querySelector('[data-progress-text]');
+        if (progressBar && progressText && totalDaysCount > 0) {
+          const newProgressPercent = Math.round((newCompletedCount / totalDaysCount) * 100);
+          progressBar.style.width = newProgressPercent + '%';
+          progressText.textContent = newProgressPercent + '% done';
+        }
+      }
+    }
+    
+    // Now activate the next day (wrap in try/catch so checkout succeeds even if this fails)
+    try {
+      const nextDayNumber = dayNumber + 1;
+      // Find the next day card by looking for day cards and finding the one with the matching day text
+      const allDayCards = document.querySelectorAll('[data-day-card]');
+      let nextDayCard = null;
+      
+      for (const card of allDayCards) {
+        const cardText = card.textContent;
+        if (cardText.includes(`Day ${nextDayNumber}`) &&!cardText.includes('Completed') && !cardText.includes('Awaiting checkout')) {
+          nextDayCard = card;
+          break;
+        }
+      }
+      
+      if (nextDayCard) {
+        // The next day is in "Upcoming" state - transform it to active
+        const escapedStudent = (studentName || '').replace(/"/g, '&quot;');
+        const escapedSanction = (sanctionName || '').replace(/"/g, '&quot;');
+        
+        const activeNextDayHTML = `
+          <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <span class="text-white text-xs font-bold">${nextDayNumber}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${nextDayNumber} <span class="text-xs font-normal text-blue-600 dark:text-blue-400">— Today</span></p>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-xs text-gray-500">
+                  <span class="font-medium text-blue-500">In:</span>
+                  <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                </span>
+                <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+                <span class="text-xs text-gray-500">
+                  <span class="font-medium text-blue-500">Out:</span>
+                  <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                </span>
+              </div>
+            </div>
+            <button
+              data-day="${nextDayNumber}"
+              data-caseid="${caseId}"
+              data-casesanctionid="${caseSanctionId}"
+              data-student="${escapedStudent}"
+              data-sanction="${escapedSanction}"
+              onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid)"
+              class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+              </svg>
+              Gen. QR
+            </button>
+          </div>`;
+        
+        const nextTempDiv = document.createElement('div');
+        nextTempDiv.innerHTML = activeNextDayHTML.trim();
+        nextDayCard.replaceWith(nextTempDiv.firstChild);
+      }
+    } catch (nextDayError) {
+      console.warn('Could not activate next day:', nextDayError);
+      // Don't fail the checkout if next day activation fails
+    }
+  } else if (action === 'recordCheckIn') {
+    // Transition active day to pending checkout state
+    const escapedStudent = (studentName || '').replace(/"/g, '&quot;');
+    const escapedSanction = (sanctionName || '').replace(/"/g, '&quot;');
+    
+    // Create pending checkout card
+    const pendingHTML = `
+      <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+          <span class="text-white text-xs font-bold">${dayNumber}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-xs text-gray-500">
+              <span class="font-medium text-blue-500">In:</span> <span data-check-in-time>${timeStr}</span>
+            </span>
+            <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+            <span class="text-xs text-gray-500">
+              <span class="font-medium text-blue-500">Out:</span>
+              <span class="italic text-gray-400 dark:text-gray-500">Awaiting checkout</span>
+            </span>
+          </div>
+        </div>
+        <button
+          data-day="${dayNumber}"
+          data-caseid="${caseId}"
+          data-casesanctionid="${caseSanctionId}"
+          data-student="${escapedStudent}"
+          data-sanction="${escapedSanction}"
+          onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid, 'checkout')"
+          class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors">
+          Check Out
+        </button>
+      </div>`;
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = pendingHTML.trim();
+    dayCard.replaceWith(tempDiv.firstChild);
+  }
+  
+  return true;
+}
+
+function refreshCheckInModalAfterAction(caseId) {
+  // Find and close the old check-in modal with data attribute
+  const checkInModal = document.querySelector('[data-checkin-modal]');
+  if (checkInModal && checkInModal.parentNode) {
+    checkInModal.remove();
+  }
+  
+  // Open fresh check-in modal
+  if (caseId) {
+    setTimeout(() => {
+      openCheckInModal(caseId);
+    }, 300);
+  }
+}
+
+// NOTE: Future Enhancement - QR Scanner Integration
+// When implementing actual QR code scanning functionality:
+// 1. Add a QR scanner library (e.g., jsQR, ZXing.js, or QR Scanner)
+// 2. Listen for camera input on the QR modal
+// 3. When QR is detected, automatically call:
+//    - recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modal) for check-in
+//    - recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modal) for check-out
+// 4. No need for manual "Check In Now" / "Check Out Now" buttons - just scan and it auto-records
+// Example implementation:
+// window.addEventListener('qr-detected', (e) => {
+//   if (e.detail.action === 'checkin') recordCheckInOut('recordCheckIn', ...);
+// });
+
+async function recordCheckInOut(action, caseSanctionId, dayNumber, modalElement) {
+  try {
+    // Get data from QR modal BEFORE removing it
+    const studentName = modalElement.getAttribute('data-student-name');
+    const sanctionName = modalElement.getAttribute('data-sanction-name');
+    const caseId = modalElement.getAttribute('data-case-id');
+    
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=${action}&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Show success message
+      const msg = action === 'recordCheckIn' ? 'Checked in at ' : 'Checked out at ';
+      
+      // Close QR modal immediately
+      modalElement.remove();
+      
+      // Time is already formatted in PHP, just use it directly
+      const displayTime = result.time || 'just now';
+      
+      // Attempt instant day card update (no modal rebuild needed)
+      const updateSuccess = updateDayCardInModal(dayNumber, caseSanctionId, action, displayTime, studentName, sanctionName, caseId);
+      
+      // Show notification
+      showNotification(msg + displayTime, 'success');
+      
+      // If day card update failed or we need full refresh, reload modal after notification
+      if (!updateSuccess) {
+        setTimeout(() => {
+          if (caseId) {
+            refreshCheckInModalAfterAction(caseId);
+          } else {
+            loadCasesFromDB();
+          }
+        }, 2500); // Wait for notification to close before refreshing
+      }
+    } else {
+      showNotification(result.error || 'Failed to record check-in/out', 'error');
+      console.error('Check-in/out failed:', result);
+    }
+  } catch (error) {
+    showNotification('Failed to record check-in/out: ' + error.message, 'error');
+    console.error('Check-in/out error:', error);
+  }
 }

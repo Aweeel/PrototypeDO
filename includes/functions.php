@@ -236,6 +236,18 @@ function createCase($data) {
 
     // Check if student exists
     $studentId = $data['student_number'];
+    
+    // Check for duplicate violation on the same day
+    $today = date('Y-m-d');
+    $duplicateCheck = fetchOne(
+        "SELECT case_id FROM cases WHERE student_id = ? AND case_type = ? AND CAST(date_reported AS DATE) = ?",
+        [$studentId, $data['case_type'], $today]
+    );
+    
+    if ($duplicateCheck) {
+        error_log("Duplicate violation prevented: Student $studentId, Type: " . $data['case_type'] . ", Date: $today");
+        return false; // Return false to indicate duplicate prevention
+    }
     $existingStudent = getStudentById($studentId);
 
     if (!$existingStudent) {
