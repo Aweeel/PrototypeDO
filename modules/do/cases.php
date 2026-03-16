@@ -53,6 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     }
                 }
                 
+                // Check if this case has a Corrective Reinforcement sanction applied
+                $csCheckSql = "SELECT COUNT(*) as cnt FROM case_sanctions cs
+                               JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                               WHERE cs.case_id = ? AND LOWER(s.sanction_name) LIKE '%corrective%'";
+                $csCheck = fetchOne($csCheckSql, [$case['case_id']]);
+                $hasCorrectiveService = ($csCheck && intval($csCheck['cnt']) > 0);
+
                 return [
                     'id' => $case['case_id'],
                     'student' => $case['student_name'],
@@ -65,7 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'description' => $case['description'] ?? '',
                     'notes' => $case['notes'] ?? '',
                     'severity' => $case['severity'] ?? 'Minor',
-                    'attachments' => $attachments
+                    'attachments' => $attachments,
+                    'hasCorrectiveService' => $hasCorrectiveService
                 ];
             }, $cases);
 
@@ -88,6 +96,15 @@ if ($_POST['action'] === 'createCase') {
     ];
 
     $newCaseId = createCase($data);
+    
+    // Check if violation was prevented due to duplication
+    if ($newCaseId === false) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Duplicate case: This violation has already been recorded for this student today.'
+        ]);
+        exit;
+    }
 
     updateStudentOffenseCount($data['student_number']);
     
@@ -267,6 +284,19 @@ if ($_POST['action'] === 'removeSanction') {
     if ($sanctionData) {
         $caseId = $sanctionData['case_id'];
         
+        // Check if there are any check-in records for this sanction
+        $checkInSql = "SELECT COUNT(*) as count FROM case_checkins 
+                       WHERE case_sanction_id = ? AND check_in_time IS NOT NULL";
+        $checkInCount = fetchValue($checkInSql, [$caseSanctionId]);
+        
+        if ($checkInCount > 0) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Cannot remove this sanction because check-in records exist. The check-in process has already started.'
+            ]);
+            exit;
+        }
+        
         // If there was a scheduled event, try to delete it from calendar
         if (!empty($sanctionData['scheduled_date'])) {
             try {
@@ -328,6 +358,148 @@ if ($_POST['action'] === 'removeSanction') {
     exit;
 }
 
+        // Get check-in history for a case
+if ($_POST['action'] === 'getCheckInHistory') {
+    $caseId = $_POST['caseId'] ?? null;
+    
+    if (!$caseId) {
+        echo json_encode(['success' => false, 'error' => 'Case ID required']);
+        exit;
+    }
+
+    // Get all sanctions with duration for this case
+    $sql = "SELECT cs.*, s.sanction_name 
+            FROM case_sanctions cs
+            JOIN sanctions s ON cs.sanction_id = s.sanction_id
+            WHERE cs.case_id = ? AND cs.duration_days > 0
+            ORDER BY cs.applied_date DESC";
+    $sanctions = fetchAll($sql, [$caseId]);
+
+    if (empty($sanctions)) {
+        echo json_encode(['success' => true, 'sanctions' => []]);
+        exit;
+    }
+
+    // For each sanction, get check-in data
+    $result = [];
+    foreach ($sanctions as $sanction) {
+        $csId = $sanction['case_sanction_id'];
+        $totalDays = intval($sanction['duration_days']);
+        
+        // Get check-ins for this sanction
+        $checkInSql = "SELECT * FROM case_checkins 
+                       WHERE case_sanction_id = ? 
+                       ORDER BY day_number ASC";
+        $checkIns = fetchAll($checkInSql, [$csId]);
+        
+        // Build day data
+        $days = [];
+        for ($d = 1; $d <= $totalDays; $d++) {
+            $dayCheckIn = null;
+            foreach ($checkIns as $c) {
+                if ($c['day_number'] == $d) {
+                    $dayCheckIn = $c;
+                    break;
+                }
+            }
+            $days[$d] = [
+                'day' => $d,
+                'check_in_time' => $dayCheckIn ? $dayCheckIn['check_in_time'] : null,
+                'check_out_time' => $dayCheckIn ? $dayCheckIn['check_out_time'] : null
+            ];
+        }
+
+        $result[] = [
+            'case_sanction_id' => $csId,
+            'sanction_name' => $sanction['sanction_name'],
+            'duration_days' => $totalDays,
+            'days' => $days
+        ];
+    }
+
+    echo json_encode(['success' => true, 'sanctions' => $result]);
+    exit;
+}
+
+// ====== Check-In / Check-Out Recording ======
+// NOTE: Future Enhancement - QR Scanner Integration
+// When QR scanner is implemented, these endpoints will be called automatically when:
+// 1. Student scans QR for check-in → recordCheckIn is called with the scanned data
+// 2. Student scans QR for check-out → recordCheckOut is called with the scanned data
+// Currently they are called via manual button clicks in the QR modal
+
+// Record check-in (student arrival)
+if ($_POST['action'] === 'recordCheckIn') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    
+    if (!$caseSanctionId || !$dayNumber) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $today = date('Y-m-d');
+    $displayTime = date('H:i'); // Format as HH:MM for display
+
+    // Check if record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if ($existing) {
+        // Update existing check-in time if not already set
+        if ($existing['check_in_time'] === null) {
+            $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
+                    WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+            executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
+            echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Already checked in today']);
+        }
+    } else {
+        // Insert new check-in record
+        $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
+                VALUES (?, ?, ?, ?)";
+        executeQuery($sql, [$caseSanctionId, $dayNumber, $now, $today]);
+        echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
+    }
+    exit;
+}
+
+        // Record check-out (student departure)
+if ($_POST['action'] === 'recordCheckOut') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    
+    if (!$caseSanctionId || !$dayNumber) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $today = date('Y-m-d');
+
+    // First check if a record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if ($existing) {
+        // Update check-out time on existing record
+        $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+        $stmt = executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
+        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
+    } else {
+        // Record doesn't exist - this shouldn't happen if check-in was recorded, but create one anyway
+        $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_out_time, check_in_date) 
+                VALUES (?, ?, NULL, ?, ?)";
+        executeQuery($sql, [$caseSanctionId, $dayNumber, $now, $today]);
+        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
+    }
+    exit;
+}
 
     } catch (Exception $e) {
         error_log("Cases AJAX Error: " . $e->getMessage());

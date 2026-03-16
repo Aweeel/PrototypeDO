@@ -148,6 +148,21 @@ CREATE TABLE case_sanctions (
 GO
 
 -- ============================================
+-- 6.5. CASE_CHECKINS TABLE (Check-in/Check-out tracking for time-based sanctions)
+-- ============================================
+CREATE TABLE case_checkins (
+    checkin_id INT IDENTITY(1,1) PRIMARY KEY,
+    case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
+    day_number INT NOT NULL,
+    check_in_time DATETIME NULL,
+    check_out_time DATETIME NULL,
+    check_in_date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+-- ============================================
 -- 7. CASE_HISTORY TABLE (Track all changes)
 -- ============================================
 CREATE TABLE case_history (

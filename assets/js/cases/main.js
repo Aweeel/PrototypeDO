@@ -17,11 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             const modal = document.querySelector('.fixed.inset-0');
             if (modal) modal.remove();
+            closeAllRowMenus();
         }
         
         if (e.ctrlKey && e.key === 'n') {
             e.preventDefault();
             addCase();
+        }
+    });
+
+    // Close row dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('[id^="moreMenu-"]')) {
+            closeAllRowMenus();
         }
     });
 });
@@ -74,7 +82,8 @@ function renderTableRows() {
     // Update table header based on current tab
     updateTableHeader();
 
-            if (casesToDisplay.length === 0) {
+
+    if (casesToDisplay.length === 0) {
         const colSpan = currentTab === 'archived' ? '7' : '6';
         tbody.innerHTML = `
             <tr>
@@ -100,27 +109,36 @@ function renderTableRows() {
             <td class="px-6 py-4">
                 <span class="inline-block px-2.5 py-1 text-xs font-medium rounded ${statusColors[caseItem.statusColor]}">${caseItem.status}</span>
             </td>
-            <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
+            <td class="px-2 py-2 pr-4 whitespace-nowrap" style="width:1%;">
+                <div class="flex items-center gap-0.5">
                     ${currentTab === 'archived' ? `
-                        <button onclick="unarchiveCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
+                        <button onclick="unarchiveCase('${caseItem.id}')"
+                            class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Restore
                         </button>
                     ` : `
-                        <button onclick="viewCase('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
+                        <button onclick="viewCase('${caseItem.id}')"
+                            class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             View
                         </button>
-                        <button onclick="manageSanctions('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-s text-[#60A5FA] hover:text-blue-700 transition-colors">
+                        <button onclick="manageSanctions('${caseItem.id}')"
+                            class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Sanctions
                         </button>
                         ${caseItem.status !== 'Resolved' ? `
-                        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                        <button onclick="markCaseResolved('${caseItem.id}')" 
-                            class="px-3 py-1.5 text-s text-green-600 hover:text-green-700 transition-colors font-medium">
+                        <button onclick="markCaseResolved('${caseItem.id}')"
+                            class="px-3 py-1.5 text-base text-green-600 hover:text-green-700 transition-colors font-medium">
                             Mark Resolved
+                        </button>
+                        ` : ''}
+                        ${caseItem.hasCorrectiveService ? `
+                        <button onclick="openCheckInModal('${caseItem.id}')"
+                            class="inline-flex items-center justify-center h-8 w-8 text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 transition-colors" title="Check-In" style="padding:0;margin-left:1px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
                         </button>
                         ` : ''}
                     `}
@@ -323,4 +341,17 @@ function updateBulkRestoreButton() {
 function clearCaseSelections() {
     selectedCaseIds.clear();
     updateBulkRestoreButton();
+}
+
+// ====== Row dropdown menu helpers ======
+function toggleRowMenu(caseId) {
+    const dropdown = document.getElementById('dropdown-' + caseId);
+    if (!dropdown) return;
+    const isHidden = dropdown.classList.contains('hidden');
+    closeAllRowMenus();
+    if (isHidden) dropdown.classList.remove('hidden');
+}
+
+function closeAllRowMenus() {
+    document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.classList.add('hidden'));
 }
