@@ -1501,7 +1501,7 @@ function saveAttachmentForCase($caseId, $file) {
     }
     
     // Validate file is an image
-    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!in_array($file['type'], $allowedMimes)) {
         return false;
     }

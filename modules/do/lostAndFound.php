@@ -333,7 +333,7 @@ $items = getLostFoundItems($filters);
                             <div id="imagePrompt">
                                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 dark:text-gray-500 mb-2"></i>
                                 <p class="text-gray-600 dark:text-gray-400">Drag and drop an image, or click to select</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">PNG, JPG, GIF up to 5MB</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">PNG, JPG, WebP up to 5MB</p>
                             </div>
                         </div>
                     </div>

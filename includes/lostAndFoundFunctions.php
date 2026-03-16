@@ -56,7 +56,7 @@ function handleLostFoundImageUpload($file, $item_id) {
     }
     
     // Validate MIME type
-    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mimeType = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);

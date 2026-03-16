@@ -317,22 +317,17 @@ $caseTypeDescriptionMap = array_combine(
 
                         <!-- Image Attachments -->
                         <div>
-                            <!-- Consent Disclaimer -->
-                            <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                                <div class="flex gap-3">
-                                    <div>
-                                        <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
-                                            Important: Consent Required
-                                        </h3>
-                                        <p class="text-sm text-amber-800 dark:text-amber-300">
-                                            Before capturing or uploading any photos related to an incident report, ensure that written or verbal consent has been obtained from all individuals who appear in the image.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Attach Images
+                                <span class="relative inline-block ml-1 group">
+                                    <button type="button" class="inline-flex items-center justify-center w-3 h-3 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 rounded-full transition-colors" title="Consent information">
+                                        i
+                                    </button>
+                                    <div class="absolute hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg py-2 px-3 whitespace-normal w-48 top-full left-1/2 transform -translate-x-1/2 mt-2 z-10 pointer-events-none shadow-lg">
+                                        Written or verbal consent required from all people in photos
+                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-800"></div>
+                                    </div>
+                                </span>
                             </label>
                             
                             <!-- Drag and Drop Area -->
@@ -346,6 +341,7 @@ $caseTypeDescriptionMap = array_combine(
                                        id="imageAttachments" 
                                        multiple 
                                        accept="image/*"
+                                       capture="environment"
                                        onchange="handleImageSelectWithConsent()"
                                        class="hidden">
                                 
@@ -364,7 +360,7 @@ $caseTypeDescriptionMap = array_combine(
                                         or drag and drop
                                     </p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        JPG, PNG, GIF, WebP (Max 5MB each)
+                                        JPG, PNG, WebP (Max 5MB each)
                                     </p>
                                 </div>
                             </div>
