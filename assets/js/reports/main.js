@@ -1,5 +1,5 @@
 // Reports Page - Core Logic
-const TABS        = ['incident','statistics','lostfound','student','audit'];
+const TABS        = ['incident','statistics','lostfound','student'];
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let ADMIN_NAME  = '';
 const PAGE_URL    = '/PrototypeDO/modules/do/reports.php';
@@ -7,7 +7,9 @@ const reportCache = {};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    ADMIN_NAME = document.querySelector('meta[data-admin-name]')?.content || 'Admin';
+    // Use window.ADMIN_NAME if set by PHP, otherwise read from meta tag, otherwise default
+    ADMIN_NAME = window.ADMIN_NAME || document.querySelector('meta[data-admin-name]')?.content || 'User';
+    console.log('Final ADMIN_NAME:', ADMIN_NAME);
     populateAjaxSelects();
 });
 
@@ -27,13 +29,14 @@ async function populateAjaxSelects() {
     for (const el of selects) {
         await populateSelect(el);
     }
+    setupDependentFilters();
 }
 
 async function populateSelect(el) {
     const action = el.dataset.ajax, vk = el.dataset.vk, lk = el.dataset.lk || vk;
     if (!action) return;
-    const fd =new FormData();
-    fd.append('ajax','1'); fd.append('action', action);
+    const fd = new FormData();
+    fd.append('ajax', '1'); fd.append('action', action);
     try {
         const res  = await fetch(PAGE_URL, {method:'POST', body:fd});
         const data = await res.json();
@@ -50,12 +53,82 @@ async function populateSelect(el) {
     }
 }
 
+// ── Dependent Filters (Grade > Courses) ──────────────────
+function setupDependentFilters() {
+    const gradeLevelSelect = document.getElementById('stat-gradeLevel');
+    const courseSelect = document.getElementById('stat-course');
+    
+    if (!gradeLevelSelect || !courseSelect) return;
+    
+    gradeLevelSelect.addEventListener('change', async () => {
+        await updateCoursesByGradeLevel();
+    });
+}
+
+async function updateCoursesByGradeLevel() {
+    const gradeLevelSelect = document.getElementById('stat-gradeLevel');
+    const courseSelect = document.getElementById('stat-course');
+    
+    if (!gradeLevelSelect || !courseSelect) return;
+    
+    const gradeLevel = gradeLevelSelect.value;
+    
+    // Remove all options except the first one ("All Courses")
+    while (courseSelect.options.length > 1) {
+        courseSelect.remove(1);
+    }
+    courseSelect.value = '';
+    
+    // If no grade level selected, fetch all courses
+    if (!gradeLevel) {
+        const fd = new FormData();
+        fd.append('ajax', '1');
+        fd.append('action', 'getAvailableCourses');
+        try {
+            const res = await fetch(PAGE_URL, {method:'POST', body:fd});
+            const data = await res.json();
+            if (data.success) {
+                data.data.forEach(row => {
+                    const o = document.createElement('option');
+                    o.value = row.track_course;
+                    o.textContent = row.track_course;
+                    courseSelect.appendChild(o);
+                });
+            }
+        } catch(e) {
+            console.warn('Failed to fetch all courses:', e);
+        }
+        return;
+    }
+    
+    // Fetch courses for the selected grade level
+    const fd = new FormData();
+    fd.append('ajax', '1');
+    fd.append('action', 'getCoursesByGradeLevel');
+    fd.append('gradeLevel', gradeLevel);
+    
+    try {
+        const res = await fetch(PAGE_URL, {method:'POST', body:fd});
+        const data = await res.json();
+        if (data.success) {
+            data.data.forEach(row => {
+                const o = document.createElement('option');
+                o.value = row.track_course;
+                o.textContent = row.track_course;
+                courseSelect.appendChild(o);
+            });
+        }
+    } catch(e) {
+        console.warn('Failed to fetch courses for grade level:', e);
+    }
+}
+
 // ── Collect filter values ────────────────────────────────
 function getFilters(type) {
     const g = id => document.getElementById(id)?.value ?? '';
     const map = {
         incident:   () => ({ reportType:g('inc-reportType'), caseId:g('inc-caseId'), dateFrom:g('inc-dateFrom'), dateTo:g('inc-dateTo'), severity:g('inc-severity'), status:g('inc-status') }),
-        statistics: () => ({ year:g('stat-year'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel') }),
+        statistics: () => ({ year:g('stat-year'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel'), course:g('stat-course') }),
         lostfound:  () => ({ dateFrom:g('lf-dateFrom'), dateTo:g('lf-dateTo'), status:g('lf-status'), category:g('lf-category') }),
         student:    () => ({ studentId:g('stu-studentId'), gradeLevel:g('stu-gradeLevel'), status:g('stu-status') }),
         audit:      () => ({ dateFrom:g('aud-dateFrom'), dateTo:g('aud-dateTo'), actionType:g('aud-actionType') }),
@@ -87,7 +160,7 @@ async function generateReport(type) {
 
     const filters = getFilters(type);
     const fd = new FormData();
-    fd.append('ajax','1'); 
+    fd.append('ajax', '1'); 
     fd.append('action', actionMap[type]);
     Object.entries(filters).forEach(([k,v]) => fd.append(k, v));
 

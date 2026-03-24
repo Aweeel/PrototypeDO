@@ -150,6 +150,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             header('Content-Disposition: attachment; filename="' . $filename . '"');
 
             $output = fopen('php://output', 'w');
+            // BOM for Excel UTF-8 compatibility
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Add metadata rows
+            fputcsv($output, ['STI Discipline Office – Audit Log Export']);
+            fputcsv($output, ['Exported by:', $adminName]);
+            fputcsv($output, ['Date & Time:', date('F d, Y h:i A')]);
+            fputcsv($output, []);
+            
             fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp', 'IP Address']);
 
             foreach ($logs as $log) {
@@ -203,6 +212,7 @@ function getActionColor($action) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STI Discipline Office - Audit Logs</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="data-admin-name" content="<?= htmlspecialchars($adminName) ?>">
 <script>
     tailwind.config = { darkMode: 'class' };
     
@@ -216,9 +226,33 @@ function getActionColor($action) {
         localStorage.setItem("theme", isDark ? "dark" : "light");
     }
 </script>
+<style>
+    /* Print styles */
+    #print-root { display: none; }
+    .preview-wrap { font-family: Arial, sans-serif; color: #111827; }
+    .dark .preview-wrap { color: #f1f5f9; }
+    
+    @media print {
+        body > * { display: none !important; }
+        #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
+        .overflow-x-auto { overflow: visible !important; }
+        table { page-break-inside: auto; width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; margin-bottom: 0.5rem; font-size: 8pt; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        thead { display: table-header-group; }
+        th { background: #1e3a8a !important; color: white !important; padding: 4px 6px; font-size: 8pt; font-weight: 600; text-align: left; white-space: normal; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        td { color: #111827 !important; padding: 4px 6px; font-size: 8pt; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .page-break-inside { page-break-inside: avoid; }
+        h1, h2, h3 { page-break-after: avoid; margin: 0.25rem 0; }
+        @page { margin: 15mm 10mm; size: A4; }
+    }
+</style>
 </head>
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
+    <!-- Hidden print root — only shown at @media print -->
+    <div id="print-root" aria-hidden="true"></div>
+    
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <div class="flex h-screen">
         <div class="flex-1 overflow-y-auto ml-64">
@@ -242,11 +276,11 @@ function getActionColor($action) {
                     </div>
 
                     <button onclick="exportLogs()"
-                        class="ml-4 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
+                        class="ml-4 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Export CSV
+                        Export
                     </button>
                 </div>
 
@@ -325,6 +359,61 @@ function getActionColor($action) {
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Export Preview Modal -->
+    <div id="exportModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Export Audit Logs</h3>
+                <button onclick="closeExportModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Filters Summary -->
+            <div class="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-slate-700">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class="font-semibold">Applied Filters:</span>
+                    <span id="filtersSummary" class="text-gray-600 dark:text-gray-400"></span>
+                </p>
+            </div>
+
+            <!-- Preview Content -->
+            <div id="exportPreviewContent" class="flex-1 overflow-y-auto p-6">
+                <div class="animate-pulse text-center text-gray-500">
+                    <p>Generating preview...</p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                <span id="exportCount" class="text-sm text-gray-500 dark:text-gray-400"></span>
+                <div class="flex gap-2">
+                    <button onclick="exportAuditLogsCSV()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-sm border
+                               border-gray-300 dark:border-slate-600 rounded-lg
+                               hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Export CSV
+                    </button>
+                    <button onclick="printAuditReport()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-sm
+                               bg-blue-600 hover:bg-blue-700 text-white rounded-lg
+                               transition-colors font-medium">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        Print / Save PDF
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

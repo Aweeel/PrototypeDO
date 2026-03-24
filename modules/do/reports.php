@@ -4,7 +4,45 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Reports";
-$adminName = getFormattedUserName();
+
+// Get the current user's name - multi-layered approach
+$adminName = 'User'; // Default fallback
+
+// Layer 1: Try session admin_name first
+if (!empty($_SESSION['admin_name'])) {
+    $adminName = $_SESSION['admin_name'];
+}
+// Layer 2: Try to get directly from database
+else if (!empty($_SESSION['user_id'])) {
+    try {
+        $userId = $_SESSION['user_id'];
+        $userRole = $_SESSION['user_role'] ?? null;
+        
+        // Query directly from database
+        if ($userRole === 'student') {
+            $student = fetchOne("SELECT first_name, last_name FROM students WHERE user_id = ? LIMIT 1", [$userId]);
+            if ($student && !empty($student['first_name'])) {
+                $adminName = $student['first_name'] . ' ' . $student['last_name'];
+            }
+        } else {
+            $user = fetchOne("SELECT full_name FROM users WHERE user_id = ? LIMIT 1", [$userId]);
+            if ($user && !empty($user['full_name'])) {
+                $nameStr = trim($user['full_name']);
+                $parts = explode(' ', $nameStr);
+                // Take first and last name only
+                $adminName = count($parts) >= 2 ? $parts[0] . ' ' . end($parts) : ($parts[0] ?? 'User');
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Exception getting admin name: " . $e->getMessage());
+    }
+}
+
+// Ensure it's not empty
+if (empty($adminName) || is_null($adminName)) {
+    $adminName = 'User';
+}
+
 
 // ============================================================
 //  CSV DOWNLOAD — pure PHP, no library needed
@@ -93,6 +131,7 @@ function fetchStatisticsData($p) {
     
     if (!empty($p['severity']))   { $where .= " AND c.severity = ?";   $params[] = $p['severity']; }
     if (!empty($p['gradeLevel'])) { $where .= " AND s.grade_year = ?"; $params[] = $p['gradeLevel']; }
+    if (!empty($p['course']))     { $where .= " AND s.track_course = ?"; $params[] = $p['course']; }
     $joins = "FROM cases c LEFT JOIN students s ON c.student_id = s.student_id";
 
     // Build keyed monthly array so JS lookup is O(1) and correct
@@ -141,22 +180,13 @@ function fetchStudentData($p) {
         'filters'    => $p];
 }
 
-function fetchAuditData($p) {
-    $where = "WHERE 1=1"; $params = [];
-    if (!empty($p['dateFrom']))   { $where .= " AND CAST(al.timestamp AS DATE) >= ?"; $params[] = $p['dateFrom']; }
-    if (!empty($p['dateTo']))     { $where .= " AND CAST(al.timestamp AS DATE) <= ?"; $params[] = $p['dateTo']; }
-    if (!empty($p['actionType'])) { $where .= " AND al.action = ?";                   $params[] = $p['actionType']; }
-
-    return ['success' => true,
-        'logs'     => fetchAll("SELECT al.*, u.full_name AS user_name, u.role FROM audit_log al LEFT JOIN users u ON al.user_id = u.user_id $where ORDER BY al.timestamp DESC", $params),
-        'byAction' => fetchAll("SELECT al.action, COUNT(*) AS count FROM audit_log al $where GROUP BY al.action ORDER BY count DESC", $params),
-        'filters'  => $p];
-}
-
 // ============================================================
 //  CSV BUILDER
 // ============================================================
 function buildCSVData($type, $params) {
+    // Use the admin name from session, which was already computed at login
+    $exportedBy = $_SESSION['admin_name'] ?? 'User';
+    
     $rows  = [];
     $today = date('F d, Y H:i');
 
@@ -165,6 +195,7 @@ function buildCSVData($type, $params) {
             $data   = fetchIncidentData($params);
             $rows[] = ['STI Discipline Office – Incident Report'];
             $rows[] = ['Generated:', $today];
+            $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
             $rows[] = ['Case ID','Student','Student ID','Grade/Year','Track','Case Type','Severity','Status','Date Reported','Reported By','Assigned To','Description'];
             foreach ($data['cases'] as $c) {
@@ -183,6 +214,7 @@ function buildCSVData($type, $params) {
             $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             $rows[] = ['STI Discipline Office – Case Statistics ' . ($params['year'] ?? date('Y'))];
             $rows[] = ['Generated:', $today];
+            $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
             $rows[] = ['TOTALS'];
             $rows[] = ['Total','Major','Minor','Resolved'];
@@ -206,6 +238,7 @@ function buildCSVData($type, $params) {
             $data   = fetchLostFoundData($params);
             $rows[] = ['STI Discipline Office – Lost & Found Report'];
             $rows[] = ['Generated:', $today];
+            $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
             $rows[] = ['Item ID','Name','Category','Location Found','Date Found','Status','Finder','Claimer','Date Claimed','Description'];
             foreach ($data['items'] as $i) {
@@ -223,6 +256,7 @@ function buildCSVData($type, $params) {
             $data   = fetchStudentData($params);
             $rows[] = ['STI Discipline Office – Student Behavior Report'];
             $rows[] = ['Generated:', $today];
+            $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
             $rows[] = ['Student ID','First Name','Last Name','Grade/Year','Track/Course','Status','Total Cases','Major','Minor','Last Incident'];
             foreach ($data['students'] as $s) {
@@ -235,21 +269,7 @@ function buildCSVData($type, $params) {
             }
             break;
 
-        case 'audit':
-            $data   = fetchAuditData($params);
-            $rows[] = ['STI Discipline Office – Audit Log Report'];
-            $rows[] = ['Generated:', $today];
-            $rows[] = [];
-            $rows[] = ['Log ID','User','Role','Action','Table','Record ID','IP Address','Timestamp'];
-            foreach ($data['logs'] as $l) {
-                $rows[] = [
-                    $l['log_id'], $l['user_name']??'System', $l['role']??'',
-                    $l['action'], $l['table_name']??'', $l['record_id']??'',
-                    $l['ip_address']??'',
-                    $l['timestamp'] ? date('Y-m-d H:i:s', strtotime($l['timestamp'])) : '',
-                ];
-            }
-            break;
+
     }
     return $rows;
 }
@@ -265,10 +285,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         if ($action === 'generateStatisticsReport') { echo json_encode(fetchStatisticsData($_POST)); exit; }
         if ($action === 'generateLostFoundReport')  { echo json_encode(fetchLostFoundData($_POST));  exit; }
         if ($action === 'generateStudentReport')    { echo json_encode(fetchStudentData($_POST));    exit; }
-        if ($action === 'generateAuditReport')      { echo json_encode(fetchAuditData($_POST));      exit; }
 
         if ($action === 'getGradeLevels') {
             echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT grade_year FROM students WHERE grade_year IS NOT NULL ORDER BY grade_year")]);
+            exit;
+        }
+        if ($action === 'getAvailableCourses') {
+            echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT track_course FROM students WHERE track_course IS NOT NULL ORDER BY track_course")]);
+            exit;
+        }
+        if ($action === 'getCoursesByGradeLevel') {
+            $gradeLevel = $_POST['gradeLevel'] ?? '';
+            if (empty($gradeLevel)) {
+                echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT track_course FROM students WHERE track_course IS NOT NULL ORDER BY track_course")]);
+            } else {
+                echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT track_course FROM students WHERE track_course IS NOT NULL AND grade_year = ? ORDER BY track_course", [$gradeLevel])]);
+            }
             exit;
         }
         if ($action === 'getAvailableYears') {
@@ -277,10 +309,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
         if ($action === 'getCategories') {
             echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT category FROM lost_found_items WHERE category IS NOT NULL ORDER BY category")]);
-            exit;
-        }
-        if ($action === 'getAuditActionTypes') {
-            echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT action FROM audit_log WHERE action IS NOT NULL ORDER BY action")]);
             exit;
         }
         if ($action === 'getCaseList') {
@@ -316,6 +344,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
     </script>
     <meta name="data-admin-name" content="<?= htmlspecialchars($adminName) ?>">
+    <script>
+        // Set ADMIN_NAME directly from PHP to avoid DOM timing issues
+        window.ADMIN_NAME = '<?= htmlspecialchars(addslashes($adminName)) ?>';
+    </script>
     <style>
         /* Essential styles for reports - tab active state and print */
         .tab-active { background: #2563eb !important; color: white !important; }
@@ -370,7 +402,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         ['id'=>'statistics', 'label'=>'Case Statistics'],
                         ['id'=>'lostfound',  'label'=>'Lost & Found'],
                         ['id'=>'student',    'label'=>'Student Behavior'],
-                        ['id'=>'audit',      'label'=>'Audit Log'],
                     ];
                     foreach ($tabs as $i => $tab): ?>
                         <button id="tab-<?= $tab['id'] ?>"
@@ -389,7 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         'fields' => [
                             ['id'=>'inc-reportType','label'=>'Report Type','type'=>'select',
                              'opts'=>['summary'=>'Summary','detailed'=>'Detailed (with Sanctions)']],
-                            ['id'=>'inc-caseId',   'label'=>'Case ID (Optional)', 'type'=>'search','placeholder'=>'Search by Case ID'],
+                            ['id'=>'inc-caseId',   'label'=>'Case ID (Optional)', 'type'=>'search','placeholder'=>'Search by Case ID (C-2026000)'],
                             ['id'=>'inc-dateFrom', 'label'=>'Date From', 'type'=>'date'],
                             ['id'=>'inc-dateTo',   'label'=>'Date To',   'type'=>'date'],
                             ['id'=>'inc-severity', 'label'=>'Severity',  'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
@@ -406,6 +437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 '7'=>'July','8'=>'August','9'=>'September','10'=>'October','11'=>'November','12'=>'December']],
                             ['id'=>'stat-severity',   'label'=>'Severity',    'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
                             ['id'=>'stat-gradeLevel', 'label'=>'Grade Level', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
+                            ['id'=>'stat-course',     'label'=>'Course',      'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses'],
                         ],
                     ],
                     'lostfound' => [
@@ -423,14 +455,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ['id'=>'stu-studentId', 'label'=>'Student Name/ID (Optional)', 'type'=>'search','placeholder'=>'Search by Student ID or Name'],
                             ['id'=>'stu-gradeLevel','label'=>'Grade / Year', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
                             ['id'=>'stu-status',    'label'=>'Standing',     'type'=>'select','opts'=>[''=>'All','Good Standing'=>'Good Standing','On Watch'=>'On Watch','On Probation'=>'On Probation']],
-                        ],
-                    ],
-                    'audit' => [
-                        'type'   => 'audit',
-                        'fields' => [
-                            ['id'=>'aud-dateFrom',  'label'=>'Date From',   'type'=>'date'],
-                            ['id'=>'aud-dateTo',    'label'=>'Date To',     'type'=>'date'],
-                            ['id'=>'aud-actionType','label'=>'Action Type', 'type'=>'ajax','action'=>'getAuditActionTypes','vk'=>'action','all'=>'All Actions'],
                         ],
                     ],
                 ];
