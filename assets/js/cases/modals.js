@@ -2788,6 +2788,9 @@ function scheduleHideHandbookTooltip() {
 // ====== COMMUNITY SERVICE CHECK-IN ======
 
 async function openCheckInModal(caseId) {
+  // Prevent stacked/duplicate check-in modals when refreshing after actions.
+  document.querySelectorAll('[data-checkin-modal="true"]').forEach(existingModal => existingModal.remove());
+
   const caseData = allCases.find(c => c.id === caseId);
   if (!caseData) return;
 
@@ -2841,7 +2844,7 @@ async function openCheckInModal(caseId) {
       const activeDayNum = completedDays + 1;
       const progressPercent = Math.round((completedDays / totalDays) * 100);
 
-      let dayCardsHTML = getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, caseData.student, sanctionName);
+      let dayCardsHTML = getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, caseData.student, sanctionName, activeSanction.case_sanction_id || '');
       
       renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent);
     } else {
@@ -2866,7 +2869,7 @@ async function openCheckInModal(caseId) {
   document.body.appendChild(modal);
 }
 
-function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, studentName, sanctionName) {
+function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, studentName, sanctionName, caseSanctionId = '') {
   let dayCardsHTML = '';
   for (let day = 1; day <= totalDays; day++) {
     if (day <= completedDays) {
@@ -2907,26 +2910,27 @@ function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, student
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-gray-500">
                 <span class="font-medium text-blue-500">In:</span>
-                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Not recorded yet</span>
               </span>
               <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
               <span class="text-xs text-gray-500">
                 <span class="font-medium text-blue-500">Out:</span>
-                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                <span class="italic text-gray-400 dark:text-gray-500">Not recorded yet</span>
               </span>
             </div>
           </div>
           <button
             data-day="${day}"
             data-caseid="${caseId}"
+            data-casesanctionid="${caseSanctionId}"
             data-student="${escapedStudent}"
             data-sanction="${escapedSanction}"
-            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction)"
-            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            onclick="showEditMenu(this)"
+            class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group relative"
+            style="position: relative;">
+            <svg class="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
-            Gen. QR
           </button>
         </div>`;
     } else {
@@ -2969,8 +2973,17 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
     if (isCompleted) {
       const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       const outTime = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const outTimeHHMM = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const escapedStudent = studentName.replace(/"/g, '&quot;');
+      const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
-        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+        <div class="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800" data-day-card data-day="${day}" data-student-name="${escapedStudent}" data-sanction-name="${escapedSanction}">
+          <button onclick="showEditMenu(this, ${day}, '${caseId}', '${escapedStudent}', '${escapedSanction}', ${caseSanctionId}, '${inTimeHHMM}', '${outTimeHHMM}', true, true)" title="Edit or Revert" class="flex-shrink-0 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
           <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -2980,11 +2993,13 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-gray-500 dark:text-gray-400">
-                <span class="font-medium text-green-600 dark:text-green-400">In:</span> ${inTime}
+                <span class="font-medium text-green-600 dark:text-green-400">In:</span>
+                <span data-check-in-display>${inTime}</span>
               </span>
               <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
               <span class="text-xs text-gray-500 dark:text-gray-400">
-                <span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${outTime}
+                <span class="font-medium text-green-600 dark:text-green-400">Out:</span>
+                <span data-check-out-display>${outTime}</span>
               </span>
             </div>
           </div>
@@ -2992,10 +3007,11 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
         </div>`;
     } else if (hasCheckIn) {
       const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
-        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+        <div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card data-day="${day}" data-student-name="${escapedStudent}" data-sanction-name="${escapedSanction}">
           <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
             <span class="text-white text-xs font-bold">${day}</span>
           </div>
@@ -3003,34 +3019,24 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-gray-500">
-                <span class="font-medium text-blue-500">In:</span> <span data-check-in-time>${inTime}</span>
+                <span class="font-medium text-blue-500">In:</span> <span data-check-in-display>${inTime}</span>
               </span>
               <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
               <span class="text-xs text-gray-500">
                 <span class="font-medium text-blue-500">Out:</span>
-                <span class="italic text-gray-400 dark:text-gray-500">Awaiting checkout</span>
+                <span data-check-out-display class="italic text-gray-400 dark:text-gray-500">Awaiting checkout</span>
               </span>
             </div>
           </div>
-          <button
-            data-day="${day}"
-            data-caseid="${caseId}"
-            data-casesanctionid="${caseSanctionId}"
-            data-student="${escapedStudent}"
-            data-sanction="${escapedSanction}"
-            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid, true)"
-            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-            Checkout
-          </button>
+          <div class="flex-shrink-0 flex items-center gap-2">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, true); return false;" data-toggle-btn class="px-4 py-1.5 bg-red-600 dark:bg-red-700 text-white text-xs font-semibold rounded hover:bg-red-700 transition-colors cursor-pointer">CHECK OUT</button>
+          </div>
         </div>`;
     } else if (isActiveDay) {
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
-        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
+        <div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card data-day="${day}" data-student-name="${escapedStudent}" data-sanction-name="${escapedSanction}">
           <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
             <span class="text-white text-xs font-bold">${day}</span>
           </div>
@@ -3039,28 +3045,18 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-gray-500">
                 <span class="font-medium text-blue-500">In:</span>
-                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                <span data-check-in-display class="italic text-gray-400 dark:text-gray-500">Not recorded yet</span>
               </span>
               <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
               <span class="text-xs text-gray-500">
                 <span class="font-medium text-blue-500">Out:</span>
-                <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
+                <span data-check-out-display class="italic text-gray-400 dark:text-gray-500">Not recorded yet</span>
               </span>
             </div>
           </div>
-          <button
-            data-day="${day}"
-            data-caseid="${caseId}"
-            data-casesanctionid="${caseSanctionId}"
-            data-student="${escapedStudent}"
-            data-sanction="${escapedSanction}"
-            onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid)"
-            class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-            </svg>
-            Gen. QR
-          </button>
+          <div class="flex-shrink-0 flex items-center gap-2">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, false); return false;" data-toggle-btn class="px-4 py-1.5 bg-blue-600 dark:bg-blue-700 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors cursor-pointer">CHECK IN</button>
+          </div>
         </div>`;
     } else {
       dayCardsHTML += `
@@ -3136,18 +3132,6 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
         ${dayCardsHTML}
       </div>
 
-      <!-- Info Note -->
-      <div class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 flex-shrink-0">
-        <div class="flex items-start gap-2">
-          <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <p class="text-xs text-amber-700 dark:text-amber-300">
-            Generate a QR code for each day. The student must scan it upon arrival <strong>(check-in)</strong> and again before leaving <strong>(check-out)</strong>.
-          </p>
-        </div>
-      </div>
-
       <!-- Footer -->
       <div class="flex justify-end mt-4 flex-shrink-0">
         <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
@@ -3157,210 +3141,6 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
 
     </div>
   `;
-}
-
-// ====== QR CODE MODAL ======
-
-function showQRCodeModal(dayNumber, caseId, studentName, sanctionName, caseSanctionId, isCheckout = false) {
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  const timeGenerated = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit', minute: '2-digit'
-  });
-
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-[60] p-4';
-  modal.setAttribute('data-case-id', caseId);
-  modal.setAttribute('data-student-name', studentName);
-  modal.setAttribute('data-sanction-name', sanctionName);
-  
-  const handleCheckIn = () => {
-    recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modal);
-  };
-  
-  const handleCheckOut = () => {
-    recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modal);
-  };
-  
-  let actionButtonsHTML = '';
-  if (isCheckout) {
-    actionButtonsHTML = `
-      <button onclick="handleCheckOut(${caseSanctionId}, ${dayNumber}, this.closest('.fixed'))"
-        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-        </svg>
-        Check Out Now
-      </button>
-    `;
-  } else {
-    actionButtonsHTML = `
-      <button onclick="handleCheckIn(${caseSanctionId}, ${dayNumber}, this.closest('.fixed'))"
-        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-        </svg>
-        Check In Now
-      </button>
-    `;
-  }
-  
-  modal.innerHTML = `
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6">
-
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-5">
-        <div>
-          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">QR Code &mdash; Day ${dayNumber}</h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${sanctionName}</p>
-        </div>
-        <button onclick="closeQRModalAndRefresh(this.closest('.fixed'))" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-
-      <!-- QR Code Placeholder -->
-      <div class="flex flex-col items-center">
-        <div class="w-52 h-52 bg-white border-2 border-gray-200 dark:border-slate-500 rounded-xl p-3 shadow-inner">
-          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-            <!-- Top-left finder pattern -->
-            <rect x="14" y="14" width="56" height="56" rx="4" fill="black"/>
-            <rect x="22" y="22" width="40" height="40" rx="2" fill="white"/>
-            <rect x="30" y="30" width="24" height="24" rx="1" fill="black"/>
-            <!-- Top-right finder pattern -->
-            <rect x="130" y="14" width="56" height="56" rx="4" fill="black"/>
-            <rect x="138" y="22" width="40" height="40" rx="2" fill="white"/>
-            <rect x="146" y="30" width="24" height="24" rx="1" fill="black"/>
-            <!-- Bottom-left finder pattern -->
-            <rect x="14" y="130" width="56" height="56" rx="4" fill="black"/>
-            <rect x="22" y="138" width="40" height="40" rx="2" fill="white"/>
-            <rect x="30" y="146" width="24" height="24" rx="1" fill="black"/>
-            <!-- Format / alignment modules -->
-            <rect x="78" y="14" width="8" height="8" fill="black"/>
-            <rect x="94" y="14" width="8" height="8" fill="black"/>
-            <rect x="110" y="14" width="8" height="8" fill="black"/>
-            <rect x="78" y="22" width="8" height="8" fill="black"/>
-            <rect x="110" y="22" width="8" height="8" fill="black"/>
-            <rect x="94" y="30" width="8" height="8" fill="black"/>
-            <rect x="78" y="38" width="8" height="8" fill="black"/>
-            <rect x="110" y="38" width="8" height="8" fill="black"/>
-            <rect x="14" y="78" width="8" height="8" fill="black"/>
-            <rect x="14" y="94" width="8" height="8" fill="black"/>
-            <rect x="14" y="110" width="8" height="8" fill="black"/>
-            <!-- Data modules -->
-            <rect x="78" y="78" width="8" height="8" fill="black"/>
-            <rect x="94" y="78" width="8" height="8" fill="black"/>
-            <rect x="110" y="78" width="8" height="8" fill="black"/>
-            <rect x="126" y="78" width="8" height="8" fill="black"/>
-            <rect x="142" y="78" width="8" height="8" fill="black"/>
-            <rect x="158" y="78" width="8" height="8" fill="black"/>
-            <rect x="174" y="78" width="8" height="8" fill="black"/>
-            <rect x="78" y="94" width="8" height="8" fill="black"/>
-            <rect x="110" y="94" width="8" height="8" fill="black"/>
-            <rect x="142" y="94" width="8" height="8" fill="black"/>
-            <rect x="174" y="94" width="8" height="8" fill="black"/>
-            <rect x="86" y="102" width="8" height="8" fill="black"/>
-            <rect x="118" y="102" width="8" height="8" fill="black"/>
-            <rect x="150" y="102" width="8" height="8" fill="black"/>
-            <rect x="78" y="110" width="8" height="8" fill="black"/>
-            <rect x="94" y="110" width="8" height="8" fill="black"/>
-            <rect x="126" y="110" width="8" height="8" fill="black"/>
-            <rect x="158" y="110" width="8" height="8" fill="black"/>
-            <rect x="174" y="110" width="8" height="8" fill="black"/>
-            <rect x="78" y="126" width="8" height="8" fill="black"/>
-            <rect x="102" y="126" width="8" height="8" fill="black"/>
-            <rect x="126" y="126" width="8" height="8" fill="black"/>
-            <rect x="150" y="126" width="8" height="8" fill="currentColor"/>
-            <rect x="174" y="126" width="8" height="8" fill="currentColor"/>
-            <rect x="86" y="134" width="8" height="8" fill="currentColor"/>
-            <rect x="110" y="134" width="8" height="8" fill="currentColor"/>
-            <rect x="134" y="134" width="8" height="8" fill="currentColor"/>
-            <rect x="158" y="134" width="8" height="8" fill="currentColor"/>
-            <rect x="78" y="142" width="8" height="8" fill="currentColor"/>
-            <rect x="94" y="142" width="8" height="8" fill="currentColor"/>
-            <rect x="118" y="142" width="8" height="8" fill="currentColor"/>
-            <rect x="142" y="142" width="8" height="8" fill="currentColor"/>
-            <rect x="166" y="142" width="8" height="8" fill="currentColor"/>
-            <rect x="86" y="150" width="8" height="8" fill="currentColor"/>
-            <rect x="110" y="150" width="8" height="8" fill="currentColor"/>
-            <rect x="134" y="150" width="8" height="8" fill="currentColor"/>
-            <rect x="158" y="150" width="8" height="8" fill="currentColor"/>
-            <rect x="174" y="150" width="8" height="8" fill="currentColor"/>
-            <rect x="78" y="158" width="8" height="8" fill="currentColor"/>
-            <rect x="102" y="158" width="8" height="8" fill="currentColor"/>
-            <rect x="126" y="158" width="8" height="8" fill="currentColor"/>
-            <rect x="150" y="158" width="8" height="8" fill="currentColor"/>
-            <rect x="94" y="166" width="8" height="8" fill="currentColor"/>
-            <rect x="118" y="166" width="8" height="8" fill="currentColor"/>
-            <rect x="142" y="166" width="8" height="8" fill="currentColor"/>
-            <rect x="166" y="166" width="8" height="8" fill="currentColor"/>
-          </svg>
-        </div>
-
-        <!-- Student Info -->
-        <div class="mt-4 text-center">
-          <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">${studentName}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId} &bull; Day ${dayNumber}</p>
-        </div>
-
-        <!-- Validity -->
-        <div class="mt-3 w-full bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <div>
-              <p class="text-xs font-medium text-blue-800 dark:text-blue-300">Valid for: ${today}</p>
-              <p class="text-xs text-blue-600 dark:text-blue-400">Generated at ${timeGenerated} &bull; Single-day use only</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Scan In / Scan Out guide -->
-        <div class="mt-3 w-full grid grid-cols-2 gap-2">
-          <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-2.5 border border-green-200 dark:border-green-800 text-center">
-            <svg class="w-5 h-5 text-green-600 dark:text-green-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-            </svg>
-            <p class="text-xs font-semibold text-green-700 dark:text-green-300">Scan In</p>
-            <p class="text-xs text-green-600 dark:text-green-400">Upon arrival</p>
-          </div>
-          <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2.5 border border-orange-200 dark:border-orange-800 text-center">
-            <svg class="w-5 h-5 text-orange-600 dark:text-orange-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-            <p class="text-xs font-semibold text-orange-700 dark:text-orange-300">Scan Out</p>
-            <p class="text-xs text-orange-600 dark:text-orange-400">Before leaving</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="flex gap-2 mt-5">
-        ${actionButtonsHTML}
-        <button onclick="this.closest('.fixed').remove()"
-          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-          Close
-        </button>
-      </div>
-
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-}
-
-// ====== Check-in / Check-out Helper ======
-
-function handleCheckIn(caseSanctionId, dayNumber, modalElement) {
-  recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modalElement);
-}
-
-function handleCheckOut(caseSanctionId, dayNumber, modalElement) {
-  recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modalElement);
 }
 
 // ====== Toast Notification ======
@@ -3393,277 +3173,651 @@ function showNotification(message, type = 'success', onClose = null) {
   }, 2500);
 }
 
-// ====== QR Modal Helpers ======
+// ====== TIME CORRECTION MODAL ======
 
-function closeQRModalAndRefresh(qrModal) {
-  // Get the case ID from the QR modal
-  const caseId = qrModal.getAttribute('data-case-id');
+function showTimeCorrectionModal(dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime = '', checkOutTime = '') {
+  // Remove any existing time correction modal only
+  document.querySelectorAll('.fixed.inset-0.flex.items-center.justify-center').forEach(el => el.remove());
   
-  // Find and close the old check-in modal
-  const checkInModal = document.querySelector('[data-checkin-modal]');
-  if (checkInModal && checkInModal.parentNode) {
-    checkInModal.remove();
-  }
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
+  modal.setAttribute('data-case-id', caseId);
   
-  // Remove the QR modal
-  qrModal.remove();
+  const now = new Date();
+  const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   
-  // Refresh the check-in modal behind it (if it exists)
-  if (caseId) {
-    openCheckInModal(caseId);
-  }
-}
-
-function updateDayCardInModal(dayNumber, caseSanctionId, action, timeStr, studentName, sanctionName, caseId) {
-  // Find the day card for this specific day
-  const dayCard = document.querySelector(`[data-day="${dayNumber}"][data-casesanctionid="${caseSanctionId}"]`)?.closest('[data-day-card]');
-  if (!dayCard) return false;
-  
-  if (action === 'recordCheckOut') {
-    // Day completed - transition from check-in pending to completed state
-    // Get check-in time from the current card
-    const inTimeSpan = dayCard.querySelector('[data-check-in-time]');
-    const inTime = inTimeSpan ? inTimeSpan.textContent : timeStr;
-    
-    // Create completed card
-    const completedHTML = `
-      <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800" data-day-card>
-        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Correct Time</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Day ${dayNumber} &bull; Check In & Check Out</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
-          <div class="flex items-center gap-2 mt-0.5">
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              <span class="font-medium text-green-600 dark:text-green-400">In:</span> ${inTime}
-            </span>
-            <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              <span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${timeStr}
-            </span>
-          </div>
-        </div>
-        <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
-      </div>`;
-    
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = completedHTML.trim();
-    dayCard.replaceWith(tempDiv.firstChild);
-    
-    // Update progress bar
-    const checkInModal = document.querySelector('[data-checkin-modal="true"]');
-    if (checkInModal) {
-      // Count all day cards (look for direct children in the scrollable container)
-      const dayCardsContainer = checkInModal.querySelector('.space-y-2.overflow-y-auto');
-      if (dayCardsContainer) {
-        // Get direct div children that are day cards
-        const allChildDivs = Array.from(dayCardsContainer.querySelectorAll(':scope > div'));
-        
-        let newCompletedCount = 0;
-        // Completed cards have green styling in their classes
-        allChildDivs.forEach(div => {
-          const className = div.getAttribute('class') || '';
-          if (className.includes('bg-green-50') || className.includes('bg-green-900')) {
-            newCompletedCount++;
-          }
-        });
-        
-        const totalDaysCount = allChildDivs.length;
-        
-        // Update progress bar if it exists
-        const progressBar = checkInModal.querySelector('[data-progress-bar]');
-        const progressText = checkInModal.querySelector('[data-progress-text]');
-        if (progressBar && progressText && totalDaysCount > 0) {
-          const newProgressPercent = Math.round((newCompletedCount / totalDaysCount) * 100);
-          progressBar.style.width = newProgressPercent + '%';
-          progressText.textContent = newProgressPercent + '% done';
-        }
-      }
-    }
-    
-    // Now activate the next day (wrap in try/catch so checkout succeeds even if this fails)
-    try {
-      const nextDayNumber = dayNumber + 1;
-      // Find the next day card by looking for day cards and finding the one with the matching day text
-      const allDayCards = document.querySelectorAll('[data-day-card]');
-      let nextDayCard = null;
-      
-      for (const card of allDayCards) {
-        const cardText = card.textContent;
-        if (cardText.includes(`Day ${nextDayNumber}`) &&!cardText.includes('Completed') && !cardText.includes('Awaiting checkout')) {
-          nextDayCard = card;
-          break;
-        }
-      }
-      
-      if (nextDayCard) {
-        // The next day is in "Upcoming" state - transform it to active
-        const escapedStudent = (studentName || '').replace(/"/g, '&quot;');
-        const escapedSanction = (sanctionName || '').replace(/"/g, '&quot;');
-        
-        const activeNextDayHTML = `
-          <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
-            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <span class="text-white text-xs font-bold">${nextDayNumber}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${nextDayNumber} <span class="text-xs font-normal text-blue-600 dark:text-blue-400">— Today</span></p>
-              <div class="flex items-center gap-2 mt-0.5">
-                <span class="text-xs text-gray-500">
-                  <span class="font-medium text-blue-500">In:</span>
-                  <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
-                </span>
-                <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
-                <span class="text-xs text-gray-500">
-                  <span class="font-medium text-blue-500">Out:</span>
-                  <span class="italic text-gray-400 dark:text-gray-500">Pending scan</span>
-                </span>
-              </div>
-            </div>
-            <button
-              data-day="${nextDayNumber}"
-              data-caseid="${caseId}"
-              data-casesanctionid="${caseSanctionId}"
-              data-student="${escapedStudent}"
-              data-sanction="${escapedSanction}"
-              onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid)"
-              class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-              </svg>
-              Gen. QR
-            </button>
-          </div>`;
-        
-        const nextTempDiv = document.createElement('div');
-        nextTempDiv.innerHTML = activeNextDayHTML.trim();
-        nextDayCard.replaceWith(nextTempDiv.firstChild);
-      }
-    } catch (nextDayError) {
-      console.warn('Could not activate next day:', nextDayError);
-      // Don't fail the checkout if next day activation fails
-    }
-  } else if (action === 'recordCheckIn') {
-    // Transition active day to pending checkout state
-    const escapedStudent = (studentName || '').replace(/"/g, '&quot;');
-    const escapedSanction = (sanctionName || '').replace(/"/g, '&quot;');
-    
-    // Create pending checkout card
-    const pendingHTML = `
-      <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card>
-        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-          <span class="text-white text-xs font-bold">${dayNumber}</span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
-          <div class="flex items-center gap-2 mt-0.5">
-            <span class="text-xs text-gray-500">
-              <span class="font-medium text-blue-500">In:</span> <span data-check-in-time>${timeStr}</span>
-            </span>
-            <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
-            <span class="text-xs text-gray-500">
-              <span class="font-medium text-blue-500">Out:</span>
-              <span class="italic text-gray-400 dark:text-gray-500">Awaiting checkout</span>
-            </span>
-          </div>
-        </div>
-        <button
-          data-day="${dayNumber}"
-          data-caseid="${caseId}"
-          data-casesanctionid="${caseSanctionId}"
-          data-student="${escapedStudent}"
-          data-sanction="${escapedSanction}"
-          onclick="showQRCodeModal(this.dataset.day, this.dataset.caseid, this.dataset.student, this.dataset.sanction, this.dataset.casesanctionid, 'checkout')"
-          class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors">
-          Check Out
         </button>
-      </div>`;
-    
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = pendingHTML.trim();
-    dayCard.replaceWith(tempDiv.firstChild);
-  }
+      </div>
+
+      <!-- Information -->
+      <div class="mb-5 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <p class="text-sm font-medium text-blue-900 dark:text-blue-300">Edit check in and check out times</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Enter times in HH:MM format (24-hour). Current time: ${currentTime}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Check In Time -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check In Time (HH:MM)</label>
+        <input type="text" id="checkInInput" class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400" placeholder="08:30" value="${checkInTime}" />
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
+      </div>
+
+      <!-- Check Out Time -->
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check Out Time (HH:MM)</label>
+        <input type="text" id="checkOutInput" class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400" placeholder="16:45" value="${checkOutTime}" />
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button onclick="saveBothTimesModal(this.closest('.fixed'), '${caseId}', ${dayNumber}, ${caseSanctionId})"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Save Times
+        </button>
+        <button onclick="this.closest('.fixed').remove()"
+          class="flex-1 flex items-center justify-center px-4 py-2.5 text-sm border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
   
-  return true;
+  // Focus on check-in input
+  setTimeout(() => {
+    const input = modal.querySelector('#checkInInput');
+    if (input) input.focus();
+  }, 100);
 }
 
-function refreshCheckInModalAfterAction(caseId) {
-  // Find and close the old check-in modal with data attribute
-  const checkInModal = document.querySelector('[data-checkin-modal]');
-  if (checkInModal && checkInModal.parentNode) {
-    checkInModal.remove();
+async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
+  const checkInInput = modal.querySelector('#checkInInput');
+  const checkOutInput = modal.querySelector('#checkOutInput');
+  const checkInValue = checkInInput.value.trim();
+  const checkOutValue = checkOutInput.value.trim();
+  
+  // At least one time must be entered
+  if (!checkInValue && !checkOutValue) {
+    showNotification('Please enter at least one time', 'error');
+    return;
+  }
+
+  // Validate time format HH:MM if provided
+  if (checkInValue && !/^\d{2}:\d{2}$/.test(checkInValue)) {
+    showNotification('Invalid check-in time format. Use HH:MM (e.g., 08:30)', 'error');
+    return;
   }
   
-  // Open fresh check-in modal
-  if (caseId) {
-    setTimeout(() => {
-      openCheckInModal(caseId);
-    }, 300);
+  if (checkOutValue && !/^\d{2}:\d{2}$/.test(checkOutValue)) {
+    showNotification('Invalid check-out time format. Use HH:MM (e.g., 16:45)', 'error');
+    return;
   }
-}
 
-// NOTE: Future Enhancement - QR Scanner Integration
-// When implementing actual QR code scanning functionality:
-// 1. Add a QR scanner library (e.g., jsQR, ZXing.js, or QR Scanner)
-// 2. Listen for camera input on the QR modal
-// 3. When QR is detected, automatically call:
-//    - recordCheckInOut('recordCheckIn', caseSanctionId, dayNumber, modal) for check-in
-//    - recordCheckInOut('recordCheckOut', caseSanctionId, dayNumber, modal) for check-out
-// 4. No need for manual "Check In Now" / "Check Out Now" buttons - just scan and it auto-records
-// Example implementation:
-// window.addEventListener('qr-detected', (e) => {
-//   if (e.detail.action === 'checkin') recordCheckInOut('recordCheckIn', ...);
-// });
-
-async function recordCheckInOut(action, caseSanctionId, dayNumber, modalElement) {
   try {
-    // Get data from QR modal BEFORE removing it
-    const studentName = modalElement.getAttribute('data-student-name');
-    const sanctionName = modalElement.getAttribute('data-sanction-name');
-    const caseId = modalElement.getAttribute('data-case-id');
+    // Save check-in time if provided
+    if (checkInValue) {
+      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `ajax=1&action=correctTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=check_in&correctedTime=${checkInValue}`
+      });
+      
+      const result = await response.json();
+      if (!result.success) {
+        showNotification(result.error || 'Failed to correct check-in time', 'error');
+        return;
+      }
+    }
     
+    // Save check-out time if provided
+    if (checkOutValue) {
+      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `ajax=1&action=correctTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=check_out&correctedTime=${checkOutValue}`
+      });
+      
+      const result = await response.json();
+      if (!result.success) {
+        showNotification(result.error || 'Failed to correct check-out time', 'error');
+        return;
+      }
+    }
+    
+    modal.remove();
+    showNotification('Times saved successfully', 'success');
+    
+    // Keep edit modal open and update it with new times
+    setTimeout(() => {
+      const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+      if (dayCard) {
+        // Update the day card display with new times
+        const inDisplay = dayCard.querySelector('[data-check-in-display]');
+        const outDisplay = dayCard.querySelector('[data-check-out-display]');
+        
+        if (checkInValue && inDisplay) {
+          inDisplay.textContent = checkInValue;
+          inDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
+          inDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
+        }
+        
+        if (checkOutValue && outDisplay) {
+          outDisplay.textContent = checkOutValue;
+          outDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
+          outDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
+        }
+        
+        // Reopen the edit modal with updated data
+        const editBtn = dayCard.querySelector('.edit-menu-btn');
+        const inDisplayText = inDisplay ? inDisplay.textContent : '';
+        const outDisplayText = outDisplay ? outDisplay.textContent : '';
+        const studentName = dayCard.getAttribute('data-student-name') || '';
+        const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
+        const hasCheckOut = !!outDisplayText && outDisplayText !== 'Awaiting checkout';
+        const isCompleted = inDisplayText && inDisplayText !== 'Not recorded yet' && hasCheckOut;
+        
+        showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, inDisplayText, outDisplayText, hasCheckOut, isCompleted);
+      }
+    }, 100);
+  } catch (error) {
+    showNotification('Error: ' + error.message, 'error');
+    console.error('Time correction error:', error);
+  }
+}
+
+// ====== EDIT MENU (modal) ======
+
+function showEditMenu(buttonEl, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted) {
+  // Remove any existing modal
+  const existingOverlay = document.querySelector('[data-edit-modal-overlay]');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+  
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.setAttribute('data-edit-modal-overlay', 'true');
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100;';
+  
+  // Create modal container
+  const modal = document.createElement('div');
+  modal.setAttribute('data-edit-modal', 'true');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    z-index: 101;
+    min-width: 300px;
+    max-width: 400px;
+    padding: 0;
+    overflow: hidden;
+  `;
+  
+  // Add dark mode support
+  modal.style.backgroundColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : 'white';
+  modal.style.color = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#000';
+  
+  let modalHTML = '<div style="padding: 1.5rem;">';
+  modalHTML += `<h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: inherit;">Manage Day ${dayNumber}</h3>`;
+  
+  // Edit Time option
+  if (checkInTime || checkOutTime) {
+    modalHTML += `<button onclick="showTimeCorrectionModal(${dayNumber}, '${caseId}', '${studentName}', '${sanctionName}', ${caseSanctionId}, '${checkInTime}', '${checkOutTime}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Edit Time</button>`;
+  }
+  
+  // Revert options (only Revert Check In)
+  if (isCompleted) {
+    // Both times exist - can revert check in
+    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
+  } else if (checkInTime) {
+    // Only check-in time exists
+    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
+  }
+  
+  // Close button
+  modalHTML += `<button onclick="document.querySelector('[data-edit-modal-overlay]').remove();" style="width: 100%; padding: 0.75rem 1rem; text-align: center; background: none; border: 1px solid #d1d5db; color: inherit; cursor: pointer; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; margin-top: 0.5rem;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">Close</button>`;
+  
+  modalHTML += '</div>';
+  modal.innerHTML = modalHTML;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+}
+
+// Show confirmation for cascade revert
+function showRevertConfirmation(dayNumber, subsequentDays, onConfirm, onCancel) {
+  const overlay = document.createElement('div');
+  overlay.setAttribute('data-confirm-overlay', 'true');
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 102;';
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    z-index: 103;
+    min-width: 350px;
+    max-width: 450px;
+    padding: 1.5rem;
+    overflow: hidden;
+  `;
+  
+  modal.style.backgroundColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : 'white';
+  modal.style.color = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#000';
+  
+  let daysText = subsequentDays.length === 1 ? `day ${subsequentDays[0]}` : `days ${subsequentDays.join(', ')}`;
+  
+  let html = `
+    <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+      <svg class="w-6 h-6" style="flex-shrink: 0; color: #f59e0b; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2m0-14a9 9 0 110 18 9 9 0 010-18zm0 2a7 7 0 100 14 7 7 0 000-14z"/>
+      </svg>
+      <div>
+        <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; color: inherit;">Revert Day ${dayNumber}?</h3>
+        <p style="font-size: 0.875rem; color: #ef4444;">⚠️ Warning: Reverting will also clear ${daysText}</p>
+      </div>
+    </div>
+    
+    <p style="font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5; color: inherit;">
+      Day ${dayNumber} and the following completed day(s) ${daysText} will be reverted. This cannot be undone.
+    </p>
+    
+    <div style="display: flex; gap: 0.75rem;">
+      <button data-action="confirm" style="flex: 1; padding: 0.75rem 1rem; background: #ef4444; color: white; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; font-size: 0.875rem;">
+        Revert All
+      </button>
+      <button data-action="cancel" style="flex: 1; padding: 0.75rem 1rem; background: #e5e7eb; color: #1f2937; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; font-size: 0.875rem;">
+        Cancel
+      </button>
+    </div>
+  `;
+  
+  modal.innerHTML = html;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Add event listeners for buttons
+  const confirmBtn = modal.querySelector('[data-action="confirm"]');
+  const cancelBtn = modal.querySelector('[data-action="cancel"]');
+  
+  confirmBtn.addEventListener('click', () => {
+    overlay.remove();
+    onConfirm();
+  });
+  
+  cancelBtn.addEventListener('click', () => {
+    overlay.remove();
+    onCancel();
+  });
+  
+  // Add hover effects
+  confirmBtn.addEventListener('mouseover', () => {
+    confirmBtn.style.background = '#dc2626';
+  });
+  confirmBtn.addEventListener('mouseout', () => {
+    confirmBtn.style.background = '#ef4444';
+  });
+  
+  cancelBtn.addEventListener('mouseover', () => {
+    cancelBtn.style.background = '#d1d5db';
+  });
+  cancelBtn.addEventListener('mouseout', () => {
+    cancelBtn.style.background = '#e5e7eb';
+  });
+  
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      onCancel();
+    }
+  });
+}
+
+// Revert check-in or check-out time
+async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
+  // Check for subsequently completed days
+  const allDayCards = document.querySelectorAll('[data-day-card]');
+  const subsequentCompletedDays = [];
+  
+  for (let card of allDayCards) {
+    const dayNum = parseInt(card.getAttribute('data-day'));
+    if (dayNum > dayNumber) {
+      const isGreenCompleted = card.classList.contains('bg-green-50') || card.classList.contains('dark:bg-green-900/20');
+      const inDisplay = card.querySelector('[data-check-in-display]');
+      const outDisplay = card.querySelector('[data-check-out-display]');
+      const inText = inDisplay ? inDisplay.textContent : '';
+      const outText = outDisplay ? outDisplay.textContent : '';
+      
+      // Check if this day is completed (has both times and not awaiting)
+      if (isGreenCompleted || (inText && inText !== 'Not recorded yet' && outText && outText !== 'Awaiting checkout' && outText !== 'Not recorded yet')) {
+        subsequentCompletedDays.push(dayNum);
+      }
+    }
+  }
+  
+  // If there are completed days after this one, show confirmation
+  if (subsequentCompletedDays.length > 0) {
+    showRevertConfirmation(
+      dayNumber,
+      subsequentCompletedDays,
+      async () => {
+        // Confirmed: revert this day and all subsequent completed days
+        console.log('Confirming cascade revert for days:', dayNumber, subsequentCompletedDays);
+        await performRevert(dayNumber, timeType, caseSanctionId, caseId, false);
+        for (let day of subsequentCompletedDays) {
+          // Revert both check_in and check_out for subsequent days
+          console.log('Reverting cascade day:', day);
+          await performRevert(day, 'check_in', caseSanctionId, caseId, false);
+          await performRevert(day, 'check_out', caseSanctionId, caseId, false);
+        }
+        // Show final success message
+        showNotification('Day ' + dayNumber + ' and subsequent days reverted', 'success');
+        // Reopen the edit modal with refreshed data from first day
+        const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+        if (dayCard) {
+          const inDisplay = dayCard.querySelector('[data-check-in-display]');
+          const outDisplay = dayCard.querySelector('[data-check-out-display]');
+          const checkInTime = inDisplay ? inDisplay.textContent : '';
+          const checkOutTime = outDisplay && !outDisplay.classList.contains('italic') ? outDisplay.textContent : '';
+          const studentName = dayCard.getAttribute('data-student-name') || '';
+          const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
+          const hasCheckOut = !!checkOutTime && checkOutTime !== 'Awaiting checkout';
+          const isCompleted = checkInTime && checkInTime !== 'Not recorded yet' && hasCheckOut;
+          
+          const editBtn = dayCard.querySelector('.edit-menu-btn');
+          showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+        }
+      },
+      () => {
+        // Cancelled
+        showNotification('Revert cancelled', 'info');
+      }
+    );
+  } else {
+    // No subsequent days, just revert this one
+    await performRevert(dayNumber, timeType, caseSanctionId, caseId, true);
+  }
+}
+
+// Helper function to perform the actual revert
+async function performRevert(dayNumber, timeType, caseSanctionId, caseId, updateUI = true) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=revertTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=${timeType}`
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Update the day card immediately
+      const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+      if (dayCard) {
+        const inDisplay = dayCard.querySelector('[data-check-in-display]');
+        const outDisplay = dayCard.querySelector('[data-check-out-display]');
+        const toggleBtn = dayCard.querySelector('[data-toggle-btn]');
+        
+        if (timeType === 'check_in' && inDisplay) {
+          inDisplay.textContent = 'Not recorded yet';
+          inDisplay.classList.add('italic', 'text-gray-400', 'dark:text-gray-500');
+        } else if (timeType === 'check_out' && outDisplay) {
+          outDisplay.textContent = 'Not recorded yet';
+          outDisplay.classList.add('italic', 'text-gray-400', 'dark:text-gray-500');
+        }
+        
+        // If both times are now cleared, reset card to active state
+        const inText = inDisplay ? inDisplay.textContent : '';
+        const outText = outDisplay ? outDisplay.textContent : '';
+        if (inText === 'Not recorded yet' && outText === 'Not recorded yet') {
+          if (toggleBtn) {
+            toggleBtn.textContent = 'CHECK IN';
+            toggleBtn.classList.remove('bg-red-600', 'dark:bg-red-700', 'hover:bg-red-700');
+            toggleBtn.classList.add('bg-blue-600', 'dark:bg-blue-700', 'hover:bg-blue-700');
+            toggleBtn.style.display = '';
+            toggleBtn.onclick = () => toggleCheckInOut(dayNumber, caseId, caseSanctionId, false);
+          }
+          dayCard.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'border', 'border-green-200', 'dark:border-green-800');
+          dayCard.classList.add('bg-blue-50', 'dark:bg-blue-900/20', 'border-2', 'border-blue-400', 'dark:border-blue-500');
+          // Remove edit button if present
+          const editBtn = dayCard.querySelector('.edit-menu-btn');
+          if (editBtn) {
+            editBtn.remove();
+          }
+        }
+      }
+      
+      // If updateUI is true, update and reopen the modal immediately
+      if (updateUI) {
+        const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+        if (dayCard) {
+          const inDisplay = dayCard.querySelector('[data-check-in-display]');
+          const outDisplay = dayCard.querySelector('[data-check-out-display]');
+          const checkInTime = inDisplay ? inDisplay.textContent : '';
+          const checkOutTime = outDisplay && !outDisplay.classList.contains('italic') ? outDisplay.textContent : '';
+          const studentName = dayCard.getAttribute('data-student-name') || '';
+          const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
+          const hasCheckOut = !!checkOutTime && checkOutTime !== 'Awaiting checkout';
+          const isCompleted = checkInTime && checkInTime !== 'Not recorded yet' && hasCheckOut;
+          
+          const editBtn = dayCard.querySelector('.edit-menu-btn');
+          showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+        }
+      }
+    } else {
+      showNotification(result.error || 'Failed to revert time', 'error');
+    }
+  } catch (error) {
+    showNotification('Error: ' + error.message, 'error');
+    console.error('Revert time error:', error);
+  }
+}
+
+// Toggle check-in/check-out (single unified button)
+async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) {
+  const action = isCheckedIn ? 'manualCheckOut' : 'manualCheckIn';
+  const actionLabel = isCheckedIn ? 'Check Out' : 'Check In';
+  
+  try {
     const response = await fetch('/PrototypeDO/modules/do/cases.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=${action}&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
     });
     
+    if (!response.ok) {
+      showNotification('Server error: ' + response.status, 'error');
+      console.error('Response status:', response.status);
+      return;
+    }
+    
+    const text = await response.text();
+    console.log('Response text:', text);
+    
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      showNotification('Invalid response from server', 'error');
+      console.error('JSON parse error:', text);
+      return;
+    }
+    
+    if (result.success) {
+      showNotification(actionLabel + ' recorded at ' + result.time, 'success');
+      
+      // Find the day card and update the button
+      const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+      if (dayCard) {
+        if (isCheckedIn) {
+          // Just checked out - hide the button or disable it
+          const button = dayCard.querySelector('[data-toggle-btn]');
+          if (button) {
+            button.style.display = 'none';
+          }
+          // Update out time display
+          const outDisplay = dayCard.querySelector('[data-check-out-display]');
+          if (outDisplay) {
+            outDisplay.textContent = result.time;
+            outDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
+            outDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
+          }
+          // Change card styling to completed
+          dayCard.classList.remove('bg-blue-50', 'dark:bg-blue-900/20', 'border-2', 'border-blue-400', 'dark:border-blue-500');
+          dayCard.classList.add('bg-green-50', 'dark:bg-green-900/20', 'border', 'border-green-200', 'dark:border-green-800');
+        } else {
+          // Just checked in - change button to check out
+          const button = dayCard.querySelector('[data-toggle-btn]');
+          if (button) {
+            button.textContent = 'CHECK OUT';
+            button.classList.remove('bg-blue-600', 'dark:bg-blue-700', 'hover:bg-blue-700');
+            button.classList.add('bg-red-600', 'dark:bg-red-700', 'hover:bg-red-700');
+            button.onclick = () => toggleCheckInOut(dayNumber, caseId, caseSanctionId, true);
+          }
+          // Update in time display
+          const inDisplay = dayCard.querySelector('[data-check-in-display]');
+          if (inDisplay) {
+            inDisplay.textContent = result.time;
+            inDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
+            inDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
+          }
+          // Update out display to "Awaiting checkout"
+          const outDisplay = dayCard.querySelector('[data-check-out-display]');
+          if (outDisplay) {
+            outDisplay.textContent = 'Awaiting checkout';
+            outDisplay.classList.add('italic', 'text-gray-400', 'dark:text-gray-500');
+          }
+        }
+      }
+      
+      // Show edit button automatically
+      setTimeout(() => {
+        const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
+        if (dayCard && !dayCard.querySelector('.edit-menu-btn')) {
+          const inDisplay = dayCard.querySelector('[data-check-in-display]');
+          const outDisplay = dayCard.querySelector('[data-check-out-display]');
+          const checkInTime = inDisplay ? inDisplay.textContent : '';
+          const checkOutTime = outDisplay && !outDisplay.classList.contains('italic') ? outDisplay.textContent : '';
+          const studentName = dayCard.getAttribute('data-student-name') || '';
+          const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
+          const hasCheckOut = !!checkOutTime && checkOutTime !== 'Awaiting checkout';
+          const isCompleted = checkInTime && hasCheckOut;
+          
+          const editButton = document.createElement('button');
+          editButton.className = 'edit-menu-btn flex-shrink-0 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors';
+          editButton.title = 'Edit or Revert';
+          editButton.type = 'button';
+          editButton.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+          `;
+          editButton.onclick = (e) => {
+            e.preventDefault();
+            showEditMenu(editButton, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+          };
+          dayCard.insertBefore(editButton, dayCard.firstChild);
+        }
+      }, 100);
+
+      // Rebuild modal from backend state so progress/next active day always stays correct.
+      setTimeout(() => {
+        openCheckInModal(caseId);
+      }, 250);
+    } else {
+      showNotification(result.error || 'Failed to ' + actionLabel.toLowerCase(), 'error');
+      console.error('Backend error:', result);
+    }
+  } catch (error) {
+    showNotification('Error: ' + error.message, 'error');
+    console.error(actionLabel + ' error:', error);
+  }
+}
+
+// Manual check-in
+async function performCheckIn(dayNumber, caseId, caseSanctionId) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=manualCheckIn&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
+    });
+    
     const result = await response.json();
     
     if (result.success) {
-      // Show success message
-      const msg = action === 'recordCheckIn' ? 'Checked in at ' : 'Checked out at ';
+      document.querySelectorAll('[data-edit-menu]').forEach(menu => menu.remove());
+      showNotification('Checked in at ' + result.time, 'success');
       
-      // Close QR modal immediately
-      modalElement.remove();
-      
-      // Time is already formatted in PHP, just use it directly
-      const displayTime = result.time || 'just now';
-      
-      // Attempt instant day card update (no modal rebuild needed)
-      const updateSuccess = updateDayCardInModal(dayNumber, caseSanctionId, action, displayTime, studentName, sanctionName, caseId);
-      
-      // Show notification
-      showNotification(msg + displayTime, 'success');
-      
-      // If day card update failed or we need full refresh, reload modal after notification
-      if (!updateSuccess) {
-        setTimeout(() => {
-          if (caseId) {
-            refreshCheckInModalAfterAction(caseId);
-          } else {
-            loadCasesFromDB();
-          }
-        }, 2500); // Wait for notification to close before refreshing
-      }
+      // Refresh the check-in modal
+      setTimeout(() => {
+        openCheckInModal(caseId);
+      }, 500);
     } else {
-      showNotification(result.error || 'Failed to record check-in/out', 'error');
-      console.error('Check-in/out failed:', result);
+      showNotification(result.error || 'Failed to check in', 'error');
     }
   } catch (error) {
-    showNotification('Failed to record check-in/out: ' + error.message, 'error');
-    console.error('Check-in/out error:', error);
+    showNotification('Error: ' + error.message, 'error');
+    console.error('Check-in error:', error);
+  }
+}
+
+// Manual check-out
+async function performCheckOut(dayNumber, caseId, caseSanctionId) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=manualCheckOut&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      document.querySelectorAll('[data-edit-menu]').forEach(menu => menu.remove());
+      showNotification('Checked out at ' + result.time, 'success');
+      
+      // Refresh the check-in modal
+      setTimeout(() => {
+        openCheckInModal(caseId);
+      }, 500);
+    } else {
+      showNotification(result.error || 'Failed to check out', 'error');
+    }
+  } catch (error) {
+    showNotification('Error: ' + error.message, 'error');
+    console.error('Check-out error:', error);
   }
 }

@@ -422,11 +422,6 @@ if ($_POST['action'] === 'getCheckInHistory') {
 }
 
 // ====== Check-In / Check-Out Recording ======
-// NOTE: Future Enhancement - QR Scanner Integration
-// When QR scanner is implemented, these endpoints will be called automatically when:
-// 1. Student scans QR for check-in → recordCheckIn is called with the scanned data
-// 2. Student scans QR for check-out → recordCheckOut is called with the scanned data
-// Currently they are called via manual button clicks in the QR modal
 
 // Record check-in (student arrival)
 if ($_POST['action'] === 'recordCheckIn') {
@@ -448,15 +443,11 @@ if ($_POST['action'] === 'recordCheckIn') {
     $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
 
     if ($existing) {
-        // Update existing check-in time if not already set
-        if ($existing['check_in_time'] === null) {
-            $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
-                    WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
-            executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
-            echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Already checked in today']);
-        }
+        // Allow repeated check-ins by updating the latest check-in time for today.
+        $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+        executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
+        echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     } else {
         // Insert new check-in record
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
@@ -498,6 +489,176 @@ if ($_POST['action'] === 'recordCheckOut') {
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, $today]);
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     }
+    exit;
+}
+
+// Manual check-in (record current time for a specific day)
+if ($_POST['action'] === 'manualCheckIn') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    
+    if (!$caseSanctionId || !$dayNumber) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $today = date('Y-m-d');
+    $displayTime = date('H:i');
+
+    // Check if record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if ($existing) {
+        // Allow repeated check-ins by updating the current check-in time.
+        $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+        executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
+    } else {
+        // Create new check-in record
+        $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
+                VALUES (?, ?, ?, ?)";
+        executeQuery($sql, [$caseSanctionId, $dayNumber, $now, $today]);
+    }
+    
+    error_log("Manual check-in: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
+    echo json_encode(['success' => true, 'message' => 'Manual check-in recorded', 'time' => $displayTime]);
+    exit;
+}
+
+// Manual check-out (record current time for a specific day)
+if ($_POST['action'] === 'manualCheckOut') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    
+    if (!$caseSanctionId || !$dayNumber) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $today = date('Y-m-d');
+    $displayTime = date('H:i');
+
+    // Check if record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if ($existing) {
+        // Existing record - update check-out time
+        $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+        executeQuery($sql, [$now, $now, $caseSanctionId, $dayNumber, $today]);
+    } else {
+        // Create new record with only check-out time
+        $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_out_time, check_in_date) 
+                VALUES (?, ?, ?, ?)";
+        executeQuery($sql, [$caseSanctionId, $dayNumber, $now, $today]);
+    }
+    
+    error_log("Manual check-out: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
+    echo json_encode(['success' => true, 'message' => 'Manual check-out recorded', 'time' => $displayTime]);
+    exit;
+}
+
+// Correct/edit check-in or check-out time manually
+if ($_POST['action'] === 'correctTime') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    $timeType = $_POST['timeType'] ?? null; // 'check_in' or 'check_out'
+    $correctedTime = $_POST['correctedTime'] ?? null; // Format: HH:MM
+
+    if (!$caseSanctionId || !$dayNumber || !$timeType || !$correctedTime) {
+        echo json_encode(['success' => false, 'error' => 'Missing required parameters']);
+        exit;
+    }
+
+    // Validate time format
+    if (!preg_match('/^\d{2}:\d{2}$/', $correctedTime)) {
+        echo json_encode(['success' => false, 'error' => 'Invalid time format. Use HH:MM']);
+        exit;
+    }
+
+    $today = date('Y-m-d');
+    
+    // Check if record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if (!$existing) {
+        echo json_encode(['success' => false, 'error' => 'No check-in record found for this day']);
+        exit;
+    }
+
+    // Build the corrected time with today's date
+    $correctedDateTime = $today . ' ' . $correctedTime . ':00';
+
+    // Update the appropriate time field
+    if ($timeType === 'check_in') {
+        $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    } else if ($timeType === 'check_out') {
+        $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Invalid time type']);
+        exit;
+    }
+
+    executeQuery($sql, [$correctedDateTime, date('Y-m-d H:i:s'), $caseSanctionId, $dayNumber, $today]);
+    
+    error_log("Time correction: Case Sanction $caseSanctionId, Day $dayNumber, $timeType corrected to $correctedTime");
+    
+    echo json_encode(['success' => true, 'message' => 'Time corrected successfully', 'time' => $correctedTime]);
+    exit;
+}
+
+// Revert check-in or check-out time
+if ($_POST['action'] === 'revertTime') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $dayNumber = intval($_POST['dayNumber'] ?? 0);
+    $timeType = $_POST['timeType'] ?? null; // 'check_in' or 'check_out'
+
+    if (!$caseSanctionId || !$dayNumber || !$timeType) {
+        echo json_encode(['success' => false, 'error' => 'Missing required parameters']);
+        exit;
+    }
+
+    if (!in_array($timeType, ['check_in', 'check_out'])) {
+        echo json_encode(['success' => false, 'error' => 'Invalid time type']);
+        exit;
+    }
+
+    $today = date('Y-m-d');
+    
+    // Check if record exists for this day
+    $checkSql = "SELECT * FROM case_checkins 
+                 WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber, $today]);
+
+    if (!$existing) {
+        echo json_encode(['success' => false, 'error' => 'No check-in record found for this day']);
+        exit;
+    }
+
+    // Revert the appropriate time field to NULL
+    if ($timeType === 'check_in') {
+        $sql = "UPDATE case_checkins SET check_in_time = NULL, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    } else if ($timeType === 'check_out') {
+        $sql = "UPDATE case_checkins SET check_out_time = NULL, updated_at = ? 
+                WHERE case_sanction_id = ? AND day_number = ? AND check_in_date = ?";
+    }
+
+    executeQuery($sql, [date('Y-m-d H:i:s'), $caseSanctionId, $dayNumber, $today]);
+    
+    error_log("Time revert: Case Sanction $caseSanctionId, Day $dayNumber, $timeType reverted");
+    
+    echo json_encode(['success' => true, 'message' => 'Time reverted successfully']);
     exit;
 }
 
