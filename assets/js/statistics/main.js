@@ -417,6 +417,20 @@ async function updateMonthlyTrends() {
 
 // Export statistics
 function exportStatistics() {
-    alert('Export functionality - Generate PDF/Excel report with current statistics');
-    // TODO: Implement actual export functionality
+    const dateRange = document.getElementById('dateRangeFilter')?.value || 'this_year';
+    const gradeLevel = document.getElementById('gradeLevelFilter')?.value || '';
+    const yearLevel = document.getElementById('yearLevelFilter')?.value || '';
+    const strand = document.getElementById('strandFilter')?.value || '';
+    const course = document.getElementById('courseFilter')?.value || '';
+    
+    // Build query string for reports.php
+    const params = new URLSearchParams();
+    params.append('dateRange', dateRange);
+    if (gradeLevel) params.append('gradeLevel', gradeLevel);
+    if (yearLevel) params.append('yearLevel', yearLevel);
+    if (strand) params.append('strand', strand);
+    if (course) params.append('course', course);
+    
+    // Redirect to reports.php with current filters
+    window.location.href = '/PrototypeDO/modules/do/reports.php?' + params.toString();
 }

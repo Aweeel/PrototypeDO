@@ -3,6 +3,7 @@ let allLogs = [];
 let filteredLogs = [];
 let currentPage = 1;
 const logsPerPage = 10;
+let ADMIN_NAME = '';
 let currentFilters = {
     search: '',
     actionType: '',
@@ -13,9 +14,21 @@ let currentFilters = {
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
+    ADMIN_NAME = window.ADMIN_NAME || document.querySelector('meta[data-admin-name]')?.content || 'User';
+    console.log('Final ADMIN_NAME:', ADMIN_NAME);
     loadUsers();
     loadActionTypes();
     loadLogs();
+    
+    // Close modal on outside click
+    const modal = document.getElementById('exportModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeExportModal();
+            }
+        });
+    }
 });
 
 // Load users for filter dropdown
@@ -240,6 +253,181 @@ function clearDateFilter() {
     loadLogs();
 }
 
+// Refresh logs
+function refreshLogs() {
+    loadLogs();
+}
+
+// Export logs to CSV
+function exportLogs() {
+    try {
+        // Load current logs and show preview modal
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getAuditLogs');
+        formData.append('search', currentFilters.search);
+        formData.append('actionType', currentFilters.actionType);
+        formData.append('user', currentFilters.user);
+        formData.append('dateFrom', currentFilters.dateFrom);
+        formData.append('dateTo', currentFilters.dateTo);
+
+        fetch(window.location.href, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Generate filters summary
+                    const filters = [];
+                    if (currentFilters.search) filters.push(`Search: "${currentFilters.search}"`);
+                    if (currentFilters.actionType) filters.push(`Action: ${currentFilters.actionType}`);
+                    if (currentFilters.user) filters.push(`User: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
+                    if (currentFilters.dateFrom) filters.push(`From: ${currentFilters.dateFrom}`);
+                    if (currentFilters.dateTo) filters.push(`To: ${currentFilters.dateTo}`);
+                    
+                    document.getElementById('filtersSummary').textContent = 
+                        filters.length > 0 ? filters.join(' | ') : 'None';
+                    
+                    document.getElementById('exportCount').textContent = 
+                        `${data.logs.length} ${data.logs.length === 1 ? 'log' : 'logs'} found`;
+                    
+                    // Build preview table
+                    buildExportPreview(data.logs);
+                    
+                    // Show modal
+                    document.getElementById('exportModal').classList.remove('hidden');
+                }
+            })
+            .catch(err => {
+                console.error('Error preparing export:', err);
+                showNotification('Error preparing export', 'error');
+            });
+    } catch (error) {
+        console.error('Error exporting logs:', error);
+        showNotification('Error exporting logs', 'error');
+    }
+}
+
+function buildExportPreview(logs) {
+    const content = document.getElementById('exportPreviewContent');
+    const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    
+    if (logs.length === 0) {
+        content.innerHTML = `
+            <div class="text-center text-gray-500 py-12">
+                <p class="text-lg font-medium">No audit logs to export</p>
+                <p class="text-sm mt-1">Try adjusting your filters</p>
+            </div>`;
+        return;
+    }
+    
+    let html = `
+        <div class="mb-4 pb-4 border-b border-gray-200 dark:border-slate-700">
+            <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">STI Discipline Office – Audit Log Report</h4>
+            <div class="grid grid-cols-2 gap-4 text-xs text-gray-600 dark:text-gray-400">
+                <div>
+                    <span class="font-medium">Exported by:</span> ${ADMIN_NAME}
+                </div>
+                <div>
+                    <span class="font-medium">Date & Time:</span> ${today}
+                </div>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                    <tr>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Log ID</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">User</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Role</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Action</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Timestamp</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">IP Address</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-slate-700">`;
+    
+    logs.forEach(log => {
+        html += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-slate-800">
+                        <td class="px-3 py-2 text-gray-900 dark:text-gray-100">#${log.id}</td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.user}</td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.role}</td>
+                        <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs font-semibold ${log.actionColor}">${log.action}</span></td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.timestamp}</td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.ipAddress}</td>
+                    </tr>`;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>`;
+    
+    content.innerHTML = html;
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.add('hidden');
+}
+
+function exportAuditLogsCSV() {
+    try {
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'exportLogs');
+        formData.append('search', currentFilters.search);
+        formData.append('actionType', currentFilters.actionType);
+        formData.append('user', currentFilters.user);
+        formData.append('dateFrom', currentFilters.dateFrom);
+        formData.append('dateTo', currentFilters.dateTo);
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.href;
+        
+        for (let [key, value] of formData.entries()) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+
+        showNotification('Audit log export started', 'success');
+        closeExportModal();
+    } catch (error) {
+        console.error('Error exporting CSV:', error);
+        showNotification('Error exporting CSV', 'error');
+    }
+}
+
+function printAuditReport() {
+    try {
+        const printRoot = document.getElementById('print-root');
+        
+        if (!printRoot) {
+            throw new Error('Print root element not found in DOM');
+        }
+
+        let previewContent = document.getElementById('exportPreviewContent').innerHTML;
+        
+        printRoot.innerHTML = `
+            <div class="flex justify-between items-center border-b-2 border-blue-700 pb-2 mb-4 font-sans">
+                <span class="font-bold text-blue-700 text-sm">STI Discipline Office</span>
+                <span class="text-xs text-gray-600">By: ${ADMIN_NAME}</span>
+            </div>
+            <div class="preview-wrap">${previewContent}</div>`;
+
+        console.log('Print preview ready for audit logs');
+        window.print();
+    } catch (e) {
+        console.error('Print Report Error:', e);
+        showNotification('Failed to prepare print', 'error');
+    }
+}
 
 // Notifications
 function showNotification(message, type = 'info') {

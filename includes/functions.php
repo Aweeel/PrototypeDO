@@ -1160,7 +1160,7 @@ function get_sidebar_items($role) {
                 'icon' => 'cases-icon.png'
             ],
             [
-                'label' => 'Statistics',
+                'label' => 'Statistics & Reports',
                 'path' => '/PrototypeDO/modules/do/statistics.php',
                 'icon' => 'statistics-icon.png'
             ],
@@ -1173,11 +1173,6 @@ function get_sidebar_items($role) {
                 'label' => 'Student List',
                 'path' => '/PrototypeDO/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
-            ],
-            [
-                'label' => 'Reports',
-                'path' => '/PrototypeDO/modules/do/reports.php',
-                'icon' => 'reports-icon.png'
             ],
             [
                 'label' => 'Calendar',
@@ -1213,7 +1208,7 @@ function get_sidebar_items($role) {
                 'icon' => 'cases-icon.png'
             ],
             [
-                'label' => 'Statistics',
+                'label' => 'Statistics & Reports',
                 'path' => '/PrototypeDO/modules/do/statistics.php',
                 'icon' => 'statistics-icon.png'
             ],
@@ -1226,11 +1221,6 @@ function get_sidebar_items($role) {
                 'label' => 'Student List',
                 'path' => '/PrototypeDO/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
-            ],
-            [
-                'label' => 'Reports',
-                'path' => '/PrototypeDO/modules/do/reports.php',
-                'icon' => 'reports-icon.png'
             ],
             [
                 'label' => 'Calendar',
