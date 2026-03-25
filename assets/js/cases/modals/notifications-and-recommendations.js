@@ -7,7 +7,7 @@ function showLoadingToast(message) {
   const toast = document.createElement("div");
   toast.id = "loadingToast";
   toast.className =
-    "fixed top-4 right-4 z-50 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 flex items-center gap-3 border border-gray-200 dark:border-slate-700";
+    "fixed top-4 right-4 z-[1000] bg-white dark:bg-slate-800 rounded-lg shadow-lg p-4 flex items-center gap-3 border border-gray-200 dark:border-slate-700";
   toast.innerHTML = `
         <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -48,7 +48,7 @@ function showNotification(message, type = 'success', onClose = null) {
     iconSVG = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
   }
 
-  toast.className = 'fixed top-4 right-4 z-50 ' + bgColor + ' text-white rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-md';
+  toast.className = 'fixed top-4 right-4 z-[1000] ' + bgColor + ' text-white rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-md';
   toast.innerHTML = iconSVG + '<span class="text-sm font-medium">' + message + '</span>';
 
   document.body.appendChild(toast);

@@ -1,4 +1,142 @@
-﻿// ====== COMMUNITY SERVICE CHECK-IN ======
+﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
+
+function convertTo24Hour(timeStr) {
+  if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return '';
+  
+  // If already in 24-hour format (HH:MM)
+  if (/^\d{2}:\d{2}$/.test(timeStr)) {
+    return timeStr;
+  }
+  
+  // Convert from 12-hour AM/PM format
+  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const meridiem = match[3].toUpperCase();
+    
+    if (meridiem === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (meridiem === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  }
+  
+  return '';
+}
+
+function convertTo12Hour(timeStr) {
+  if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return timeStr;
+  
+  const match = timeStr.match(/^(\d{2}):(\d{2})/);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const meridiem = hours >= 12 ? 'PM' : 'AM';
+    
+    if (hours > 12) {
+      hours -= 12;
+    } else if (hours === 0) {
+      hours = 12;
+    }
+    
+    return `${hours}:${minutes} ${meridiem}`;
+  }
+  
+  return timeStr;
+}
+
+function updateCaseCheckInIcon(caseId, isCompleted) {
+  const iconBtn = document.querySelector(`[data-case-checkin-icon="true"][data-case-id="${caseId}"]`);
+  if (!iconBtn) return;
+
+  iconBtn.classList.remove(
+    'text-orange-500',
+    'hover:text-orange-600',
+    'dark:text-orange-400',
+    'dark:hover:text-orange-300',
+    'text-green-600',
+    'hover:text-green-700',
+    'dark:text-green-400',
+    'dark:hover:text-green-300'
+  );
+
+  if (isCompleted) {
+    iconBtn.classList.add('text-green-600', 'hover:text-green-700', 'dark:text-green-400', 'dark:hover:text-green-300');
+    iconBtn.title = 'Check-In Complete (100%)';
+  } else {
+    iconBtn.classList.add('text-orange-500', 'hover:text-orange-600', 'dark:text-orange-400', 'dark:hover:text-orange-300');
+    iconBtn.title = 'Check-In In Progress';
+  }
+}
+
+// Refresh modal content without closing/reopening (prevents flashing)
+async function refreshCheckInModalContent(caseId) {
+  const modal = document.querySelector('[data-checkin-modal="true"]');
+  if (!modal) return;
+
+  const caseData = allCases.find(c => c.id === caseId);
+  if (!caseData) return;
+
+  // Load check-in history
+  const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+  });
+  const result = await response.json();
+  
+  if (!result.success || !result.sanctions.length) {
+    return; // No data, don't update
+  }
+
+  // Get the sanction data
+  const sanction = result.sanctions[0];
+  const totalDays = sanction.duration_days;
+  const days = sanction.days;
+  
+  // Calculate completed days and active day
+  const completedDays = Object.values(days).filter(d => d.check_in_time && d.check_out_time).length;
+  const progressPercent = Math.round((completedDays / totalDays) * 100);
+  updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0);
+
+  // Update progress bar
+  const progressBar = modal.querySelector('[data-progress-bar]');
+  if (progressBar) {
+    progressBar.style.width = progressPercent + '%';
+  }
+
+  const progressText = modal.querySelector('[data-progress-text]');
+  if (progressText) {
+    progressText.textContent = progressPercent + '% done';
+  }
+
+  // Update completed count
+  const heading = modal.querySelector('.flex.items-center.justify-between');
+  if (heading) {
+    const completedSpan = heading.querySelector('span:nth-child(2)');
+    if (completedSpan && completedSpan.textContent.includes('/')) {
+      completedSpan.textContent = completedDays + ' / ' + totalDays + ' days completed';
+    }
+  }
+
+  // Refresh day cards
+  const dayCardsContainer = modal.querySelector('.space-y-2.overflow-y-auto');
+  if (dayCardsContainer) {
+    // Get student and sanction names
+    const studentName = caseData.student;
+    const sanctionName = sanction.sanction_name || 'Community Service';
+    const caseSanctionId = sanction.case_sanction_id;
+
+    // Rebuild day cards HTML
+    const dayCardsHTML = getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId);
+    dayCardsContainer.innerHTML = dayCardsHTML;
+  }
+}
+
+// ====== COMMUNITY SERVICE CHECK-IN ======
 
 async function openCheckInModal(caseId) {
   // Prevent stacked/duplicate check-in modals when refreshing after actions.
@@ -184,15 +322,15 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
     const isActiveDay = day === activeDayNum;
     
     if (isCompleted) {
-      const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const outTime = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inTime = convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
+      const outTime = convertTo12Hour(new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
       const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       const outTimeHHMM = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
         <div class="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800" data-day-card data-day="${day}" data-student-name="${escapedStudent}" data-sanction-name="${escapedSanction}">
-          <button onclick="showEditMenu(this, ${day}, '${caseId}', '${escapedStudent}', '${escapedSanction}', ${caseSanctionId}, '${inTimeHHMM}', '${outTimeHHMM}', true, true)" title="Edit or Revert" class="flex-shrink-0 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
+          <button onclick="showEditMenu(this, ${day}, '${caseId}', '${escapedStudent}', '${escapedSanction}', ${caseSanctionId}, '${inTimeHHMM}', '${outTimeHHMM}', true, true)" class="flex-shrink-0 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
@@ -219,12 +357,17 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
           <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
         </div>`;
     } else if (hasCheckIn) {
-      const inTime = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inTime = convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
       const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
         <div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500" data-day-card data-day="${day}" data-student-name="${escapedStudent}" data-sanction-name="${escapedSanction}">
+          <button onclick="showEditMenu(this, ${day}, '${caseId}', '${escapedStudent}', '${escapedSanction}', ${caseSanctionId}, '${inTimeHHMM}', '', false, false)" class="edit-menu-btn flex-shrink-0 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
           <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
             <span class="text-white text-xs font-bold">${day}</span>
           </div>
@@ -242,7 +385,7 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
             </div>
           </div>
           <div class="flex-shrink-0 flex items-center gap-2">
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, true); return false;" data-toggle-btn class="px-4 py-1.5 bg-red-600 dark:bg-red-700 text-white text-xs font-semibold rounded hover:bg-red-700 transition-colors cursor-pointer">CHECK OUT</button>
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, true); return false;" data-toggle-btn class="px-4 py-1.5 bg-red-600 dark:bg-red-700 text-white text-xs font-semibold rounded hover:bg-red-700 dark:hover:bg-red-600 transition-colors cursor-pointer">CHECK OUT</button>
           </div>
         </div>`;
     } else if (isActiveDay) {
@@ -268,7 +411,7 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
             </div>
           </div>
           <div class="flex-shrink-0 flex items-center gap-2">
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, false); return false;" data-toggle-btn class="px-4 py-1.5 bg-blue-600 dark:bg-blue-700 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors cursor-pointer">CHECK IN</button>
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleCheckInOut(${day}, '${caseId}', ${caseSanctionId}, false); return false;" data-toggle-btn class="px-4 py-1.5 bg-blue-600 dark:bg-blue-700 text-white text-xs font-semibold rounded hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors cursor-pointer">CHECK IN</button>
           </div>
         </div>`;
     } else {
@@ -359,12 +502,15 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
 // ====== TIME CORRECTION MODAL ======
 
 function showTimeCorrectionModal(dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime = '', checkOutTime = '') {
-  // Remove any existing time correction modal only
-  document.querySelectorAll('.fixed.inset-0.flex.items-center.justify-center').forEach(el => el.remove());
+  // Remove only existing time correction modal; keep the check-in modal intact.
+  document.querySelectorAll('[data-time-correction-modal="true"]').forEach(el => el.remove());
+
+  const hasExistingCheckOut = !!checkOutTime;
   
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
   modal.setAttribute('data-case-id', caseId);
+  modal.setAttribute('data-time-correction-modal', 'true');
   
   const now = new Date();
   const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -374,7 +520,7 @@ function showTimeCorrectionModal(dayNumber, caseId, studentName, sanctionName, c
       <!-- Header -->
       <div class="flex items-center justify-between mb-5">
         <div>
-          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Correct Time</h3>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Edit Time</h3>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Day ${dayNumber} &bull; Check In & Check Out</p>
         </div>
         <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -384,31 +530,16 @@ function showTimeCorrectionModal(dayNumber, caseId, studentName, sanctionName, c
         </button>
       </div>
 
-      <!-- Information -->
-      <div class="mb-5 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-        <div class="flex items-start gap-3">
-          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <div>
-            <p class="text-sm font-medium text-blue-900 dark:text-blue-300">Edit check in and check out times</p>
-            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Enter times in HH:MM format (24-hour). Current time: ${currentTime}</p>
-          </div>
-        </div>
-      </div>
-
       <!-- Check In Time -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check In Time (HH:MM)</label>
-        <input type="text" id="checkInInput" class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400" placeholder="08:30" value="${checkInTime}" />
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check In</label>
+        <input type="time" id="checkInInput" class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400" value="${convertTo24Hour(checkInTime)}" />
       </div>
 
       <!-- Check Out Time -->
       <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check Out Time (HH:MM)</label>
-        <input type="text" id="checkOutInput" class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400" placeholder="16:45" value="${checkOutTime}" />
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Check Out</label>
+        <input type="time" id="checkOutInput" ${hasExistingCheckOut ? '' : 'disabled'} class="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${hasExistingCheckOut ? '' : 'opacity-60 cursor-not-allowed'}" value="${convertTo24Hour(checkOutTime)}" />
       </div>
 
       <!-- Actions -->
@@ -418,7 +549,7 @@ function showTimeCorrectionModal(dayNumber, caseId, studentName, sanctionName, c
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
           </svg>
-          Save Times
+          Save
         </button>
         <button onclick="this.closest('.fixed').remove()"
           class="flex-1 flex items-center justify-center px-4 py-2.5 text-sm border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
@@ -441,7 +572,7 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
   const checkInInput = modal.querySelector('#checkInInput');
   const checkOutInput = modal.querySelector('#checkOutInput');
   const checkInValue = checkInInput.value.trim();
-  const checkOutValue = checkOutInput.value.trim();
+  const checkOutValue = checkOutInput.disabled ? '' : checkOutInput.value.trim();
   
   // At least one time must be entered
   if (!checkInValue && !checkOutValue) {
@@ -449,14 +580,14 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     return;
   }
 
-  // Validate time format HH:MM if provided
+  // Validate time format HH:MM if provided (time input gives HH:MM format)
   if (checkInValue && !/^\d{2}:\d{2}$/.test(checkInValue)) {
-    showNotification('Invalid check-in time format. Use HH:MM (e.g., 08:30)', 'error');
+    showNotification('Invalid check-in time format', 'error');
     return;
   }
   
   if (checkOutValue && !/^\d{2}:\d{2}$/.test(checkOutValue)) {
-    showNotification('Invalid check-out time format. Use HH:MM (e.g., 16:45)', 'error');
+    showNotification('Invalid check-out time format', 'error');
     return;
   }
 
@@ -494,37 +625,9 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     modal.remove();
     showNotification('Times saved successfully', 'success');
     
-    // Keep edit modal open and update it with new times
+    // Refresh in place so the check-in modal stays open.
     setTimeout(() => {
-      const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
-      if (dayCard) {
-        // Update the day card display with new times
-        const inDisplay = dayCard.querySelector('[data-check-in-display]');
-        const outDisplay = dayCard.querySelector('[data-check-out-display]');
-        
-        if (checkInValue && inDisplay) {
-          inDisplay.textContent = checkInValue;
-          inDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
-          inDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
-        }
-        
-        if (checkOutValue && outDisplay) {
-          outDisplay.textContent = checkOutValue;
-          outDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
-          outDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
-        }
-        
-        // Reopen the edit modal with updated data
-        const editBtn = dayCard.querySelector('.edit-menu-btn');
-        const inDisplayText = inDisplay ? inDisplay.textContent : '';
-        const outDisplayText = outDisplay ? outDisplay.textContent : '';
-        const studentName = dayCard.getAttribute('data-student-name') || '';
-        const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
-        const hasCheckOut = !!outDisplayText && outDisplayText !== 'Awaiting checkout';
-        const isCompleted = inDisplayText && inDisplayText !== 'Not recorded yet' && hasCheckOut;
-        
-        showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, inDisplayText, outDisplayText, hasCheckOut, isCompleted);
-      }
+      refreshCheckInModalContent(caseId);
     }, 100);
   } catch (error) {
     showNotification('Error: ' + error.message, 'error');
@@ -544,45 +647,32 @@ function showEditMenu(buttonEl, dayNumber, caseId, studentName, sanctionName, ca
   // Create modal overlay
   const overlay = document.createElement('div');
   overlay.setAttribute('data-edit-modal-overlay', 'true');
-  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100;';
+  overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[100] p-4';
   
   // Create modal container
   const modal = document.createElement('div');
   modal.setAttribute('data-edit-modal', 'true');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 0.75rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    z-index: 101;
-    min-width: 300px;
-    max-width: 400px;
-    padding: 0;
-    overflow: hidden;
-  `;
+  modal.className = 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 rounded-xl shadow-2xl w-full max-w-sm p-6';
   
-  // Add dark mode support
-  modal.style.backgroundColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : 'white';
-  modal.style.color = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#000';
-  
-  let modalHTML = '<div style="padding: 1.5rem;">';
-  modalHTML += `<h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: inherit;">Manage Day ${dayNumber}</h3>`;
+  let modalHTML = '<div class="space-y-2">';
+  modalHTML += `<h3 class="text-lg font-semibold mb-3">Manage Day ${dayNumber}</h3>`;
   
   // Edit Time option
   if (checkInTime || checkOutTime) {
-    modalHTML += `<button onclick="showTimeCorrectionModal(${dayNumber}, '${caseId}', '${studentName}', '${sanctionName}', ${caseSanctionId}, '${checkInTime}', '${checkOutTime}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Edit Time</button>`;
+    modalHTML += `<button onclick="showTimeCorrectionModal(${dayNumber}, '${caseId}', '${studentName}', '${sanctionName}', ${caseSanctionId}, '${checkInTime}', '${checkOutTime}'); document.querySelector('[data-edit-modal-overlay]').remove();" class="w-full px-4 py-3 text-left text-sm rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Edit Time</button>`;
   }
   
   // Revert options (only Revert Check In)
   if (isCompleted) {
     // Both times exist - can revert check in
-    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
+    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}'); document.querySelector('[data-edit-modal-overlay]').remove();" class="w-full px-4 py-3 text-left text-sm rounded-lg border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
   } else if (checkInTime) {
     // Only check-in time exists
-    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}');" style="width: 100%; padding: 0.75rem 1rem; text-align: left; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; border-radius: 0.375rem;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
+    modalHTML += `<button onclick="revertTime(${dayNumber}, 'check_in', ${caseSanctionId}, '${caseId}'); document.querySelector('[data-edit-modal-overlay]').remove();" class="w-full px-4 py-3 text-left text-sm rounded-lg border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Revert Check In</button>`;
   }
   
   // Close button
-  modalHTML += `<button onclick="document.querySelector('[data-edit-modal-overlay]').remove();" style="width: 100%; padding: 0.75rem 1rem; text-align: center; background: none; border: 1px solid #d1d5db; color: inherit; cursor: pointer; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; margin-top: 0.5rem;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">Close</button>`;
+  modalHTML += `<button onclick="document.querySelector('[data-edit-modal-overlay]').remove();" class="w-full mt-2 px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">Close</button>`;
   
   modalHTML += '</div>';
   modal.innerHTML = modalHTML;
@@ -602,45 +692,37 @@ function showEditMenu(buttonEl, dayNumber, caseId, studentName, sanctionName, ca
 function showRevertConfirmation(dayNumber, subsequentDays, onConfirm, onCancel) {
   const overlay = document.createElement('div');
   overlay.setAttribute('data-confirm-overlay', 'true');
-  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 102;';
+  overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[102] p-4';
   
   const modal = document.createElement('div');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 0.75rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    z-index: 103;
-    min-width: 350px;
-    max-width: 450px;
-    padding: 1.5rem;
-    overflow: hidden;
-  `;
+  modal.className = 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 rounded-xl shadow-2xl w-full max-w-md p-6';
   
-  modal.style.backgroundColor = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : 'white';
-  modal.style.color = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#000';
-  
-  let daysText = subsequentDays.length === 1 ? `day ${subsequentDays[0]}` : `days ${subsequentDays.join(', ')}`;
+  const hasSubsequentDays = subsequentDays.length > 0;
+  let daysText = '';
+  if (hasSubsequentDays) {
+    daysText = subsequentDays.length === 1 ? `day ${subsequentDays[0]}` : `days ${subsequentDays.join(', ')}`;
+  }
   
   let html = `
-    <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
-      <svg class="w-6 h-6" style="flex-shrink: 0; color: #f59e0b; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex gap-3 mb-4">
+      <svg class="w-6 h-6 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2m0-14a9 9 0 110 18 9 9 0 010-18zm0 2a7 7 0 100 14 7 7 0 000-14z"/>
       </svg>
       <div>
-        <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; color: inherit;">Revert Day ${dayNumber}?</h3>
-        <p style="font-size: 0.875rem; color: #ef4444;">⚠️ Warning: Reverting will also clear ${daysText}</p>
+        <h3 class="text-lg font-semibold mb-1">Revert Day ${dayNumber}?</h3>
+        <p class="text-sm text-red-600 dark:text-red-400">${hasSubsequentDays ? `Warning: Reverting will also clear ${daysText}` : 'Warning: This will clear the selected day and cannot be undone'}</p>
       </div>
     </div>
     
-    <p style="font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5; color: inherit;">
-      Day ${dayNumber} and the following completed day(s) ${daysText} will be reverted. This cannot be undone.
+    <p class="text-sm text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+      ${hasSubsequentDays ? `Day ${dayNumber} and the following in-process/completed day(s) ${daysText} will be reverted.` : `Day ${dayNumber} will be reverted.`} This cannot be undone.
     </p>
     
-    <div style="display: flex; gap: 0.75rem;">
-      <button data-action="confirm" style="flex: 1; padding: 0.75rem 1rem; background: #ef4444; color: white; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; font-size: 0.875rem;">
+    <div class="flex gap-3">
+      <button data-action="confirm" class="flex-1 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
         Revert All
       </button>
-      <button data-action="cancel" style="flex: 1; padding: 0.75rem 1rem; background: #e5e7eb; color: #1f2937; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; font-size: 0.875rem;">
+      <button data-action="cancel" class="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
         Cancel
       </button>
     </div>
@@ -664,21 +746,6 @@ function showRevertConfirmation(dayNumber, subsequentDays, onConfirm, onCancel) 
     onCancel();
   });
   
-  // Add hover effects
-  confirmBtn.addEventListener('mouseover', () => {
-    confirmBtn.style.background = '#dc2626';
-  });
-  confirmBtn.addEventListener('mouseout', () => {
-    confirmBtn.style.background = '#ef4444';
-  });
-  
-  cancelBtn.addEventListener('mouseover', () => {
-    cancelBtn.style.background = '#d1d5db';
-  });
-  cancelBtn.addEventListener('mouseout', () => {
-    cancelBtn.style.background = '#e5e7eb';
-  });
-  
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
@@ -690,36 +757,35 @@ function showRevertConfirmation(dayNumber, subsequentDays, onConfirm, onCancel) 
 
 // Revert check-in or check-out time
 async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
-  // Check for subsequently completed days
+  // Check for subsequently completed or in-process days
   const allDayCards = document.querySelectorAll('[data-day-card]');
-  const subsequentCompletedDays = [];
+  const subsequentDays = [];
   
   for (let card of allDayCards) {
     const dayNum = parseInt(card.getAttribute('data-day'));
     if (dayNum > dayNumber) {
-      const isGreenCompleted = card.classList.contains('bg-green-50') || card.classList.contains('dark:bg-green-900/20');
       const inDisplay = card.querySelector('[data-check-in-display]');
       const outDisplay = card.querySelector('[data-check-out-display]');
       const inText = inDisplay ? inDisplay.textContent : '';
       const outText = outDisplay ? outDisplay.textContent : '';
       
-      // Check if this day is completed (has both times and not awaiting)
-      if (isGreenCompleted || (inText && inText !== 'Not recorded yet' && outText && outText !== 'Awaiting checkout' && outText !== 'Not recorded yet')) {
-        subsequentCompletedDays.push(dayNum);
+      // Check if this day has any check-in (completed or in-process)
+      if (inText && inText !== 'Not recorded yet') {
+        subsequentDays.push(dayNum);
       }
     }
   }
   
-  // If there are completed days after this one, show confirmation
-  if (subsequentCompletedDays.length > 0) {
-    showRevertConfirmation(
-      dayNumber,
-      subsequentCompletedDays,
-      async () => {
-        // Confirmed: revert this day and all subsequent completed days
-        console.log('Confirming cascade revert for days:', dayNumber, subsequentCompletedDays);
+  // Always show confirmation before any revert.
+  showRevertConfirmation(
+    dayNumber,
+    subsequentDays,
+    async () => {
+      if (subsequentDays.length > 0) {
+        // Confirmed: revert this day and all subsequent days with data
+        console.log('Confirming cascade revert for days:', dayNumber, subsequentDays);
         await performRevert(dayNumber, timeType, caseSanctionId, caseId, false);
-        for (let day of subsequentCompletedDays) {
+        for (let day of subsequentDays) {
           // Revert both check_in and check_out for subsequent days
           console.log('Reverting cascade day:', day);
           await performRevert(day, 'check_in', caseSanctionId, caseId, false);
@@ -727,31 +793,27 @@ async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
         }
         // Show final success message
         showNotification('Day ' + dayNumber + ' and subsequent days reverted', 'success');
-        // Reopen the edit modal with refreshed data from first day
-        const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
-        if (dayCard) {
-          const inDisplay = dayCard.querySelector('[data-check-in-display]');
-          const outDisplay = dayCard.querySelector('[data-check-out-display]');
-          const checkInTime = inDisplay ? inDisplay.textContent : '';
-          const checkOutTime = outDisplay && !outDisplay.classList.contains('italic') ? outDisplay.textContent : '';
-          const studentName = dayCard.getAttribute('data-student-name') || '';
-          const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
-          const hasCheckOut = !!checkOutTime && checkOutTime !== 'Awaiting checkout';
-          const isCompleted = checkInTime && checkInTime !== 'Not recorded yet' && hasCheckOut;
-          
-          const editBtn = dayCard.querySelector('.edit-menu-btn');
-          showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+
+        // Close edit menu and refresh modal
+        const editMenuOverlay = document.querySelector('[data-edit-modal-overlay]');
+        if (editMenuOverlay) {
+          editMenuOverlay.remove();
         }
-      },
-      () => {
-        // Cancelled
-        showNotification('Revert cancelled', 'info');
+
+        // Refresh the modal content (prevents flashing)
+        setTimeout(() => {
+          refreshCheckInModalContent(caseId);
+        }, 100);
+      } else {
+        // Confirmed: revert only the selected day
+        await performRevert(dayNumber, timeType, caseSanctionId, caseId, true);
       }
-    );
-  } else {
-    // No subsequent days, just revert this one
-    await performRevert(dayNumber, timeType, caseSanctionId, caseId, true);
-  }
+    },
+    () => {
+      // Cancelled
+      showNotification('Revert cancelled', 'info');
+    }
+  );
 }
 
 // Helper function to perform the actual revert
@@ -766,58 +828,18 @@ async function performRevert(dayNumber, timeType, caseSanctionId, caseId, update
     const result = await response.json();
     
     if (result.success) {
-      // Update the day card immediately
-      const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
-      if (dayCard) {
-        const inDisplay = dayCard.querySelector('[data-check-in-display]');
-        const outDisplay = dayCard.querySelector('[data-check-out-display]');
-        const toggleBtn = dayCard.querySelector('[data-toggle-btn]');
-        
-        if (timeType === 'check_in' && inDisplay) {
-          inDisplay.textContent = 'Not recorded yet';
-          inDisplay.classList.add('italic', 'text-gray-400', 'dark:text-gray-500');
-        } else if (timeType === 'check_out' && outDisplay) {
-          outDisplay.textContent = 'Not recorded yet';
-          outDisplay.classList.add('italic', 'text-gray-400', 'dark:text-gray-500');
-        }
-        
-        // If both times are now cleared, reset card to active state
-        const inText = inDisplay ? inDisplay.textContent : '';
-        const outText = outDisplay ? outDisplay.textContent : '';
-        if (inText === 'Not recorded yet' && outText === 'Not recorded yet') {
-          if (toggleBtn) {
-            toggleBtn.textContent = 'CHECK IN';
-            toggleBtn.classList.remove('bg-red-600', 'dark:bg-red-700', 'hover:bg-red-700');
-            toggleBtn.classList.add('bg-blue-600', 'dark:bg-blue-700', 'hover:bg-blue-700');
-            toggleBtn.style.display = '';
-            toggleBtn.onclick = () => toggleCheckInOut(dayNumber, caseId, caseSanctionId, false);
-          }
-          dayCard.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'border', 'border-green-200', 'dark:border-green-800');
-          dayCard.classList.add('bg-blue-50', 'dark:bg-blue-900/20', 'border-2', 'border-blue-400', 'dark:border-blue-500');
-          // Remove edit button if present
-          const editBtn = dayCard.querySelector('.edit-menu-btn');
-          if (editBtn) {
-            editBtn.remove();
-          }
-        }
-      }
-      
-      // If updateUI is true, update and reopen the modal immediately
+      // If updateUI is true, refresh the modal content without closing it
       if (updateUI) {
-        const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
-        if (dayCard) {
-          const inDisplay = dayCard.querySelector('[data-check-in-display]');
-          const outDisplay = dayCard.querySelector('[data-check-out-display]');
-          const checkInTime = inDisplay ? inDisplay.textContent : '';
-          const checkOutTime = outDisplay && !outDisplay.classList.contains('italic') ? outDisplay.textContent : '';
-          const studentName = dayCard.getAttribute('data-student-name') || '';
-          const sanctionName = dayCard.getAttribute('data-sanction-name') || '';
-          const hasCheckOut = !!checkOutTime && checkOutTime !== 'Awaiting checkout';
-          const isCompleted = checkInTime && checkInTime !== 'Not recorded yet' && hasCheckOut;
-          
-          const editBtn = dayCard.querySelector('.edit-menu-btn');
-          showEditMenu(editBtn, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+        showNotification('Day reverted successfully', 'success');
+        // Close the edit menu
+        const editMenuOverlay = document.querySelector('[data-edit-modal-overlay]');
+        if (editMenuOverlay) {
+          editMenuOverlay.remove();
         }
+        // Refresh the modal content (prevents flashing)
+        setTimeout(() => {
+          refreshCheckInModalContent(caseId);
+        }, 100);
       }
     } else {
       showNotification(result.error || 'Failed to revert time', 'error');
@@ -847,7 +869,6 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
     }
     
     const text = await response.text();
-    console.log('Response text:', text);
     
     let result;
     try {
@@ -859,7 +880,9 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
     }
     
     if (result.success) {
-      showNotification(actionLabel + ' recorded at ' + result.time, 'success');
+      // Convert time to 12-hour format for display
+      const displayTime = convertTo12Hour(result.time);
+      showNotification(actionLabel + ' recorded at ' + displayTime, 'success');
       
       // Find the day card and update the button
       const dayCard = document.querySelector(`[data-day-card][data-day="${dayNumber}"]`);
@@ -873,7 +896,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
           // Update out time display
           const outDisplay = dayCard.querySelector('[data-check-out-display]');
           if (outDisplay) {
-            outDisplay.textContent = result.time;
+            outDisplay.textContent = displayTime;
             outDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
             outDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
           }
@@ -885,14 +908,14 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
           const button = dayCard.querySelector('[data-toggle-btn]');
           if (button) {
             button.textContent = 'CHECK OUT';
-            button.classList.remove('bg-blue-600', 'dark:bg-blue-700', 'hover:bg-blue-700');
-            button.classList.add('bg-red-600', 'dark:bg-red-700', 'hover:bg-red-700');
+            button.classList.remove('bg-blue-600', 'dark:bg-blue-700', 'hover:bg-blue-700', 'dark:hover:bg-blue-600');
+            button.classList.add('bg-red-600', 'dark:bg-red-700', 'hover:bg-red-700', 'dark:hover:bg-red-600');
             button.onclick = () => toggleCheckInOut(dayNumber, caseId, caseSanctionId, true);
           }
           // Update in time display
           const inDisplay = dayCard.querySelector('[data-check-in-display]');
           if (inDisplay) {
-            inDisplay.textContent = result.time;
+            inDisplay.textContent = displayTime;
             inDisplay.classList.remove('italic', 'text-gray-400', 'dark:text-gray-500');
             inDisplay.classList.add('text-gray-700', 'dark:text-gray-300');
           }
@@ -929,7 +952,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
           `;
           editButton.onclick = (e) => {
             e.preventDefault();
-            showEditMenu(editButton, dayNumber, caseId, studentName, sanctionName, caseSanctionId, checkInTime, checkOutTime, hasCheckOut, isCompleted);
+            showEditMenu(editButton, dayNumber, caseId, studentName, sanctionName, caseSanctionId, convertTo24Hour(checkInTime), convertTo24Hour(checkOutTime), hasCheckOut, isCompleted);
           };
           dayCard.insertBefore(editButton, dayCard.firstChild);
         }
@@ -937,8 +960,8 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
 
       // Rebuild modal from backend state so progress/next active day always stays correct.
       setTimeout(() => {
-        openCheckInModal(caseId);
-      }, 250);
+        refreshCheckInModalContent(caseId);
+      }, 100);
     } else {
       showNotification(result.error || 'Failed to ' + actionLabel.toLowerCase(), 'error');
       console.error('Backend error:', result);

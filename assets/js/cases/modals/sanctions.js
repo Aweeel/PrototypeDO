@@ -1363,6 +1363,11 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
         
         if (data.success) {
             loadAppliedSanctions(caseId);
+
+            // Refresh case list immediately so check-in icon/status reflects sanction changes.
+            if (typeof loadCasesFromDB === 'function') {
+                loadCasesFromDB();
+            }
             
             // If the status changed, update it in real-time
             if (data.statusChanged && data.newStatus) {

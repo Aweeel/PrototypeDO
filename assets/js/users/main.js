@@ -436,7 +436,7 @@ async function loadStats() {
 // ====== Message Display ======
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-50 ${
+    messageDiv.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-[1000] ${
         type === 'success' ? 'bg-green-500' :
         type === 'error' ? 'bg-red-500' :
         'bg-blue-500'

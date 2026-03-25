@@ -562,7 +562,7 @@ async function markUnclaimed(itemId) {
 // Notification system
 function showNotification(title, message, type = 'info') {
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+    notification.className = `fixed top-4 right-4 z-[1000] p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
     
     const colors = {
         success: 'bg-green-500',

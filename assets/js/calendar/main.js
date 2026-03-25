@@ -714,7 +714,7 @@ function showToast(message, type = 'info') {
     };
     
     const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-[60] transition-all duration-300 transform translate-x-full`;
+    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-[1000] transition-all duration-300 transform translate-x-full`;
     toast.textContent = message;
     document.body.appendChild(toast);
     
