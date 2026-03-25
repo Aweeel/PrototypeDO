@@ -1075,7 +1075,15 @@ if ($_POST['action'] === 'applySanction') {
     <script src="/PrototypeDO/assets/js/notifications.js"></script>
     <script src="/PrototypeDO/assets/js/cases/data.js"></script>
     <script src="/PrototypeDO/assets/js/cases/filters.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/core-utils.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/advanced-filters.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/view-case.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/edit-case.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/add-case.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/sanctions.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/archive.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/notifications-and-recommendations.js"></script>
+    <script src="/PrototypeDO/assets/js/cases/modals/checkin.js"></script>
     <script src="/PrototypeDO/assets/js/cases/pagination.js"></script>
     <script src="/PrototypeDO/assets/js/cases/main.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
