@@ -1271,7 +1271,7 @@ function get_sidebar_items($role) {
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
-    } elseif ($role === 'teacher' || $role === 'security') {
+    } elseif ($role === 'teacher') {
         $items = [
             [
                 'label' => 'Report Student',
@@ -1282,6 +1282,19 @@ function get_sidebar_items($role) {
                 'label' => 'Lost & Found',
                 'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
+            ],
+            [
+                'label' => 'Handbook',
+                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'icon' => 'Student-handbook-icon.png'
+            ],
+        ];
+    } elseif ($role === 'security') {
+        $items = [
+            [
+                'label' => 'Report Student',
+                'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
+                'icon' => 'Reports-icon.png'
             ],
             [
                 'label' => 'Handbook',

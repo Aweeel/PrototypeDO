@@ -51,6 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         
         try {
             $newCaseId = createCase($data);
+            
+            // Check if duplicate violation was detected
+            if ($newCaseId === false) {
+                echo json_encode(['success' => false, 'error' => 'A violation of this type has already been recorded for this student today']);
+                exit;
+            }
+            
             updateStudentOffenseCount($data['student_number']);
             
             error_log("studentReport: New case created - $newCaseId for student {$data['student_number']}");

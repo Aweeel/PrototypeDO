@@ -44,7 +44,7 @@ function showNotification(message, type = 'info', duration = 3000) {
     
     // Create the toast element
     const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 ${bgClass} border ${borderClass} rounded-lg shadow-lg p-4 flex items-start gap-3 transition-all duration-300 transform translate-x-full`;
+    toast.className = `fixed top-4 right-4 z-[1000] ${bgClass} border ${borderClass} rounded-lg shadow-lg p-4 flex items-start gap-3 transition-all duration-300 transform translate-x-full`;
     toast.innerHTML = `
         <div class="w-5 h-5 flex-shrink-0 text-white mt-0.5">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
