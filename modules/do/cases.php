@@ -43,8 +43,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
 
             $cases = getAllCases($filters);
 
+            $countSchoolDaysInclusive = function ($startDateStr, $endDateStr) {
+                if (empty($startDateStr) || empty($endDateStr)) {
+                    return 0;
+                }
+
+                $start = strtotime(date('Y-m-d', strtotime($startDateStr)));
+                $end = strtotime(date('Y-m-d', strtotime($endDateStr)));
+
+                if ($start === false || $end === false || $start > $end) {
+                    return 0;
+                }
+
+                $days = 0;
+                for ($ts = $start; $ts <= $end; $ts += 86400) {
+                    // Monday=1 ... Saturday=6, Sunday=7
+                    $isoDay = intval(date('N', $ts));
+                    if ($isoDay >= 1 && $isoDay <= 6) {
+                        $days++;
+                    }
+                }
+
+                return $days;
+            };
+
             // Format data for JavaScript
-            $formattedCases = array_map(function ($case) {
+            $formattedCases = array_map(function ($case) use ($countSchoolDaysInclusive) {
                 $attachments = [];
                 if (!empty($case['attachments'])) {
                     $attachments = json_decode($case['attachments'], true);
@@ -59,6 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                                WHERE cs.case_id = ? AND LOWER(s.sanction_name) LIKE '%corrective%'";
                 $csCheck = fetchOne($csCheckSql, [$case['case_id']]);
                 $hasCorrectiveService = ($csCheck && intval($csCheck['cnt']) > 0);
+
+                // Check if this case has a Suspension from Class sanction applied.
+                $suspensionCheckSql = "SELECT COUNT(*) as cnt FROM case_sanctions cs
+                                      JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                                      WHERE cs.case_id = ? AND LOWER(s.sanction_name) LIKE '%suspension from class%'";
+                $suspensionCheck = fetchOne($suspensionCheckSql, [$case['case_id']]);
+                $hasSuspensionFromClass = ($suspensionCheck && intval($suspensionCheck['cnt']) > 0);
 
                 // Compute whether corrective service is fully completed (for green icon state).
                 $completionSql = "SELECT cs.case_sanction_id, cs.duration_days,
@@ -86,6 +117,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     }
                 }
 
+                // Compute whether Suspension from Class is fully completed based on elapsed days.
+                $suspensionCompletionSql = "SELECT cs.case_sanction_id, cs.duration_days, cs.applied_date
+                                            FROM case_sanctions cs
+                                            JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                                            WHERE cs.case_id = ?
+                                              AND LOWER(s.sanction_name) LIKE '%suspension from class%'
+                                              AND cs.duration_days > 0";
+                $suspensionCompletionRows = fetchAll($suspensionCompletionSql, [$case['case_id']]);
+                $hasSuspensionFromClassCompleted = false;
+                if (!empty($suspensionCompletionRows)) {
+                    $hasSuspensionFromClassCompleted = true;
+                    foreach ($suspensionCompletionRows as $row) {
+                        $required = intval($row['duration_days']);
+                        $elapsedDays = $countSchoolDaysInclusive(
+                            $row['applied_date'] ?? null,
+                            date('Y-m-d', strtotime('-1 day'))
+                        );
+
+                        $done = min($required, $elapsedDays);
+                        if ($required <= 0 || $done < $required) {
+                            $hasSuspensionFromClassCompleted = false;
+                            break;
+                        }
+                    }
+                }
+
                 return [
                     'id' => $case['case_id'],
                     'student' => $case['student_name'],
@@ -100,7 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'severity' => $case['severity'] ?? 'Minor',
                     'attachments' => $attachments,
                     'hasCorrectiveService' => $hasCorrectiveService,
-                    'hasCorrectiveServiceCompleted' => $hasCorrectiveServiceCompleted
+                    'hasCorrectiveServiceCompleted' => $hasCorrectiveServiceCompleted,
+                    'hasSuspensionFromClass' => $hasSuspensionFromClass,
+                    'hasSuspensionFromClassCompleted' => $hasSuspensionFromClassCompleted
                 ];
             }, $cases);
 
@@ -722,6 +781,49 @@ if ($_POST['action'] === 'revertTime') {
     }
     
     echo json_encode(['success' => true, 'message' => 'Time reverted successfully']);
+    exit;
+}
+
+// Set first day for suspension progress tracking
+if ($_POST['action'] === 'setSuspensionStartDate') {
+    $caseSanctionId = intval($_POST['caseSanctionId'] ?? 0);
+    $startDate = $_POST['startDate'] ?? null; // YYYY-MM-DD
+
+    if ($caseSanctionId <= 0 || !$startDate) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID and start date are required']);
+        exit;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+        echo json_encode(['success' => false, 'error' => 'Invalid date format. Use YYYY-MM-DD']);
+        exit;
+    }
+
+    $validatedDate = DateTime::createFromFormat('Y-m-d', $startDate);
+    if (!$validatedDate || $validatedDate->format('Y-m-d') !== $startDate) {
+        echo json_encode(['success' => false, 'error' => 'Invalid calendar date']);
+        exit;
+    }
+
+    // Ensure this sanction is Suspension from Class before updating.
+    $sanctionCheckSql = "SELECT cs.case_sanction_id
+                         FROM case_sanctions cs
+                         JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                         WHERE cs.case_sanction_id = {$caseSanctionId}
+                           AND LOWER(s.sanction_name) LIKE '%suspension from class%'";
+    $sanctionRow = fetchOne($sanctionCheckSql);
+
+    if (!$sanctionRow) {
+        echo json_encode(['success' => false, 'error' => 'Suspension sanction not found']);
+        exit;
+    }
+
+    $updateSql = "UPDATE case_sanctions
+                  SET applied_date = CAST(? AS DATE)
+                  WHERE case_sanction_id = {$caseSanctionId}";
+    executeQuery($updateSql, [$startDate]);
+
+    echo json_encode(['success' => true, 'message' => 'First day updated successfully']);
     exit;
 }
 

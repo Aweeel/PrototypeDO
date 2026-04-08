@@ -132,10 +132,24 @@ function renderTableRows() {
                         </button>
                         ` : ''}
                         ${caseItem.hasCorrectiveService ? `
-                        <button onclick="openCheckInModal('${caseItem.id}')"
+                        <button onclick="openCheckInModal('${caseItem.id}', 'corrective')"
                             data-case-checkin-icon="true"
+                            data-case-checkin-type="corrective"
                             data-case-id="${caseItem.id}"
-                            class="inline-flex items-center justify-center h-8 w-8 ${caseItem.hasCorrectiveServiceCompleted ? 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300' : 'text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300'} transition-colors" title="${caseItem.hasCorrectiveServiceCompleted ? 'Check-In Complete (100%)' : 'Check-In In Progress'}" style="padding:0;margin-left:1px;">
+                            class="inline-flex items-center justify-center h-8 w-8 ${caseItem.hasCorrectiveServiceCompleted ? 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300' : 'text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300'} transition-colors" title="${caseItem.hasCorrectiveServiceCompleted ? 'Community Service Check-In Complete (100%)' : 'Community Service Check-In In Progress'}" style="padding:0;margin-left:1px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                        </button>
+                        ` : ''}
+                        ${caseItem.hasSuspensionFromClass ? `
+                        <button onclick="openCheckInModal('${caseItem.id}', 'suspension')"
+                            data-case-checkin-icon="true"
+                            data-case-checkin-type="suspension"
+                            data-case-id="${caseItem.id}"
+                            class="inline-flex items-center justify-center h-8 w-8 ${caseItem.hasSuspensionFromClassCompleted ? 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300' : 'text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300'} transition-colors" title="${caseItem.hasSuspensionFromClassCompleted ? 'Suspension Progress Complete (100%)' : 'Suspension Progress In Progress'}" style="padding:0;margin-left:1px;">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
                                 <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
