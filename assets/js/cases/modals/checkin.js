@@ -72,6 +72,24 @@ function updateCaseCheckInIcon(caseId, isCompleted) {
   }
 }
 
+function getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays) {
+  const isCaseResolved = String(caseData?.status || '').toLowerCase() === 'resolved';
+  const allDaysCompleted = totalDays > 0 && completedDays >= totalDays;
+
+  return `
+    ${allDaysCompleted && !isCaseResolved ? `
+      <button
+        onclick="closeModal(this); confirmMarkResolved('${caseId}')"
+        class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        Mark Case as Resolved
+      </button>
+    ` : ''}
+    <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
+      Close
+    </button>
+  `;
+}
+
 // Refresh modal content without closing/reopening (prevents flashing)
 async function refreshCheckInModalContent(caseId) {
   const modal = document.querySelector('[data-checkin-modal="true"]');
@@ -134,6 +152,12 @@ async function refreshCheckInModalContent(caseId) {
     const dayCardsHTML = getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId);
     dayCardsContainer.innerHTML = dayCardsHTML;
   }
+
+  // Keep footer actions in sync with completion state.
+  const footerActions = modal.querySelector('[data-checkin-footer-actions]');
+  if (footerActions) {
+    footerActions.innerHTML = getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays);
+  }
 }
 
 // ====== COMMUNITY SERVICE CHECK-IN ======
@@ -157,11 +181,6 @@ async function openCheckInModal(caseId) {
       <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
-          <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
         <div class="text-center py-8">
           <div class="w-14 h-14 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -446,11 +465,6 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
           <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
         </div>
-        <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
       </div>
 
       <!-- Student + Sanction Info Card -->
@@ -489,10 +503,8 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
       </div>
 
       <!-- Footer -->
-      <div class="flex justify-end mt-4 flex-shrink-0">
-        <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-          Close
-        </button>
+      <div class="flex justify-end gap-2 mt-4 flex-shrink-0" data-checkin-footer-actions>
+        ${getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays)}
       </div>
 
     </div>
