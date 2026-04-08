@@ -1,4 +1,4 @@
-﻿﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
+﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
 
 function convertTo24Hour(timeStr) {
   if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return '';
@@ -734,7 +734,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
           </button>
-          <button onclick="printCheckInReport('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}')" title="Print/save check-in report as PDF" class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+          <button onclick="printCheckInReport('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}'${sanctionType === 'suspension' ? ", 'suspension'" : ""})" title="Print/save check-in report as PDF" class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
             </svg>
@@ -1343,7 +1343,7 @@ async function exportCheckInCSV(caseId, studentName, sanctionName) {
 }
 
 // Print Check-In data as PDF
-async function printCheckInReport(caseId, studentName, sanctionName) {
+async function printCheckInReport(caseId, studentName, sanctionName, sanctionType = 'corrective') {
   try {
     // Load the check-in data
     const response = await fetch('/PrototypeDO/modules/do/cases.php', {
@@ -1368,7 +1368,7 @@ async function printCheckInReport(caseId, studentName, sanctionName) {
     const generatedBy = document.querySelector('[data-user-name]')?.content || window.ADMIN_NAME || 'User';
     const printRoot = document.getElementById('print-root') || createPrintRoot();
 
-    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy);
+    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy, sanctionType);
     printRoot.innerHTML = checkInHTML;
 
     console.log('Print preview ready for Check-In Case:', caseId);
@@ -1389,9 +1389,12 @@ function createPrintRoot() {
 }
 
 // Build HTML for print report
-function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy = 'User') {
+function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy = 'User', sanctionType = 'corrective') {
   let rowsHTML = '';
   let completedCount = 0;
+  
+  // Determine report title based on sanction type
+  const reportTitle = sanctionType === 'suspension' ? 'Suspension from Class Check-In Report' : 'Community Service Check-In Report';
 
   Object.entries(days).forEach(([dayNum, dayData]) => {
     const day = parseInt(dayNum);
@@ -1416,7 +1419,7 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, day
       <div class="flex justify-between items-center border-b-2 border-blue-700 pb-2 mb-4 font-sans" style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e3a8a;padding-bottom:0.5rem;margin-bottom:1rem;font-family:Arial,sans-serif;">
         <div>
           <span class="font-bold text-blue-700 text-sm" style="font-weight:bold;color:#1e40af;">STI Discipline Office</span><br>
-          <span class="text-xs text-gray-600" style="font-size:0.75rem;color:#4b5563;">Community Service Check-In Report</span>
+          <span class="text-xs text-gray-600" style="font-size:0.75rem;color:#4b5563;">${reportTitle}</span>
         </div>
         <div class="text-xs text-gray-600" style="font-size:0.75rem;color:#4b5563;text-align:right;">
           <div>Generated: ${today}</div>
