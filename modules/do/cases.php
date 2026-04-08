@@ -3,6 +3,115 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+// ============================================================
+//  CSV DOWNLOAD — Community Service Check-In Report
+// ============================================================
+if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) && $_GET['type'] === 'checkin') {
+    $caseId = $_GET['caseId'] ?? '';
+    $studentName = $_GET['studentName'] ?? 'Student';
+    $sanctionName = $_GET['sanctionName'] ?? 'Community Service';
+    
+    if (empty($caseId)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Case ID required']);
+        exit;
+    }
+
+    // Fetch check-in data for this case
+    $sql = "SELECT cs.*, s.sanction_name 
+            FROM case_sanctions cs
+            JOIN sanctions s ON cs.sanction_id = s.sanction_id
+            WHERE cs.case_id = ? AND cs.duration_days > 0
+            ORDER BY cs.applied_date DESC";
+    $sanctions = fetchAll($sql, [$caseId]);
+
+    if (empty($sanctions)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'No check-in data found']);
+        exit;
+    }
+
+    // Get check-in records
+    $sanction = $sanctions[0];
+    $totalDays = intval($sanction['duration_days']);
+    $checkInSql = "WITH ranked AS (
+                       SELECT *,
+                              ROW_NUMBER() OVER (PARTITION BY day_number ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC) AS rn
+                       FROM case_checkins
+                       WHERE case_sanction_id = ?
+                   )
+                   SELECT * FROM ranked WHERE rn = 1
+                   ORDER BY day_number ASC";
+    $checkIns = fetchAll($checkInSql, [$sanction['case_sanction_id']]);
+    
+    // Build CSV data
+    $filename = 'STI_CheckIn_Case_' . $caseId . '_' . date('Y-m-d') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache');
+
+    $out = fopen('php://output', 'w');
+    // BOM for Excel UTF-8 compatibility
+    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+
+    // Header rows
+    fputcsv($out, ['STI Discipline Office – Community Service Check-In Report']);
+    fputcsv($out, ['Generated:', date('F d, Y H:i')]);
+    fputcsv($out, []);
+    fputcsv($out, ['Case ID:', $caseId]);
+    fputcsv($out, ['Student:', $studentName]);
+    fputcsv($out, ['Sanction Type:', $sanctionName]);
+    fputcsv($out, ['Duration:', $totalDays . ' days']);
+    fputcsv($out, []);
+
+    // Data headers
+    fputcsv($out, ['Day Number', 'Check-In Time', 'Check-Out Time', 'Status']);
+
+    // Data rows
+    $completedDays = 0;
+    for ($day = 1; $day <= $totalDays; $day++) {
+        $dayData = null;
+        foreach ($checkIns as $record) {
+            if ($record['day_number'] == $day) {
+                $dayData = $record;
+                break;
+            }
+        }
+
+        $inTime = '—';
+        $outTime = '—';
+        $status = 'Pending';
+
+        if ($dayData) {
+            if ($dayData['check_in_time']) {
+                $inTime = date('h:i A', strtotime($dayData['check_in_time']));
+            }
+            if ($dayData['check_out_time']) {
+                $outTime = date('h:i A', strtotime($dayData['check_out_time']));
+            }
+
+            if ($dayData['check_in_time'] && $dayData['check_out_time']) {
+                $status = 'Completed';
+                $completedDays++;
+            } else if ($dayData['check_in_time']) {
+                $status = 'In Progress';
+            }
+        }
+
+        fputcsv($out, [$day, $inTime, $outTime, $status]);
+    }
+
+    // Summary
+    fputcsv($out, []);
+    fputcsv($out, ['Summary']);
+    fputcsv($out, ['Total Days:', $totalDays]);
+    fputcsv($out, ['Completed Days:', $completedDays]);
+    fputcsv($out, ['Progress:', round(($completedDays / $totalDays) * 100) . '%']);
+
+    fclose($out);
+    exit;
+}
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_POST['action']))) {
     header('Content-Type: application/json');
@@ -1067,6 +1176,11 @@ if ($_POST['action'] === 'applySanction') {
 
 ?>
 
+<?php
+// Get the current user's name early for use in HTML meta tags
+$adminName = getFormattedUserName() ?? 'User';
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -1091,17 +1205,33 @@ if ($_POST['action'] === 'applySanction') {
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
     </script>
+    <meta name="data-user-name" content="<?= isset($adminName) ? htmlspecialchars($adminName) : 'User' ?>">
+    <script>
+        // Set ADMIN_NAME for use in modals
+        window.ADMIN_NAME = '<?= isset($adminName) ? htmlspecialchars(addslashes($adminName)) : 'User' ?>';
+    </script>
+    <style>
+        #print-root { display: none; }
+        @media print {
+            body > * { display: none !important; }
+            #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
+            @page { margin: 15mm 10mm; size: A4; }
+        }
+    </style>
 </head>
 
 <body
     class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
+    
+    <!-- Hidden print root — only shown at @media print -->
+    <div id="print-root" aria-hidden="true"></div>
+    
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
     <div class="flex h-screen">
         <div class="flex-1 overflow-y-auto ml-64">
             <?php
             $pageTitle = "Cases Management";
-            $adminName = getFormattedUserName();
             include __DIR__ . '/../../includes/header.php';
             ?>
 

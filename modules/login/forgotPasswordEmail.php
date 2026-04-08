@@ -88,20 +88,39 @@
                 <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let administrator reset
                     your password.</p>
 
-                <form>
+                <!-- Success/Error Message -->
+                <div id="messageBox" class="mb-4 p-4 rounded-lg hidden" role="alert">
+                    <p id="messageText"></p>
+                </div>
+
+                <form id="resetForm" onsubmit="handlePasswordResetRequest(event)">
                     <!-- Email Address -->
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
-                        <input type="email" placeholder="name@sti.edu.ph"
+                        <input 
+                            type="email" 
+                            id="emailInput"
+                            name="email"
+                            placeholder="nameid@sti.edu"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required>
+                            required
+                        >
                     </div>
 
-                    <button type="submit" onclick="window.location.href='login.php';"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition ">
+                    <button 
+                        type="submit" 
+                        id="submitBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
                         Send Information
                     </button>
                 </form>
+
+                <div class="mt-4 text-center">
+                    <a href="login.php" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                        Back to Login
+                    </a>
+                </div>
 
                 <!-- System Information -->
                 <div class="mt-12 pt-8 border-t border-gray-200">
@@ -143,6 +162,67 @@
             </div>
         </div>
     </div>
+
+    <script>
+        async function handlePasswordResetRequest(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('emailInput').value.trim();
+            const submitBtn = document.getElementById('submitBtn');
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+            
+            // Disable button and show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            messageBox.classList.add('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                
+                const response = await fetch('passwordResetHandler.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Show message
+                messageBox.classList.remove('hidden');
+                messageText.textContent = data.message || data.error || 'An error occurred.';
+                
+                if (data.success) {
+                    messageBox.classList.remove('bg-red-100', 'text-red-800', 'border-red-300');
+                    messageBox.classList.add('bg-green-100', 'text-green-800', 'border', 'border-green-300');
+                    
+                    // Clear form and reset button
+                    document.getElementById('resetForm').reset();
+                    submitBtn.textContent = 'Send Information';
+                    
+                    // After 5 seconds, redirect to login
+                    setTimeout(() => {
+                        window.location.href = 'login.php';
+                    }, 5000);
+                } else {
+                    messageBox.classList.remove('bg-green-100', 'text-green-800', 'border-green-300');
+                    messageBox.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-300');
+                    
+                    // Reset button for retry
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Information';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                messageBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-300');
+                messageBox.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-300');
+                messageText.textContent = 'Network error. Please try again.';
+                
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Information';
+            }
+        }
+    </script>
 </body>
 
 </html>
