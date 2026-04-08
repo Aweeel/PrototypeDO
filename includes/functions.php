@@ -1392,6 +1392,15 @@ function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEn
 }
 
 function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null) {
+    // Prevent duplicate sanction assignment for the same case.
+    $duplicateSql = "SELECT TOP 1 case_sanction_id
+                     FROM case_sanctions
+                     WHERE case_id = ? AND sanction_id = ?";
+    $existing = fetchOne($duplicateSql, [$caseId, $sanctionId]);
+    if ($existing) {
+        throw new Exception('This sanction is already applied to this case.');
+    }
+
     // Check for scheduling conflicts if date and time are provided
     if (!empty($scheduleDate) && !empty($scheduleTime)) {
         $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);

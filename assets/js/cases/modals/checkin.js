@@ -48,9 +48,212 @@ function convertTo12Hour(timeStr) {
   return timeStr;
 }
 
-function updateCaseCheckInIcon(caseId, isCompleted) {
-  const iconBtn = document.querySelector(`[data-case-checkin-icon="true"][data-case-id="${caseId}"]`);
+function getSanctionTypeConfig(sanctionType = 'corrective') {
+  if (sanctionType === 'suspension') {
+    return {
+      keyword: 'suspension from class',
+      modalTitle: 'Suspension from Class Progress',
+      emptyLabel: 'No suspension-from-class sanctions found',
+      emptyHint: 'Apply a "Suspension from Class" sanction with duration days to enable suspension tracking.',
+      completeTitle: 'Suspension Progress Complete (100%)',
+      progressTitle: 'Suspension Progress In Progress'
+    };
+  }
+
+  return {
+    keyword: 'corrective',
+    modalTitle: 'Community Service Check-In',
+    emptyLabel: 'No time-based sanctions found',
+    emptyHint: 'Apply a sanction with a duration (e.g., Corrective Reinforcement) to enable check-in tracking.',
+    completeTitle: 'Community Service Check-In Complete (100%)',
+    progressTitle: 'Community Service Check-In In Progress'
+  };
+}
+
+function getCaseCheckInIconButton(caseId, sanctionType = 'corrective') {
+  return document.querySelector(
+    `[data-case-checkin-icon="true"][data-case-id="${caseId}"][data-case-checkin-type="${sanctionType}"]`
+  ) || document.querySelector(`[data-case-checkin-icon="true"][data-case-id="${caseId}"]`);
+}
+
+function findSanctionByType(sanctions, sanctionType = 'corrective') {
+  const { keyword } = getSanctionTypeConfig(sanctionType);
+  return (sanctions || []).find((s) => String(s?.sanction_name || '').toLowerCase().includes(keyword));
+}
+
+function calculateElapsedSuspensionDays(appliedDate, totalDays) {
+  if (!appliedDate || !totalDays || totalDays <= 0) return 0;
+
+  const start = new Date(appliedDate);
+  if (Number.isNaN(start.getTime())) return 0;
+
+  const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const today = new Date();
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const yesterdayDate = new Date(todayDate);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+  // The current school day is treated as "in progress", not yet completed.
+  if (startDate > yesterdayDate) {
+    return 0;
+  }
+
+  let elapsedInclusive = 0;
+  const current = new Date(startDate);
+  while (current <= yesterdayDate) {
+    const day = current.getDay(); // Sunday=0 ... Saturday=6
+    if (day !== 0) {
+      elapsedInclusive += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return Math.min(totalDays, elapsedInclusive);
+}
+
+function formatDateForInput(dateValue) {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDateForDisplay(dateValue) {
+  if (!dateValue) return 'Not set';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 'Not set';
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function openSetSuspensionStartDateModal(caseId, caseSanctionId, currentStartDate = '') {
+  document.querySelectorAll('[data-suspension-start-modal="true"]').forEach((el) => el.remove());
+
+  const initialDate = formatDateForInput(currentStartDate) || formatDateForInput(new Date());
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+  modal.setAttribute('data-suspension-start-modal', 'true');
+
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Set Initial Day</h3>
+        <button type="button" onclick="this.closest('[data-suspension-start-modal=\"true\"]').remove()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Suspension progress will auto-complete per school day (Monday to Saturday).</p>
+      <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Day</label>
+      <input type="date" id="suspensionStartDateInput" value="${initialDate}" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" onclick="this.closest('[data-suspension-start-modal=\"true\"]').remove()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600">Cancel</button>
+        <button type="button" onclick="saveSuspensionStartDate('${caseId}', ${caseSanctionId})" class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+async function saveSuspensionStartDate(caseId, caseSanctionId) {
+  const modal = document.querySelector('[data-suspension-start-modal="true"]');
+  const input = modal?.querySelector('#suspensionStartDateInput');
+  const startDate = input?.value?.trim();
+
+  if (!startDate) {
+    showNotification('Please select a start date', 'warning');
+    return;
+  }
+
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=setSuspensionStartDate&caseSanctionId=${caseSanctionId}&startDate=${encodeURIComponent(startDate)}`
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      showNotification(result.error || 'Failed to set initial day', 'error');
+      return;
+    }
+
+    if (modal) {
+      modal.remove();
+    }
+
+    showNotification('Initial day updated', 'success');
+    refreshCheckInModalContent(caseId, 'suspension');
+  } catch (error) {
+    showNotification('Error: ' + error.message, 'error');
+    console.error('Set suspension start date error:', error);
+  }
+}
+
+function getSuspensionDayCardsHTML(totalDays, completedDays) {
+  let dayCardsHTML = '';
+  const activeDay = completedDays < totalDays ? completedDays + 1 : totalDays;
+
+  for (let day = 1; day <= totalDays; day++) {
+    if (day <= completedDays) {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
+            <p class="text-xs text-green-700 dark:text-green-300 mt-0.5">Completed suspension day</p>
+          </div>
+          <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Done</span>
+        </div>`;
+    } else if (day === activeDay) {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500">
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${day}</p>
+            <p class="text-xs text-blue-700 dark:text-blue-300 mt-0.5">Current suspension day</p>
+          </div>
+          <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex-shrink-0">In Progress</span>
+        </div>`;
+    } else {
+      dayCardsHTML += `
+        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-55">
+          <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${day}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${day}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming suspension day</p>
+          </div>
+          <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">-</span>
+        </div>`;
+    }
+  }
+
+  return dayCardsHTML;
+}
+
+function getActiveCheckInModalSanctionType(caseId) {
+  const modal = document.querySelector(`[data-checkin-modal="true"][data-case-id="${caseId}"]`);
+  return modal?.getAttribute('data-sanction-type') || 'corrective';
+}
+
+function updateCaseCheckInIcon(caseId, isCompleted, sanctionType = 'corrective') {
+  const iconBtn = getCaseCheckInIconButton(caseId, sanctionType);
   if (!iconBtn) return;
+
+  const { completeTitle, progressTitle } = getSanctionTypeConfig(sanctionType);
 
   iconBtn.classList.remove(
     'text-orange-500',
@@ -65,10 +268,10 @@ function updateCaseCheckInIcon(caseId, isCompleted) {
 
   if (isCompleted) {
     iconBtn.classList.add('text-green-600', 'hover:text-green-700', 'dark:text-green-400', 'dark:hover:text-green-300');
-    iconBtn.title = 'Check-In Complete (100%)';
+    iconBtn.title = completeTitle;
   } else {
     iconBtn.classList.add('text-orange-500', 'hover:text-orange-600', 'dark:text-orange-400', 'dark:hover:text-orange-300');
-    iconBtn.title = 'Check-In In Progress';
+    iconBtn.title = progressTitle;
   }
 }
 
@@ -91,12 +294,39 @@ function getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays)
 }
 
 // Refresh modal content without closing/reopening (prevents flashing)
-async function refreshCheckInModalContent(caseId) {
+async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   const modal = document.querySelector('[data-checkin-modal="true"]');
   if (!modal) return;
 
   const caseData = allCases.find(c => c.id === caseId);
   if (!caseData) return;
+
+  if (sanctionType === 'suspension') {
+    const sanctions = await loadAppliedSanctionsForView(caseId);
+    const suspensionSanction = findSanctionByType(sanctions, 'suspension');
+    if (!suspensionSanction) return;
+
+    const totalDays = parseInt(suspensionSanction.duration_days || 0, 10);
+    const completedDays = calculateElapsedSuspensionDays(suspensionSanction.applied_date, totalDays);
+    const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    const dayCardsHTML = getSuspensionDayCardsHTML(totalDays, completedDays);
+
+    updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0, 'suspension');
+
+    renderCheckInModal(
+      modal,
+      caseId,
+      caseData,
+      suspensionSanction,
+      totalDays,
+      completedDays,
+      dayCardsHTML,
+      progressPercent,
+      'suspension'
+    );
+
+    return;
+  }
 
   // Load check-in history
   const response = await fetch('/PrototypeDO/modules/do/cases.php', {
@@ -110,15 +340,18 @@ async function refreshCheckInModalContent(caseId) {
     return; // No data, don't update
   }
 
-  // Get the sanction data
-  const sanction = result.sanctions[0];
+  // Get the sanction data for the selected check-in type.
+  const sanction = findSanctionByType(result.sanctions, sanctionType);
+  if (!sanction) {
+    return;
+  }
   const totalDays = sanction.duration_days;
   const days = sanction.days;
   
   // Calculate completed days and active day
   const completedDays = Object.values(days).filter(d => d.check_in_time && d.check_out_time).length;
   const progressPercent = Math.round((completedDays / totalDays) * 100);
-  updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0);
+  updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0, sanctionType);
 
   // Update progress bar
   const progressBar = modal.querySelector('[data-progress-bar]');
@@ -162,25 +395,44 @@ async function refreshCheckInModalContent(caseId) {
 
 // ====== COMMUNITY SERVICE CHECK-IN ======
 
-async function openCheckInModal(caseId) {
+async function openCheckInModal(caseId, sanctionType = 'corrective') {
   // Prevent stacked/duplicate check-in modals when refreshing after actions.
   document.querySelectorAll('[data-checkin-modal="true"]').forEach(existingModal => existingModal.remove());
 
   const caseData = allCases.find(c => c.id === caseId);
   if (!caseData) return;
 
-  // Load sanctions for this case and filter to time-based ones (duration_days > 0)
+  const sanctionConfig = getSanctionTypeConfig(sanctionType);
+
+  // Load sanctions for this case and filter to selected type with duration_days > 0.
   const sanctions = await loadAppliedSanctionsForView(caseId);
-  const csSanctions = sanctions.filter(s => s.duration_days && parseInt(s.duration_days) > 0);
+  const selectedTypeSanctions = sanctions.filter((s) => {
+    const sanctionName = String(s?.sanction_name || '').toLowerCase();
+    return sanctionName.includes(sanctionConfig.keyword) && s.duration_days && parseInt(s.duration_days) > 0;
+  });
 
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
 
-  if (csSanctions.length === 0) {
+  if (sanctionType === 'suspension' && selectedTypeSanctions.length > 0) {
+    const activeSanction = findSanctionByType(selectedTypeSanctions, 'suspension') || selectedTypeSanctions[0];
+    const totalDays = parseInt(activeSanction.duration_days || 0, 10);
+    const completedDays = calculateElapsedSuspensionDays(activeSanction.applied_date, totalDays);
+    const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    const dayCardsHTML = getSuspensionDayCardsHTML(totalDays, completedDays);
+
+    updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0, 'suspension');
+    renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType);
+
+    document.body.appendChild(modal);
+    return;
+  }
+
+  if (selectedTypeSanctions.length === 0) {
     modal.innerHTML = `
       <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">${sanctionConfig.modalTitle}</h3>
         </div>
         <div class="text-center py-8">
           <div class="w-14 h-14 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -188,8 +440,8 @@ async function openCheckInModal(caseId) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
             </svg>
           </div>
-          <p class="text-sm font-medium text-gray-700 dark:text-gray-300">No time-based sanctions found</p>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5 px-4">Apply a sanction with a duration (e.g., Corrective Reinforcement) to enable check-in tracking.</p>
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-300">${sanctionConfig.emptyLabel}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5 px-4">${sanctionConfig.emptyHint}</p>
         </div>
         <div class="flex justify-end mt-2">
           <button onclick="closeModal(this)" class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Close</button>
@@ -207,7 +459,7 @@ async function openCheckInModal(caseId) {
     
     if (!result.success || !result.sanctions.length) {
       // Fallback to UI demo
-      const activeSanction = csSanctions[0];
+      const activeSanction = findSanctionByType(selectedTypeSanctions, sanctionType) || selectedTypeSanctions[0];
       const totalDays = parseInt(activeSanction.duration_days);
       const sanctionName = activeSanction.sanction_name || 'Community Service';
       const completedDays = totalDays <= 1 ? 0 : Math.floor((totalDays - 1) / 2);
@@ -216,11 +468,16 @@ async function openCheckInModal(caseId) {
 
       let dayCardsHTML = getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, caseData.student, sanctionName, activeSanction.case_sanction_id || '');
       
-      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent);
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType);
     } else {
       // Use real data
-      const sanction = result.sanctions[0];
-      const activeSanction = csSanctions[0];
+      const sanction = findSanctionByType(result.sanctions, sanctionType);
+      const activeSanction = findSanctionByType(selectedTypeSanctions, sanctionType) || selectedTypeSanctions[0];
+      if (!sanction || !activeSanction) {
+        modal.remove();
+        showNotification('No matching sanction data found for tracking', 'warning');
+        return;
+      }
       const totalDays = sanction.duration_days;
       const sanctionName = sanction.sanction_name || 'Community Service';
       
@@ -232,7 +489,7 @@ async function openCheckInModal(caseId) {
 
       let dayCardsHTML = getDayCardsHTMLFromData(days, caseId, caseData.student, sanctionName, sanction.case_sanction_id);
       
-      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent);
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType);
     }
   }
 
@@ -450,11 +707,17 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
   return dayCardsHTML;
 }
 
-function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent) {
+function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType = 'corrective') {
   const sanctionName = activeSanction.sanction_name || 'Community Service';
+  const sanctionConfig = getSanctionTypeConfig(sanctionType);
+  const isSuspension = sanctionType === 'suspension';
+  const suspensionStartDate = activeSanction.applied_date || '';
+  const suspensionStartDateDisplay = formatDateForDisplay(suspensionStartDate);
+  const suspensionStartDateInput = formatDateForInput(suspensionStartDate);
   
   modal.setAttribute('data-checkin-modal', 'true');
   modal.setAttribute('data-case-id', caseId);
+  modal.setAttribute('data-sanction-type', sanctionType);
   
   modal.innerHTML = `
     <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-5 max-h-[90vh] flex flex-col">
@@ -462,7 +725,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
       <!-- Header -->
       <div class="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">${sanctionConfig.modalTitle}</h3>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
         </div>
       </div>
@@ -474,6 +737,12 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">${caseData.student}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${sanctionName}</p>
+            ${isSuspension ? `
+              <div class="flex items-center gap-2 mt-1.5">
+                <span class="text-xs text-gray-600 dark:text-gray-300">Initial day: <strong>${suspensionStartDateDisplay}</strong></span>
+                <button type="button" onclick="openSetSuspensionStartDateModal('${caseId}', ${activeSanction.case_sanction_id}, '${suspensionStartDateInput}')" class="px-2 py-0.5 text-[11px] font-medium border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">Set Initial Day</button>
+              </div>
+            ` : ''}
           </div>
           <div class="text-right flex-shrink-0">
             <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${totalDays}</p>
@@ -639,7 +908,7 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     
     // Refresh in place so the check-in modal stays open.
     setTimeout(() => {
-      refreshCheckInModalContent(caseId);
+      refreshCheckInModalContent(caseId, getActiveCheckInModalSanctionType(caseId));
     }, 100);
   } catch (error) {
     showNotification('Error: ' + error.message, 'error');
@@ -814,7 +1083,7 @@ async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
 
         // Refresh the modal content (prevents flashing)
         setTimeout(() => {
-          refreshCheckInModalContent(caseId);
+          refreshCheckInModalContent(caseId, getActiveCheckInModalSanctionType(caseId));
         }, 100);
       } else {
         // Confirmed: revert only the selected day
@@ -850,7 +1119,7 @@ async function performRevert(dayNumber, timeType, caseSanctionId, caseId, update
         }
         // Refresh the modal content (prevents flashing)
         setTimeout(() => {
-          refreshCheckInModalContent(caseId);
+          refreshCheckInModalContent(caseId, getActiveCheckInModalSanctionType(caseId));
         }, 100);
       }
     } else {
@@ -972,7 +1241,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
 
       // Rebuild modal from backend state so progress/next active day always stays correct.
       setTimeout(() => {
-        refreshCheckInModalContent(caseId);
+        refreshCheckInModalContent(caseId, getActiveCheckInModalSanctionType(caseId));
       }, 100);
     } else {
       showNotification(result.error || 'Failed to ' + actionLabel.toLowerCase(), 'error');
