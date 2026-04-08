@@ -346,6 +346,8 @@ async function submitResetPassword(event) {
         if (data.success) {
             showMessage('Password reset successfully', 'success');
             closeResetPasswordModal();
+            // Reload users to update the badges
+            setTimeout(() => loadUsers(), 500);
         } else {
             showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
         }

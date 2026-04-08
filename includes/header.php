@@ -147,11 +147,6 @@ if (!isset($adminName) || empty($adminName)) {
             const data = await response.json();
             
             if (data.success) {
-                // Show notification that will persist across redirect
-                if (typeof showNotification === 'function') {
-                    showNotification('Notification marked as read', 'success', 3000, true);
-                }
-                
                 // If there's a case ID, redirect to the case details based on user role
                 if (relatedId) {
                     // Get the user role from the HTML data attribute or session
@@ -159,7 +154,11 @@ if (!isset($adminName) || empty($adminName)) {
                     
                     // Small delay to allow notification to be stored
                     setTimeout(() => {
-                        if (userRole === 'student') {
+                        // Check if it's a password reset notification
+                        if (relatedId.startsWith('password_reset:')) {
+                            // Navigate to admin users page for password reset requests
+                            window.location.href = `/PrototypeDO/modules/super-admin/adminUsers.php`;
+                        } else if (userRole === 'student') {
                             window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedId)}`;
                         } else {
                             window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;

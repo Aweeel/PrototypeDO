@@ -152,7 +152,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
                            u.is_active, u.last_login, u.created_at,
-                           s.student_id
+                           s.student_id,
+                           CASE 
+                               WHEN EXISTS(
+                                   SELECT 1 FROM notifications n 
+                                   WHERE n.type = 'password_reset_request' 
+                                   AND n.is_read = 0
+                                   AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                               ) THEN 1
+                               ELSE 0
+                           END as has_pending_reset
                     FROM users u
                     LEFT JOIN students s ON u.user_id = s.user_id
                     WHERE 1=1";
@@ -192,7 +201,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
-                    'created_at' => date('M d, Y', strtotime($user['created_at']))
+                    'created_at' => date('M d, Y', strtotime($user['created_at'])),
+                    'has_pending_reset' => (bool)$user['has_pending_reset']
                 ];
             }, $users);
 
@@ -358,6 +368,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $sql = "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?";
             executeQuery($sql, [$password_hash, $user_id]);
+
+            // Mark any pending password reset notifications as read
+            $notifSql = "UPDATE notifications 
+                         SET is_read = 1, read_at = GETDATE()
+                         WHERE type = 'password_reset_request' 
+                         AND is_read = 0
+                         AND CAST(SUBSTRING(related_id, CHARINDEX(':', related_id) + 1, LEN(related_id)) AS INT) = ?";
+            executeQuery($notifSql, [$user_id]);
 
             // Audit log
             logAudit($_SESSION['user_id'], 'Password Reset', 'users', $user_id, null, ['action' => 'Password reset by admin']);

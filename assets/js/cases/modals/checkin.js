@@ -1,4 +1,4 @@
-﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
+﻿﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
 
 function convertTo24Hour(timeStr) {
   if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return '';
@@ -464,6 +464,18 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
         <div>
           <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Check-In</h3>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <button onclick="exportCheckInCSV('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}')" title="Export check-in report as CSV file" class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium">
+            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+          </button>
+          <button onclick="printCheckInReport('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}')" title="Print/save check-in report as PDF" class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -1038,4 +1050,169 @@ async function performCheckOut(dayNumber, caseId, caseSanctionId) {
     showNotification('Error: ' + error.message, 'error');
     console.error('Check-out error:', error);
   }
+}
+
+// ====== EXPORT & PRINT FUNCTIONS ======
+
+// Export Check-In data as CSV
+async function exportCheckInCSV(caseId, studentName, sanctionName) {
+  try {
+    const params = new URLSearchParams({ 
+      export: 'csv', 
+      type: 'checkin',
+      caseId: caseId,
+      studentName: studentName,
+      sanctionName: sanctionName
+    });
+    const url = `/PrototypeDO/modules/do/cases.php?${params.toString()}`;
+    console.log('Exporting Check-In CSV for Case:', caseId);
+    window.location.href = url;
+  } catch (e) {
+    console.error('CSV Export Error:', e);
+    showNotification('Failed to export CSV: ' + e.message, 'error');
+  }
+}
+
+// Print Check-In data as PDF
+async function printCheckInReport(caseId, studentName, sanctionName) {
+  try {
+    // Load the check-in data
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+    });
+    
+    const result = await response.json();
+    
+    if (!result.success || !result.sanctions.length) {
+      showNotification('No check-in data available to print', 'error');
+      return;
+    }
+
+    const sanction = result.sanctions[0];
+    const totalDays = sanction.duration_days;
+    const days = sanction.days;
+
+    // Create print content
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const generatedBy = document.querySelector('[data-user-name]')?.content || window.ADMIN_NAME || 'User';
+    const printRoot = document.getElementById('print-root') || createPrintRoot();
+
+    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy);
+    printRoot.innerHTML = checkInHTML;
+
+    console.log('Print preview ready for Check-In Case:', caseId);
+    window.print();
+  } catch (e) {
+    console.error('Print Report Error:', e);
+    showNotification('Failed to prepare print: ' + e.message, 'error');
+  }
+}
+
+// Helper function to create print root if it doesn't exist
+function createPrintRoot() {
+  const printRoot = document.createElement('div');
+  printRoot.id = 'print-root';
+  printRoot.style.display = 'none';
+  document.body.appendChild(printRoot);
+  return printRoot;
+}
+
+// Build HTML for print report
+function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy = 'User') {
+  let rowsHTML = '';
+  let completedCount = 0;
+
+  Object.entries(days).forEach(([dayNum, dayData]) => {
+    const day = parseInt(dayNum);
+    const inTime = dayData.check_in_time ? convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—';
+    const outTime = dayData.check_out_time ? convertTo12Hour(new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—';
+    const status = dayData.check_in_time && dayData.check_out_time ? 'Completed' : (dayData.check_in_time ? 'In Progress' : 'Pending');
+    
+    if (status === 'Completed') completedCount++;
+
+    rowsHTML += `<tr>
+      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${day}</td>
+      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${inTime}</td>
+      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${outTime}</td>
+      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${status === 'Completed' ? 'bg-green-50 text-green-700' : (status === 'In Progress' ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700')}">${status}</span></td>
+    </tr>`;
+  });
+
+  const progressPercent = Math.round((completedCount / totalDays) * 100);
+
+  return `
+    <div id="print-content" style="font-family: Arial, sans-serif; color: #111827;padding:20px;">
+      <div class="flex justify-between items-center border-b-2 border-blue-700 pb-2 mb-4 font-sans" style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e3a8a;padding-bottom:0.5rem;margin-bottom:1rem;font-family:Arial,sans-serif;">
+        <div>
+          <span class="font-bold text-blue-700 text-sm" style="font-weight:bold;color:#1e40af;">STI Discipline Office</span><br>
+          <span class="text-xs text-gray-600" style="font-size:0.75rem;color:#4b5563;">Community Service Check-In Report</span>
+        </div>
+        <div class="text-xs text-gray-600" style="font-size:0.75rem;color:#4b5563;text-align:right;">
+          <div>Generated: ${today}</div>
+          <div>By: ${generatedBy}</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #e5e7eb;border-radius:0.5rem;padding:1rem;margin-bottom:1.5rem;background:#f9fafb;">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;">
+          <div>
+            <p style="font-size:0.75rem;color:#6b7280;font-weight:500;margin-bottom:0.25rem;">Case ID</p>
+            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${caseId}</p>
+          </div>
+          <div>
+            <p style="font-size:0.75rem;color:#6b7280;font-weight:500;margin-bottom:0.25rem;">Student</p>
+            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${studentName}</p>
+          </div>
+          <div>
+            <p style="font-size:0.75rem;color:#6b7280;font-weight:500;margin-bottom:0.25rem;">Sanction Type</p>
+            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${sanctionName}</p>
+          </div>
+          <div>
+            <p style="font-size:0.75rem;color:#6b7280;font-weight:500;margin-bottom:0.25rem;">Duration</p>
+            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${totalDays} days</p>
+          </div>
+        </div>
+
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e5e7eb;">
+          <div style="margin-bottom:0.5rem;display:flex;justify-content:space-between;">
+            <span style="font-size:0.75rem;font-weight:500;color:#6b7280;">Progress</span>
+            <span style="font-size:0.875rem;font-weight:600;color:#111827;">${completedCount} / ${totalDays} days completed</span>
+          </div>
+          <div style="width:100%;background-color:#e5e7eb;border-radius:9999px;height:0.625rem;overflow:hidden;">
+            <div style="background-color:#2563eb;height:0.625rem;border-radius:9999px;width:${progressPercent}%;"></div>
+          </div>
+          <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.25rem;">${progressPercent}% done</p>
+        </div>
+      </div>
+
+      <h3 style="font-size:0.875rem;font-weight:bold;color:#1e3a8a;border-left:4px solid #1e3a8a;padding-left:0.625rem;margin:1.25rem 0 0.625rem 0;">Check-In Details</h3>
+      <div style="overflow-x:auto;margin-bottom:1rem;">
+        <table style="page-break-inside:auto;width:100%;border-collapse:collapse;border:1px solid #e5e7eb;margin-bottom:0.5rem;font-size:0.75rem;">
+          <thead>
+            <tr>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Day</th>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check-In</th>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check-Out</th>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHTML}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <style>
+      @media print {
+        body > * { display: none !important; }
+        #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
+        #print-content { display: block !important; }
+        @page { margin: 15mm 10mm; size: A4; }
+      }
+    </style>
+  `;
 }

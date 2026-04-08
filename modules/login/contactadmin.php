@@ -27,7 +27,7 @@
 
             <div class="mb-8 relative z-10">
                 <div>
-                    <img src="../../assets/images/logos/STI-logo-big.png" alt="STI Logo" class="w-50 h-auto">
+                    <img src="../../assets/images/logos/doms-logo.png" alt="DOMS Logo" class="w-50 h-auto">
                 </div>
             </div>
             <!-- Text and Buttons (z-10 to be on top) -->
@@ -38,7 +38,7 @@
 
                 <!-- Description -->
                 <p class="text-gray-300 max-w-md mb-12">
-                    Create your account to access our comprehensive education management platform and connect with the
+                    Login your account to access our comprehensive education management platform and connect with the
                     STI community.
                 </p>
 
@@ -81,45 +81,25 @@
             </div>
         </div>
 
-        <!-- Right Side - White Background with Login Form -->
+        <!-- Right Side -->
         <div class="w-1/2 bg-white flex items-center justify-center p-12">
             <div class="w-full max-w-md">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Change Password</h2>
-                <p class="text-gray-500 mb-8">Please enter a new password to replace your old one.</p>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Contact Administrator</h2>
+                <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let administrator know about your request.</p>
 
                 <form>
-                    <!-- Password -->
-                    <div class="mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-gray-700 text-sm font-medium">Password</label>
-                        </div>
-                        <input type="password" placeholder="••••••••"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-gray-500 mb-8 text-xs">Password must be at least 8 characters long with numbers
-                            and special characters.</p>
+                    <!-- Email Address -->
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
+                        <input type="email" placeholder="nameid@sti.edu"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required>
                     </div>
 
-                    <!-- Confirm Password -->
-                    <div class="mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-gray-700 text-sm font-medium">Confirm Password</label>
-                        </div>
-                        <input type="password" placeholder="••••••••"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-
-                    </div>
-
-                    <!-- Sign In Button -->
-                    <button type="button" onclick="window.location.href='login.php';"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition mb-6">
-                        Reset Password
+                    <button type="submit" onclick="window.location.href='login.php';"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition ">
+                        Send Information
                     </button>
-
-                    <!-- Contact administrator -->
-                    <p class="text-center text-sm text-gray-600">
-                        Having trouble with your account? <a href="#" class="text-blue-500 hover:underline">Contact
-                            administrator</a>
-                    </p>
                 </form>
 
                 <!-- System Information -->
@@ -136,10 +116,10 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span class="text-sm text-gray-600">Last Update: 10/22/2025</span>
+                            <span class="text-sm text-gray-600">Last Update: 11/15/2025</span>
                             <div class="ml-auto">
                                 <div class="w-2 h-2 bg-pink-500 rounded-full inline-block"></div>
-                                <span class="text-sm text-gray-600 ml-2">Support: helpdesk.edu</span>
+                                <span class="text-sm text-gray-600 ml-2">Support: help.edu</span>
                             </div>
                         </div>
                     </div>
@@ -156,7 +136,7 @@
                         <h4 class="text-sm font-semibold text-gray-800 mb-1">Need assistance?</h4>
                         <p class="text-xs text-gray-600">If you're having trouble accessing your account, please contact
                             the IT Helpdesk at <span class="text-blue-600">support@sti.edu</span> or call <span
-                                class="text-blue-600">1-800-STI-HELP</span></p>
+                                class="text-blue-600">1-800-900-STI</span></p>
                     </div>
                 </div>
             </div>
