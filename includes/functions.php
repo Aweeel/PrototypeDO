@@ -33,6 +33,19 @@ function authenticateUser($username, $password) {
 }
 
 /**
+ * Check if a user is using the default password
+ */
+function userHasDefaultPassword($userId) {
+    $user = getUserById($userId);
+    if ($user) {
+        // Check if password hash matches the hash of "password"
+        return password_verify('password', $user['password_hash']);
+    }
+    return false;
+}
+
+
+/**
  * Get the full name of a user for consistent display
  * Format: First Name Last Name (without middle name)
  * For students: Uses first_name last_name from students table

@@ -341,8 +341,6 @@ function resetPassword(userId) {
     try {
         document.getElementById('reset_user_id').value = user.user_id;
         document.getElementById('reset_username').textContent = user.email;
-        document.getElementById('reset_new_password').value = '';
-        document.getElementById('reset_confirm_password').value = '';
         document.getElementById('resetPasswordModal').classList.remove('hidden');
         console.log('Modal opened');
     } catch(e) {

@@ -7,6 +7,12 @@ require_once __DIR__ . '/../../includes/functions.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($_POST['ajax']))) {
     header('Content-Type: application/json');
     
+    if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+    
     if (isset($_POST['action']) && $_POST['action'] === 'markNotificationAsRead') {
         $notificationId = $_POST['notificationId'] ?? null;
         

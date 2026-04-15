@@ -28,6 +28,13 @@ if (!$student) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
 
+    // Mark password warning as shown in this login session
+    if ($_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+
     // Only allow viewing cases (read-only)
     if ($_POST['action'] === 'getCases') {
         if (!$studentId) {
