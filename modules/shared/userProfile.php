@@ -69,6 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 ");
                 $stmt->execute([$hashedPassword, $userId]);
                 
+                // Clear the default password warning flag
+                $_SESSION['has_default_password'] = false;
+                
                 $passwordMessage = "Password changed successfully!";
                 $passwordMessageType = "success";
             } catch (Exception $e) {
@@ -145,6 +148,15 @@ if ($user) {
         <div id="passwordAlert" class="fixed top-32 right-6 z-50 p-4 rounded-lg shadow-lg max-w-sm animation-slide-in <?php echo $passwordMessageType === 'success' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-red-100 text-red-700 border border-red-400'; ?>">
             <?php echo htmlspecialchars($passwordMessage); ?>
         </div>
+        <?php if ($passwordMessageType === 'success'): ?>
+        <script>
+            // Close the password warning modal if it exists
+            const modal = document.getElementById('passwordWarningModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        </script>
+        <?php endif; ?>
     <?php endif; ?>
 
     <main class="ml-64 pt-20 pb-6 px-8">
@@ -198,7 +210,7 @@ if ($user) {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Contact Number
+                            Contact Number *
                         </label>
                         <input type="tel" name="contact_number" 
                                value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>"

@@ -286,20 +286,9 @@ function createResetPasswordModal() {
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                     <p id="reset_username" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"></p>
                 </div>
-                <div class="flex justify-end">
-                    <button type="button" onclick="setDefaultPassword()" class="text-sm text-blue-600 hover:underline">Use default password</button>
-                </div>
-                <div>
-                    <label for="reset_new_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password *</label>
-                    <input type="password" id="reset_new_password" name="new_password" required minlength="6"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 6 characters</p>
-                </div>
-                <div>
-                    <label for="reset_confirm_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password *</label>
-                    <input type="password" id="reset_confirm_password" name="confirm_password" required minlength="6"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Password will be reset to the default password: <strong>password</strong>
+                </p>
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="closeResetPasswordModal()" 
                         class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
@@ -319,21 +308,13 @@ function createResetPasswordModal() {
 async function submitResetPassword(event) {
     event.preventDefault();
     
-    const new_password = document.getElementById('reset_new_password').value;
-    const confirm_password = document.getElementById('reset_confirm_password').value;
-    
-    if (new_password !== confirm_password) {
-        showMessage('Passwords do not match', 'error');
-        return;
-    }
-    
     const user_id = document.getElementById('reset_user_id').value;
 
     const formData = new FormData();
     formData.append('ajax', '1');
     formData.append('action', 'resetPassword');
     formData.append('user_id', user_id);
-    formData.append('new_password', new_password);
+    formData.append('new_password', 'password');
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -344,7 +325,7 @@ async function submitResetPassword(event) {
         const data = await response.json();
         
         if (data.success) {
-            showMessage('Password reset successfully', 'success');
+            showMessage('Password reset to default successfully', 'success');
             closeResetPasswordModal();
             // Reload users to update the badges
             setTimeout(() => loadUsers(), 500);
@@ -412,12 +393,6 @@ function updateStudentEmail() {
             document.getElementById('add_email').value = email;
         }
     }
-}
-
-// helper to set default password in reset modal
-function setDefaultPassword() {
-    document.getElementById('reset_new_password').value = 'password';
-    document.getElementById('reset_confirm_password').value = 'password';
 }
 
 // ====== Initialize Modals ======

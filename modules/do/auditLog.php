@@ -7,6 +7,13 @@ require_once __DIR__ . '/../../includes/functions.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
 
+    // Mark password warning as shown in this login session
+    if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+
     try {
         // Get audit logs with filters
         if ($_POST['action'] === 'getAuditLogs') {

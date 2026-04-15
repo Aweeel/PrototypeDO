@@ -7,6 +7,13 @@ require_once __DIR__ . '/../../includes/functions.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
 
+    // Mark password warning as shown in this login session
+    if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+
     try {
         // Get events
         if ($_POST['action'] === 'getEvents') {
@@ -200,7 +207,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $categories = [
                 ['name' => 'Meeting', 'count' => 0],
                 ['name' => 'Conference', 'count' => 0],
-                ['name' => 'Training', 'count' => 0],
                 ['name' => 'Hearing', 'count' => 0],
                 ['name' => 'Deadline', 'count' => 0],
                 ['name' => 'Other', 'count' => 0]
@@ -239,7 +245,6 @@ function getCategoryColor($category) {
     $colors = [
         'Meeting' => 'blue',
         'Conference' => 'green',
-        'Training' => 'purple',
         'Hearing' => 'red',
         'Deadline' => 'yellow',
         'Other' => 'gray'
@@ -301,9 +306,6 @@ $adminName = getFormattedUserName();
                                     </button>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button id="weekBtn" onclick="switchView('week')" class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                                        Week
-                                    </button>
                                     <button id="monthBtn" onclick="switchView('month')" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg">
                                         Month
                                     </button>

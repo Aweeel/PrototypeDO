@@ -24,11 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'role' => $user['role']
             ];
 
-
-
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
             
+            // Check if user is using default password and set warning flag
+            $_SESSION['has_default_password'] = userHasDefaultPassword($user['user_id']);
+
             // Set display name - always use First Name Last Name format (without middle names)
             if ($user['role'] === 'student') {
                 $pdo = getDBConnection();

@@ -116,6 +116,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_POST['action']))) {
     header('Content-Type: application/json');
 
+    // Mark password warning as shown in this login session
+    if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+
     // Mark notification as read
     if (isset($_POST['action']) && $_POST['action'] === 'markNotificationAsRead') {
         $notificationId = $_POST['notificationId'] ?? null;

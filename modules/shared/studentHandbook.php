@@ -1,10 +1,25 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
 $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
+$isSuperAdmin = $_SESSION['user_role'] === 'super_admin';
+
+// Load saved handbook content from JSON file
+$handbookContent = [];
+$contentFile = __DIR__ . '/../../assets/handbook_content.json';
+if (file_exists($contentFile)) {
+    $jsonContent = file_get_contents($contentFile);
+    $handbookContent = json_decode($jsonContent, true) ?? [];
+}
+
+// Helper function to get section content
+function getHandbookSection($sectionId, $defaultContent) {
+    global $handbookContent;
+    return isset($handbookContent[$sectionId]) ? $handbookContent[$sectionId] : $defaultContent;
+}
 ?>
 
 <!DOCTYPE html>
@@ -15,6 +30,13 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
   <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Quill WYSIWYG Editor -->
+  <?php if ($isSuperAdmin): ?>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <?php endif; ?>
+  
     <script>
         // Ensure tailwind uses class-based dark mode
         tailwind.config = {
@@ -33,12 +55,30 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
         }
 
         let lastHighlights = [];
+        let quillEditors = {};
+        let editMode = false;
 
         function clearHighlights() {
             lastHighlights.forEach(el => {
                el.outerHTML = el.innerText;
           });
             lastHighlights = [];
+        }
+
+        function createPencilIcon() {
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', '18');
+          svg.setAttribute('height', '18');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'currentColor');
+          svg.setAttribute('stroke', 'none');
+          svg.setAttribute('style', 'vertical-align: middle; display: inline;');
+          
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7m-13-3l9.5-9.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z');
+          
+          svg.appendChild(path);
+          return svg;
         }
     </script>
     
@@ -173,6 +213,43 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
               });
             });
           });
+
+          // Load and apply saved handbook content from JSON file
+          async function loadHandbookContent() {
+            try {
+              const formData = new FormData();
+              formData.append('action', 'getAllContent');
+              
+              const response = await fetch('handbookHandler.php', {
+                method: 'POST',
+                body: formData
+              });
+              
+              const data = await response.json();
+              if (data.success && data.content) {
+                // For each saved section, update its content div
+                Object.entries(data.content).forEach(([sectionId, content]) => {
+                  const section = document.getElementById(sectionId);
+                  if (section) {
+                    const contentDiv = section.querySelector('.handbook-content');
+                    if (contentDiv) {
+                      // Store original content in data attribute for cancel functionality
+                      if (!contentDiv.hasAttribute('data-original-html')) {
+                        contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
+                      }
+                      // Update with saved content
+                      contentDiv.innerHTML = content;
+                    }
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Error loading handbook content:', error);
+            }
+          }
+
+          // Load content when page is fully ready
+          loadHandbookContent();
     </script>
 
 <style>
@@ -223,18 +300,28 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
             rounded-lg shadow-sm pl-20 pb-20 pr-20 pt-[3.5rem] 
             overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar">
 
-        <!-- Header title + PDF download -->
-        <div class="flex justify-between items-center mb-6">
+        <!-- Header title + PDF download + Admin buttons -->
+        <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
           <h2 class="text-5xl font-bold text-gray-800 dark:text-gray-100">
             <?php echo htmlspecialchars($pageTitle); ?>
           </h2>
-          <a
-            href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
-            download
-            class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
-          >
-            Download PDF
-          </a>
+          <div class="flex gap-3">
+            <a
+              href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
+              download
+              class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
+            >
+              Download PDF
+            </a>
+            <?php if ($isSuperAdmin): ?>
+              <button
+                onclick="openUploadPDFModal()"
+                class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
+              >
+                Upload PDF
+              </button>
+            <?php endif; ?>
+          </div>
         </div>
 
            <!-- ================= GENERAL INFORMATION ================= -->
@@ -243,6 +330,10 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
 
   <div id="sti-history">
     <h4 class="font-semibold text-2xl">STI History</h4>
+    <div class="handbook-content">
+    <?php if (isset($handbookContent['sti-history'])) {
+        echo $handbookContent['sti-history'];
+    } else { ?>
     <p>
       <br>It all started when four visionaries conceptualized setting up a training center to fill very specific workforce needs.<br><br>
       It was in the early ‘80s when Augusto C. Lagman, Herman T. Gamboa, Benjamin A. Santos, and Edgar H. Sarte — four entrepreneurs and friends — came together to set up Systems Technology Institute, a training center that delivers basic programming education to professionals and students who want to learn this new skill.<br><br>
@@ -257,27 +348,42 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
       Moreover, after years of positioning itself as an IT school focused on providing high-quality education to the Filipino youth, STI slowly integrated itself into the education industry as a school that provides boundless career opportunities in non-IT programs such as Business and Management, Hospitality Management, Tourism Management, Engineering, Arts and Sciences, Maritime, and Criminal Justice Education.<br><br>
       With its wealth of experience in launching education programs needed by the market, STI also responded to the shift in the education landscape in 2013 by taking the lead in the country as the largest pioneer school to offer the Senior High School Program.
     </p>
+    <?php } ?>
+    </div>
   </div>
 
   <div id="sti-vision">
     <h4 class="font-semibold text-2xl">STI Vision</h4>
-    <p><br>
-      To be the leader in innovative and relevant education that nurtures individuals to become competent and responsible members of society.
-    </p>
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['sti-vision'])) {
+        echo $handbookContent['sti-vision'];
+      } else { ?>
+      <p><br>
+        To be the leader in innovative and relevant education that nurtures individuals to become competent and responsible members of society.
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="sti-mission">
     <h4 class="font-semibold text-2xl">STI Mission</h4>
-    <p><br>
-      We are an institution committed to provide knowledge through the development and delivery of superior learning systems.<br><br>
-      We strive to provide optimum value to all our stakeholders — our students, our faculty members, our employees, our partners, our shareholders, and our community.<br><br>
-      We will pursue this mission with utmost integrity, dedication, transparency, and creativity.
-    </p>
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['sti-mission'])) {
+        echo $handbookContent['sti-mission'];
+      } else { ?>
+      <p><br>
+        We are an institution committed to provide knowledge through the development and delivery of superior learning systems.<br><br>
+        We strive to provide optimum value to all our stakeholders — our students, our faculty members, our employees, our partners, our shareholders, and our community.<br><br>
+        We will pursue this mission with utmost integrity, dedication, transparency, and creativity.
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="sti-seal">
     <h4 class="font-semibold text-2xl">STI Academic Seal</h4>
-    <p>
+    <div class="handbook-content">
+      <p>
         <br>The STI Academic Seal is designed to signify the institution’s commitment to its vision and mission.<br><br>
     <div class="flex justify-center my-6">
         <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm">
@@ -297,16 +403,14 @@ $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
             purpose of using their knowledge, skills, values, experience, and abilities for the
             benefit of society.
 <br><br>
-            • The Latin inscription <strong>“Vita Educationem”</strong> translates to “Life Education,” which
+            • The Latin inscription <strong>"Vita Educationem"</strong> translates to "Life Education," which
             captures the overall thrust of the institution to provide Education for Real Life.
-    </p>
+      </p>
+    </div>
   </div>
 
   <div id="sti-philosophy">
-    <h4 class="font-semibold text-3xl">STI Educational Philosophy</h4>
-  </div>
-
-  <div id="sti-way">
+            • The Latin inscription <strong>“Vita Educationem”</strong> translates to “Life Education,” which
     <h4 class="font-semibold text-2xl">STI Way of Educating</h4>
     <p>
         <br>Having embraced the student-centered approach as its paradigm for teaching and learning, STI seeks to provide every student with a holistic development through technology-enhanced, student-centered active learning. <br><br>
@@ -427,14 +531,20 @@ Department of Education’s requirements.
 
   <div id="school-student-relationship">
     <h4 class="font-semibold text-2xl">School-Student Relationship</h4>
-    <p>
-      <br>A student who submitted the admission requirements and is fully admitted to the school
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['school-student-relationship'])) {
+        echo $handbookContent['school-student-relationship'];
+      } else { ?>
+      <p>
+        <br>A student who submitted the admission requirements and is fully admitted to the school
 has already entered into a legal contract with the school. The enrollment form is the first
 contract that binds the student and the school. Both parties are expected to promote and
 protect their mutual interests and fulfill their responsibilities and obligations as stated in
 this handbook. Parents/guardians must also acquaint themselves with the content and
 provisions in this handbook.
-    </p>
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="admission-policy">
@@ -3520,7 +3630,422 @@ learning environment and of the STI Community.</p>
         </main>
 </div>
 </div>
+
+<!-- Handbook Edit Modal -->
+<?php if ($isSuperAdmin): ?>
+<script>
+// Load saved handbook content for all users on page load
+function loadSavedHandbookContent() {
+  const formData = new FormData();
+  formData.append('action', 'getAllContent');
+  
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.content) {
+      // Replace content for each saved section
+      Object.keys(data.content).forEach(sectionId => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          // First try to find .handbook-content wrapper
+          let contentWrapper = section.querySelector(':scope > .handbook-content');
+          
+          // If no wrapper exists, create one and move existing content into it
+          if (!contentWrapper) {
+            contentWrapper = document.createElement('div');
+            contentWrapper.className = 'handbook-content';
+            
+            // Move all children except heading into wrapper
+            const children = Array.from(section.children);
+            for (let i = 1; i < children.length; i++) {
+              contentWrapper.appendChild(children[i]);
+            }
+            section.appendChild(contentWrapper);
+          }
+          
+          // Now replace content with saved version
+          contentWrapper.innerHTML = data.content[sectionId];
+        }
+      });
+      console.log('Handbook content loaded from database');
+    }
+  })
+  .catch(error => {
+    console.log('No saved content found or error loading:', error.message);
+  });
+}
+
+// Create content wrappers for ALL users (needed for both editing and content loading)
+function createContentWrappers() {
+  const innerContent = document.querySelector('main .flex-1.overflow-visible .bg-white');
+  if (!innerContent) return;
+  
+  // Get all divs with id attributes
+  const allSectionDivs = innerContent.querySelectorAll('div[id]');
+  
+  allSectionDivs.forEach(div => {
+    const sectionId = div.getAttribute('id');
+    
+    // Skip certain structural divs
+    if (['general-info', 'academic-policies', 'student-services', 'student-behavior', 'appendices'].includes(sectionId)) {
+      return;
+    }
+    
+    // Check if content is already wrapped in .handbook-content
+    let contentWrapper = div.querySelector(':scope > .handbook-content');
+    
+    // If no wrapper exists, create one and move all children (except heading) into it
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'handbook-content';
+      
+      // Move all children except the first one (usually the h4/h3 heading) into wrapper
+      const children = Array.from(div.children);
+      for (let i = 1; i < children.length; i++) {
+        contentWrapper.appendChild(children[i]);
+      }
+      
+      div.appendChild(contentWrapper);
+    }
+  });
+}
+
+// Initialize all handbook sections for editing (super admins only)
+function initializeHandbookSections() {
+  <?php if ($isSuperAdmin): ?>
+  const innerContent = document.querySelector('main .flex-1.overflow-visible .bg-white');
+  if (!innerContent) return;
+  
+  // Get all divs with id attributes
+  const allSectionDivs = innerContent.querySelectorAll('div[id]');
+  
+  allSectionDivs.forEach(div => {
+    const sectionId = div.getAttribute('id');
+    
+    // Skip certain structural divs
+    if (['general-info', 'academic-policies', 'student-services', 'student-behavior', 'appendices'].includes(sectionId)) {
+      return;
+    }
+    
+    // Add the editable class and data attribute
+    div.classList.add('editable-handbook-section');
+    div.setAttribute('data-section-id', sectionId);
+  });
+  
+  const editableSectionsCount = document.querySelectorAll('.editable-handbook-section').length;
+  console.log(`Handbook initialized: ${editableSectionsCount} sections ready for editing`);
+  
+  // Initialize edit icons for super admin
+  initializeEditIcons();
+  <?php endif; ?>
+}
+
+function initializeEditIcons() {
+  // Only initialize for super admin
+  if (!<?php echo ($isSuperAdmin ? 'true' : 'false'); ?>) return;
+  
+  // Add edit icons to section headers on page load
+  const editableSections = document.querySelectorAll('.editable-handbook-section');
+  console.log('Editable sections found:', editableSections.length);
+  
+  editableSections.forEach(section => {
+    const sectionId = section.getAttribute('data-section-id');
+    const heading = section.querySelector('h4');
+    
+    if (!heading) {
+      console.log('No h4 found in section:', sectionId);
+      return;
+    }
+    
+    // Check if icon already exists
+    if (heading.querySelector('[data-edit-icon]')) return;
+    
+    // Add edit icon button to heading
+    const editBtn = document.createElement('button');
+    editBtn.setAttribute('data-edit-icon', 'true');
+    editBtn.className = 'ml-2 p-1 inline-flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer';
+    editBtn.type = 'button';
+    editBtn.style.background = 'transparent';
+    editBtn.style.border = 'none';
+    editBtn.style.padding = '4px 8px';
+    editBtn.style.cursor = 'pointer';
+    editBtn.style.display = 'inline-flex';
+    editBtn.style.alignItems = 'center';
+    editBtn.style.justifyContent = 'center';
+    
+    editBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startEditingSection(sectionId);
+    };
+    editBtn.title = 'Edit section';
+    
+    // Append SVG icon
+    const icon = createPencilIcon();
+    editBtn.appendChild(icon);
+    heading.appendChild(editBtn);
+    console.log('Added edit icon to section:', sectionId);
+  });
+}
+
+function startEditingSection(sectionId) {
+  // Prevent creating multiple editors for the same section
+  if (quillEditors[sectionId]) {
+    console.log('Editor already open for section:', sectionId);
+    return;
+  }
+  
+  // Get the section and its content
+  const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+  const contentDiv = section.querySelector('.handbook-content');
+  
+  if (!contentDiv) return;
+  
+  // Store original HTML
+  contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
+  
+  // Create Quill editor wrapper
+  const editorId = 'editor-' + sectionId;
+  const editorWrapper = document.createElement('div');
+  editorWrapper.id = editorId;
+  editorWrapper.className = 'ql-editor-wrapper mb-4 p-4 border border-blue-300 rounded-lg bg-gray-50 dark:bg-slate-700';
+  
+  // Move content into editor
+  editorWrapper.innerHTML = contentDiv.innerHTML;
+  contentDiv.innerHTML = '';
+  contentDiv.appendChild(editorWrapper);
+  
+  // Initialize Quill
+  const quill = new Quill('#' + editorId, {
+    theme: 'snow',
+    placeholder: 'Edit section content...',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote', 'code-block'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'header': [1, 2, 3, false] }],
+        ['link', 'image'],
+        ['clean']
+      ]
+    }
+  });
+  
+  quillEditors[sectionId] = quill;
+  
+  // Disable the edit button while editing
+  const editBtn = section.querySelector('[data-edit-icon]');
+  if (editBtn) {
+    editBtn.disabled = true;
+    editBtn.style.opacity = '0.5';
+  }
+  
+  // Add Save/Cancel buttons for this section
+  const buttonContainer = document.createElement('div');
+  buttonContainer.id = 'edit-buttons-' + sectionId;
+  buttonContainer.className = 'mt-3 flex items-center gap-3';
+  buttonContainer.innerHTML = `
+    <button onclick="cancelEditSection('${sectionId}')" 
+      class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 text-sm font-medium underline transition">
+      Cancel
+    </button>
+    <button onclick="saveSectionEdit('${sectionId}')" 
+      class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium underline transition">
+      Save
+    </button>
+    <span id="status-${sectionId}" class="text-xs"></span>
+  `;
+  contentDiv.appendChild(buttonContainer);
+}
+
+function cancelEditSection(sectionId) {
+  const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+  const contentDiv = section.querySelector('.handbook-content');
+  
+  if (contentDiv.hasAttribute('data-original-html')) {
+    contentDiv.innerHTML = contentDiv.getAttribute('data-original-html');
+    contentDiv.removeAttribute('data-original-html');
+  }
+  
+  if (quillEditors[sectionId]) {
+    delete quillEditors[sectionId];
+  }
+  
+  // Re-enable the edit button
+  const editBtn = section.querySelector('[data-edit-icon]');
+  if (editBtn) {
+    editBtn.disabled = false;
+    editBtn.style.opacity = '1';
+  }
+}
+
+
+
+function saveSectionEdit(sectionId) {
+  if (!quillEditors[sectionId]) return;
+  
+  const statusSpan = document.getElementById('status-' + sectionId);
+  const saveBtn = document.querySelector('#edit-buttons-' + sectionId + ' button:nth-of-type(2)');
+  
+  // Show loading
+  if (statusSpan) statusSpan.innerHTML = '<span class="flex items-center gap-1 text-blue-600 dark:text-blue-400"><span class="animate-spin">⟳</span> Saving...</span>';
+  if (saveBtn) saveBtn.disabled = true;
+  
+  // Get the content from Quill editor
+  const quill = quillEditors[sectionId];
+  const content = quill.root.innerHTML;
+  
+  const formData = new FormData();
+  formData.append('action', 'updateContent');
+  formData.append('sections', JSON.stringify({ [sectionId]: content }));
+  
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      if (statusSpan) statusSpan.innerHTML = '<span class="text-green-600 dark:text-green-400 font-medium">✓ Saved!</span>';
+      if (saveBtn) saveBtn.disabled = false;
+      // Auto-exit edit mode immediately
+      cancelEditSection(sectionId);
+    } else {
+      if (saveBtn) saveBtn.disabled = false;
+      if (statusSpan) statusSpan.innerHTML = '<span class="text-red-600 dark:text-red-400 text-xs">Error</span>';
+    }
+  })
+  .catch(error => {
+    if (saveBtn) saveBtn.disabled = false;
+    if (statusSpan) statusSpan.innerHTML = '<span class="text-red-600 dark:text-red-400 text-xs">Error</span>';
+  });
+}
+
+// Initialize handbook sections when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Step 1: Create content wrappers for ALL users (needed before content loading)
+  createContentWrappers();
+  
+  // Step 2: Load saved content for all users
+  loadSavedHandbookContent();
+  
+  // Step 3: Initialize edit mode for super admins
+  initializeHandbookSections();
+});
+</script>
+<?php endif; ?>
+
+<!-- Upload PDF Modal -->
+<div id="uploadPDFModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+  <div class="bg-white dark:bg-[#111827] rounded-lg shadow-lg max-w-md w-full mx-4">
+    <div class="p-6">
+      <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Upload Student Handbook PDF</h3>
+      
+      <div class="mb-4">
+        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">
+          Select PDF File
+        </label>
+        <input 
+          type="file" 
+          id="pdfFileInput" 
+          accept=".pdf" 
+          class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white"
+        />
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Maximum file size: 50MB</p>
+      </div>
+
+      <div id="uploadStatus" class="mb-4 text-sm"></div>
+
+      <div class="flex gap-3 justify-end">
+        <button
+          onclick="closeUploadPDFModal()"
+          class="px-4 py-2 bg-gray-300 dark:bg-slate-600 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 dark:hover:bg-slate-500 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onclick="uploadPDF()"
+          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+        >
+          Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<?php if ($isSuperAdmin): ?>
+<script>
+function openUploadPDFModal() {
+  document.getElementById('uploadPDFModal').classList.remove('hidden');
+  document.getElementById('uploadStatus').innerHTML = '';
+  document.getElementById('pdfFileInput').value = '';
+}
+
+function closeUploadPDFModal() {
+  document.getElementById('uploadPDFModal').classList.add('hidden');
+}
+
+function uploadPDF() {
+  const fileInput = document.getElementById('pdfFileInput');
+  const file = fileInput.files[0];
+  const statusDiv = document.getElementById('uploadStatus');
+
+  if (!file) {
+    statusDiv.innerHTML = '<div class="text-red-600">Please select a file</div>';
+    return;
+  }
+
+  if (!file.name.endsWith('.pdf')) {
+    statusDiv.innerHTML = '<div class="text-red-600">Only PDF files are allowed</div>';
+    return;
+  }
+
+  if (file.size > 50 * 1024 * 1024) {
+    statusDiv.innerHTML = '<div class="text-red-600">File size exceeds 50MB limit</div>';
+    return;
+  }
+
+  statusDiv.innerHTML = '<div class="text-blue-600">Uploading...</div>';
+
+  const formData = new FormData();
+  formData.append('action', 'uploadPDF');
+  formData.append('pdf_file', file);
+
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      statusDiv.innerHTML = '<div class="text-green-600 font-medium">PDF uploaded successfully!</div>';
+      setTimeout(() => {
+        closeUploadPDFModal();
+        location.reload();
+      }, 1500);
+    } else {
+      statusDiv.innerHTML = '<div class="text-red-600">' + (data.error || 'Upload failed') + '</div>';
+    }
+  })
+  .catch(error => {
+    statusDiv.innerHTML = '<div class="text-red-600">Error: ' + error.message + '</div>';
+  });
+}
+
+// Close modal when clicking outside
+document.getElementById('uploadPDFModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeUploadPDFModal();
+  }
+});
+</script>
+<?php endif; ?>
   </body>
 </html>
+
 
 

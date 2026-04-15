@@ -280,6 +280,14 @@ function buildCSVData($type, $params) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'] ?? '';
+    
+    // Mark password warning as shown in this login session
+    if ($action === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+    
     try {
         if ($action === 'generateIncidentReport')   { echo json_encode(fetchIncidentData($_POST));   exit; }
         if ($action === 'generateStatisticsReport') { echo json_encode(fetchStatisticsData($_POST)); exit; }
