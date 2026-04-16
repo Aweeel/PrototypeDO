@@ -44,8 +44,8 @@ function renderCases() {
                 ${currentTab === 'archived' 
                     ? `<button onclick="unarchiveCase('${c.id}')" class="text-green-600 dark:text-green-400 hover:underline mr-3">Restore</button>`
                     : `<button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
-                       <button onclick="manageSanctions('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">Sanctions</button>
-                       ${c.status !== 'Resolved' ? `<span class="text-gray-300 dark:text-gray-600 mx-2">|</span><button onclick="markCaseResolved('${c.id}')" class="text-green-600 dark:text-green-400 hover:underline font-medium">Mark Resolved</button>` : ''}`
+                       ${String(c.status || '').toLowerCase() !== 'resolved' ? `<button onclick="manageSanctions('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">Sanctions</button>` : ''}
+                       ${c.status !== 'Resolved' ? `<span class="text-gray-300 dark:text-gray-600 mx-2">|</span><button onclick="markCaseResolved('${c.id}')" title="${getCaseResolutionBlockReason(c) || 'Mark this case as resolved'}" class="text-green-600 dark:text-green-400 hover:underline font-medium">Mark Resolved</button>` : ''}`
                 }
             </td>
         </tr>
@@ -58,7 +58,7 @@ function renderCases() {
 function changePage(page) {
     const totalPages = Math.ceil(filteredCases.length / casesPerPage);
     if (page < 1 || page > totalPages) return;
-    currentPage = page;
+    updateActiveTabPage(page);
     renderCases();
 }
 

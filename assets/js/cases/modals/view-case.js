@@ -216,6 +216,13 @@ async function loadAppliedSanctionsForView(caseId) {
 
 // Mark case as resolved with confirmation
 async function markCaseResolved(caseId) {
+  const caseData = allCases.find((c) => c.id === caseId);
+  const blockedReason = getCaseResolutionBlockReason(caseData);
+  if (blockedReason) {
+    showNotification(blockedReason, "error");
+    return;
+  }
+
   const modal = document.createElement("div");
   modal.className =
     "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200";

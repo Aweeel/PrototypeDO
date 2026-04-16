@@ -48,10 +48,60 @@ function convertTo12Hour(timeStr) {
   return timeStr;
 }
 
+// ====== DEADLINE STATUS FUNCTIONS ======
+
+function getDeadlineStatus(deadline) {
+  if (!deadline) return { status: 'no-deadline', label: 'No deadline' };
+  
+  const now = new Date();
+  const deadlineTime = new Date(deadline);
+  
+  // Clear time portion for date comparison
+  now.setHours(0, 0, 0, 0);
+  deadlineTime.setHours(0, 0, 0, 0);
+  
+  const timeDiff = deadlineTime - now;
+  const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+  
+  if (daysDiff < 0) {
+    return { 
+      status: 'overdue', 
+      label: 'OVERDUE',
+      daysOverdue: Math.abs(daysDiff)
+    };
+  } else if (daysDiff === 0) {
+    return { status: 'due-today', label: 'Due Today' };
+  } else if (daysDiff <= 2) {
+    return { status: 'due-soon', label: `${daysDiff} day${daysDiff > 1 ? 's' : ''} left` };
+  } else {
+    return { status: 'on-track', label: `${daysDiff} days remaining` };
+  }
+}
+
+function getDeadlineStatusColor(status) {
+  switch(status) {
+    case 'overdue': return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200';
+    case 'due-today': return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200';
+    case 'due-soon': return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200';
+    case 'on-track': return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200';
+    default: return 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200';
+  }
+}
+
+function getDeadlineStatusBorderClass(status) {
+  switch(status) {
+    case 'overdue': return 'border-red-200 dark:border-red-800';
+    case 'due-today': return 'border-yellow-200 dark:border-yellow-800';
+    case 'due-soon': return 'border-orange-200 dark:border-orange-800';
+    case 'on-track': return 'border-green-200 dark:border-green-800';
+    default: return 'border-gray-200 dark:border-gray-800';
+  }
+}
+
 function getSanctionTypeConfig(sanctionType = 'corrective') {
   if (sanctionType === 'suspension') {
     return {
-      keyword: 'suspension from class',
+      keywords: ['suspension from class'],
       modalTitle: 'Suspension from Class Progress',
       emptyLabel: 'No suspension-from-class sanctions found',
       emptyHint: 'Apply a "Suspension from Class" sanction with duration days to enable suspension tracking.',
@@ -61,13 +111,52 @@ function getSanctionTypeConfig(sanctionType = 'corrective') {
   }
 
   return {
-    keyword: 'corrective',
+    keywords: ['corrective', 'community service'],
     modalTitle: 'Community Service Check-In',
     emptyLabel: 'No time-based sanctions found',
     emptyHint: 'Apply a sanction with a duration (e.g., Corrective Reinforcement) to enable check-in tracking.',
     completeTitle: 'Community Service Check-In Complete (100%)',
     progressTitle: 'Community Service Check-In In Progress'
   };
+}
+
+function matchesSanctionTypeByName(sanctionName = '', sanctionType = 'corrective') {
+  const normalizedName = String(sanctionName || '').toLowerCase();
+  const { keywords } = getSanctionTypeConfig(sanctionType);
+  return (keywords || []).some((keyword) => normalizedName.includes(keyword));
+}
+
+function getEffectiveDurationDays(sanction, sanctionType = 'corrective') {
+  const storedDuration = parseInt(sanction?.duration_days || 0, 10);
+  if (storedDuration > 0) return storedDuration;
+
+  const sanctionName = String(sanction?.sanction_name || '').toLowerCase();
+
+  const rangeMatch = sanctionName.match(/(\d+)\s*-\s*(\d+)\s*days?/i);
+  if (rangeMatch) {
+    const minDays = parseInt(rangeMatch[1], 10);
+    if (minDays > 0) return minDays;
+  }
+
+  const singleMatch = sanctionName.match(/(\d+)\s*days?/i);
+  if (singleMatch) {
+    const explicitDays = parseInt(singleMatch[1], 10);
+    if (explicitDays > 0) return explicitDays;
+  }
+
+  if (sanctionName.includes('corrective reinforcement') || sanctionName.includes('suspension from class')) {
+    return 3;
+  }
+
+  if (sanctionType === 'suspension' && matchesSanctionTypeByName(sanctionName, 'suspension')) {
+    return 3;
+  }
+
+  if (sanctionType === 'corrective' && matchesSanctionTypeByName(sanctionName, 'corrective')) {
+    return 3;
+  }
+
+  return 0;
 }
 
 function getCaseCheckInIconButton(caseId, sanctionType = 'corrective') {
@@ -77,8 +166,7 @@ function getCaseCheckInIconButton(caseId, sanctionType = 'corrective') {
 }
 
 function findSanctionByType(sanctions, sanctionType = 'corrective') {
-  const { keyword } = getSanctionTypeConfig(sanctionType);
-  return (sanctions || []).find((s) => String(s?.sanction_name || '').toLowerCase().includes(keyword));
+  return (sanctions || []).find((s) => matchesSanctionTypeByName(s?.sanction_name || '', sanctionType));
 }
 
 function calculateElapsedSuspensionDays(appliedDate, totalDays) {
@@ -306,7 +394,7 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
     const suspensionSanction = findSanctionByType(sanctions, 'suspension');
     if (!suspensionSanction) return;
 
-    const totalDays = parseInt(suspensionSanction.duration_days || 0, 10);
+    const totalDays = getEffectiveDurationDays(suspensionSanction, 'suspension');
     const completedDays = calculateElapsedSuspensionDays(suspensionSanction.applied_date, totalDays);
     const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
     const dayCardsHTML = getSuspensionDayCardsHTML(totalDays, completedDays);
@@ -345,7 +433,7 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   if (!sanction) {
     return;
   }
-  const totalDays = sanction.duration_days;
+  const totalDays = getEffectiveDurationDays(sanction, sanctionType);
   const days = sanction.days;
   
   // Calculate completed days and active day
@@ -407,8 +495,9 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
   // Load sanctions for this case and filter to selected type with duration_days > 0.
   const sanctions = await loadAppliedSanctionsForView(caseId);
   const selectedTypeSanctions = sanctions.filter((s) => {
-    const sanctionName = String(s?.sanction_name || '').toLowerCase();
-    return sanctionName.includes(sanctionConfig.keyword) && s.duration_days && parseInt(s.duration_days) > 0;
+    const matchesType = matchesSanctionTypeByName(s?.sanction_name || '', sanctionType);
+    const totalDays = getEffectiveDurationDays(s, sanctionType);
+    return matchesType && totalDays > 0;
   });
 
   const modal = document.createElement('div');
@@ -416,7 +505,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
 
   if (sanctionType === 'suspension' && selectedTypeSanctions.length > 0) {
     const activeSanction = findSanctionByType(selectedTypeSanctions, 'suspension') || selectedTypeSanctions[0];
-    const totalDays = parseInt(activeSanction.duration_days || 0, 10);
+    const totalDays = getEffectiveDurationDays(activeSanction, 'suspension');
     const completedDays = calculateElapsedSuspensionDays(activeSanction.applied_date, totalDays);
     const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
     const dayCardsHTML = getSuspensionDayCardsHTML(totalDays, completedDays);
@@ -460,7 +549,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
     if (!result.success || !result.sanctions.length) {
       // Fallback to UI demo
       const activeSanction = findSanctionByType(selectedTypeSanctions, sanctionType) || selectedTypeSanctions[0];
-      const totalDays = parseInt(activeSanction.duration_days);
+      const totalDays = getEffectiveDurationDays(activeSanction, sanctionType);
       const sanctionName = activeSanction.sanction_name || 'Community Service';
       const completedDays = totalDays <= 1 ? 0 : Math.floor((totalDays - 1) / 2);
       const activeDayNum = completedDays + 1;
@@ -478,7 +567,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
         showNotification('No matching sanction data found for tracking', 'warning');
         return;
       }
-      const totalDays = sanction.duration_days;
+      const totalDays = getEffectiveDurationDays(sanction, sanctionType);
       const sanctionName = sanction.sanction_name || 'Community Service';
       
       // Calculate completed days and active day
@@ -715,6 +804,11 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
   const suspensionStartDateDisplay = formatDateForDisplay(suspensionStartDate);
   const suspensionStartDateInput = formatDateForInput(suspensionStartDate);
   
+  // Get deadline status
+  const deadline = activeSanction.deadline || null;
+  const deadlineStatusInfo = deadline ? getDeadlineStatus(deadline) : { status: 'no-deadline', label: 'No deadline set' };
+  const deadlineStatusColor = getDeadlineStatusColor(deadlineStatusInfo.status);
+  
   modal.setAttribute('data-checkin-modal', 'true');
   modal.setAttribute('data-case-id', caseId);
   modal.setAttribute('data-sanction-type', sanctionType);
@@ -762,6 +856,31 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
           </div>
         </div>
       </div>
+
+      <!-- Deadline Status Badge -->
+      ${deadline ? `
+      <div class="border ${deadlineStatusColor} rounded-lg p-3 mb-4 flex-shrink-0">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold">Deadline Status: <span class="font-bold">${deadlineStatusInfo.status === 'overdue' ? 'OVERDUE' : deadlineStatusInfo.label}</span></p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-gray-600 dark:text-gray-400">
+              ${new Date(deadline).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        ${deadlineStatusInfo.status === 'overdue' && completedDays < totalDays ? `
+          <div class="mt-2 pt-2 border-t ${getDeadlineStatusBorderClass(deadlineStatusInfo.status)}">
+            <p class="text-xs mb-2">Deadline has passed without completion</p>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'extend')" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium">Extend Deadline</button>
+              <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'increase')" class="px-3 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors font-medium">Increase Duration</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+      ` : ''}
 
       <!-- Progress Bar -->
       <div class="mb-4 flex-shrink-0">
@@ -1465,8 +1584,8 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, day
           <thead>
             <tr>
               <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Day</th>
-              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check-In</th>
-              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check-Out</th>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check In</th>
+              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check Out</th>
               <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Status</th>
             </tr>
           </thead>
@@ -1475,16 +1594,130 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, day
           </tbody>
         </table>
       </div>
-
     </div>
 
     <style>
       @media print {
         body > * { display: none !important; }
-        #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
-        #print-content { display: block !important; }
-        @page { margin: 15mm 10mm; size: A4; }
+        #print-root, #print-root * { display: block !important; }
       }
     </style>
   `;
+}
+
+// ====== DEADLINE EXTENSION AND PENALTY HANDLERS ======
+
+function closeDeadlineActionModal() {
+  document.querySelectorAll('[data-deadline-action-modal="true"]').forEach((el) => el.remove());
+}
+
+function openDeadlineActionModal(caseSanctionId, actionType) {
+  closeDeadlineActionModal();
+
+  const isExtend = actionType === 'extend';
+  const title = isExtend ? 'Extend Deadline' : 'Increase Duration';
+  const label = isExtend ? 'Days to extend' : 'Days to add';
+  const buttonText = isExtend ? 'Extend' : 'Increase';
+  const buttonClass = isExtend ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-600 hover:bg-orange-700';
+  const defaultValue = isExtend ? '3' : '1';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[110] p-4';
+  overlay.setAttribute('data-deadline-action-modal', 'true');
+
+  overlay.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">${title}</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case Sanction #${caseSanctionId}</p>
+        </div>
+        <button type="button" onclick="closeDeadlineActionModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${label}</label>
+      <input type="number" id="deadlineActionDaysInput" min="1" max="10" step="1" value="${defaultValue}" class="w-full px-3 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
+      <div style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:1.25rem;">
+        <button type="button" onclick="submitDeadlineAction(${caseSanctionId}, '${actionType}')" style="min-width:120px;" class="px-4 py-2.5 text-sm text-white rounded-lg ${buttonClass} transition-colors font-medium">${buttonText}</button>
+        <button type="button" onclick="closeDeadlineActionModal()" style="min-width:120px;" class="px-4 py-2.5 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      closeDeadlineActionModal();
+    }
+  });
+
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.querySelector('#deadlineActionDaysInput')?.focus(), 50);
+}
+
+async function submitDeadlineAction(caseSanctionId, actionType) {
+  const input = document.getElementById('deadlineActionDaysInput');
+  const daysValue = Math.min(10, Math.max(1, parseInt(input?.value || '1', 10) || 1));
+
+  if (actionType === 'extend') {
+    await handleExtendDeadline(caseSanctionId, daysValue);
+  } else {
+    await handleIncreaseHours(caseSanctionId, daysValue);
+  }
+}
+
+async function handleExtendDeadline(caseSanctionId, daysToAdd = 7) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=extendSanctionDeadline&caseSanctionId=${caseSanctionId}&daysToAdd=${daysToAdd}`
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      showNotification(`Deadline extended by ${daysToAdd} day${daysToAdd === 1 ? '' : 's'}`, 'success');
+      closeDeadlineActionModal();
+      const modal = document.querySelector('[data-checkin-modal="true"]');
+      if (modal) {
+        const caseId = modal.getAttribute('data-case-id');
+        const sanctionType = modal.getAttribute('data-sanction-type') || 'corrective';
+        refreshCheckInModalContent(caseId, sanctionType);
+      }
+    } else {
+      showNotification('Error extending deadline: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (error) {
+    console.error('Error extending deadline:', error);
+    showNotification('Error extending deadline', 'error');
+  }
+}
+
+async function handleIncreaseHours(caseSanctionId, additionalDays = 1) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=increaseSanctionDuration&caseSanctionId=${caseSanctionId}&additionalDays=${additionalDays}`
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      showNotification(`Duration increased by ${additionalDays} day${additionalDays === 1 ? '' : 's'}`, 'success');
+      closeDeadlineActionModal();
+      const modal = document.querySelector('[data-checkin-modal="true"]');
+      if (modal) {
+        const caseId = modal.getAttribute('data-case-id');
+        const sanctionType = modal.getAttribute('data-sanction-type') || 'corrective';
+        refreshCheckInModalContent(caseId, sanctionType);
+      }
+    } else {
+      showNotification('Error increasing duration: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (error) {
+    console.error('Error increasing duration:', error);
+    showNotification('Error increasing duration', 'error');
+  }
 }

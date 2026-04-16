@@ -143,6 +143,11 @@ CREATE TABLE case_sanctions (
     scheduled_time TIME NULL,
     scheduled_end_time TIME NULL,
     schedule_notes NVARCHAR(500),
+    deadline DATETIME NULL,
+    original_duration_days INT NULL,
+    days_extended INT DEFAULT 0,
+    extension_count INT DEFAULT 0,
+    extension_notes NVARCHAR(MAX),
     created_at DATETIME DEFAULT GETDATE()
 );
 GO
@@ -311,6 +316,74 @@ CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_audit_user ON audit_log(user_id);
 CREATE INDEX idx_lost_found_status ON lost_found_items(status);
 CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
+GO
+
+-- ============================================
+-- TRIGGERS for Data Integrity
+-- ============================================
+-- Enforce sanction requirement for active cases: 'On Going' or 'Resolved' require at least one sanction
+-- Note: Only enforced on UPDATE to allow initial schema data load. Application layer validates on INSERT.
+CREATE TRIGGER trg_enforce_sanction_on_active_case
+ON cases
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @invalid_count INT = 0;
+    DECLARE @invalid_case_id NVARCHAR(20);
+    DECLARE @invalid_status NVARCHAR(50);
+    
+    -- Find any cases with 'On Going' or 'Resolved' status that lack a sanction
+    SELECT TOP 1 
+        @invalid_case_id = i.case_id,
+        @invalid_status = i.status,
+        @invalid_count = 1
+    FROM inserted i
+    WHERE i.status IN ('On Going', 'Resolved')
+        AND NOT EXISTS (
+            SELECT 1
+            FROM case_sanctions cs
+            WHERE cs.case_id = i.case_id
+        );
+    
+    -- If found, rollback and raise error
+    IF @invalid_count > 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+        RAISERROR('Cannot mark case %s as %s without an applied sanction. Please apply a sanction first.', 16, 1, @invalid_case_id, @invalid_status);
+    END
+END
+GO
+
+-- Auto-set preset deadline for corrective reinforcement sanctions when missing.
+-- Formula: applied_date + duration_days + 7 grace days, set to end-of-day (23:59:59).
+CREATE TRIGGER trg_case_sanctions_autoset_corrective_deadline
+ON case_sanctions
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE cs
+    SET cs.deadline = DATEADD(
+        SECOND,
+        86399,
+        CAST(
+            DATEADD(
+                DAY,
+                (COALESCE(i.duration_days, 0) + 7),
+                COALESCE(i.applied_date, CAST(GETDATE() AS DATE))
+            ) AS DATETIME
+        )
+    )
+    FROM case_sanctions cs
+    INNER JOIN inserted i ON i.case_sanction_id = cs.case_sanction_id
+    INNER JOIN sanctions s ON s.sanction_id = i.sanction_id
+    WHERE cs.deadline IS NULL
+      AND COALESCE(i.duration_days, 0) > 0
+      AND LOWER(s.sanction_name) LIKE '%corrective reinforcement%';
+END
 GO
 
 PRINT '============================================';
@@ -705,15 +778,29 @@ PRINT 'Inserting applied sanctions...';
 
 INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
 VALUES
--- 2026 Case Sanctions
+-- 2026 ON GOING CASES (Incomplete sanctions)
+('C-2026011', 1, '2026-01-10', 0, NULL, 'Written warning issued. Counseling in progress'),
+('C-2026012', 1, '2026-01-14', 0, NULL, 'Written warning issued. Behavioral intervention ongoing'),
+('C-2026013', 4, '2026-01-20', 0, NULL, 'Corrective reinforcement pending. Academic dishonesty review ongoing'),
+('C-2026014', 2, '2026-01-28', 0, NULL, 'Community service and restitution plan being prepared'),
+('C-2026015', 1, '2026-02-02', 0, NULL, 'Written warning issued. Monitoring compliance'),
+('C-2026016', 1, '2026-02-06', 0, NULL, 'Counseling and mediation being scheduled'),
+('C-2026017', 1, '2026-02-10', 0, NULL, 'Written warning issued. Educational discussion pending'),
+('C-2026018', 4, '2026-02-15', 0, NULL, 'Academic integrity investigation ongoing. Sanction pending'),
+('C-2026019', 3, '2026-02-17', 0, NULL, 'Restitution for equipment damage pending'),
+('C-2026020', 6, '2026-02-20', 0, NULL, 'Investigation ongoing. Suspension decision pending'),
+-- 2026 RESOLVED CASES (Completed sanctions)
 ('C-2026021', 1, '2026-01-08', 1, '2026-01-08', 'Student acknowledged warning and committed to improvement'),
 ('C-2026022', 3, '2026-01-12', 1, '2026-01-12', 'Written reprimand issued and filed'),
+('C-2026023', 1, '2026-01-16', 1, '2026-01-16', 'Verbal warning issued and documented'),
 ('C-2026024', 1, '2026-01-24', 1, '2026-01-25', 'Counseling completed with both students'),
 ('C-2026025', 2, '2026-01-30', 1, '2026-01-30', 'Values education session completed'),
 ('C-2026026', 1, '2026-02-03', 1, '2026-02-03', 'Safety rules explained and acknowledged'),
 ('C-2026027', 3, '2026-02-07', 1, '2026-02-07', 'Lab safety protocols reviewed'),
+('C-2026028', 1, '2026-02-11', 1, '2026-02-11', 'Verbal warning issued. Minor violation corrected'),
+('C-2026029', 1, '2026-02-16', 1, '2026-02-16', 'Student counseled. Committed to classroom attentiveness'),
 ('C-2026030', 1, '2026-02-19', 1, '2026-02-19', 'Library rules reviewed with student'),
--- 2025 Case Sanctions
+-- 2025 Case Sanctions (All Resolved)
 ('C-2025001', 1, '2025-03-15', 1, '2025-03-15', 'Verbal warning issued. Student committed to punctuality'),
 ('C-2025002', 3, '2025-04-20', 1, '2025-04-20', 'Written reprimand issued and filed'),
 ('C-2025003', 3, '2025-05-10', 1, '2025-05-12', 'Written warning issued after conference'),
@@ -725,7 +812,7 @@ VALUES
 ('C-2025009', 1, '2025-11-15', 1, '2025-11-15', 'Educational discussion conducted about campus policies'),
 ('C-2025010', 6, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
 
-PRINT 'Applied sanctions inserted: 17';
+PRINT 'Applied sanctions inserted: 37';
 GO
 
 -- ============================================

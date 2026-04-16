@@ -311,6 +311,14 @@ function updateCase($caseId, $data) {
     $oldData = getRecordForAudit('cases', 'case_id', $caseId);
     $oldData = sanitizeAuditData($oldData);
 
+    // Validate: If status is being changed to 'On Going' or 'Resolved', verify sanction exists
+    if (isset($data['status']) && in_array($data['status'], ['On Going', 'Resolved'])) {
+        $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
+        if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
+            throw new Exception('Cannot transition case to ' . $data['status'] . ' without an applied sanction. Please apply a sanction first.');
+        }
+    }
+
     // Build SQL update query
     $sql = "UPDATE cases SET 
             case_type = ?, 
@@ -510,76 +518,82 @@ function updateStudentOffenseCount($studentId) {
  * @return string Category A, B, C, or D
  */
 function categorizeMajorOffense($offenseName) {
-    // Category A - Lighter major offenses
-    $categoryA = [
-        'Repeated Minor Offenses',
-        'Lending/Borrowing ID',
-        'Smoking/Vaping on Campus',
-        'Intoxication',
-        'Allowing Non-STI Entry',
-        'Cheating',
-        'Plagiarism'
-    ];
-    
-    // Category B - Property/image damage
-    $categoryB = [
-        'Vandalism',
-        'Cyberbullying/Defamation',
-        'Privacy Violation',
-        'Wearing Uniform in Ill Repute Places',
-        'False Testimony',
-        'Use of Profane Language'
-    ];
-    
-    // Category C - Serious offenses
-    $categoryC = [
-        'Hacking',
-        'Forgery',
-        'Theft',
-        'Unauthorized Material Distribution',
-        'Embezzlement',
-        'Illegal Assembly',
-        'Immorality',
-        'Bullying',
-        'Physical Assault',
-        'Drug Use',
-        'False Alarms',
-        'Misuse of Fire Equipment'
-    ];
-    
-    // Category D - Criminal offenses
-    $categoryD = [
-        'Drug Possession/Sale',
-        'Repeated Drug Use',
-        'Weapons Possession',
-        'Fraternity/Sorority Membership',
-        'Hazing',
-        'Moral Turpitude',
-        'Sexual Harassment',
-        'Subversion/Sedition'
-    ];
-    
-    if (in_array($offenseName, $categoryA)) return 'A';
-    if (in_array($offenseName, $categoryB)) return 'B';
-    if (in_array($offenseName, $categoryC)) return 'C';
-    if (in_array($offenseName, $categoryD)) return 'D';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('A'), true)) return 'A';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('B'), true)) return 'B';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('C'), true)) return 'C';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('D'), true)) return 'D';
     
     // Default to Category A if not found
     return 'A';
 }
 
 /**
- * Get recommended sanction based on student's offense history for the SAME offense type
+ * Get the list of offense names that belong to a major offense category.
+ *
+ * @param string $category Category code: A, B, C, or D
+ * @return array
+ */
+function getMajorOffenseNamesByCategory($category) {
+    $categoryMap = [
+        'A' => [
+            'Repeated Minor Offenses',
+            'Lending/Borrowing ID',
+            'Smoking/Vaping on Campus',
+            'Intoxication',
+            'Allowing Non-STI Entry',
+            'Cheating',
+            'Plagiarism'
+        ],
+        'B' => [
+            'Vandalism',
+            'Cyberbullying/Defamation',
+            'Privacy Violation',
+            'Wearing Uniform in Ill Repute Places',
+            'False Testimony',
+            'Use of Profane Language'
+        ],
+        'C' => [
+            'Hacking',
+            'Forgery',
+            'Theft',
+            'Unauthorized Material Distribution',
+            'Embezzlement',
+            'Illegal Assembly',
+            'Immorality',
+            'Bullying',
+            'Physical Assault',
+            'Drug Use',
+            'False Alarms',
+            'Misuse of Fire Equipment'
+        ],
+        'D' => [
+            'Drug Possession/Sale',
+            'Repeated Drug Use',
+            'Weapons Possession',
+            'Fraternity/Sorority Membership',
+            'Hazing',
+            'Moral Turpitude',
+            'Sexual Harassment',
+            'Subversion/Sedition'
+        ]
+    ];
+
+    return $categoryMap[$category] ?? $categoryMap['A'];
+}
+
+/**
+ * Get recommended sanction based on student's offense history
  * Following STI Student Handbook escalation rules:
- * - Escalation only triggers for repeated offenses of the same type
- * - 3 occurrences of the same minor offense escalates to Major (Repeated Minor Offenses)
+ * - Major offense escalation is based on total major offenses within the same category
+ * - Minor offense escalation to major triggers at 3 total minor offenses (any type)
  *
  * @param string $studentId The student ID
  * @param string $currentOffenseType The current offense type (matches cases.case_type)
  * @param string $severity Either "Minor" or "Major"
+ * @param int|null $excludeCaseId Optional case ID to exclude from count (to avoid double-counting the current case)
  * @return array Recommended sanction information
  */
-function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
+function getRecommendedSanction($studentId, $currentOffenseType, $severity, $excludeCaseId = null) {
     $student = getStudentById($studentId);
 
     if (!$student) {
@@ -593,18 +607,6 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
         ];
     }
 
-    // Count active (non-archived) cases of the SAME offense type for this student
-    // Only count On Going and Resolved — Pending cases haven't been processed yet
-    $sameTypeCountSql = "SELECT COUNT(*) FROM cases 
-                         WHERE student_id = ? 
-                           AND case_type = ? 
-                           AND severity = ?
-                           AND status IN ('On Going', 'Resolved')
-                           AND is_archived = 0";
-    $sameTypeCount = (int) fetchValue($sameTypeCountSql, [$studentId, $currentOffenseType, $severity]);
-    // Add 1 for the current case (which is still Pending and not counted above)
-    $sameTypeCount = $sameTypeCount + 1;
-
     // Count archived cases of the same offense type (for informational note only)
     $archivedCountSql = "SELECT COUNT(*) FROM cases 
                          WHERE student_id = ? 
@@ -613,22 +615,38 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
                            AND is_archived = 1";
     $archivedSameTypeCount = (int) fetchValue($archivedCountSql, [$studentId, $currentOffenseType, $severity]);
 
-    // For Minor Offenses — escalate based on same-type repeat count
+    // Count active (non-archived) minor offenses across all types.
+    // Exclude the current case to avoid double-counting.
+    $totalMinorCountSql = "SELECT COUNT(*) FROM cases
+                           WHERE student_id = ?
+                             AND severity = 'Minor'
+                             AND status IN ('On Going', 'Resolved')
+                             AND is_archived = 0";
+    $totalMinorCountParams = [$studentId];
+    if ($excludeCaseId) {
+        $totalMinorCountSql .= " AND case_id != ?";
+        $totalMinorCountParams[] = $excludeCaseId;
+    }
+    $totalMinorCount = (int) fetchValue($totalMinorCountSql, $totalMinorCountParams);
+    // Add 1 for the current case.
+    $totalMinorCount = $totalMinorCount + 1;
+
+    // For Minor Offenses — escalate based on total minor count across offense types.
     if ($severity === 'Minor') {
-        if ($sameTypeCount === 1) {
+        if ($totalMinorCount === 1) {
             return [
                 'sanction_name' => 'Verbal/Oral Warning',
-                'reason' => 'First offense of this type',
+                'reason' => 'First minor offense',
                 'offense_count' => 1,
                 'category' => 'Minor',
                 'subcategory' => null,
                 'duration_days' => null,
                 'archived_same_type_count' => $archivedSameTypeCount
             ];
-        } elseif ($sameTypeCount === 2) {
+        } elseif ($totalMinorCount === 2) {
             return [
                 'sanction_name' => 'Written Reprimand',
-                'reason' => 'Second offense of the same type',
+                'reason' => 'Second minor offense',
                 'offense_count' => 2,
                 'category' => 'Minor',
                 'subcategory' => null,
@@ -636,11 +654,11 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
                 'archived_same_type_count' => $archivedSameTypeCount
             ];
         } else {
-            // 3rd or more of the same minor offense → escalates to Major (Repeated Minor Offenses)
+            // 3rd or more minor offense (any type) escalates to Major (Repeated Minor Offenses).
             return [
                 'sanction_name' => 'Corrective Reinforcement (3-7 days)',
-                'reason' => 'Third or more offense of the same type — escalates to Major (Repeated Minor Offenses)',
-                'offense_count' => $sameTypeCount,
+                'reason' => 'Third or more minor offense — escalates to Major (Repeated Minor Offenses)',
+                'offense_count' => $totalMinorCount,
                 'category' => 'Major',
                 'subcategory' => 'A',
                 'duration_days' => 3,
@@ -651,17 +669,34 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
         }
     }
 
-    // For Major Offenses — count same-type major cases
+    // For Major Offenses — escalate by total major count within the same category.
     if ($severity === 'Major') {
         $category = categorizeMajorOffense($currentOffenseType);
-        $offenseNumber = $sameTypeCount;
+        $categoryOffenses = getMajorOffenseNamesByCategory($category);
+        $categoryPlaceholders = implode(',', array_fill(0, count($categoryOffenses), '?'));
+
+        $majorCategoryCountSql = "SELECT COUNT(*) FROM cases
+                                  WHERE student_id = ?
+                                    AND severity = 'Major'
+                                    AND case_type IN ($categoryPlaceholders)
+                                    AND is_archived = 0";
+        $majorCategoryCountParams = array_merge([$studentId], $categoryOffenses);
+
+        if ($excludeCaseId) {
+            $majorCategoryCountSql .= " AND case_id != ?";
+            $majorCategoryCountParams[] = $excludeCaseId;
+        }
+
+        $majorCategoryCount = (int) fetchValue($majorCategoryCountSql, $majorCategoryCountParams);
+        // Add 1 for the current case.
+        $offenseNumber = $majorCategoryCount + 1;
 
         // Category A: Lighter major offenses
         if ($category === 'A') {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Corrective Reinforcement (3-7 days)',
-                    'reason' => 'First offense of this type (Category A major)',
+                    'reason' => 'First major offense (Category A)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'A',
@@ -672,7 +707,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             } elseif ($offenseNumber === 2) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'Second offense of the same type (Category A major)',
+                    'reason' => 'Second major offense (Category A)',
                     'offense_count' => 2,
                     'category' => 'Major',
                     'subcategory' => 'A',
@@ -683,7 +718,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Third or more offense of the same type (Category A major)',
+                    'reason' => 'Third or more major offense (Category A)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'A',
@@ -698,7 +733,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'First offense of this type (Category B major)',
+                    'reason' => 'First major offense (Category B)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'B',
@@ -709,7 +744,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Second or more offense of the same type (Category B major)',
+                    'reason' => 'Second or more major offense (Category B)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'B',
@@ -724,7 +759,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             if ($offenseNumber === 1) {
                 return [
                     'sanction_name' => 'Suspension from Class',
-                    'reason' => 'First offense of this type (Category C major)',
+                    'reason' => 'First major offense (Category C)',
                     'offense_count' => 1,
                     'category' => 'Major',
                     'subcategory' => 'C',
@@ -735,7 +770,7 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity) {
             } else {
                 return [
                     'sanction_name' => 'Non-readmission',
-                    'reason' => 'Second or more offense of the same type (Category C major)',
+                    'reason' => 'Second or more major offense (Category C)',
                     'offense_count' => $offenseNumber,
                     'category' => 'Major',
                     'subcategory' => 'C',
@@ -1391,7 +1426,9 @@ function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEn
     return $conflicts;
 }
 
-function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null) {
+function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null, $deadlineDate = null) {
+    ensureCaseSanctionsDeadlineColumns();
+
     // Prevent duplicate sanction assignment for the same case.
     $duplicateSql = "SELECT TOP 1 case_sanction_id
                      FROM case_sanctions
@@ -1409,14 +1446,20 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
         }
     }
     
-    // scheduleTime should already be in HH:MM:SS format from cases.php
-    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    // Convert deadline date to datetime if provided (set to end of day)
+    $deadline = null;
+    if (!empty($deadlineDate)) {
+        $deadline = $deadlineDate . ' 23:59:59';
+    }
     
-    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleEndTime, $scheduleNotes]);
+    // scheduleTime should already be in HH:MM:SS format from cases.php
+    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes, deadline, original_duration_days)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleEndTime, $scheduleNotes, $deadline, $durationDays]);
     
     // Log the sanction
-    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied");
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied" . ($deadline ? " with deadline: $deadlineDate" : ''));
     
     // If a schedule date is provided, create a calendar event
     if ($scheduleDate) {
@@ -1465,6 +1508,174 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
     }
 }
 
+// ==========================================
+// DEADLINE AND EXTENSION MANAGEMENT
+// ==========================================
+
+function ensureCaseSanctionsDeadlineColumns() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $columns = [
+        'deadline' => "ALTER TABLE case_sanctions ADD deadline DATETIME NULL",
+        'original_duration_days' => "ALTER TABLE case_sanctions ADD original_duration_days INT NULL",
+        'days_extended' => "ALTER TABLE case_sanctions ADD days_extended INT NOT NULL CONSTRAINT DF_case_sanctions_days_extended DEFAULT 0 WITH VALUES",
+        'extension_count' => "ALTER TABLE case_sanctions ADD extension_count INT NOT NULL CONSTRAINT DF_case_sanctions_extension_count DEFAULT 0 WITH VALUES",
+        'extension_notes' => "ALTER TABLE case_sanctions ADD extension_notes NVARCHAR(MAX) NULL",
+    ];
+
+    foreach ($columns as $columnName => $alterSql) {
+        $existsSql = "SELECT 1 AS column_exists
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE TABLE_NAME = 'case_sanctions' AND COLUMN_NAME = ?";
+        $exists = fetchOne($existsSql, [$columnName]);
+        if (!$exists) {
+            try {
+                executeQuery($alterSql, []);
+            } catch (Exception $e) {
+                // Ignore if another request added the column concurrently.
+                error_log("Deadline column bootstrap skipped for {$columnName}: " . $e->getMessage());
+            }
+        }
+    }
+
+    $initialized = true;
+}
+
+function buildDefaultSanctionDeadline($appliedDate, $durationDays, $graceDays = 7) {
+    $durationInt = intval($durationDays);
+    if ($durationInt <= 0) {
+        return null;
+    }
+
+    $baseDate = !empty($appliedDate) ? $appliedDate : date('Y-m-d');
+
+    try {
+        $deadline = new DateTime(date('Y-m-d', strtotime($baseDate)) . ' 23:59:59');
+        $deadline->modify('+' . ($durationInt + intval($graceDays)) . ' days');
+        return $deadline->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        error_log('Error building default sanction deadline: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Check deadline status for a sanction
+ * Returns: 'on-track', 'due-soon' (2 days or less), 'overdue'
+ */
+function getDeadlineStatus($deadline) {
+    if (!$deadline) {
+        return 'no-deadline';
+    }
+    
+    $now = new DateTime();
+    $deadlineTime = new DateTime($deadline);
+    $daysUntilDeadline = $deadlineTime->diff($now)->days;
+    $isOverdue = $deadlineTime < $now;
+    
+    if ($isOverdue) {
+        return 'overdue';
+    } elseif ($daysUntilDeadline <= 2) {
+        return 'due-soon';
+    } else {
+        return 'on-track';
+    }
+}
+
+/**
+ * Get days remaining until deadline
+ */
+function getDaysUntilDeadline($deadline) {
+    if (!$deadline) {
+        return null;
+    }
+    
+    $now = new DateTime();
+    $deadlineTime = new DateTime($deadline);
+    $interval = $deadlineTime->diff($now);
+    
+    return $deadlineTime < $now ? -$interval->days : $interval->days;
+}
+
+/**
+ * Extend a sanction deadline by specified days
+ */
+function extendSanctionDeadline($caseSanctionId, $daysToAdd = 7, $extensionNotes = '') {
+    try {
+        ensureCaseSanctionsDeadlineColumns();
+
+        $sql = "SELECT case_id, deadline FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanction = fetchOne($sql, [$caseSanctionId]);
+        
+        if (!$sanction) {
+            throw new Exception('Sanction not found');
+        }
+        
+        $currentDeadline = $sanction['deadline'] ? new DateTime($sanction['deadline']) : new DateTime();
+        $newDeadline = $currentDeadline->modify("+{$daysToAdd} days");
+        
+        $updateSql = "UPDATE case_sanctions 
+                     SET deadline = ?
+                     WHERE case_sanction_id = ?";
+        
+        $timestamp = date('Y-m-d H:i:s', $newDeadline->getTimestamp());
+        $newNote = "Deadline extended by {$daysToAdd} day(s) on " . date('Y-m-d H:i:s');
+        if (!empty($extensionNotes)) {
+            $newNote .= ": " . $extensionNotes;
+        }
+        
+        executeQuery($updateSql, [$timestamp, $caseSanctionId]);
+        if (!empty($sanction['case_id'])) {
+            logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Deadline Extended', null, $newNote);
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error extending sanction deadline: " . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
+ * Increase sanction duration (as penalty for missed deadline)
+ */
+function increaseSanctionDuration($caseSanctionId, $additionalDays = 1, $reason = 'Missed deadline') {
+    try {
+        ensureCaseSanctionsDeadlineColumns();
+
+        $sql = "SELECT case_id, duration_days, deadline FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanction = fetchOne($sql, [$caseSanctionId]);
+        
+        if (!$sanction) {
+            throw new Exception('Sanction not found');
+        }
+        
+        $newDuration = intval($sanction['duration_days']) + $additionalDays;
+        $currentDeadline = !empty($sanction['deadline']) ? new DateTime($sanction['deadline']) : new DateTime();
+        $newDeadline = $currentDeadline->modify("+{$additionalDays} days");
+        
+        $updateSql = "UPDATE case_sanctions 
+                     SET duration_days = ?,
+                         deadline = ?
+                     WHERE case_sanction_id = ?";
+        
+        $note = "Duration increased by {$additionalDays} day(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
+        
+        executeQuery($updateSql, [$newDuration, $newDeadline->format('Y-m-d H:i:s'), $caseSanctionId]);
+        if (!empty($sanction['case_id'])) {
+            logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Duration Increased', null, $note);
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error increasing sanction duration: " . $e->getMessage());
+        throw $e;
+    }
+}
+
 function getCaseSanctions($caseId) {
     // First get the basic sanction info
     $sql = "SELECT cs.*, s.sanction_name, s.severity_level, s.description
@@ -1503,10 +1714,94 @@ function getCaseSanctions($caseId) {
 // ==========================================
 
 function markCaseAsResolved($caseId) {
+    // Validate that case has at least one sanction before resolving
+    $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
+    if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
+        throw new Exception('Cannot resolve case without an applied sanction. Please apply a sanction first.');
+    }
+    
     $sql = "UPDATE cases SET status = 'Resolved', resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
     executeQuery($sql, [$caseId]);
     
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Resolved', 'Previous Status', 'Case marked as resolved');
+}
+
+function getCaseResolutionEligibility($caseId) {
+    $correctiveSql = "SELECT cs.duration_days,
+                             (SELECT COUNT(DISTINCT cci.day_number)
+                              FROM case_checkins cci
+                              WHERE cci.case_sanction_id = cs.case_sanction_id
+                                AND cci.check_in_time IS NOT NULL
+                                AND cci.check_out_time IS NOT NULL) AS completed_days
+                      FROM case_sanctions cs
+                      JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                      WHERE cs.case_id = ?
+                        AND LOWER(s.sanction_name) LIKE '%corrective%'
+                        AND cs.duration_days > 0";
+    $correctiveRows = fetchAll($correctiveSql, [$caseId]);
+
+    foreach ($correctiveRows as $row) {
+        $required = intval($row['duration_days']);
+        $done = intval($row['completed_days']);
+        if ($required > 0 && $done < $required) {
+            return [
+                'can_resolve' => false,
+                'error' => 'Community service is not complete.'
+            ];
+        }
+    }
+
+    $suspensionSql = "SELECT cs.duration_days, cs.applied_date
+                      FROM case_sanctions cs
+                      JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                      WHERE cs.case_id = ?
+                        AND LOWER(s.sanction_name) LIKE '%suspension from class%'
+                        AND cs.duration_days > 0";
+    $suspensionRows = fetchAll($suspensionSql, [$caseId]);
+
+    $countSchoolDaysInclusive = function ($startDateStr, $endDateStr) {
+        if (empty($startDateStr) || empty($endDateStr)) {
+            return 0;
+        }
+
+        $start = strtotime(date('Y-m-d', strtotime($startDateStr)));
+        $end = strtotime(date('Y-m-d', strtotime($endDateStr)));
+
+        if ($start === false || $end === false || $start > $end) {
+            return 0;
+        }
+
+        $days = 0;
+        for ($ts = $start; $ts <= $end; $ts += 86400) {
+            $isoDay = intval(date('N', $ts));
+            if ($isoDay >= 1 && $isoDay <= 6) {
+                $days++;
+            }
+        }
+
+        return $days;
+    };
+
+    foreach ($suspensionRows as $row) {
+        $required = intval($row['duration_days']);
+        $elapsedDays = $countSchoolDaysInclusive(
+            $row['applied_date'] ?? null,
+            date('Y-m-d', strtotime('-1 day'))
+        );
+
+        $done = min($required, $elapsedDays);
+        if ($required > 0 && $done < $required) {
+            return [
+                'can_resolve' => false,
+                'error' => 'Suspension from class is not complete.'
+            ];
+        }
+    }
+
+    return [
+        'can_resolve' => true,
+        'error' => null
+    ];
 }
 
 // ==========================================
