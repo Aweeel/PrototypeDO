@@ -190,8 +190,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 return $days;
             };
 
+            $inferSanctionDurationDays = function ($durationValue, $sanctionName) {
+                $stored = intval($durationValue);
+                if ($stored > 0) {
+                    return $stored;
+                }
+
+                $name = strtolower((string)$sanctionName);
+
+                if (preg_match('/(\d+)\s*-\s*(\d+)\s*days?/i', $name, $rangeMatch)) {
+                    $minDays = intval($rangeMatch[1]);
+                    if ($minDays > 0) {
+                        return $minDays;
+                    }
+                }
+
+                if (preg_match('/(\d+)\s*days?/i', $name, $singleMatch)) {
+                    $explicitDays = intval($singleMatch[1]);
+                    if ($explicitDays > 0) {
+                        return $explicitDays;
+                    }
+                }
+
+                if (strpos($name, 'corrective reinforcement') !== false || strpos($name, 'suspension from class') !== false) {
+                    return 3;
+                }
+
+                return 0;
+            };
+
             // Format data for JavaScript
-            $formattedCases = array_map(function ($case) use ($countSchoolDaysInclusive) {
+            $formattedCases = array_map(function ($case) use ($countSchoolDaysInclusive, $inferSanctionDurationDays) {
                 $attachments = [];
                 if (!empty($case['attachments'])) {
                     $attachments = json_decode($case['attachments'], true);
@@ -215,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 $hasSuspensionFromClass = ($suspensionCheck && intval($suspensionCheck['cnt']) > 0);
 
                 // Compute whether corrective service is fully completed (for green icon state).
-                $completionSql = "SELECT cs.case_sanction_id, cs.duration_days,
+                $completionSql = "SELECT cs.case_sanction_id, cs.duration_days, s.sanction_name,
                                          (SELECT COUNT(DISTINCT cci.day_number)
                                           FROM case_checkins cci
                                           WHERE cci.case_sanction_id = cs.case_sanction_id
@@ -224,35 +253,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                                   FROM case_sanctions cs
                                   JOIN sanctions s ON cs.sanction_id = s.sanction_id
                                   WHERE cs.case_id = ?
-                                    AND LOWER(s.sanction_name) LIKE '%corrective%'
-                                    AND cs.duration_days > 0";
+                                    AND LOWER(s.sanction_name) LIKE '%corrective%'";
                 $completionRows = fetchAll($completionSql, [$case['case_id']]);
                 $hasCorrectiveServiceCompleted = false;
                 if (!empty($completionRows)) {
                     $hasCorrectiveServiceCompleted = true;
+                    $hasTrackableCorrective = false;
                     foreach ($completionRows as $row) {
-                        $required = intval($row['duration_days']);
+                        $required = $inferSanctionDurationDays($row['duration_days'] ?? null, $row['sanction_name'] ?? '');
+                        if ($required <= 0) {
+                            continue;
+                        }
+                        $hasTrackableCorrective = true;
                         $done = intval($row['completed_days']);
                         if ($required <= 0 || $done < $required) {
                             $hasCorrectiveServiceCompleted = false;
                             break;
                         }
                     }
+
+                    if (!$hasTrackableCorrective) {
+                        $hasCorrectiveServiceCompleted = false;
+                    }
                 }
 
                 // Compute whether Suspension from Class is fully completed based on elapsed days.
-                $suspensionCompletionSql = "SELECT cs.case_sanction_id, cs.duration_days, cs.applied_date
+                $suspensionCompletionSql = "SELECT cs.case_sanction_id, cs.duration_days, cs.applied_date, s.sanction_name
                                             FROM case_sanctions cs
                                             JOIN sanctions s ON cs.sanction_id = s.sanction_id
                                             WHERE cs.case_id = ?
-                                              AND LOWER(s.sanction_name) LIKE '%suspension from class%'
-                                              AND cs.duration_days > 0";
+                                              AND LOWER(s.sanction_name) LIKE '%suspension from class%'";
                 $suspensionCompletionRows = fetchAll($suspensionCompletionSql, [$case['case_id']]);
                 $hasSuspensionFromClassCompleted = false;
                 if (!empty($suspensionCompletionRows)) {
                     $hasSuspensionFromClassCompleted = true;
+                    $hasTrackableSuspension = false;
                     foreach ($suspensionCompletionRows as $row) {
-                        $required = intval($row['duration_days']);
+                        $required = $inferSanctionDurationDays($row['duration_days'] ?? null, $row['sanction_name'] ?? '');
+                        if ($required <= 0) {
+                            continue;
+                        }
+                        $hasTrackableSuspension = true;
                         $elapsedDays = $countSchoolDaysInclusive(
                             $row['applied_date'] ?? null,
                             date('Y-m-d', strtotime('-1 day'))
@@ -263,6 +304,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                             $hasSuspensionFromClassCompleted = false;
                             break;
                         }
+                    }
+
+                    if (!$hasTrackableSuspension) {
+                        $hasSuspensionFromClassCompleted = false;
                     }
                 }
 

@@ -229,7 +229,7 @@ function openSetSuspensionStartDateModal(caseId, caseSanctionId, currentStartDat
     <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-5">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Set Initial Day</h3>
-        <button type="button" onclick="this.closest('[data-suspension-start-modal=\"true\"]').remove()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <button type="button" onclick="closeSuspensionStartDateModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -239,13 +239,17 @@ function openSetSuspensionStartDateModal(caseId, caseSanctionId, currentStartDat
       <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Day</label>
       <input type="date" id="suspensionStartDateInput" value="${initialDate}" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
       <div class="flex justify-end gap-2 mt-4">
-        <button type="button" onclick="this.closest('[data-suspension-start-modal=\"true\"]').remove()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600">Cancel</button>
+        <button type="button" onclick="closeSuspensionStartDateModal()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600">Cancel</button>
         <button type="button" onclick="saveSuspensionStartDate('${caseId}', ${caseSanctionId})" class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+}
+
+function closeSuspensionStartDateModal() {
+  document.querySelectorAll('[data-suspension-start-modal="true"]').forEach((el) => el.remove());
 }
 
 async function saveSuspensionStartDate(caseId, caseSanctionId) {
@@ -271,9 +275,7 @@ async function saveSuspensionStartDate(caseId, caseSanctionId) {
       return;
     }
 
-    if (modal) {
-      modal.remove();
-    }
+    closeSuspensionStartDateModal();
 
     showNotification('Initial day updated', 'success');
     refreshCheckInModalContent(caseId, 'suspension');
