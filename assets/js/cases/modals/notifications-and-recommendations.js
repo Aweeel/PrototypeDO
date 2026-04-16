@@ -66,9 +66,10 @@ function showNotification(message, type = 'success', onClose = null) {
  * @param {string} studentId - The student ID
  * @param {string} caseType - The type of offense (e.g., "Cheating", "Smoking")
  * @param {string} severity - Either "Minor" or "Major"
+ * @param {string} caseId - The current case ID (optional, to exclude from same-type count)
  * @returns {Promise<Object>} Recommendation object
  */
-async function fetchRecommendedSanction(studentId, caseType, severity) {
+async function fetchRecommendedSanction(studentId, caseType, severity, caseId = null) {
   try {
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -76,6 +77,9 @@ async function fetchRecommendedSanction(studentId, caseType, severity) {
     formData.append('studentId', studentId);
     formData.append('caseType', caseType);
     formData.append('severity', severity);
+    if (caseId) {
+      formData.append('caseId', caseId);
+    }
 
     const response = await fetch('/PrototypeDO/modules/do/cases.php', {
       method: 'POST',

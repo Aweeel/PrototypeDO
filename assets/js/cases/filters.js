@@ -31,6 +31,7 @@ function sortCases() {
 
 function switchTab(tabName) {
     currentTab = tabName;
+    syncCurrentPageWithTab();
     
     // Update button styles
     const currentBtn = document.getElementById('currentTab');
@@ -135,6 +136,6 @@ function applyClientSideFilters() {
     }
     
     // Re-render
-    currentPage = 1;
+    updateActiveTabPage(1);
     renderCases();
 }

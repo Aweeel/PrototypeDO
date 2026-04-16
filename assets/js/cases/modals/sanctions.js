@@ -35,7 +35,7 @@ async function manageSanctions(caseId) {
     let recommendationHTML = '';
     let recommendationData = null;
     try {
-        recommendationData = await fetchRecommendedSanction(caseData.studentId, caseData.type, caseData.severity);
+        recommendationData = await fetchRecommendedSanction(caseData.studentId, caseData.type, caseData.severity, caseId);
         if (recommendationData && recommendationData.sanction_name) {
             const isHighSeverity = recommendationData.subcategory === 'D' || 
                                   recommendationData.sanction_name.includes('Non-readmission') || 
@@ -91,7 +91,7 @@ async function manageSanctions(caseId) {
                             <h5 class="font-semibold ${textColor} mb-2 text-sm"> Recommendation</h5>
                             ${recommendationData.escalated_to_major ? `
                                 <p class="text-xs font-semibold mb-2 px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-700">
-                                    ⚠️ Escalated to Major — 3rd repeated minor offense
+                                    ⚠️ Escalated to Major — 3rd minor offense
                                 </p>
                             ` : ''}
                             <p class="text-xs ${textColor} mb-2">
@@ -201,6 +201,28 @@ async function manageSanctions(caseId) {
                 <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none; min-height: 60px;">
                 </div>
 
+                <!-- Deadline Section -->
+                <div id="deadlineSection" style="display: none;">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Completion Deadline
+                    </label>
+                    <div class="flex gap-2 items-end">
+                        <div class="flex-1">
+                            <input type="date" id="sanctionDeadlineDate" onchange="updateDeadlineDisplay()"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                                placeholder="Select deadline date">
+                        </div>
+                        <button type="button" onclick="setDefaultDeadline()" 
+                            class="px-3 py-2 text-xs border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                            Auto-set
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="deadlineDisplayText">No deadline set</p>
+                </div>
+
                 <!-- Schedule Button -->
                 <div>
                     <button type="button" onclick="openSchedulePopup()" id="scheduleToggleBtn"
@@ -208,7 +230,7 @@ async function manageSanctions(caseId) {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span id="scheduleButtonText">Add Schedule</span>
+                        <span id="scheduleButtonText">Schedule Hearing</span>
                         <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded">Required</span>
                     </button>
                     <!-- Hidden inputs to store schedule data -->
@@ -279,6 +301,7 @@ async function manageSanctions(caseId) {
         const scheduleTime = document.getElementById('sanctionScheduleTime').value;
         const scheduleEndTime = document.getElementById('sanctionScheduleEndTime').value;
         const scheduleNotes = document.getElementById('sanctionScheduleNotes').value;
+        const deadlineDate = document.getElementById('sanctionDeadlineDate').value;
 
         if (!sanctionId) {
             showNotification('Please select a sanction', "warning");
@@ -293,12 +316,12 @@ async function manageSanctions(caseId) {
         if (duration) {
             const durationNum = parseInt(duration);
             if (sanctionNameLower.includes('suspension from class')) {
-                if (durationNum < 3 || durationNum > 10) {
+                if (durationNum < 1 || durationNum > 10) {
                     showNotification('Suspension from Class duration must be between 3-10 days', "warning");
                     return;
                 }
             } else if (sanctionNameLower.includes('corrective reinforcement')) {
-                if (durationNum < 3 || durationNum > 7) {
+                if (durationNum < 1 || durationNum > 7) {
                     showNotification('Corrective Reinforcement duration must be between 3-7 days', "warning");
                     return;
                 }
@@ -339,6 +362,13 @@ async function manageSanctions(caseId) {
             timeRangeDisplay = `${scheduleTime} - ${scheduleEndTime}`;
         }
         
+        // Format deadline for display
+        let deadlineDisplay = '';
+        if (deadlineDate) {
+            const deadlineObj = new Date(deadlineDate);
+            deadlineDisplay = deadlineObj.toLocaleDateString();
+        }
+        
         const confirmModal = document.createElement('div');
         confirmModal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
         confirmModal.innerHTML = `
@@ -358,6 +388,7 @@ async function manageSanctions(caseId) {
                 <div class="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded">
                     <p class="text-sm"><strong>Sanction:</strong> ${sanctionName}</p>
                     ${duration ? `<p class="text-sm"><strong>Duration:</strong> ${duration} days</p>` : ''}
+                    ${deadlineDisplay ? `<p class="text-sm"><strong>Deadline:</strong> ${deadlineDisplay}</p>` : ''}
                     ${scheduleDate ? `<p class="text-sm"><strong>Scheduled:</strong> ${new Date(scheduleDate).toLocaleDateString()} ${timeRangeDisplay}</p>` : ''}
                     ${scheduleNotes ? `<p class="text-sm"><strong>Schedule Info:</strong> ${scheduleNotes}</p>` : ''}
                     ${notes ? `<p class="text-sm"><strong>Notes:</strong> ${notes}</p>` : ''}
@@ -368,7 +399,7 @@ async function manageSanctions(caseId) {
                         class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Cancel
                     </button>
-                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', '${scheduleEndTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`)" 
+                    <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', '${scheduleEndTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`, '${deadlineDate}')" 
                         class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
                         Confirm & Apply
                     </button>
@@ -380,7 +411,7 @@ async function manageSanctions(caseId) {
 }
 
 // Confirm apply sanction
-async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleEndTime, scheduleNotes) {
+async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleEndTime, scheduleNotes, deadlineDate = null) {
     const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
     if (confirmModal) confirmModal.remove();
 
@@ -396,6 +427,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
     if (scheduleDate) formData.append('scheduleDate', scheduleDate);
     if (scheduleTime) formData.append('scheduleTime', scheduleTime);
     if (scheduleEndTime) formData.append('scheduleEndTime', scheduleEndTime);
+    if (deadlineDate) formData.append('deadlineDate', deadlineDate);
     if (scheduleNotes) formData.append('scheduleNotes', scheduleNotes);
 
     try {
@@ -523,10 +555,12 @@ function handleSanctionChange() {
     const durationDiv = document.getElementById('durationDiv');
     const durationInput = document.getElementById('sanctionDuration');
     const descriptionDiv = document.getElementById('sanctionDescription');
+    const deadlineSection = document.getElementById('deadlineSection');
     
     if (!selectedOption.value) {
         durationDiv.style.display = 'none';
         descriptionDiv.style.display = 'none';
+        deadlineSection.style.display = 'none';
         return;
     }
     
@@ -550,7 +584,7 @@ function handleSanctionChange() {
         scheduleBadge.classList.add('hidden');
         scheduleBtn.classList.remove('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20', 'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'text-red-700', 'dark:text-red-300');
         scheduleBtn.classList.add('border-blue-200', 'dark:border-blue-700', 'bg-blue-50', 'dark:bg-blue-900/20', 'hover:bg-blue-100', 'dark:hover:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-300');
-        document.getElementById('scheduleButtonText').textContent = 'Add Schedule';
+        document.getElementById('scheduleButtonText').textContent = 'Schedule Hearing';
     }
     
     if (description && description !== 'null' && description !== '') {
@@ -594,16 +628,17 @@ function handleSanctionChange() {
     if (requiresDuration) {
         durationDiv.style.display = 'block';
         durationInput.required = true;
+        deadlineSection.style.display = 'block';
 
         // Set min and max based on sanction type
         if (sanctionName.includes('suspension from class')) {
-            durationInput.min = '3';
+            durationInput.min = '1';
             durationInput.max = '10';
-            durationInput.title = 'Duration must be between 3-10 days';
+            durationInput.title = 'Duration must be between 1-10 days';
         } else if (sanctionName.includes('corrective reinforcement')) {
-            durationInput.min = '3';
+            durationInput.min = '1';
             durationInput.max = '7';
-            durationInput.title = 'Duration must be between 3-7 days';
+            durationInput.title = 'Duration must be between 1-7 days';
         } else {
             durationInput.min = '1';
             durationInput.removeAttribute('max');
@@ -619,12 +654,70 @@ function handleSanctionChange() {
         } else {
             durationInput.value = '';
         }
+        
+        // Auto-set default deadline when duration changes
+        setDefaultDeadline();
     } else {
         durationDiv.style.display = 'none';
         durationInput.required = false;
         durationInput.value = '';
+        deadlineSection.style.display = 'none';
+        document.getElementById('sanctionDeadlineDate').value = '';
     }
 }
+
+// Set default deadline based on duration (duration + 7 days grace period)
+function setDefaultDeadline() {
+    const durationInput = document.getElementById('sanctionDuration');
+    const deadlineInput = document.getElementById('sanctionDeadlineDate');
+    const deadlineDisplayText = document.getElementById('deadlineDisplayText');
+    
+    if (!durationInput.value) {
+        deadlineDisplayText.textContent = 'No deadline set';
+        return;
+    }
+    
+    const duration = parseInt(durationInput.value);
+    const today = new Date();
+    const deadline = new Date(today);
+    
+    // Set deadline to: today + duration + 7 days (grace period)
+    deadline.setDate(deadline.getDate() + duration + 7);
+    
+    // Format date as YYYY-MM-DD
+    const year = deadline.getFullYear();
+    const month = String(deadline.getMonth() + 1).padStart(2, '0');
+    const day = String(deadline.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    deadlineInput.value = dateStr;
+    
+    // Update display text
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    deadlineDisplayText.textContent = `Deadline: ${deadline.toLocaleDateString('en-US', options)} (${duration + 7} days)`;
+}
+
+// Update deadline display when user manually changes the date
+function updateDeadlineDisplay() {
+    const deadlineInput = document.getElementById('sanctionDeadlineDate');
+    const deadlineDisplayText = document.getElementById('deadlineDisplayText');
+    
+    if (!deadlineInput.value) {
+        deadlineDisplayText.textContent = 'No deadline set';
+        return;
+    }
+    
+    const deadline = new Date(deadlineInput.value + 'T23:59:59');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const timeDiff = deadline - today;
+    const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    deadlineDisplayText.textContent = `Deadline: ${deadline.toLocaleDateString('en-US', options)} (${daysDiff} days)`;
+}
+
 
 // Toggle schedule section visibility (deprecated - replaced with popup)
 function toggleScheduleSection() {
@@ -782,7 +875,7 @@ function clearSchedule() {
     if (display) display.classList.add('hidden');
     
     const buttonText = document.getElementById('scheduleButtonText');
-    if (buttonText) buttonText.textContent = 'Add Schedule';
+    if (buttonText) buttonText.textContent = 'Schedule Hearing';
 }
 
 // Update schedule display
@@ -808,10 +901,10 @@ function updateScheduleDisplay() {
         
         displayText.textContent = scheduleText;
         display.classList.remove('hidden');
-        buttonText.textContent = 'Edit Schedule';
+        buttonText.textContent = 'Edit Hearing';
     } else {
         display.classList.add('hidden');
-        buttonText.textContent = 'Add Schedule';
+        buttonText.textContent = 'Schedule Hearing';
     }
 }
 
@@ -1199,10 +1292,10 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
 
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (Days)</label>
-                    <input type="number" id="editSanctionDuration" min="${sanctionName.toLowerCase().includes('suspension from class') ? '3' : sanctionName.toLowerCase().includes('corrective reinforcement') ? '3' : '1'}" max="${sanctionName.toLowerCase().includes('suspension from class') ? '10' : sanctionName.toLowerCase().includes('corrective reinforcement') ? '7' : ''}" value="${currentDuration}"
+                    <input type="number" id="editSanctionDuration" min="1" max="${sanctionName.toLowerCase().includes('suspension from class') ? '10' : sanctionName.toLowerCase().includes('corrective reinforcement') ? '7' : ''}" value="${currentDuration}"
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                         placeholder="Enter number of days..."
-                        title="${sanctionName.toLowerCase().includes('suspension from class') ? 'Duration must be between 3-10 days' : sanctionName.toLowerCase().includes('corrective reinforcement') ? 'Duration must be between 3-7 days' : ''}">
+                        title="${sanctionName.toLowerCase().includes('suspension from class') ? 'Duration must be between 1-10 days' : sanctionName.toLowerCase().includes('corrective reinforcement') ? 'Duration must be between 1-7 days' : ''}">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if not applicable</p>
                 </div>
 
@@ -1245,13 +1338,13 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
             const durationNum = parseInt(duration);
             const sanctionNameLower = sanctionName.toLowerCase();
             if (sanctionNameLower.includes('suspension from class')) {
-                if (durationNum < 3 || durationNum > 10) {
-                    showNotification('Suspension from Class duration must be between 3-10 days', "warning");
+                if (durationNum < 1 || durationNum > 10) {
+                    showNotification('Suspension from Class duration must be between 1-10 days', "warning");
                     return;
                 }
             } else if (sanctionNameLower.includes('corrective reinforcement')) {
-                if (durationNum < 3 || durationNum > 7) {
-                    showNotification('Corrective Reinforcement duration must be between 3-7 days', "warning");
+                if (durationNum < 1 || durationNum > 7) {
+                    showNotification('Corrective Reinforcement duration must be between 1-7 days', "warning");
                     return;
                 }
             }

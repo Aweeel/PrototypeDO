@@ -46,6 +46,7 @@ function renderPagination() {
 
     // Clamp currentPage to valid range
     if (currentPage > totalPages) currentPage = totalPages || 1;
+    setPageForTab(currentTab, currentPage);
 
     // Update info text
     infoContainer.textContent = `Showing ${Math.min(totalCases, casesPerPage)} of ${totalCases} cases`;
@@ -59,7 +60,7 @@ function renderPagination() {
         btn.textContent = i;
         btn.className = `px-3 py-1 mx-1 rounded ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300'}`;
         btn.addEventListener('click', () => {
-            currentPage = i;
+            updateActiveTabPage(i);
             renderCases();
         });
         paginationContainer.appendChild(btn);
@@ -121,12 +122,15 @@ function renderTableRows() {
                             class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             View
                         </button>
+                        ${String(caseItem.status || '').toLowerCase() !== 'resolved' ? `
                         <button onclick="manageSanctions('${caseItem.id}')"
                             class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Sanctions
                         </button>
+                        ` : ''}
                         ${caseItem.status !== 'Resolved' ? `
                         <button onclick="markCaseResolved('${caseItem.id}')"
+                            title="${getCaseResolutionBlockReason(caseItem) || 'Mark this case as resolved'}"
                             class="px-3 py-1.5 text-base text-green-600 hover:text-green-700 transition-colors font-medium">
                             Mark Resolved
                         </button>
@@ -234,18 +238,27 @@ function loadCasesFromDB() {
             console.log('Parsed data:', data);
             
             if (data.success) {
-                allCases = data.cases;
-                
-                // Filter cases based on current tab
-                if (currentTab === 'current') {
-                    // Exclude resolved cases from current tab
-                    filteredCases = allCases.filter(c => c.status !== 'Resolved');
-                } else {
-                    filteredCases = [...allCases];
+                try {
+                    allCases = data.cases;
+                    
+                    // Filter cases based on current tab
+                    if (currentTab === 'current') {
+                        // Exclude resolved cases from current tab
+                        filteredCases = allCases.filter(c => c.status !== 'Resolved');
+                    } else {
+                        filteredCases = [...allCases];
+                    }
+                    
+                    console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
+                    renderCases();
+                } catch (renderError) {
+                    console.error('Render error:', renderError);
+                    document.getElementById('casesTableBody').innerHTML = `
+                        <tr><td colspan="7" class="px-6 py-8 text-center text-red-500">
+                            Error rendering cases table: ${renderError.message}
+                        </td></tr>
+                    `;
                 }
-                
-                console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
-                renderCases();
             } else {
                 console.error('Failed to load cases:', data.error);
                 document.getElementById('casesTableBody').innerHTML = `

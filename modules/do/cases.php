@@ -114,6 +114,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
 
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_POST['action']))) {
+    // Ensure AJAX endpoints always return clean JSON payloads.
+    ini_set('display_errors', 0);
+
+    if (!ob_get_level()) {
+        ob_start();
+    }
+
     header('Content-Type: application/json');
 
     // Mark password warning as shown in this login session
@@ -279,7 +286,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 ];
             }, $cases);
 
-            echo json_encode(['success' => true, 'cases' => $formattedCases]);
+            $payload = ['success' => true, 'cases' => $formattedCases];
+            $json = json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE);
+
+            if ($json === false) {
+                throw new Exception('Failed to encode cases payload.');
+            }
+
+            if (ob_get_length()) {
+                ob_clean();
+            }
+
+            echo $json;
             exit;
         }
 
@@ -583,11 +601,40 @@ if ($_POST['action'] === 'getCheckInHistory') {
         exit;
     }
 
-    // Get all sanctions with duration for this case
+    $inferSanctionDurationDays = function ($durationValue, $sanctionName) {
+        $stored = intval($durationValue);
+        if ($stored > 0) {
+            return $stored;
+        }
+
+        $name = strtolower((string)$sanctionName);
+
+        if (preg_match('/(\d+)\s*-\s*(\d+)\s*days?/i', $name, $rangeMatch)) {
+            $minDays = intval($rangeMatch[1]);
+            if ($minDays > 0) {
+                return $minDays;
+            }
+        }
+
+        if (preg_match('/(\d+)\s*days?/i', $name, $singleMatch)) {
+            $explicitDays = intval($singleMatch[1]);
+            if ($explicitDays > 0) {
+                return $explicitDays;
+            }
+        }
+
+        if (strpos($name, 'corrective reinforcement') !== false || strpos($name, 'suspension from class') !== false) {
+            return 3;
+        }
+
+        return 0;
+    };
+
+    // Get all sanctions for this case and infer duration for time-based sanctions.
     $sql = "SELECT cs.*, s.sanction_name 
             FROM case_sanctions cs
             JOIN sanctions s ON cs.sanction_id = s.sanction_id
-            WHERE cs.case_id = ? AND cs.duration_days > 0
+            WHERE cs.case_id = ?
             ORDER BY cs.applied_date DESC";
     $sanctions = fetchAll($sql, [$caseId]);
 
@@ -600,7 +647,25 @@ if ($_POST['action'] === 'getCheckInHistory') {
     $result = [];
     foreach ($sanctions as $sanction) {
         $csId = $sanction['case_sanction_id'];
-        $totalDays = intval($sanction['duration_days']);
+        $totalDays = $inferSanctionDurationDays($sanction['duration_days'] ?? null, $sanction['sanction_name'] ?? '');
+
+        if ($totalDays <= 0) {
+            continue;
+        }
+
+        if (intval($sanction['duration_days'] ?? 0) <= 0) {
+            executeQuery("UPDATE case_sanctions SET duration_days = ? WHERE case_sanction_id = ?", [$totalDays, $csId]);
+            $sanction['duration_days'] = $totalDays;
+        }
+
+        $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+        if (strpos($sanctionNameLower, 'corrective reinforcement') !== false && empty($sanction['deadline'])) {
+            $defaultDeadline = buildDefaultSanctionDeadline($sanction['applied_date'] ?? date('Y-m-d'), $totalDays);
+            if (!empty($defaultDeadline)) {
+                executeQuery("UPDATE case_sanctions SET deadline = ? WHERE case_sanction_id = ?", [$defaultDeadline, $csId]);
+                $sanction['deadline'] = $defaultDeadline;
+            }
+        }
         
         // Get latest check-in row per day for this sanction (avoids stale duplicate rows).
         $checkInSql = "WITH ranked AS (
@@ -638,6 +703,7 @@ if ($_POST['action'] === 'getCheckInHistory') {
             'case_sanction_id' => $csId,
             'sanction_name' => $sanction['sanction_name'],
             'duration_days' => $totalDays,
+            'deadline' => $sanction['deadline'],
             'days' => $days
         ];
     }
@@ -646,9 +712,55 @@ if ($_POST['action'] === 'getCheckInHistory') {
     exit;
 }
 
-// ====== Check-In / Check-Out Recording ======
+// ====== DEADLINE EXTENSION AND PENALTY MANAGEMENT ======
 
-// Record check-in (student arrival)
+if ($_POST['action'] === 'extendSanctionDeadline') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $daysToAdd = intval($_POST['daysToAdd'] ?? 7);
+    $extensionNotes = $_POST['extensionNotes'] ?? '';
+    
+    if (!$caseSanctionId) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID required']);
+        exit;
+    }
+    
+    try {
+        $success = extendSanctionDeadline($caseSanctionId, $daysToAdd, $extensionNotes);
+        if ($success) {
+            echo json_encode(['success' => true, 'message' => "Deadline extended by $daysToAdd days"]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Failed to extend deadline']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($_POST['action'] === 'increaseSanctionDuration') {
+    $caseSanctionId = $_POST['caseSanctionId'] ?? null;
+    $additionalDays = intval($_POST['additionalDays'] ?? 1);
+    $reason = $_POST['reason'] ?? 'Penalty for missed deadline';
+    
+    if (!$caseSanctionId) {
+        echo json_encode(['success' => false, 'error' => 'Case Sanction ID required']);
+        exit;
+    }
+    
+    try {
+        $success = increaseSanctionDuration($caseSanctionId, $additionalDays, $reason);
+        if ($success) {
+            echo json_encode(['success' => true, 'message' => "Duration increased by $additionalDays day(s)"]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Failed to increase duration']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ====== Record check-in (student arrival) ======
 if ($_POST['action'] === 'recordCheckIn') {
     $caseSanctionId = $_POST['caseSanctionId'] ?? null;
     $dayNumber = intval($_POST['dayNumber'] ?? 0);
@@ -945,6 +1057,9 @@ if ($_POST['action'] === 'setSuspensionStartDate') {
 
     } catch (Exception $e) {
         error_log("Cases AJAX Error: " . $e->getMessage());
+        if (ob_get_length()) {
+            ob_clean();
+        }
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
     }
@@ -966,13 +1081,14 @@ if ($_POST['action'] === 'setSuspensionStartDate') {
         $studentId = $_POST['studentId'] ?? '';
         $caseType = $_POST['caseType'] ?? '';
         $severity = $_POST['severity'] ?? 'Minor';
+        $caseId = $_POST['caseId'] ?? null;
         
         if (empty($studentId) || empty($caseType)) {
             echo json_encode(['success' => false, 'error' => 'Missing required parameters']);
             exit;
         }
         
-        $recommendation = getRecommendedSanction($studentId, $caseType, $severity);
+        $recommendation = getRecommendedSanction($studentId, $caseType, $severity, $caseId);
         echo json_encode(['success' => true, 'recommendation' => $recommendation]);
         exit;
     }
@@ -986,7 +1102,25 @@ if ($_POST['action'] === 'setSuspensionStartDate') {
 
     // Mark case as resolved
 if ($_POST['action'] === 'markResolved') {
-    $caseId = $_POST['caseId'];
+            $caseId = trim((string)($_POST['caseId'] ?? ''));
+
+            if ($caseId === '') {
+            echo json_encode(['success' => false, 'error' => 'Invalid case ID']);
+            exit;
+        }
+
+            $existingCase = getCaseById($caseId);
+            if (!$existingCase) {
+                echo json_encode(['success' => false, 'error' => 'Case not found']);
+                exit;
+            }
+
+        $eligibility = getCaseResolutionEligibility($caseId);
+        if (!$eligibility['can_resolve']) {
+            echo json_encode(['success' => false, 'error' => $eligibility['error']]);
+            exit;
+        }
+
     markCaseAsResolved($caseId);
 
     // 🧾 Audit Log
@@ -1007,6 +1141,7 @@ if ($_POST['action'] === 'applySanction') {
     $scheduleTime = !empty(trim($_POST['scheduleTime'] ?? '')) ? trim($_POST['scheduleTime']) : null;
     $scheduleEndTime = !empty(trim($_POST['scheduleEndTime'] ?? '')) ? trim($_POST['scheduleEndTime']) : null;
     $scheduleNotes = $_POST['scheduleNotes'] ?? '';
+    $deadlineDate = $_POST['deadlineDate'] ?? null;
     
     // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
     if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
@@ -1018,7 +1153,7 @@ if ($_POST['action'] === 'applySanction') {
     }
 
     try {
-        applySanctionToCase($caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes, $scheduleEndTime);
+        applySanctionToCase($caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleNotes, $scheduleEndTime, $deadlineDate);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
