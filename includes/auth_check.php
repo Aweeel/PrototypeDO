@@ -86,4 +86,55 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     header("Location: /PrototypeDO/modules/login/login.php");
     exit;
 }
+
+// ===== Handle Terms of Service AJAX acceptance =====
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['ajax'])
+    && ($_POST['action'] ?? '') === 'acceptTerms'
+    && isset($_SESSION['user_id'])) {
+    
+    header('Content-Type: application/json');
+    
+    try {
+        $pdo = getDBConnection();
+        if ($pdo) {
+            // First, ensure the terms_accepted_date column exists
+            try {
+                $checkColSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                              WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'terms_accepted_date'";
+                $colExists = $pdo->query($checkColSql)->fetch();
+                
+                if (!$colExists) {
+                    // Column doesn't exist, add it
+                    $pdo->exec("ALTER TABLE users ADD terms_accepted_date DATETIME NULL");
+                    error_log("Added missing terms_accepted_date column to users table");
+                }
+            } catch (Exception $e) {
+                error_log("Warning: Could not check/add terms_accepted_date column: " . $e->getMessage());
+                // Continue anyway, might already exist
+            }
+            
+            // Now update the terms acceptance
+            $stmt = $pdo->prepare("UPDATE users SET terms_accepted_version = ?, terms_accepted_date = GETDATE() WHERE user_id = ?");
+            
+            // Explicitly bind parameters with type hints
+            $stmt->bindValue(1, 2, PDO::PARAM_INT);
+            $stmt->bindValue(2, (int)$_SESSION['user_id'], PDO::PARAM_INT);
+            
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                throw new Exception("Database update failed");
+            }
+        }
+        
+        $_SESSION['tos_accepted'] = true;
+        session_write_close();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
 ?>

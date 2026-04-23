@@ -1885,4 +1885,78 @@ function getCaseAttachments($caseId) {
     $attachments = json_decode($case['attachments'], true);
     return is_array($attachments) ? $attachments : [];
 }
+
+// ==========================================
+// TERMS AND CONDITIONS FUNCTIONS
+// ==========================================
+
+/**
+ * Get the current active version of Terms and Conditions
+ */
+function getCurrentTermsVersion() {
+    $sql = "SELECT TOP 1 version FROM terms_and_conditions WHERE is_active = 1 ORDER BY version DESC";
+    $result = fetchOne($sql, []);
+    return $result ? $result['version'] : 0;
+}
+
+/**
+ * Get Terms and Conditions by version
+ */
+function getTermsByVersion($version = null) {
+    if ($version === null) {
+        $version = getCurrentTermsVersion();
+    }
+    
+    $sql = "SELECT * FROM terms_and_conditions WHERE version = ?";
+    return fetchOne($sql, [$version]);
+}
+
+/**
+ * Check if user needs to accept new Terms and Conditions
+ */
+function userNeedsToAcceptTerms($userId) {
+    $user = getUserById($userId);
+    if (!$user) {
+        return false;
+    }
+    
+    $currentVersion = getCurrentTermsVersion();
+    $userVersion = $user['terms_accepted_version'] ?? 0;
+    
+    return $currentVersion > $userVersion;
+}
+
+/**
+ * Accept Terms and Conditions for a user
+ */
+function acceptTermsAndConditions($userId, $version = null) {
+    if ($version === null) {
+        $version = getCurrentTermsVersion();
+    }
+    
+    // Update user's terms_accepted_version
+    $sql = "UPDATE users SET terms_accepted_version = ? WHERE user_id = ?";
+    $result = executeQuery($sql, [$version, $userId]);
+    
+    // Log the acceptance
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+    
+    $logSql = "INSERT INTO terms_acceptance_log (user_id, terms_version, ip_address, user_agent) 
+               VALUES (?, ?, ?, ?)";
+    executeQuery($logSql, [$userId, $version, $ipAddress, $userAgent]);
+    
+    return $result !== false;
+}
+
+/**
+ * Get acceptance history for a user
+ */
+function getUserTermsAcceptanceHistory($userId) {
+    $sql = "SELECT * FROM terms_acceptance_log 
+            WHERE user_id = ? 
+            ORDER BY accepted_date DESC";
+    return fetchAll($sql, [$userId]);
+}
+
 ?>

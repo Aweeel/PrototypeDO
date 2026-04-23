@@ -1,5 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/functions.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Redirect if already logged in
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
@@ -14,10 +19,8 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     }
     exit;
 }
-?>
 
-<!DOCTYPE html>
-<!-- Rest of your login page -->
+?>
 
 <!DOCTYPE html>
 <html lang="en">
