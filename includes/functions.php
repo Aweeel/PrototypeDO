@@ -90,6 +90,126 @@ function getFormattedUserName($userId = null) {
     return 'User';
 }
 
+function getStudentRecordForUser($userId = null, $linkIfFound = true) {
+    if ($userId === null && isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+    }
+
+    if (!$userId) {
+        return null;
+    }
+
+    $user = getUserById($userId);
+    if (!$user) {
+        return null;
+    }
+
+    $sessionUser = $_SESSION['user'] ?? [];
+    $fullName = trim((string)($sessionUser['full_name'] ?? $user['full_name'] ?? ''));
+    $username = trim((string)($sessionUser['username'] ?? $user['username'] ?? ''));
+    $email = trim((string)($sessionUser['email'] ?? $user['email'] ?? ''));
+    $nameParts = $fullName !== '' ? preg_split('/\s+/', $fullName) : [];
+    $firstName = trim((string)($nameParts[0] ?? ''));
+    $lastName = trim((string)($nameParts[count($nameParts) - 1] ?? ''));
+
+    $linkedStudent = fetchOne("SELECT TOP 1 * FROM students WHERE user_id = ?", [$userId]);
+    $linkedStudentLooksCorrect = false;
+    if ($linkedStudent) {
+        $linkedFirst = strtolower(trim((string)($linkedStudent['first_name'] ?? '')));
+        $linkedLast = strtolower(trim((string)($linkedStudent['last_name'] ?? '')));
+        $sessionFirst = strtolower($firstName);
+        $sessionLast = strtolower($lastName);
+        $linkedStudentLooksCorrect = ($sessionFirst !== '' && $sessionLast !== '' && $linkedFirst === $sessionFirst && $linkedLast === $sessionLast);
+    }
+
+    if ($linkedStudent && $linkedStudentLooksCorrect) {
+        return $linkedStudent;
+    }
+
+    $tokens = [];
+    foreach ([$fullName, $username, $email] as $value) {
+        if ($value === '') {
+            continue;
+        }
+        $tokens[] = strtolower($value);
+        $tokens[] = strtolower(preg_replace('/[^0-9A-Za-z]/', '', $value));
+    }
+
+    $studentIdFragments = [];
+    foreach ([$username, $email] as $value) {
+        if ($value === '') {
+            continue;
+        }
+        if (preg_match('/(\d{4,})/', $value, $match)) {
+            $studentIdFragments[] = $match[1];
+        }
+    }
+
+    $candidate = null;
+    if ($firstName !== '' && $lastName !== '') {
+        $candidate = fetchOne(
+            "SELECT TOP 1 * FROM students
+             WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)",
+            [$firstName, $lastName]
+        );
+    }
+
+    if (!$candidate && $firstName !== '') {
+        $candidate = fetchOne(
+            "SELECT TOP 1 * FROM students
+             WHERE LOWER(first_name) = LOWER(?) OR LOWER(first_name + ' ' + last_name) = LOWER(?)",
+            [$firstName, $fullName]
+        );
+    }
+
+    if (!$candidate && !empty($studentIdFragments)) {
+        foreach ($studentIdFragments as $fragment) {
+            $candidate = fetchOne(
+                "SELECT TOP 1 * FROM students WHERE student_id LIKE ? ORDER BY student_id DESC",
+                ['%' . $fragment . '%']
+            );
+            if ($candidate) {
+                break;
+            }
+        }
+    }
+
+    if (!$candidate && !empty($tokens)) {
+        foreach ($tokens as $token) {
+            if ($token === '') {
+                continue;
+            }
+            $candidate = fetchOne(
+                "SELECT TOP 1 * FROM students
+                 WHERE LOWER(first_name) LIKE ?
+                    OR LOWER(last_name) LIKE ?
+                    OR LOWER(first_name + ' ' + last_name) LIKE ?
+                    OR student_id LIKE ?
+                 ORDER BY student_id DESC",
+                ['%' . $token . '%', '%' . $token . '%', '%' . $token . '%', '%' . $token . '%']
+            );
+            if ($candidate) {
+                break;
+            }
+        }
+    }
+
+    if (!$candidate && $linkedStudent) {
+        $candidate = $linkedStudent;
+    }
+
+    if ($candidate && $linkIfFound) {
+        try {
+            executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $candidate['student_id']]);
+            $candidate['user_id'] = $userId;
+        } catch (Exception $e) {
+            error_log('getStudentRecordForUser: Failed to link student to user: ' . $e->getMessage());
+        }
+    }
+
+    return $candidate ?: null;
+}
+
 // ==========================================
 // AUTO-ARCHIVE FUNCTIONS
 // ==========================================
@@ -1534,6 +1654,7 @@ function ensureCaseSanctionsDeadlineColumns() {
     $columns = [
         'deadline' => "ALTER TABLE case_sanctions ADD deadline DATETIME NULL",
         'original_duration_days' => "ALTER TABLE case_sanctions ADD original_duration_days INT NULL",
+        'duration_extra_hours' => "ALTER TABLE case_sanctions ADD duration_extra_hours INT NOT NULL CONSTRAINT DF_case_sanctions_duration_extra_hours DEFAULT 0 WITH VALUES",
         'days_extended' => "ALTER TABLE case_sanctions ADD days_extended INT NOT NULL CONSTRAINT DF_case_sanctions_days_extended DEFAULT 0 WITH VALUES",
         'extension_count' => "ALTER TABLE case_sanctions ADD extension_count INT NOT NULL CONSTRAINT DF_case_sanctions_extension_count DEFAULT 0 WITH VALUES",
         'extension_notes' => "ALTER TABLE case_sanctions ADD extension_notes NVARCHAR(MAX) NULL",
@@ -1555,6 +1676,119 @@ function ensureCaseSanctionsDeadlineColumns() {
     }
 
     $initialized = true;
+}
+
+function ensureCommunityServiceSubmissionTable() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $tableExistsSql = "SELECT 1 AS table_exists
+                       FROM INFORMATION_SCHEMA.TABLES
+                       WHERE TABLE_NAME = 'community_service_submissions'";
+    $tableExists = fetchOne($tableExistsSql);
+
+    if (!$tableExists) {
+        $createTableSql = "CREATE TABLE community_service_submissions (
+            submission_id INT IDENTITY(1,1) PRIMARY KEY,
+            case_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES cases(case_id),
+            case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
+            student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
+            uploaded_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+            file_name NVARCHAR(255) NOT NULL,
+            original_file_name NVARCHAR(255) NOT NULL,
+            file_path NVARCHAR(500) NOT NULL,
+            file_size_bytes BIGINT NULL,
+            mime_type NVARCHAR(120) NULL,
+            remarks NVARCHAR(1000) NULL,
+            is_seen_by_do BIT NOT NULL DEFAULT 0,
+            seen_by_do_at DATETIME NULL,
+            seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
+            created_at DATETIME NOT NULL DEFAULT GETDATE()
+        )";
+
+        try {
+            executeQuery($createTableSql, []);
+        } catch (Exception $e) {
+            error_log('Community service submission table bootstrap skipped: ' . $e->getMessage());
+        }
+    }
+
+    $columns = [
+        'remarks' => "ALTER TABLE community_service_submissions ADD remarks NVARCHAR(1000) NULL",
+        'is_seen_by_do' => "ALTER TABLE community_service_submissions ADD is_seen_by_do BIT NOT NULL CONSTRAINT DF_css_is_seen_by_do DEFAULT 0 WITH VALUES",
+        'seen_by_do_at' => "ALTER TABLE community_service_submissions ADD seen_by_do_at DATETIME NULL",
+        'seen_by_do_user_id' => "ALTER TABLE community_service_submissions ADD seen_by_do_user_id INT NULL",
+    ];
+
+    foreach ($columns as $columnName => $alterSql) {
+        $existsSql = "SELECT 1 AS column_exists
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE TABLE_NAME = 'community_service_submissions' AND COLUMN_NAME = ?";
+        $exists = fetchOne($existsSql, [$columnName]);
+        if (!$exists) {
+            try {
+                executeQuery($alterSql, []);
+            } catch (Exception $e) {
+                error_log("Community service submission column bootstrap skipped for {$columnName}: " . $e->getMessage());
+            }
+        }
+    }
+
+    $fkExistsSql = "SELECT 1 AS fk_exists
+                    FROM sys.foreign_keys
+                    WHERE name = 'FK_css_seen_by_do_user'";
+    $fkExists = fetchOne($fkExistsSql);
+    if (!$fkExists) {
+        try {
+            executeQuery(
+                "ALTER TABLE community_service_submissions
+                 ADD CONSTRAINT FK_css_seen_by_do_user
+                 FOREIGN KEY (seen_by_do_user_id) REFERENCES users(user_id)",
+                []
+            );
+        } catch (Exception $e) {
+            error_log('Community service submission FK bootstrap skipped: ' . $e->getMessage());
+        }
+    }
+
+    $initialized = true;
+}
+
+function notifyDOOnCommunityServicePortfolioSubmission($caseId, $studentName, $originalFileName, $sanctionName = '') {
+    try {
+        $doUsers = fetchAll(
+            "SELECT user_id
+             FROM users
+             WHERE is_active = 1
+               AND (role = 'discipline_office' OR role = 'do' OR role = 'super_admin')"
+        );
+
+        if (empty($doUsers)) {
+            return 0;
+        }
+
+        $sanctionNameLower = strtolower((string)$sanctionName);
+        $sanctionType = (strpos($sanctionNameLower, 'suspension from class') !== false) ? 'suspension' : 'corrective';
+        $sanctionLabel = ($sanctionType === 'suspension') ? 'Suspension from Class' : 'Community Service';
+
+        $title = 'New ' . $sanctionLabel . ' Portfolio Submitted';
+        $message = "{$studentName} submitted a portfolio/completion report ({$originalFileName}) for {$sanctionLabel} in Case {$caseId}.";
+        $count = 0;
+
+        $relatedId = 'community_service_submission:' . $sanctionType . ':' . $caseId;
+
+        foreach ($doUsers as $doUser) {
+            createNotification($doUser['user_id'], $title, $message, 'community_service_submission', $relatedId);
+            $count++;
+        }
+
+        return $count;
+    } catch (Exception $e) {
+        error_log('Error notifying DO on community service portfolio submission: ' . $e->getMessage());
+        return 0;
+    }
 }
 
 function buildDefaultSanctionDeadline($appliedDate, $durationDays, $graceDays = 7) {
@@ -1655,29 +1889,45 @@ function extendSanctionDeadline($caseSanctionId, $daysToAdd = 7, $extensionNotes
 /**
  * Increase sanction duration (as penalty for missed deadline)
  */
-function increaseSanctionDuration($caseSanctionId, $additionalDays = 1, $reason = 'Missed deadline') {
+function increaseSanctionDuration($caseSanctionId, $additionalHours = 8, $reason = 'Missed deadline') {
     try {
         ensureCaseSanctionsDeadlineColumns();
 
-        $sql = "SELECT case_id, duration_days, deadline FROM case_sanctions WHERE case_sanction_id = ?";
+        $sql = "SELECT case_id, duration_days, duration_extra_hours, deadline FROM case_sanctions WHERE case_sanction_id = ?";
         $sanction = fetchOne($sql, [$caseSanctionId]);
         
         if (!$sanction) {
             throw new Exception('Sanction not found');
         }
         
-        $newDuration = intval($sanction['duration_days']) + $additionalDays;
+        $hoursToAdd = max(1, intval($additionalHours));
+        $baseDays = max(0, intval($sanction['duration_days']));
+        $baseExtraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+
+        $currentRequiredHours = 0;
+        if ($baseDays > 0) {
+            $currentRequiredHours = $baseExtraHours > 0
+                ? (($baseDays - 1) * 8) + $baseExtraHours
+                : ($baseDays * 8);
+        }
+
+        $newTotalHours = $currentRequiredHours + $hoursToAdd;
+        $newDuration = (int)ceil($newTotalHours / 8);
+        $newExtraHours = $newTotalHours % 8;
+
+        $deadlineDaysToAdd = (int)ceil($hoursToAdd / 8);
         $currentDeadline = !empty($sanction['deadline']) ? new DateTime($sanction['deadline']) : new DateTime();
-        $newDeadline = $currentDeadline->modify("+{$additionalDays} days");
+        $newDeadline = $currentDeadline->modify("+{$deadlineDaysToAdd} days");
         
         $updateSql = "UPDATE case_sanctions 
                      SET duration_days = ?,
+                         duration_extra_hours = ?,
                          deadline = ?
                      WHERE case_sanction_id = ?";
         
-        $note = "Duration increased by {$additionalDays} day(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
+        $note = "Duration increased by {$hoursToAdd} hour(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
         
-        executeQuery($updateSql, [$newDuration, $newDeadline->format('Y-m-d H:i:s'), $caseSanctionId]);
+        executeQuery($updateSql, [$newDuration, $newExtraHours, $newDeadline->format('Y-m-d H:i:s'), $caseSanctionId]);
         if (!empty($sanction['case_id'])) {
             logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Duration Increased', null, $note);
         }

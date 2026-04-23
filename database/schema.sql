@@ -136,6 +136,7 @@ CREATE TABLE case_sanctions (
     sanction_id INT FOREIGN KEY REFERENCES sanctions(sanction_id),
     applied_date DATE DEFAULT CAST(GETDATE() AS DATE),
     duration_days INT NULL,
+    duration_extra_hours INT NOT NULL DEFAULT 0,
     is_completed BIT DEFAULT 0,
     completion_date DATE,
     notes NVARCHAR(500),
@@ -164,6 +165,28 @@ CREATE TABLE case_checkins (
     check_in_date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+-- ============================================
+-- 6.6. COMMUNITY_SERVICE_SUBMISSIONS TABLE
+-- ============================================
+CREATE TABLE community_service_submissions (
+    submission_id INT IDENTITY(1,1) PRIMARY KEY,
+    case_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES cases(case_id),
+    case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
+    student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
+    uploaded_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+    file_name NVARCHAR(255) NOT NULL,
+    original_file_name NVARCHAR(255) NOT NULL,
+    file_path NVARCHAR(500) NOT NULL,
+    file_size_bytes BIGINT NULL,
+    mime_type NVARCHAR(120) NULL,
+    remarks NVARCHAR(1000) NULL,
+    is_seen_by_do BIT NOT NULL DEFAULT 0,
+    seen_by_do_at DATETIME NULL,
+    seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
+    created_at DATETIME NOT NULL DEFAULT GETDATE()
 );
 GO
 

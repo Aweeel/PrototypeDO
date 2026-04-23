@@ -7,6 +7,8 @@ require_once __DIR__ . '/../../includes/functions.php';
 //  CSV DOWNLOAD — Community Service Check-In Report
 // ============================================================
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) && $_GET['type'] === 'checkin') {
+    ensureCaseSanctionsDeadlineColumns();
+
     $caseId = $_GET['caseId'] ?? '';
     $studentName = $_GET['studentName'] ?? 'Student';
     $sanctionName = $_GET['sanctionName'] ?? 'Community Service';
@@ -34,6 +36,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     // Get check-in records
     $sanction = $sanctions[0];
     $totalDays = intval($sanction['duration_days']);
+    $extraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+    $totalHours = $totalDays > 0
+        ? ($extraHours > 0 ? (($totalDays - 1) * 8) + $extraHours : ($totalDays * 8))
+        : 0;
     $checkInSql = "WITH ranked AS (
                        SELECT *,
                               ROW_NUMBER() OVER (PARTITION BY day_number ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC) AS rn
@@ -61,14 +67,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     fputcsv($out, ['Case ID:', $caseId]);
     fputcsv($out, ['Student:', $studentName]);
     fputcsv($out, ['Sanction Type:', $sanctionName]);
-    fputcsv($out, ['Duration:', $totalDays . ' days']);
+    fputcsv($out, ['Duration:', $totalHours . ' hours']);
     fputcsv($out, []);
 
     // Data headers
     fputcsv($out, ['Day Number', 'Check-In Time', 'Check-Out Time', 'Status']);
 
     // Data rows
-    $completedDays = 0;
+    $completedHours = 0;
     for ($day = 1; $day <= $totalDays; $day++) {
         $dayData = null;
         foreach ($checkIns as $record) {
@@ -92,7 +98,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
 
             if ($dayData['check_in_time'] && $dayData['check_out_time']) {
                 $status = 'Completed';
-                $completedDays++;
+
+                $inTs = strtotime($dayData['check_in_time']);
+                $outTs = strtotime($dayData['check_out_time']);
+                if ($inTs !== false && $outTs !== false && $outTs > $inTs) {
+                    $hours = min(8, ($outTs - $inTs) / 3600);
+                    $completedHours += $hours;
+                }
             } else if ($dayData['check_in_time']) {
                 $status = 'In Progress';
             }
@@ -104,9 +116,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     // Summary
     fputcsv($out, []);
     fputcsv($out, ['Summary']);
-    fputcsv($out, ['Total Days:', $totalDays]);
-    fputcsv($out, ['Completed Days:', $completedDays]);
-    fputcsv($out, ['Progress:', round(($completedDays / $totalDays) * 100) . '%']);
+    fputcsv($out, ['Total Hours:', $totalHours]);
+    fputcsv($out, ['Completed Hours:', number_format($completedHours, 2)]);
+    fputcsv($out, ['Progress:', $totalHours > 0 ? round(($completedHours / $totalHours) * 100) . '%' : '0%']);
 
     fclose($out);
     exit;
@@ -122,6 +134,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
     }
 
     header('Content-Type: application/json');
+    ensureCommunityServiceSubmissionTable();
+
+    $getMaxAllowedDayByDeadline = function ($caseSanctionId) {
+        $meta = fetchOne(
+            "SELECT applied_date, deadline
+             FROM case_sanctions
+             WHERE case_sanction_id = ?",
+            [$caseSanctionId]
+        );
+
+        if (!$meta) {
+            return ['ok' => false, 'error' => 'Case sanction not found'];
+        }
+
+        if (empty($meta['deadline'])) {
+            return ['ok' => true, 'maxDay' => null];
+        }
+
+        try {
+            $startDate = new DateTime($meta['applied_date'] ?? date('Y-m-d'));
+            $startDate->setTime(0, 0, 0);
+
+            $deadlineDate = new DateTime($meta['deadline']);
+            $deadlineDate->setTime(0, 0, 0);
+
+            if ($deadlineDate < $startDate) {
+                return ['ok' => true, 'maxDay' => 0];
+            }
+
+            $maxDay = intval($startDate->diff($deadlineDate)->days);
+            return ['ok' => true, 'maxDay' => max(1, $maxDay)];
+        } catch (Exception $e) {
+            return ['ok' => true, 'maxDay' => null];
+        }
+    };
 
     // Mark password warning as shown in this login session
     if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
@@ -157,6 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
 
         // Get cases with filters
         if ($_POST['action'] === 'getCases') {
+            ensureCaseSanctionsDeadlineColumns();
+
             $filters = [
                 'search' => $_POST['search'] ?? '',
                 'type' => $_POST['type'] ?? '',
@@ -244,12 +293,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 $hasSuspensionFromClass = ($suspensionCheck && intval($suspensionCheck['cnt']) > 0);
 
                 // Compute whether corrective service is fully completed (for green icon state).
-                $completionSql = "SELECT cs.case_sanction_id, cs.duration_days, s.sanction_name,
-                                         (SELECT COUNT(DISTINCT cci.day_number)
-                                          FROM case_checkins cci
-                                          WHERE cci.case_sanction_id = cs.case_sanction_id
-                                            AND cci.check_in_time IS NOT NULL
-                                            AND cci.check_out_time IS NOT NULL) AS completed_days
+                $completionSql = "SELECT cs.case_sanction_id, cs.duration_days, cs.duration_extra_hours, s.sanction_name,
+                                         (SELECT COALESCE(SUM(
+                                            CASE
+                                                WHEN cci.check_in_time IS NOT NULL
+                                                 AND cci.check_out_time IS NOT NULL
+                                                 AND DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                                THEN CASE
+                                                    WHEN DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
+                                                    ELSE CAST(DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS FLOAT) / 60.0
+                                                END
+                                                ELSE 0
+                                            END
+                                         ), 0)
+                                          FROM (
+                                              SELECT check_in_time, check_out_time,
+                                                     ROW_NUMBER() OVER (
+                                                         PARTITION BY day_number
+                                                         ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC
+                                                     ) AS rn
+                                              FROM case_checkins
+                                              WHERE case_sanction_id = cs.case_sanction_id
+                                          ) cci
+                                          WHERE cci.rn = 1) AS completed_hours
                                   FROM case_sanctions cs
                                   JOIN sanctions s ON cs.sanction_id = s.sanction_id
                                   WHERE cs.case_id = ?
@@ -260,12 +326,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     $hasCorrectiveServiceCompleted = true;
                     $hasTrackableCorrective = false;
                     foreach ($completionRows as $row) {
-                        $required = $inferSanctionDurationDays($row['duration_days'] ?? null, $row['sanction_name'] ?? '');
-                        if ($required <= 0) {
+                        $requiredDays = $inferSanctionDurationDays($row['duration_days'] ?? null, $row['sanction_name'] ?? '');
+                        if ($requiredDays <= 0) {
                             continue;
                         }
+
+                        $extraHours = max(0, intval($row['duration_extra_hours'] ?? 0));
+                        $required = $requiredDays > 0
+                            ? ($extraHours > 0 ? (($requiredDays - 1) * 8) + $extraHours : ($requiredDays * 8))
+                            : 0;
                         $hasTrackableCorrective = true;
-                        $done = intval($row['completed_days']);
+                        $done = floatval($row['completed_hours'] ?? 0);
                         if ($required <= 0 || $done < $required) {
                             $hasCorrectiveServiceCompleted = false;
                             break;
@@ -311,6 +382,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     }
                 }
 
+                $newSubmissionCountRow = fetchOne(
+                    "SELECT COUNT(*) AS cnt
+                     FROM community_service_submissions css
+                     JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
+                     JOIN sanctions s ON s.sanction_id = cs.sanction_id
+                     WHERE css.case_id = ?
+                       AND css.is_seen_by_do = 0
+                       AND (
+                            LOWER(s.sanction_name) LIKE '%corrective%'
+                                                        OR LOWER(s.sanction_name) LIKE '%community service%'
+                                                        OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+                       )",
+                    [$case['case_id']]
+                );
+                $hasNewCommunityServiceSubmission = intval($newSubmissionCountRow['cnt'] ?? 0) > 0;
+
                 return [
                     'id' => $case['case_id'],
                     'student' => $case['student_name'],
@@ -326,6 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'attachments' => $attachments,
                     'hasCorrectiveService' => $hasCorrectiveService,
                     'hasCorrectiveServiceCompleted' => $hasCorrectiveServiceCompleted,
+                    'hasNewCommunityServiceSubmission' => $hasNewCommunityServiceSubmission,
                     'hasSuspensionFromClass' => $hasSuspensionFromClass,
                     'hasSuspensionFromClassCompleted' => $hasSuspensionFromClassCompleted
                 ];
@@ -639,6 +727,8 @@ if ($_POST['action'] === 'removeSanction') {
 
         // Get check-in history for a case
 if ($_POST['action'] === 'getCheckInHistory') {
+    ensureCaseSanctionsDeadlineColumns();
+
     $caseId = $_POST['caseId'] ?? null;
     
     if (!$caseId) {
@@ -690,6 +780,8 @@ if ($_POST['action'] === 'getCheckInHistory') {
 
     // For each sanction, get check-in data
     $result = [];
+    $casePortfolioSubmissions = [];
+    $caseNewPortfolioSubmissionCount = 0;
     foreach ($sanctions as $sanction) {
         $csId = $sanction['case_sanction_id'];
         $totalDays = $inferSanctionDurationDays($sanction['duration_days'] ?? null, $sanction['sanction_name'] ?? '');
@@ -711,6 +803,17 @@ if ($_POST['action'] === 'getCheckInHistory') {
                 $sanction['deadline'] = $defaultDeadline;
             }
         }
+
+        $deadlineAllowsExtension = true;
+        if (!empty($sanction['deadline'])) {
+            try {
+                $deadlineDate = new DateTime($sanction['deadline']);
+                $deadlineDate->setTime(23, 59, 59);
+                $deadlineAllowsExtension = $deadlineDate >= new DateTime('today');
+            } catch (Exception $e) {
+                $deadlineAllowsExtension = true;
+            }
+        }
         
         // Get latest check-in row per day for this sanction (avoids stale duplicate rows).
         $checkInSql = "WITH ranked AS (
@@ -726,10 +829,74 @@ if ($_POST['action'] === 'getCheckInHistory') {
                        WHERE rn = 1
                        ORDER BY day_number ASC";
         $checkIns = fetchAll($checkInSql, [$csId]);
+
+        $maxRecordedDay = 0;
+        $lastRecordedDayComplete = false;
+        foreach ($checkIns as $checkInRow) {
+            $recordedDay = intval($checkInRow['day_number'] ?? 0);
+            if ($recordedDay > $maxRecordedDay) {
+                $maxRecordedDay = $recordedDay;
+            }
+        }
+        if ($maxRecordedDay > 0) {
+            foreach ($checkIns as $checkInRow) {
+                if (intval($checkInRow['day_number'] ?? 0) === $maxRecordedDay) {
+                    $lastRecordedDayComplete = !empty($checkInRow['check_in_time']) && !empty($checkInRow['check_out_time']);
+                    break;
+                }
+            }
+        }
+
+        $isCommunityServiceType = strpos($sanctionNameLower, 'corrective') !== false || strpos($sanctionNameLower, 'community service') !== false;
+        $requiredHours = max(0, ($totalDays * 8) + intval($sanction['duration_extra_hours'] ?? 0));
+        $completedHours = 0.0;
+        foreach ($checkIns as $checkInRow) {
+            if (!empty($checkInRow['check_in_time']) && !empty($checkInRow['check_out_time'])) {
+                try {
+                    $inTime = new DateTime($checkInRow['check_in_time']);
+                    $outTime = new DateTime($checkInRow['check_out_time']);
+                    $secondsWorked = $outTime->getTimestamp() - $inTime->getTimestamp();
+                    if ($secondsWorked > 0) {
+                        $completedHours += ($secondsWorked / 3600);
+                    }
+                } catch (Exception $e) {
+                    // Ignore malformed timestamps and continue with remaining rows.
+                }
+            }
+        }
+        $stillNeedsAdditionalDay = !$isCommunityServiceType || ($requiredHours > 0 && ($completedHours + 0.01) < $requiredHours);
+
+        $maxDayByDeadlineWindow = null;
+        if (!empty($sanction['deadline'])) {
+            try {
+                $appliedDate = new DateTime($sanction['applied_date'] ?? date('Y-m-d'));
+                $appliedDate->setTime(0, 0, 0);
+
+                $deadlineDate = new DateTime($sanction['deadline']);
+                $deadlineDate->setTime(0, 0, 0);
+
+                if ($deadlineDate < $appliedDate) {
+                    $maxDayByDeadlineWindow = 0;
+                } else {
+                    $maxDayByDeadlineWindow = intval($appliedDate->diff($deadlineDate)->days);
+                }
+            } catch (Exception $e) {
+                $maxDayByDeadlineWindow = null;
+            }
+        }
+
+        $displayTotalDays = max($totalDays, $maxRecordedDay);
+        $canStillAddDayByWindow = $maxDayByDeadlineWindow === null || $maxRecordedDay < intval($maxDayByDeadlineWindow);
+        if ($deadlineAllowsExtension && $maxRecordedDay > 0 && $lastRecordedDayComplete && $stillNeedsAdditionalDay && $canStillAddDayByWindow) {
+            $displayTotalDays = max($displayTotalDays, $maxRecordedDay + 1);
+        }
+        if ($maxDayByDeadlineWindow !== null) {
+            $displayTotalDays = min($displayTotalDays, intval($maxDayByDeadlineWindow));
+        }
         
         // Build day data
         $days = [];
-        for ($d = 1; $d <= $totalDays; $d++) {
+        for ($d = 1; $d <= $displayTotalDays; $d++) {
             $dayCheckIn = null;
             foreach ($checkIns as $c) {
                 if ($c['day_number'] == $d) {
@@ -748,12 +915,70 @@ if ($_POST['action'] === 'getCheckInHistory') {
             'case_sanction_id' => $csId,
             'sanction_name' => $sanction['sanction_name'],
             'duration_days' => $totalDays,
+            'duration_extra_hours' => intval($sanction['duration_extra_hours'] ?? 0),
             'deadline' => $sanction['deadline'],
-            'days' => $days
+            'max_day_by_deadline_window' => $maxDayByDeadlineWindow,
+            'max_recorded_day' => $maxRecordedDay,
+            'days' => $days,
+            'portfolio_submissions' => [],
+            'new_portfolio_submission_count' => 0
         ];
+
+        $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+        if (strpos($sanctionNameLower, 'corrective') !== false || strpos($sanctionNameLower, 'community service') !== false || strpos($sanctionNameLower, 'suspension from class') !== false) {
+            $portfolioSubmissions = fetchAll(
+                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, created_at, is_seen_by_do
+                 FROM community_service_submissions
+                 WHERE case_id = ? AND case_sanction_id = ?
+                 ORDER BY created_at DESC, submission_id DESC",
+                [$caseId, $csId]
+            );
+
+            $newSubmissionCountRow = fetchOne(
+                "SELECT COUNT(*) AS cnt
+                 FROM community_service_submissions
+                 WHERE case_id = ? AND case_sanction_id = ? AND is_seen_by_do = 0",
+                [$caseId, $csId]
+            );
+
+            if (!empty($portfolioSubmissions)) {
+                $casePortfolioSubmissions = array_merge($casePortfolioSubmissions, $portfolioSubmissions);
+            }
+            $caseNewPortfolioSubmissionCount += intval($newSubmissionCountRow['cnt'] ?? 0);
+
+            $result[count($result) - 1]['portfolio_submissions'] = $portfolioSubmissions;
+            $result[count($result) - 1]['new_portfolio_submission_count'] = intval($newSubmissionCountRow['cnt'] ?? 0);
+        }
     }
 
-    echo json_encode(['success' => true, 'sanctions' => $result]);
+    echo json_encode([
+        'success' => true,
+        'sanctions' => $result,
+        'case_portfolio_submissions' => $casePortfolioSubmissions,
+        'case_new_portfolio_submission_count' => $caseNewPortfolioSubmissionCount
+    ]);
+    exit;
+}
+
+if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
+    $caseId = trim($_POST['caseId'] ?? '');
+
+    if ($caseId === '') {
+        echo json_encode(['success' => false, 'error' => 'Case ID required']);
+        exit;
+    }
+
+    $viewerId = $_SESSION['user_id'] ?? null;
+    executeQuery(
+        "UPDATE community_service_submissions
+         SET is_seen_by_do = 1,
+             seen_by_do_at = GETDATE(),
+             seen_by_do_user_id = ?
+         WHERE case_id = ? AND is_seen_by_do = 0",
+        [$viewerId, $caseId]
+    );
+
+    echo json_encode(['success' => true]);
     exit;
 }
 
@@ -784,7 +1009,7 @@ if ($_POST['action'] === 'extendSanctionDeadline') {
 
 if ($_POST['action'] === 'increaseSanctionDuration') {
     $caseSanctionId = $_POST['caseSanctionId'] ?? null;
-    $additionalDays = intval($_POST['additionalDays'] ?? 1);
+    $additionalHours = intval($_POST['additionalHours'] ?? 8);
     $reason = $_POST['reason'] ?? 'Penalty for missed deadline';
     
     if (!$caseSanctionId) {
@@ -793,9 +1018,9 @@ if ($_POST['action'] === 'increaseSanctionDuration') {
     }
     
     try {
-        $success = increaseSanctionDuration($caseSanctionId, $additionalDays, $reason);
+        $success = increaseSanctionDuration($caseSanctionId, $additionalHours, $reason);
         if ($success) {
-            echo json_encode(['success' => true, 'message' => "Duration increased by $additionalDays day(s)"]);
+            echo json_encode(['success' => true, 'message' => "Duration increased by $additionalHours hour(s)"]);
         } else {
             echo json_encode(['success' => false, 'error' => 'Failed to increase duration']);
         }
@@ -812,6 +1037,16 @@ if ($_POST['action'] === 'recordCheckIn') {
     
     if (!$caseSanctionId || !$dayNumber) {
         echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $deadlineWindow = $getMaxAllowedDayByDeadline($caseSanctionId);
+    if (!$deadlineWindow['ok']) {
+        echo json_encode(['success' => false, 'error' => $deadlineWindow['error']]);
+        exit;
+    }
+    if ($deadlineWindow['maxDay'] !== null && $dayNumber > intval($deadlineWindow['maxDay'])) {
+        echo json_encode(['success' => false, 'error' => 'Cannot record beyond the sanction deadline window']);
         exit;
     }
 
@@ -850,6 +1085,16 @@ if ($_POST['action'] === 'recordCheckOut') {
         exit;
     }
 
+    $deadlineWindow = $getMaxAllowedDayByDeadline($caseSanctionId);
+    if (!$deadlineWindow['ok']) {
+        echo json_encode(['success' => false, 'error' => $deadlineWindow['error']]);
+        exit;
+    }
+    if ($deadlineWindow['maxDay'] !== null && $dayNumber > intval($deadlineWindow['maxDay'])) {
+        echo json_encode(['success' => false, 'error' => 'Cannot record beyond the sanction deadline window']);
+        exit;
+    }
+
     $now = date('Y-m-d H:i:s');
     // First check if a record exists for this day (latest by update time, regardless of date)
     $checkSql = "SELECT * FROM case_checkins 
@@ -880,6 +1125,16 @@ if ($_POST['action'] === 'manualCheckIn') {
     
     if (!$caseSanctionId || !$dayNumber) {
         echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $deadlineWindow = $getMaxAllowedDayByDeadline($caseSanctionId);
+    if (!$deadlineWindow['ok']) {
+        echo json_encode(['success' => false, 'error' => $deadlineWindow['error']]);
+        exit;
+    }
+    if ($deadlineWindow['maxDay'] !== null && $dayNumber > intval($deadlineWindow['maxDay'])) {
+        echo json_encode(['success' => false, 'error' => 'Cannot record beyond the sanction deadline window']);
         exit;
     }
 
@@ -916,6 +1171,16 @@ if ($_POST['action'] === 'manualCheckOut') {
     
     if (!$caseSanctionId || !$dayNumber) {
         echo json_encode(['success' => false, 'error' => 'Case Sanction ID and Day Number required']);
+        exit;
+    }
+
+    $deadlineWindow = $getMaxAllowedDayByDeadline($caseSanctionId);
+    if (!$deadlineWindow['ok']) {
+        echo json_encode(['success' => false, 'error' => $deadlineWindow['error']]);
+        exit;
+    }
+    if ($deadlineWindow['maxDay'] !== null && $dayNumber > intval($deadlineWindow['maxDay'])) {
+        echo json_encode(['success' => false, 'error' => 'Cannot record beyond the sanction deadline window']);
         exit;
     }
 
@@ -1577,7 +1842,7 @@ $adminName = getFormattedUserName() ?? 'User';
             const urlParams = new URLSearchParams(window.location.search);
             const caseId = urlParams.get('caseId');
             
-            if (caseId) {
+            if (caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
                 // Wait for cases to be fully loaded, then open the specific case
                 const checkInterval = setInterval(() => {
                     if (typeof allCases !== 'undefined' && allCases.length > 0 && typeof viewCase === 'function') {

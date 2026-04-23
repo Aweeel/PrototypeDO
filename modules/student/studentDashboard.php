@@ -26,9 +26,7 @@ $pdo = getDBConnection();
 
 // Get student_id from user_id
 if ($userId && $pdo) {
-    $stmt = $pdo->prepare("SELECT student_id FROM students WHERE user_id = ?");
-    $stmt->execute([$userId]);
-    $studentRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+    $studentRecord = getStudentRecordForUser($userId);
     $studentId = $studentRecord['student_id'] ?? null;
 }
 

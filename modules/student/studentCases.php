@@ -12,8 +12,7 @@ if ($_SESSION['user_role'] !== 'student') {
 $pageTitle = "My Cases";
 
 // Get the student record linked to this user
-$sql = "SELECT * FROM students WHERE user_id = ?";
-$student = fetchOne($sql, [$_SESSION['user_id']]);
+$student = getStudentRecordForUser($_SESSION['user_id'] ?? null);
 
 if (!$student) {
     // No student record for this user account
@@ -27,6 +26,8 @@ if (!$student) {
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
+
+    ensureCommunityServiceSubmissionTable();
 
     // Mark password warning as shown in this login session
     if ($_POST['action'] === 'markPasswordWarningShown') {
@@ -101,7 +102,162 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        $portfolioSanction = fetchOne(
+            "SELECT TOP 1 cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
+                    cs.applied_date, s.sanction_name
+             FROM case_sanctions cs
+             JOIN sanctions s ON cs.sanction_id = s.sanction_id
+             WHERE cs.case_id = ?
+               AND (
+                    LOWER(s.sanction_name) LIKE '%corrective%'
+                    OR LOWER(s.sanction_name) LIKE '%community service%'
+                    OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+               )
+             ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC",
+            [$caseId]
+        );
+
+        $submissions = [];
+        if ($portfolioSanction) {
+            $submissions = fetchAll(
+                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, created_at
+                 FROM community_service_submissions
+                 WHERE case_id = ? AND student_id = ?
+                 ORDER BY created_at DESC, submission_id DESC",
+                [$caseId, $studentId]
+            );
+        }
+
+        $case['portfolio_sanction'] = $portfolioSanction ?: null;
+        $case['community_service_sanction'] = $portfolioSanction ?: null;
+        $case['suspension_sanction'] = $portfolioSanction ?: null;
+        $case['community_service_submissions'] = $submissions;
+
         echo json_encode(['success' => true, 'case' => $case]);
+        exit;
+    }
+
+    if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
+        if (!$studentId) {
+            echo json_encode(['success' => false, 'error' => 'Student record not found']);
+            exit;
+        }
+
+        $caseId = trim($_POST['caseId'] ?? '');
+        $caseSanctionId = intval($_POST['caseSanctionId'] ?? 0);
+        $remarks = trim($_POST['remarks'] ?? '');
+
+        if ($caseId === '' || $caseSanctionId <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid case or sanction']);
+            exit;
+        }
+
+        $ownedCase = fetchOne(
+            "SELECT c.case_id, CONCAT(s.first_name, ' ', s.last_name) AS student_name
+             FROM cases c
+             JOIN students s ON s.student_id = c.student_id
+             WHERE c.case_id = ? AND c.student_id = ?",
+            [$caseId, $studentId]
+        );
+
+        if (!$ownedCase) {
+            echo json_encode(['success' => false, 'error' => 'You cannot upload to this case']);
+            exit;
+        }
+
+        $sanction = fetchOne(
+            "SELECT cs.case_sanction_id, s.sanction_name
+             FROM case_sanctions cs
+             JOIN sanctions s ON s.sanction_id = cs.sanction_id
+             WHERE cs.case_sanction_id = ?
+               AND cs.case_id = ?
+               AND (
+                   LOWER(s.sanction_name) LIKE '%corrective%'
+                   OR LOWER(s.sanction_name) LIKE '%community service%'
+                   OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+               )",
+            [$caseSanctionId, $caseId]
+        );
+
+        if (!$sanction) {
+            echo json_encode(['success' => false, 'error' => 'Portfolio-enabled sanction not found for this case']);
+            exit;
+        }
+
+        if (!isset($_FILES['portfolioFile']) || !is_array($_FILES['portfolioFile'])) {
+            echo json_encode(['success' => false, 'error' => 'Please select a file to upload']);
+            exit;
+        }
+
+        $file = $_FILES['portfolioFile'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'File upload failed']);
+            exit;
+        }
+
+        $maxSize = 10 * 1024 * 1024; // 10MB
+        if (($file['size'] ?? 0) > $maxSize) {
+            echo json_encode(['success' => false, 'error' => 'File is too large. Max size is 10MB']);
+            exit;
+        }
+
+        $originalName = trim((string)($file['name'] ?? ''));
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $allowedExtensions = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'];
+        if (!in_array($extension, $allowedExtensions, true)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid file type. Allowed: PDF, DOC, DOCX, PNG, JPG']);
+            exit;
+        }
+
+        $uploadBaseDir = __DIR__ . '/../../assets/community_service_submissions';
+        $caseDir = $uploadBaseDir . '/' . preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId);
+        if (!is_dir($caseDir) && !mkdir($caseDir, 0755, true) && !is_dir($caseDir)) {
+            echo json_encode(['success' => false, 'error' => 'Unable to prepare upload directory']);
+            exit;
+        }
+
+        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+        $generatedFileName = date('Ymd_His') . '_' . uniqid('', true) . '_' . $safeBase . '.' . $extension;
+        $absolutePath = $caseDir . '/' . $generatedFileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $absolutePath)) {
+            echo json_encode(['success' => false, 'error' => 'Failed to save uploaded file']);
+            exit;
+        }
+
+        $publicPath = '/PrototypeDO/assets/community_service_submissions/'
+            . rawurlencode(preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId))
+            . '/' . rawurlencode($generatedFileName);
+
+        executeQuery(
+            "INSERT INTO community_service_submissions
+             (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, is_seen_by_do)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
+            [
+                $caseId,
+                $caseSanctionId,
+                $studentId,
+                $_SESSION['user_id'] ?? null,
+                $generatedFileName,
+                $originalName,
+                $publicPath,
+                intval($file['size'] ?? 0),
+                (string)($file['type'] ?? ''),
+                $remarks !== '' ? $remarks : null,
+            ]
+        );
+
+        notifyDOOnCommunityServicePortfolioSubmission(
+            $caseId,
+            $ownedCase['student_name'] ?? 'Student',
+            $originalName,
+            $sanction['sanction_name'] ?? ''
+        );
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Portfolio/completion report uploaded successfully'
+        ]);
         exit;
     }
 
@@ -419,6 +575,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 </div>
                             ` : ''}
 
+                            ${caseData.portfolio_sanction ? `
+                                <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
+                                    <div class="flex items-center justify-between gap-3 mb-3">
+                                        <div>
+                                            <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Portfolio / Completion Report</label>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
+                                        </div>
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
+                                            <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Remarks (Optional)</label>
+                                            <textarea id="portfolioRemarksInput" rows="3" placeholder="Add a brief summary of your submission" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"></textarea>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-3">
+                                            <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                                            <button onclick="uploadCommunityServicePortfolio('${escapeHtml(caseData.case_id)}', '${escapeHtml(caseData.portfolio_sanction.case_sanction_id)}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+                                                Submit Portfolio
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4">
+                                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Submitted Files</label>
+                                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                                            ${renderCommunityServiceSubmissions(caseData.community_service_submissions || [])}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
                             ${caseData.action_taken ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Action Taken</label>
@@ -488,6 +681,104 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
                 default:
                     return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
+            }
+        }
+
+        function formatFileSize(sizeBytes) {
+            const size = Number(sizeBytes || 0);
+            if (!Number.isFinite(size) || size <= 0) return 'Unknown size';
+            if (size < 1024) return `${size} B`;
+            if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+            return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+        }
+
+        function renderCommunityServiceSubmissions(submissions) {
+            if (!Array.isArray(submissions) || submissions.length === 0) {
+                return '<div class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No submissions yet.</div>';
+            }
+
+            return submissions.map((submission) => {
+                const createdAt = submission.created_at ? formatDisplayDate(submission.created_at) : 'Unknown date';
+                const filePath = submission.file_path ? escapeHtml(submission.file_path) : '#';
+                const fileName = escapeHtml(submission.original_file_name || 'Submitted file');
+                const remarks = submission.remarks ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(submission.remarks)}</p>` : '';
+
+                return `
+                    <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${fileName}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatFileSize(submission.file_size_bytes)}</p>
+                            ${remarks}
+                        </div>
+                        <a href="${filePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function uploadCommunityServicePortfolio(caseId, caseSanctionId) {
+            const fileInput = document.getElementById('portfolioFileInput');
+            const remarksInput = document.getElementById('portfolioRemarksInput');
+            const statusEl = document.getElementById('portfolioUploadStatus');
+
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                if (statusEl) {
+                    statusEl.textContent = 'Please choose a file before submitting.';
+                    statusEl.className = 'text-xs text-red-600 dark:text-red-400';
+                }
+                return;
+            }
+
+            const payload = new FormData();
+            payload.append('ajax', '1');
+            payload.append('action', 'uploadCommunityServicePortfolio');
+            payload.append('caseId', caseId);
+            payload.append('caseSanctionId', caseSanctionId);
+            payload.append('remarks', remarksInput ? remarksInput.value.trim() : '');
+            payload.append('portfolioFile', fileInput.files[0]);
+
+            if (statusEl) {
+                statusEl.textContent = 'Uploading...';
+                statusEl.className = 'text-xs text-blue-600 dark:text-blue-400';
+            }
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: payload
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    if (statusEl) {
+                        statusEl.textContent = result.error || 'Upload failed.';
+                        statusEl.className = 'text-xs text-red-600 dark:text-red-400';
+                    }
+                    return;
+                }
+
+                if (statusEl) {
+                    statusEl.textContent = result.message || 'Upload successful.';
+                    statusEl.className = 'text-xs text-green-600 dark:text-green-400';
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification(result.message || 'Portfolio submitted successfully', 'success');
+                }
+
+                if (remarksInput) remarksInput.value = '';
+                fileInput.value = '';
+                await viewCaseDetails(caseId);
+            } catch (error) {
+                console.error('Portfolio upload error:', error);
+                if (statusEl) {
+                    statusEl.textContent = 'Upload failed due to a network error.';
+                    statusEl.className = 'text-xs text-red-600 dark:text-red-400';
+                }
+
+                if (typeof showNotification === 'function') {
+                    showNotification('Upload failed due to a network error.', 'error');
+                }
             }
         }
 

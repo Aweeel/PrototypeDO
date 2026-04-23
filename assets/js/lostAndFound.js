@@ -1,5 +1,8 @@
 // Lost & Found Management JavaScript
 
+let lostFoundImageUploadBound = false;
+let lostFoundFilterBound = false;
+
 // Image upload handling
 function setupImageUpload() {
     const dropZone = document.getElementById('imageDropZone');
@@ -8,9 +11,24 @@ function setupImageUpload() {
     const imagePrompt = document.getElementById('imagePrompt');
     
     if (!dropZone || !fileInput) return;
+
+    if (lostFoundImageUploadBound || dropZone.dataset.uploadBound === 'true') {
+        return;
+    }
+
+    lostFoundImageUploadBound = true;
+    dropZone.dataset.uploadBound = 'true';
     
     // Click to select file
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (event) => {
+        if (event.target.closest('button, input, a')) {
+            return;
+        }
+
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('click', (event) => event.stopPropagation());
     
     // File input change
     fileInput.addEventListener('change', (e) => {
@@ -43,6 +61,85 @@ function setupImageUpload() {
             }
         }
     });
+}
+
+function setupLostFoundFilters() {
+    const form = document.getElementById('lostFoundFilterForm');
+    const searchInput = document.getElementById('lostFoundSearchFilter');
+    const statusSelect = document.getElementById('lostFoundStatusFilter');
+    const categorySelect = document.getElementById('lostFoundCategoryFilter');
+
+    if (!form || lostFoundFilterBound) {
+        return;
+    }
+
+    const applyFilters = () => {
+        const searchValue = (searchInput?.value || '').trim().toLowerCase();
+        const statusValue = (statusSelect?.value || '').trim().toLowerCase();
+        const categoryValue = (categorySelect?.value || '').trim().toLowerCase();
+        const rows = Array.from(document.querySelectorAll('tbody tr[data-item-name]'));
+        const noResultsRow = document.getElementById('lostFoundNoResultsRow');
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const matchesSearch = !searchValue || [
+                row.dataset.itemName || '',
+                row.dataset.location || '',
+                row.dataset.category || ''
+            ].some((value) => value.includes(searchValue));
+            const matchesStatus = !statusValue || (row.dataset.status || '') === statusValue;
+            const matchesCategory = !categoryValue || (row.dataset.category || '') === categoryValue;
+            const isVisible = matchesSearch && matchesStatus && matchesCategory;
+
+            row.classList.toggle('hidden', !isVisible);
+
+            if (isVisible) {
+                visibleCount += 1;
+            }
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle('hidden', visibleCount !== 0);
+        }
+    };
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const url = new URL(window.location.href);
+
+        const searchValue = (searchInput?.value || '').trim();
+        const statusValue = statusSelect?.value || '';
+        const categoryValue = categorySelect?.value || '';
+
+        if (searchValue) {
+            url.searchParams.set('search', searchValue);
+        } else {
+            url.searchParams.delete('search');
+        }
+
+        if (statusValue) {
+            url.searchParams.set('status', statusValue);
+        } else {
+            url.searchParams.delete('status');
+        }
+
+        if (categoryValue) {
+            url.searchParams.set('category', categoryValue);
+        } else {
+            url.searchParams.delete('category');
+        }
+
+        window.location.href = url.toString();
+    });
+
+    [searchInput, statusSelect, categorySelect].forEach((control) => {
+        control?.addEventListener('change', applyFilters);
+        control?.addEventListener('input', applyFilters);
+    });
+
+    lostFoundFilterBound = true;
+    applyFilters();
 }
 
 function displayImagePreview(file) {
@@ -599,4 +696,5 @@ function showNotification(title, message, type = 'info') {
 // Initialize image upload when page loads
 document.addEventListener('DOMContentLoaded', () => {
     setupImageUpload();
+    setupLostFoundFilters();
 });
