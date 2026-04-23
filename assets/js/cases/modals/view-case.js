@@ -147,7 +147,7 @@ async function viewCase(caseId) {
                                 }</p>
                                 ${
                                   s.duration_days
-                                    ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${s.duration_days} days</p>`
+                                    ? `<p class="text-xs text-gray-600 dark:text-gray-400">Duration: ${((String(s.sanction_name || '').toLowerCase().includes('corrective') || String(s.sanction_name || '').toLowerCase().includes('community service')) ? (((parseInt(s.duration_extra_hours || 0, 10) || 0) > 0 ? ((s.duration_days - 1) * 8) + (parseInt(s.duration_extra_hours || 0, 10) || 0) : s.duration_days * 8)) + ' hours' : s.duration_days + ' days')}</p>`
                                     : ""
                                 }
                                 ${

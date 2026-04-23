@@ -1,5 +1,7 @@
 ﻿// ====== UTILITY FUNCTIONS FOR TIME CONVERSION ======
 
+const HOURS_PER_DAY = 8;
+
 function convertTo24Hour(timeStr) {
   if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return '';
   
@@ -46,6 +48,45 @@ function convertTo12Hour(timeStr) {
   }
   
   return timeStr;
+}
+
+function parseSqlDateTimeValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const directDate = new Date(value);
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  const text = String(value).trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?/);
+  if (!match) return null;
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1;
+  const day = parseInt(match[3], 10);
+  const hour = parseInt(match[4] || '0', 10);
+  const minute = parseInt(match[5] || '0', 10);
+  const second = parseInt(match[6] || '0', 10);
+  const millis = parseInt((match[7] || '0').padEnd(3, '0'), 10);
+
+  const parsed = new Date(year, month, day, hour, minute, second, millis);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatSqlDateTimeToTime(value, fallback = '') {
+  const parsed = parseSqlDateTimeValue(value);
+  if (!parsed) return fallback;
+  return parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function formatSqlDateTimeTo24Hour(value, fallback = '') {
+  const parsed = parseSqlDateTimeValue(value);
+  if (!parsed) return fallback;
+  return parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 // ====== DEADLINE STATUS FUNCTIONS ======
@@ -159,10 +200,130 @@ function getEffectiveDurationDays(sanction, sanctionType = 'corrective') {
   return 0;
 }
 
+function getSanctionExtraHours(sanction) {
+  const extraHours = parseInt(sanction?.duration_extra_hours || 0, 10);
+  return Number.isFinite(extraHours) && extraHours > 0 ? extraHours : 0;
+}
+
+function getRequiredCorrectiveHours(sanction) {
+  const baseDays = getEffectiveDurationDays(sanction, 'corrective');
+  const extraHours = getSanctionExtraHours(sanction);
+  if (baseDays <= 0) return 0;
+  if (extraHours > 0) {
+    return Math.max(0, ((baseDays - 1) * HOURS_PER_DAY) + extraHours);
+  }
+  return Math.max(0, baseDays * HOURS_PER_DAY);
+}
+
+function calculateCompletedHoursFromDays(days = {}) {
+  let totalHours = 0;
+
+  Object.values(days || {}).forEach((dayData) => {
+    if (!dayData?.check_in_time || !dayData?.check_out_time) {
+      return;
+    }
+
+    const checkIn = new Date(dayData.check_in_time);
+    const checkOut = new Date(dayData.check_out_time);
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      return;
+    }
+
+    const durationHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+    if (durationHours <= 0) {
+      return;
+    }
+
+    totalHours += Math.min(HOURS_PER_DAY, durationHours);
+  });
+
+  return Math.round(totalHours * 100) / 100;
+}
+
+function calculateRemainingCapacityHours(deadline, now = new Date()) {
+  if (!deadline) return 0;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const deadlineDate = new Date(deadline);
+  if (Number.isNaN(deadlineDate.getTime())) return 0;
+  const deadlineStart = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+
+  if (deadlineStart < today) {
+    return 0;
+  }
+
+  const diffDays = Math.floor((deadlineStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const daysIncludingToday = diffDays + 1;
+  return Math.max(0, daysIncludingToday * HOURS_PER_DAY);
+}
+
+function getCorrectiveCapacityStatus(deadline, requiredHours, completedHours) {
+  const remainingHours = Math.max(0, requiredHours - completedHours);
+  const maxPossibleHours = calculateRemainingCapacityHours(deadline);
+
+  return {
+    remainingHours,
+    maxPossibleHours,
+    shouldShowIntervention: remainingHours > 0 && maxPossibleHours < remainingHours
+  };
+}
+
+function formatHourValue(hours) {
+  const numeric = Number(hours || 0);
+  if (!Number.isFinite(numeric)) return '0';
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2);
+}
+
 function getCaseCheckInIconButton(caseId, sanctionType = 'corrective') {
   return document.querySelector(
     `[data-case-checkin-icon="true"][data-case-id="${caseId}"][data-case-checkin-type="${sanctionType}"]`
   ) || document.querySelector(`[data-case-checkin-icon="true"][data-case-id="${caseId}"]`);
+}
+
+function getCaseCheckInAlertBadge(caseId, sanctionType = 'corrective') {
+  const iconBtn = getCaseCheckInIconButton(caseId, sanctionType);
+  if (!iconBtn) return null;
+  return iconBtn.querySelector('[data-case-checkin-alert="true"]');
+}
+
+function updateCaseCheckInAlert(caseId, hasAlert, sanctionType = 'corrective') {
+  const iconBtn = getCaseCheckInIconButton(caseId, sanctionType);
+  if (!iconBtn) return;
+
+  const existingBadge = getCaseCheckInAlertBadge(caseId, sanctionType);
+  if (hasAlert) {
+    if (existingBadge) return;
+    const badge = document.createElement('span');
+    badge.setAttribute('data-case-checkin-alert', 'true');
+    badge.className = 'absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] leading-none flex items-center justify-center font-bold';
+    badge.textContent = '!';
+    if (!iconBtn.classList.contains('relative')) {
+      iconBtn.classList.add('relative');
+    }
+    iconBtn.appendChild(badge);
+    return;
+  }
+
+  if (existingBadge) {
+    existingBadge.remove();
+  }
+}
+
+function formatSubmissionFileSize(sizeBytes) {
+  const size = Number(sizeBytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return 'Unknown size';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function escapeSubmissionText(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function findSanctionByType(sanctions, sanctionType = 'corrective') {
@@ -365,12 +526,12 @@ function updateCaseCheckInIcon(caseId, isCompleted, sanctionType = 'corrective')
   }
 }
 
-function getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays) {
+function getCheckInFooterActionsHTML(caseData, caseId, completedValue, totalValue) {
   const isCaseResolved = String(caseData?.status || '').toLowerCase() === 'resolved';
-  const allDaysCompleted = totalDays > 0 && completedDays >= totalDays;
+  const isFullyCompleted = totalValue > 0 && completedValue >= totalValue;
 
   return `
-    ${allDaysCompleted && !isCaseResolved ? `
+    ${isFullyCompleted && !isCaseResolved ? `
       <button
         onclick="closeModal(this); confirmMarkResolved('${caseId}')"
         class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
@@ -381,6 +542,185 @@ function getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays)
       Close
     </button>
   `;
+}
+
+function getDeadlineStatusSectionHTML(activeSanction, {
+  isSuspension = false,
+  completedDays = 0,
+  totalDays = 0,
+  completedHours = 0,
+  totalHours = 0
+} = {}) {
+  const deadline = activeSanction?.deadline || null;
+  if (!deadline) {
+    return '';
+  }
+
+  const deadlineStatusInfo = getDeadlineStatus(deadline);
+  const correctiveCapacity = !isSuspension
+    ? getCorrectiveCapacityStatus(deadline, totalHours, completedHours)
+    : { shouldShowIntervention: false, remainingHours: 0, maxPossibleHours: 0 };
+
+  const parsedMaxDeadlineDay = parseInt(activeSanction?.max_deadline_day, 10);
+  const maxDeadlineDay = Number.isFinite(parsedMaxDeadlineDay) && parsedMaxDeadlineDay > 0 ? parsedMaxDeadlineDay : null;
+  const maxRecordedDay = parseInt(activeSanction?.max_recorded_day || 0, 10) || 0;
+  const deadlineWindowExhausted = !isSuspension && maxDeadlineDay !== null && maxRecordedDay >= maxDeadlineDay && completedHours < totalHours;
+  const effectiveStatus = deadlineWindowExhausted ? 'overdue' : deadlineStatusInfo.status;
+  const deadlineStatusColor = getDeadlineStatusColor(effectiveStatus);
+
+  const shouldShowIntervention =
+    (deadlineStatusInfo.status === 'overdue' && ((isSuspension && completedDays < totalDays) || (!isSuspension && completedHours < totalHours))) ||
+    (!isSuspension && (correctiveCapacity.shouldShowIntervention || deadlineWindowExhausted));
+
+  const deadlineDate = parseSqlDateTimeValue(deadline);
+  const deadlineDateDisplay = deadlineDate ? deadlineDate.toLocaleDateString() : '';
+
+  return `
+    <div class="border ${deadlineStatusColor} rounded-lg p-3 mb-4 flex-shrink-0" data-deadline-status-container="true">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-semibold">Deadline Status: <span class="font-bold">${deadlineStatusInfo.status === 'overdue' ? 'OVERDUE' : deadlineStatusInfo.label}</span></p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-gray-600 dark:text-gray-400">${deadlineDateDisplay}</p>
+        </div>
+      </div>
+      ${shouldShowIntervention ? `
+        <div class="mt-2 pt-2 border-t ${getDeadlineStatusBorderClass(effectiveStatus)}">
+          <p class="text-xs mb-2">
+            ${deadlineStatusInfo.status === 'overdue'
+              ? 'Deadline has passed without completion'
+              : deadlineWindowExhausted
+                ? `Maximum allowable service days reached (Day ${maxDeadlineDay}) and hours are still incomplete.`
+                : `Not enough remaining time: ${formatHourValue(correctiveCapacity.maxPossibleHours)}h max possible before deadline, ${formatHourValue(correctiveCapacity.remainingHours)}h still needed.`}
+          </p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'extend')" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium">Extend Deadline</button>
+            ${!isSuspension ? `<button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'increase')" class="px-3 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors font-medium">Add Required Hours</button>` : ''}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function getCommunityServiceSubmissionsButtonHTML(caseId, caseSanctionId, submissions = [], newCount = 0) {
+  const totalSubmissions = Array.isArray(submissions) ? submissions.length : 0;
+  if (totalSubmissions <= 0) {
+    return ''; 
+  }
+
+  return `
+    <button
+      type="button"
+      onclick="openCommunityServiceSubmissionsModal('${caseId}', ${caseSanctionId})"
+      class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium relative"
+      title="View student-submitted community service files">
+      <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+      </svg>
+      <span>Portfolio</span>
+      ${newCount > 0 ? `<span data-portfolio-new-count="true" class="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold">${newCount}</span>` : ''}
+    </button>
+  `;
+}
+
+async function markCommunityServiceSubmissionsViewed(caseId, caseSanctionId, sanctionType = 'corrective') {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=markCommunityServiceSubmissionsViewed&caseId=${encodeURIComponent(caseId)}&caseSanctionId=${encodeURIComponent(caseSanctionId)}`
+    });
+    const result = await response.json();
+    if (result.success) {
+      updateCaseCheckInAlert(caseId, false, sanctionType);
+      await refreshCheckInModalContent(caseId, sanctionType);
+    }
+  } catch (error) {
+    console.error('Failed to mark community service submissions viewed:', error);
+  }
+}
+
+function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submissionsOverride = null) {
+  const checkInModal = document.querySelector('[data-checkin-modal="true"]');
+  const sanctionType = checkInModal?.getAttribute('data-sanction-type') || 'corrective';
+
+  let submissions = Array.isArray(submissionsOverride) ? submissionsOverride : [];
+  if (submissions.length === 0) {
+    if (!checkInModal) return;
+
+    const submissionsRaw = checkInModal?.getAttribute('data-portfolio-submissions') || '[]';
+    try {
+      submissions = JSON.parse(decodeURIComponent(submissionsRaw));
+    } catch (e) {
+      submissions = [];
+    }
+  }
+
+  document.querySelectorAll('[data-portfolio-modal="true"]').forEach((el) => el.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[80] p-4';
+  overlay.setAttribute('data-portfolio-modal', 'true');
+
+  const listHtml = submissions.length > 0
+    ? submissions.map((item) => {
+        const createdAt = item?.created_at
+          ? new Date(item.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : 'Unknown date';
+        const remarksHtml = item?.remarks
+          ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeSubmissionText(item.remarks)}</p>`
+          : '';
+        const escapedFileName = escapeSubmissionText(item.original_file_name || 'Submitted file');
+        const safePath = escapeSubmissionText(item.file_path || '#');
+        return `
+          <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">${escapedFileName}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatSubmissionFileSize(item.file_size_bytes)}</p>
+              ${remarksHtml}
+            </div>
+            <a href="${safePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
+          </div>
+        `;
+      }).join('')
+    : '<div class="px-4 py-6 text-sm text-gray-500 dark:text-gray-400 text-center">No portfolio files submitted yet.</div>';
+
+  overlay.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Community Service Portfolio Submissions</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
+        </div>
+        <button type="button" onclick="closePortfolioSubmissionsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="overflow-y-auto">${listHtml}</div>
+    </div>
+  `;
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      closePortfolioSubmissionsModal();
+    }
+  });
+
+  document.body.appendChild(overlay);
+
+  const newCountBadge = checkInModal?.querySelector('[data-portfolio-new-count="true"]');
+  const hasUnread = !!newCountBadge || Array.isArray(submissionsOverride);
+  if (hasUnread) {
+    markCommunityServiceSubmissionsViewed(caseId, caseSanctionId || null, sanctionType);
+  }
+}
+
+function closePortfolioSubmissionsModal() {
+  document.querySelectorAll('[data-portfolio-modal="true"]').forEach((el) => el.remove());
 }
 
 // Refresh modal content without closing/reopening (prevents flashing)
@@ -395,6 +735,27 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
     const sanctions = await loadAppliedSanctionsForView(caseId);
     const suspensionSanction = findSanctionByType(sanctions, 'suspension');
     if (!suspensionSanction) return;
+
+    try {
+      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+      });
+      const result = await response.json();
+      if (result.success) {
+        suspensionSanction.case_portfolio_submissions = Array.isArray(result.case_portfolio_submissions)
+          ? result.case_portfolio_submissions
+          : [];
+        suspensionSanction.new_portfolio_submission_count = parseInt(result.case_new_portfolio_submission_count || 0, 10) || 0;
+      }
+    } catch (error) {
+      console.error('Failed to load portfolio submissions for suspension refresh:', error);
+      suspensionSanction.case_portfolio_submissions = Array.isArray(suspensionSanction.case_portfolio_submissions)
+        ? suspensionSanction.case_portfolio_submissions
+        : [];
+      suspensionSanction.new_portfolio_submission_count = parseInt(suspensionSanction.new_portfolio_submission_count || 0, 10) || 0;
+    }
 
     const totalDays = getEffectiveDurationDays(suspensionSanction, 'suspension');
     const completedDays = calculateElapsedSuspensionDays(suspensionSanction.applied_date, totalDays);
@@ -422,7 +783,7 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   const response = await fetch('/PrototypeDO/modules/do/cases.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+    body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`  
   });
   const result = await response.json();
   
@@ -435,13 +796,20 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   if (!sanction) {
     return;
   }
+  sanction.max_deadline_day = sanction.max_day_by_deadline_window ?? null;
+  sanction.max_recorded_day = parseInt(sanction.max_recorded_day || 0, 10) || 0;
+  const casePortfolioSubmissions = Array.isArray(result.case_portfolio_submissions) ? result.case_portfolio_submissions : [];
+  const caseNewPortfolioSubmissionCount = parseInt(result.case_new_portfolio_submission_count || 0, 10) || 0;
+  sanction.case_portfolio_submissions = casePortfolioSubmissions;
+  sanction.new_portfolio_submission_count = caseNewPortfolioSubmissionCount;
   const totalDays = getEffectiveDurationDays(sanction, sanctionType);
   const days = sanction.days;
-  
-  // Calculate completed days and active day
+
   const completedDays = Object.values(days).filter(d => d.check_in_time && d.check_out_time).length;
-  const progressPercent = Math.round((completedDays / totalDays) * 100);
-  updateCaseCheckInIcon(caseId, completedDays >= totalDays && totalDays > 0, sanctionType);
+  const completedHours = calculateCompletedHoursFromDays(days);
+  const totalHours = getRequiredCorrectiveHours(sanction);
+  const progressPercent = totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0;
+  updateCaseCheckInIcon(caseId, completedHours >= totalHours && totalHours > 0, sanctionType);
 
   // Update progress bar
   const progressBar = modal.querySelector('[data-progress-bar]');
@@ -455,12 +823,21 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   }
 
   // Update completed count
-  const heading = modal.querySelector('.flex.items-center.justify-between');
-  if (heading) {
-    const completedSpan = heading.querySelector('span:nth-child(2)');
-    if (completedSpan && completedSpan.textContent.includes('/')) {
-      completedSpan.textContent = completedDays + ' / ' + totalDays + ' days completed';
-    }
+  const completedSpan = modal.querySelector('[data-progress-count]');
+  if (completedSpan) {
+    completedSpan.textContent = `${formatHourValue(completedHours)} / ${formatHourValue(totalHours)} hours completed`;
+  }
+
+  // Refresh deadline/intervention section without recreating the whole modal.
+  const deadlineSlot = modal.querySelector('[data-deadline-status-slot="true"]');
+  if (deadlineSlot) {
+    deadlineSlot.innerHTML = getDeadlineStatusSectionHTML(sanction, {
+      isSuspension: sanctionType === 'suspension',
+      completedDays,
+      totalDays,
+      completedHours,
+      totalHours
+    });
   }
 
   // Refresh day cards
@@ -479,8 +856,10 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   // Keep footer actions in sync with completion state.
   const footerActions = modal.querySelector('[data-checkin-footer-actions]');
   if (footerActions) {
-    footerActions.innerHTML = getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays);
+    footerActions.innerHTML = getCheckInFooterActionsHTML(caseData, caseId, completedHours, totalHours);
   }
+
+  modal.setAttribute('data-portfolio-submissions', encodeURIComponent(JSON.stringify(casePortfolioSubmissions)));
 }
 
 // ====== COMMUNITY SERVICE CHECK-IN ======
@@ -507,6 +886,28 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
 
   if (sanctionType === 'suspension' && selectedTypeSanctions.length > 0) {
     const activeSanction = findSanctionByType(selectedTypeSanctions, 'suspension') || selectedTypeSanctions[0];
+
+    try {
+      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
+      });
+      const result = await response.json();
+      if (result.success) {
+        activeSanction.case_portfolio_submissions = Array.isArray(result.case_portfolio_submissions)
+          ? result.case_portfolio_submissions
+          : [];
+        activeSanction.new_portfolio_submission_count = parseInt(result.case_new_portfolio_submission_count || 0, 10) || 0;
+      }
+    } catch (error) {
+      console.error('Failed to load portfolio submissions for suspension modal:', error);
+      activeSanction.case_portfolio_submissions = Array.isArray(activeSanction.case_portfolio_submissions)
+        ? activeSanction.case_portfolio_submissions
+        : [];
+      activeSanction.new_portfolio_submission_count = parseInt(activeSanction.new_portfolio_submission_count || 0, 10) || 0;
+    }
+
     const totalDays = getEffectiveDurationDays(activeSanction, 'suspension');
     const completedDays = calculateElapsedSuspensionDays(activeSanction.applied_date, totalDays);
     const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
@@ -555,11 +956,13 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
       const sanctionName = activeSanction.sanction_name || 'Community Service';
       const completedDays = totalDays <= 1 ? 0 : Math.floor((totalDays - 1) / 2);
       const activeDayNum = completedDays + 1;
-      const progressPercent = Math.round((completedDays / totalDays) * 100);
+      const totalHours = getRequiredCorrectiveHours(activeSanction);
+      const completedHours = Math.min(totalHours, completedDays * HOURS_PER_DAY);
+      const progressPercent = totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0;
 
       let dayCardsHTML = getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, caseData.student, sanctionName, activeSanction.case_sanction_id || '');
       
-      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType);
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedHours, dayCardsHTML, progressPercent, sanctionType);
     } else {
       // Use real data
       const sanction = findSanctionByType(result.sanctions, sanctionType);
@@ -569,18 +972,24 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
         showNotification('No matching sanction data found for tracking', 'warning');
         return;
       }
+      const casePortfolioSubmissions = Array.isArray(result.case_portfolio_submissions) ? result.case_portfolio_submissions : [];
+      const caseNewPortfolioSubmissionCount = parseInt(result.case_new_portfolio_submission_count || 0, 10) || 0;
+      activeSanction.case_portfolio_submissions = casePortfolioSubmissions;
+      activeSanction.new_portfolio_submission_count = caseNewPortfolioSubmissionCount;
+      activeSanction.max_deadline_day = sanction.max_day_by_deadline_window ?? null;
+      activeSanction.max_recorded_day = parseInt(sanction.max_recorded_day || 0, 10) || 0;
       const totalDays = getEffectiveDurationDays(sanction, sanctionType);
       const sanctionName = sanction.sanction_name || 'Community Service';
-      
-      // Calculate completed days and active day
+
       const days = sanction.days;
       const completedDays = Object.values(days).filter(d => d.check_in_time && d.check_out_time).length;
-      const activeDayNum = completedDays + 1;
-      const progressPercent = Math.round((completedDays / totalDays) * 100);
+      const completedHours = calculateCompletedHoursFromDays(days);
+      const totalHours = getRequiredCorrectiveHours(sanction);
+      const progressPercent = totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0;
 
-      let dayCardsHTML = getDayCardsHTMLFromData(days, caseId, caseData.student, sanctionName, sanction.case_sanction_id);
-      
-      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType);
+      let dayCardsHTML = getDayCardsHTMLFromData(days, caseId, caseData.student, sanctionName, sanction.case_sanction_id, totalDays);
+
+      renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedHours, dayCardsHTML, progressPercent, sanctionType);
     }
   }
 
@@ -589,7 +998,9 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
 
 function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, studentName, sanctionName, caseSanctionId = '') {
   let dayCardsHTML = '';
-  for (let day = 1; day <= totalDays; day++) {
+  const displayDays = totalDays;
+
+  for (let day = 1; day <= displayDays; day++) {
     if (day <= completedDays) {
       dayCardsHTML += `
         <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -668,7 +1079,7 @@ function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, student
   return dayCardsHTML;
 }
 
-function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId) {
+function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId, totalDaysLimit = null) {
   let dayCardsHTML = '';
   const totalDays = Object.keys(days).length;
   
@@ -681,18 +1092,21 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
       break;
     }
   }
+
+  // Only render the day rows explicitly returned by the backend.
+  const displayDays = Math.max(totalDays, totalDaysLimit || 0);
   
-  for (let day = 1; day <= totalDays; day++) {
+  for (let day = 1; day <= displayDays; day++) {
     const dayData = days[day] || {};
     const isCompleted = dayData.check_in_time && dayData.check_out_time;
     const hasCheckIn = dayData.check_in_time !== null;
     const isActiveDay = day === activeDayNum;
     
     if (isCompleted) {
-      const inTime = convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-      const outTime = convertTo12Hour(new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-      const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const outTimeHHMM = new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const inTime = formatSqlDateTimeToTime(dayData.check_in_time, 'Not recorded yet');
+      const outTime = formatSqlDateTimeToTime(dayData.check_out_time, 'Awaiting checkout');
+      const inTimeHHMM = formatSqlDateTimeTo24Hour(dayData.check_in_time, '');
+      const outTimeHHMM = formatSqlDateTimeTo24Hour(dayData.check_out_time, '');
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
@@ -724,8 +1138,8 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
           <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
         </div>`;
     } else if (hasCheckIn) {
-      const inTime = convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-      const inTimeHHMM = new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const inTime = formatSqlDateTimeToTime(dayData.check_in_time, 'Not recorded yet');
+      const inTimeHHMM = formatSqlDateTimeTo24Hour(dayData.check_in_time, '');
       const escapedStudent = studentName.replace(/"/g, '&quot;');
       const escapedSanction = sanctionName.replace(/"/g, '&quot;');
       dayCardsHTML += `
@@ -798,22 +1212,26 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
   return dayCardsHTML;
 }
 
-function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedDays, dayCardsHTML, progressPercent, sanctionType = 'corrective') {
+function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, completedMetric, dayCardsHTML, progressPercent, sanctionType = 'corrective') {
   const sanctionName = activeSanction.sanction_name || 'Community Service';
   const sanctionConfig = getSanctionTypeConfig(sanctionType);
   const isSuspension = sanctionType === 'suspension';
+  const totalHours = isSuspension ? 0 : getRequiredCorrectiveHours(activeSanction);
+  const completedHours = isSuspension ? 0 : (Number.isFinite(completedMetric) ? completedMetric : 0);
+  const completedDays = isSuspension ? (Number.isFinite(completedMetric) ? completedMetric : 0) : 0;
   const suspensionStartDate = activeSanction.applied_date || '';
   const suspensionStartDateDisplay = formatDateForDisplay(suspensionStartDate);
   const suspensionStartDateInput = formatDateForInput(suspensionStartDate);
-  
-  // Get deadline status
-  const deadline = activeSanction.deadline || null;
-  const deadlineStatusInfo = deadline ? getDeadlineStatus(deadline) : { status: 'no-deadline', label: 'No deadline set' };
-  const deadlineStatusColor = getDeadlineStatusColor(deadlineStatusInfo.status);
+  const portfolioSubmissions = Array.isArray(activeSanction.case_portfolio_submissions)
+    ? activeSanction.case_portfolio_submissions
+    : (Array.isArray(activeSanction.portfolio_submissions) ? activeSanction.portfolio_submissions : []);
+  const newPortfolioSubmissionCount = parseInt(activeSanction.new_portfolio_submission_count || 0, 10) || 0;
   
   modal.setAttribute('data-checkin-modal', 'true');
   modal.setAttribute('data-case-id', caseId);
   modal.setAttribute('data-sanction-type', sanctionType);
+  modal.setAttribute('data-portfolio-submissions', encodeURIComponent(JSON.stringify(portfolioSubmissions)));
+  updateCaseCheckInAlert(caseId, newPortfolioSubmissionCount > 0, sanctionType);
   
   modal.innerHTML = `
     <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-5 max-h-[90vh] flex flex-col">
@@ -825,6 +1243,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Case ${caseId}</p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
+          ${getCommunityServiceSubmissionsButtonHTML(caseId, activeSanction.case_sanction_id, portfolioSubmissions, newPortfolioSubmissionCount)}
           <button onclick="exportCheckInCSV('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}')" title="Export check-in report as CSV file" class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium">
             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -853,42 +1272,20 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
             ` : ''}
           </div>
           <div class="text-right flex-shrink-0">
-            <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${totalDays}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 -mt-0.5">days total</p>
+            <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${isSuspension ? totalDays : totalHours}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 -mt-0.5">${isSuspension ? 'days total' : 'hours total'}</p>
           </div>
         </div>
       </div>
 
       <!-- Deadline Status Badge -->
-      ${deadline ? `
-      <div class="border ${deadlineStatusColor} rounded-lg p-3 mb-4 flex-shrink-0">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold">Deadline Status: <span class="font-bold">${deadlineStatusInfo.status === 'overdue' ? 'OVERDUE' : deadlineStatusInfo.label}</span></p>
-          </div>
-          <div class="text-right">
-            <p class="text-xs text-gray-600 dark:text-gray-400">
-              ${new Date(deadline).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        ${deadlineStatusInfo.status === 'overdue' && completedDays < totalDays ? `
-          <div class="mt-2 pt-2 border-t ${getDeadlineStatusBorderClass(deadlineStatusInfo.status)}">
-            <p class="text-xs mb-2">Deadline has passed without completion</p>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'extend')" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium">Extend Deadline</button>
-              <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'increase')" class="px-3 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors font-medium">Increase Duration</button>
-            </div>
-          </div>
-        ` : ''}
-      </div>
-      ` : ''}
+      <div data-deadline-status-slot="true">${getDeadlineStatusSectionHTML(activeSanction, { isSuspension, completedDays, totalDays, completedHours, totalHours })}</div>
 
       <!-- Progress Bar -->
       <div class="mb-4 flex-shrink-0">
         <div class="flex items-center justify-between mb-1.5">
           <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Progress</span>
-          <span class="text-xs font-bold text-gray-900 dark:text-gray-100">${completedDays} / ${totalDays} days completed</span>
+          <span class="text-xs font-bold text-gray-900 dark:text-gray-100" data-progress-count>${isSuspension ? `${completedDays} / ${totalDays} days completed` : `${formatHourValue(completedHours)} / ${formatHourValue(totalHours)} hours completed`}</span>
         </div>
         <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2.5">
           <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${progressPercent}%" data-progress-bar></div>
@@ -906,7 +1303,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
 
       <!-- Footer -->
       <div class="flex justify-end gap-2 mt-4 flex-shrink-0" data-checkin-footer-actions>
-        ${getCheckInFooterActionsHTML(caseData, caseId, completedDays, totalDays)}
+        ${getCheckInFooterActionsHTML(caseData, caseId, isSuspension ? completedDays : completedHours, isSuspension ? totalDays : totalHours)}
       </div>
 
     </div>
@@ -1482,6 +1879,7 @@ async function printCheckInReport(caseId, studentName, sanctionName, sanctionTyp
 
     const sanction = result.sanctions[0];
     const totalDays = sanction.duration_days;
+    const totalHours = getRequiredCorrectiveHours(sanction);
     const days = sanction.days;
 
     // Create print content
@@ -1489,7 +1887,7 @@ async function printCheckInReport(caseId, studentName, sanctionName, sanctionTyp
     const generatedBy = document.querySelector('[data-user-name]')?.content || window.ADMIN_NAME || 'User';
     const printRoot = document.getElementById('print-root') || createPrintRoot();
 
-    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy, sanctionType);
+    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy, sanctionType);
     printRoot.innerHTML = checkInHTML;
 
     console.log('Print preview ready for Check-In Case:', caseId);
@@ -1510,20 +1908,29 @@ function createPrintRoot() {
 }
 
 // Build HTML for print report
-function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, days, today, generatedBy = 'User', sanctionType = 'corrective') {
+function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy = 'User', sanctionType = 'corrective') {
   let rowsHTML = '';
   let completedCount = 0;
+  let completedHours = 0;
   
   // Determine report title based on sanction type
   const reportTitle = sanctionType === 'suspension' ? 'Suspension from Class Check-In Report' : 'Community Service Check-In Report';
 
   Object.entries(days).forEach(([dayNum, dayData]) => {
     const day = parseInt(dayNum);
-    const inTime = dayData.check_in_time ? convertTo12Hour(new Date(dayData.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—';
-    const outTime = dayData.check_out_time ? convertTo12Hour(new Date(dayData.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—';
+    const inTime = dayData.check_in_time ? formatSqlDateTimeToTime(dayData.check_in_time, '—') : '—';
+    const outTime = dayData.check_out_time ? formatSqlDateTimeToTime(dayData.check_out_time, '—') : '—';
     const status = dayData.check_in_time && dayData.check_out_time ? 'Completed' : (dayData.check_in_time ? 'In Progress' : 'Pending');
     
-    if (status === 'Completed') completedCount++;
+    if (status === 'Completed') {
+      completedCount++;
+      const inDate = parseSqlDateTimeValue(dayData.check_in_time);
+      const outDate = parseSqlDateTimeValue(dayData.check_out_time);
+      if (inDate && outDate && !Number.isNaN(inDate.getTime()) && !Number.isNaN(outDate.getTime())) {
+        const diffHours = Math.max(0, (outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60));
+        completedHours += Math.min(HOURS_PER_DAY, diffHours);
+      }
+    }
 
     rowsHTML += `<tr>
       <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${day}</td>
@@ -1533,7 +1940,9 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, day
     </tr>`;
   });
 
-  const progressPercent = Math.round((completedCount / totalDays) * 100);
+  const progressPercent = sanctionType === 'suspension'
+    ? Math.round((completedCount / totalDays) * 100)
+    : (totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0);
 
   return `
     <div id="print-content" style="font-family: Arial, sans-serif; color: #111827;padding:20px;">
@@ -1564,14 +1973,14 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, day
           </div>
           <div>
             <p style="font-size:0.75rem;color:#6b7280;font-weight:500;margin-bottom:0.25rem;">Duration</p>
-            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${totalDays} days</p>
+            <p style="font-size:0.875rem;font-weight:600;color:#111827;">${sanctionType === 'suspension' ? `${totalDays} days` : `${totalHours} hours`}</p>
           </div>
         </div>
 
         <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e5e7eb;">
           <div style="margin-bottom:0.5rem;display:flex;justify-content:space-between;">
             <span style="font-size:0.75rem;font-weight:500;color:#6b7280;">Progress</span>
-            <span style="font-size:0.875rem;font-weight:600;color:#111827;">${completedCount} / ${totalDays} days completed</span>
+            <span style="font-size:0.875rem;font-weight:600;color:#111827;">${sanctionType === 'suspension' ? `${completedCount} / ${totalDays} days completed` : `${formatHourValue(completedHours)} / ${formatHourValue(totalHours)} hours completed`}</span>
           </div>
           <div style="width:100%;background-color:#e5e7eb;border-radius:9999px;height:0.625rem;overflow:hidden;">
             <div style="background-color:#2563eb;height:0.625rem;border-radius:9999px;width:${progressPercent}%;"></div>
@@ -1617,11 +2026,11 @@ function openDeadlineActionModal(caseSanctionId, actionType) {
   closeDeadlineActionModal();
 
   const isExtend = actionType === 'extend';
-  const title = isExtend ? 'Extend Deadline' : 'Increase Duration';
-  const label = isExtend ? 'Days to extend' : 'Days to add';
-  const buttonText = isExtend ? 'Extend' : 'Increase';
+  const title = isExtend ? 'Extend Deadline' : 'Add Required Hours';
+  const label = isExtend ? 'Days to extend' : 'Hours to add';
+  const buttonText = isExtend ? 'Extend' : 'Add Hours';
   const buttonClass = isExtend ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-600 hover:bg-orange-700';
-  const defaultValue = isExtend ? '3' : '1';
+  const defaultValue = isExtend ? '3' : '8';
 
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[110] p-4';
@@ -1641,7 +2050,7 @@ function openDeadlineActionModal(caseSanctionId, actionType) {
         </button>
       </div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${label}</label>
-      <input type="number" id="deadlineActionDaysInput" min="1" max="10" step="1" value="${defaultValue}" class="w-full px-3 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
+      <input type="number" id="deadlineActionDaysInput" min="1" max="240" step="1" value="${defaultValue}" class="w-full px-3 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
       <div style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:1.25rem;">
         <button type="button" onclick="submitDeadlineAction(${caseSanctionId}, '${actionType}')" style="min-width:120px;" class="px-4 py-2.5 text-sm text-white rounded-lg ${buttonClass} transition-colors font-medium">${buttonText}</button>
         <button type="button" onclick="closeDeadlineActionModal()" style="min-width:120px;" class="px-4 py-2.5 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">Cancel</button>
@@ -1661,12 +2070,12 @@ function openDeadlineActionModal(caseSanctionId, actionType) {
 
 async function submitDeadlineAction(caseSanctionId, actionType) {
   const input = document.getElementById('deadlineActionDaysInput');
-  const daysValue = Math.min(10, Math.max(1, parseInt(input?.value || '1', 10) || 1));
+  const numericValue = Math.max(1, parseInt(input?.value || '1', 10) || 1);
 
   if (actionType === 'extend') {
-    await handleExtendDeadline(caseSanctionId, daysValue);
+    await handleExtendDeadline(caseSanctionId, Math.min(30, numericValue));
   } else {
-    await handleIncreaseHours(caseSanctionId, daysValue);
+    await handleIncreaseHours(caseSanctionId, Math.min(240, numericValue));
   }
 }
 
@@ -1697,17 +2106,17 @@ async function handleExtendDeadline(caseSanctionId, daysToAdd = 7) {
   }
 }
 
-async function handleIncreaseHours(caseSanctionId, additionalDays = 1) {
+async function handleIncreaseHours(caseSanctionId, additionalHours = 8) {
   try {
     const response = await fetch('/PrototypeDO/modules/do/cases.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `ajax=1&action=increaseSanctionDuration&caseSanctionId=${caseSanctionId}&additionalDays=${additionalDays}`
+      body: `ajax=1&action=increaseSanctionDuration&caseSanctionId=${caseSanctionId}&additionalHours=${additionalHours}`
     });
 
     const result = await response.json();
     if (result.success) {
-      showNotification(`Duration increased by ${additionalDays} day${additionalDays === 1 ? '' : 's'}`, 'success');
+      showNotification(`Required hours increased by ${additionalHours} hour${additionalHours === 1 ? '' : 's'}`, 'success');
       closeDeadlineActionModal();
       const modal = document.querySelector('[data-checkin-modal="true"]');
       if (modal) {

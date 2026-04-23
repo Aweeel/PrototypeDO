@@ -130,16 +130,18 @@ $items = getLostFoundItems($filters);
                         </div>
 
                         <!-- Filters -->
-                        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <form method="GET" action="" id="lostFoundFilterForm" class="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-end">
                             <div>
                                 <input type="text" 
                                        name="search" 
+                                       id="lostFoundSearchFilter"
                                        value="<?php echo htmlspecialchars($searchTerm); ?>"
                                        placeholder="Search items..."
                                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                             </div>
                             <div>
                                 <select name="status" 
+                                        id="lostFoundStatusFilter"
                                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                                     <option value="">All Statuses</option>
                                     <option value="Unclaimed" <?php echo $filterStatus === 'Unclaimed' ? 'selected' : ''; ?>>Unclaimed</option>
@@ -148,6 +150,7 @@ $items = getLostFoundItems($filters);
                             </div>
                             <div>
                                 <select name="category" 
+                                        id="lostFoundCategoryFilter"
                                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                                     <option value="">All Categories</option>
                                     <?php foreach ($categories as $cat): ?>
@@ -157,13 +160,10 @@ $items = getLostFoundItems($filters);
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="flex gap-2">
-                                <button type="submit" 
-                                        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                                    <i class="fas fa-filter mr-2"></i>Filter
-                                </button>
+                            <div class="flex justify-end">
                                 <a href="?" 
-                                   class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                                   class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                                   title="Reset filters">
                                     <i class="fas fa-redo"></i>
                                 </a>
                             </div>
@@ -194,7 +194,12 @@ $items = getLostFoundItems($filters);
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($items as $item): ?>
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-[#0F1623] transition">
+                                            <tr class="hover:bg-gray-50 dark:hover:bg-[#0F1623] transition"
+                                                data-item-name="<?php echo htmlspecialchars(strtolower($item['item_name'])); ?>"
+                                                data-category="<?php echo htmlspecialchars(strtolower($item['category'])); ?>"
+                                                data-status="<?php echo htmlspecialchars(strtolower($item['status'])); ?>"
+                                                data-location="<?php echo htmlspecialchars(strtolower($item['found_location'])); ?>"
+                                                data-date-found="<?php echo htmlspecialchars($item['date_found']); ?>">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                                 <?php echo htmlspecialchars($item['item_id']); ?>
                                             </td>
@@ -257,6 +262,12 @@ $items = getLostFoundItems($filters);
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
+                                    <tr id="lostFoundNoResultsRow" class="hidden">
+                                        <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                            <i class="fas fa-filter text-4xl mb-4"></i>
+                                            <p class="text-lg">No items match the selected filters</p>
+                                        </td>
+                                    </tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>

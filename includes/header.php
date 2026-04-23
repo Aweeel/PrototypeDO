@@ -78,8 +78,8 @@ if (!isset($adminName) || empty($adminName)) {
                     <?php else: ?>
                         <div class="divide-y divide-gray-200 dark:divide-gray-700">
                             <?php foreach ($unreadNotifications as $notification): ?>
-                                <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
-                                     onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
+                                  <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
+                                      onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1">
                                             <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">
@@ -159,6 +159,19 @@ if (!isset($adminName) || empty($adminName)) {
                 if (relatedId) {
                     // Get the user role from the HTML data attribute or session
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
+                    const isPortfolioNotification = relatedId.startsWith('community_service_submission:');
+                    let relatedCaseId = relatedId;
+                    let relatedSanctionType = 'corrective';
+                    if (isPortfolioNotification) {
+                        const relatedParts = relatedId.split(':');
+                        if (relatedParts.length >= 3) {
+                            relatedSanctionType = (relatedParts[1] === 'suspension') ? 'suspension' : 'corrective';
+                            relatedCaseId = relatedParts.slice(2).join(':');
+                        } else {
+                            // Backward compatibility for older notifications: community_service_submission:<caseId>
+                            relatedCaseId = relatedParts.slice(1).join(':');
+                        }
+                    }
                     
                     // Small delay to allow notification to be stored
                     setTimeout(() => {
@@ -166,10 +179,12 @@ if (!isset($adminName) || empty($adminName)) {
                         if (relatedId.startsWith('password_reset:')) {
                             // Navigate to admin users page for password reset requests
                             window.location.href = `/PrototypeDO/modules/super-admin/adminUsers.php`;
+                        } else if (isPortfolioNotification) {
+                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
                         } else if (userRole === 'student') {
-                            window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedId)}`;
+                            window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}`;
                         } else {
-                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedId)}`;
+                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}`;
                         }
                     }, 100);
                 } else {
