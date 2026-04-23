@@ -1893,45 +1893,36 @@ function increaseSanctionDuration($caseSanctionId, $additionalHours = 8, $reason
     try {
         ensureCaseSanctionsDeadlineColumns();
 
-        $sql = "SELECT case_id, duration_days, duration_extra_hours, deadline FROM case_sanctions WHERE case_sanction_id = ?";
+        $sql = "SELECT case_id, duration_days, duration_extra_hours FROM case_sanctions WHERE case_sanction_id = ?";
         $sanction = fetchOne($sql, [$caseSanctionId]);
-        
+
         if (!$sanction) {
             throw new Exception('Sanction not found');
         }
-        
+
         $hoursToAdd = max(1, intval($additionalHours));
-        $baseDays = max(0, intval($sanction['duration_days']));
+        $baseDays = max(1, intval($sanction['duration_days'] ?? 0));
         $baseExtraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
 
-        $currentRequiredHours = 0;
-        if ($baseDays > 0) {
-            $currentRequiredHours = $baseExtraHours > 0
-                ? (($baseDays - 1) * 8) + $baseExtraHours
-                : ($baseDays * 8);
-        }
+        $currentRequiredHours = $baseExtraHours > 0
+            ? (($baseDays - 1) * 8) + $baseExtraHours
+            : ($baseDays * 8);
 
         $newTotalHours = $currentRequiredHours + $hoursToAdd;
-        $newDuration = (int)ceil($newTotalHours / 8);
-        $newExtraHours = $newTotalHours % 8;
+        // Keep duration_days stable. Additional required hours are represented in duration_extra_hours.
+        $newExtraHours = max(0, $newTotalHours - (($baseDays - 1) * 8));
 
-        $deadlineDaysToAdd = (int)ceil($hoursToAdd / 8);
-        $currentDeadline = !empty($sanction['deadline']) ? new DateTime($sanction['deadline']) : new DateTime();
-        $newDeadline = $currentDeadline->modify("+{$deadlineDaysToAdd} days");
-        
-        $updateSql = "UPDATE case_sanctions 
-                     SET duration_days = ?,
-                         duration_extra_hours = ?,
-                         deadline = ?
+        $updateSql = "UPDATE case_sanctions
+                     SET duration_extra_hours = ?
                      WHERE case_sanction_id = ?";
-        
+
         $note = "Duration increased by {$hoursToAdd} hour(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
-        
-        executeQuery($updateSql, [$newDuration, $newExtraHours, $newDeadline->format('Y-m-d H:i:s'), $caseSanctionId]);
+
+        executeQuery($updateSql, [$newExtraHours, $caseSanctionId]);
         if (!empty($sanction['case_id'])) {
             logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Duration Increased', null, $note);
         }
-        
+
         return true;
     } catch (Exception $e) {
         error_log("Error increasing sanction duration: " . $e->getMessage());

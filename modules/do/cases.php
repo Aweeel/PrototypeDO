@@ -848,7 +848,8 @@ if ($_POST['action'] === 'getCheckInHistory') {
         }
 
         $isCommunityServiceType = strpos($sanctionNameLower, 'corrective') !== false || strpos($sanctionNameLower, 'community service') !== false;
-        $requiredHours = max(0, ($totalDays * 8) + intval($sanction['duration_extra_hours'] ?? 0));
+        $extraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+        $requiredHours = max(0, $extraHours > 0 ? (($totalDays - 1) * 8) + $extraHours : ($totalDays * 8));
         $completedHours = 0.0;
         foreach ($checkIns as $checkInRow) {
             if (!empty($checkInRow['check_in_time']) && !empty($checkInRow['check_out_time'])) {
