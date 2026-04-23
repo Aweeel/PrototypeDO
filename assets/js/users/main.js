@@ -144,7 +144,7 @@ function renderUsers() {
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         ${escapeHtml(user.email)}
-                        ${user.student_id ? '<br><span class="text-xs text-gray-400 dark:text-gray-500">ID: ' + escapeHtml(user.student_id) + '</span>' : '<br><span class="text-xs opacity-0">-</span>'}
+                        ${user.role === 'student' && user.student_id ? '<br><span class="text-xs text-gray-400 dark:text-gray-500">Student ID: ' + escapeHtml(user.student_id) + '</span>' : '<br><span class="text-xs opacity-0">-</span>'}
                     </p>
                 </div>
             </td>

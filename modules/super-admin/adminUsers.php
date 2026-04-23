@@ -157,40 +157,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'] ?? '';
             $status = $_POST['status'] ?? '';
 
-            $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
-                           u.is_active, u.last_login, u.created_at,
-                           s.student_id,
-                           CASE 
-                               WHEN EXISTS(
-                                   SELECT 1 FROM notifications n 
-                                   WHERE n.type = 'password_reset_request' 
-                                   AND n.is_read = 0
-                                   AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
-                               ) THEN 1
-                               ELSE 0
-                           END as has_pending_reset
-                    FROM users u
-                    LEFT JOIN students s ON u.user_id = s.user_id
-                    WHERE 1=1";
+            // Check if search term looks like a student ID (starts with 02000)
+            $isStudentIdSearch = !empty($search) && strpos($search, '02000') === 0;
             
-            $params = [];
+            // If searching by student ID, find the student first, then get their user
+            if ($isStudentIdSearch) {
+                $sql = "SELECT 
+                            COALESCE(u.user_id, 0) as user_id,
+                            COALESCE(u.email, 'N/A') as email,
+                            COALESCE(u.full_name, s.first_name + ' ' + s.last_name) as full_name,
+                            COALESCE(u.role, 'student') as role,
+                            COALESCE(u.contact_number, '') as contact_number,
+                            COALESCE(u.is_active, 1) as is_active,
+                            u.last_login,
+                            COALESCE(u.created_at, s.created_at) as created_at,
+                            s.student_id,
+                            CASE 
+                                WHEN u.user_id IS NOT NULL AND EXISTS(
+                                    SELECT 1 FROM notifications n 
+                                    WHERE n.type = 'password_reset_request' 
+                                    AND n.is_read = 0
+                                    AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                ) THEN 1
+                                ELSE 0
+                            END as has_pending_reset
+                        FROM students s
+                        LEFT JOIN users u ON s.user_id = u.user_id
+                        WHERE s.student_id = ?";
+                $params = [$search];
+                
+                // Apply role filter if set
+                if (!empty($role)) {
+                    $sql .= " AND COALESCE(u.role, 'student') = ?";
+                    $params[] = $role;
+                }
+                
+                // Apply status filter if set
+                if ($status !== '') {
+                    $sql .= " AND COALESCE(u.is_active, 1) = ?";
+                    $params[] = $status === 'active' ? 1 : 0;
+                }
+            } else {
+                // Regular user search
+                $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
+                               u.is_active, u.last_login, u.created_at,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT TOP 1 student_id FROM students 
+                                   WHERE user_id = u.user_id 
+                                   ORDER BY created_at ASC
+                               ) ELSE NULL END as student_id,
+                               CASE 
+                                   WHEN EXISTS(
+                                       SELECT 1 FROM notifications n 
+                                       WHERE n.type = 'password_reset_request' 
+                                       AND n.is_read = 0
+                                       AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                   ) THEN 1
+                                   ELSE 0
+                               END as has_pending_reset
+                        FROM users u
+                        WHERE 1=1";
+                
+                $params = [];
 
-            if (!empty($search)) {
-                $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR s.student_id LIKE ?)";
-                $searchTerm = '%' . $search . '%';
-                $params[] = $searchTerm;
-                $params[] = $searchTerm;
-                $params[] = $searchTerm;
-            }
+                if (!empty($search)) {
+                    // Search by full name, email, or user ID
+                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND student_id LIKE ?)))";
+                    $searchTerm = '%' . $search . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                }
 
-            if (!empty($role)) {
-                $sql .= " AND role = ?";
-                $params[] = $role;
-            }
+                if (!empty($role)) {
+                    $sql .= " AND role = ?";
+                    $params[] = $role;
+                }
 
-            if ($status !== '') {
-                $sql .= " AND is_active = ?";
-                $params[] = $status === 'active' ? 1 : 0;
+                if ($status !== '') {
+                    $sql .= " AND is_active = ?";
+                    $params[] = $status === 'active' ? 1 : 0;
+                }
             }
 
             $sql .= " ORDER BY created_at DESC";
@@ -660,7 +708,7 @@ $adminName = getFormattedUserName();
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input type="text" id="searchInput" placeholder="Search users..."
+                        <input type="text" id="searchInput" placeholder="Search by name, email, user ID, or student ID (02000...)"
                             class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
                             oninput="filterUsers()">
                     </div>

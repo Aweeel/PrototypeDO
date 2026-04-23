@@ -21,12 +21,10 @@ GO
 CREATE DATABASE PrototypeDO_DB;
 GO
 
+-- Switch to the new database
 USE PrototypeDO_DB;
 GO
 
--- ============================================
--- 1. USERS TABLE (All account types)
--- ============================================
 CREATE TABLE users (
     user_id INT IDENTITY(1,1) PRIMARY KEY,
     username NVARCHAR(50) UNIQUE NOT NULL,
@@ -39,6 +37,8 @@ CREATE TABLE users (
     last_login DATETIME,
     remember_token NVARCHAR(64) NULL,
     remember_token_expiry DATETIME NULL,
+    terms_accepted_version INT DEFAULT 0,
+    terms_accepted_date DATETIME NULL,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -49,7 +49,7 @@ GO
 -- ============================================
 CREATE TABLE students (
     student_id NVARCHAR(20) PRIMARY KEY,
-    user_id INT NULL FOREIGN KEY REFERENCES users(user_id) ON DELETE SET NULL,
+    user_id INT NULL UNIQUE FOREIGN KEY REFERENCES users(user_id) ON DELETE SET NULL,
     first_name NVARCHAR(50) NOT NULL,
     last_name NVARCHAR(50) NOT NULL,
     middle_name NVARCHAR(50),
@@ -494,42 +494,41 @@ PRINT 'Inserting students...';
 
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
 VALUES 
--- SHS Students (user_id 6-20)
-('02000000001', 6, 'Juan', 'Dela Cruz', 'Santos', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
-('02000000002', 7, 'Maria', 'Garcia', 'Reyes', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Jose Garcia', '09171234002'),
-('02000000003', 8, 'Pedro', 'Santos', 'Lopez', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Ana Santos', '09171234003'),
-('02000000004', 9, 'Ana', 'Reyes', 'Cruz', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Carlos Reyes', '09171234004'),
-('02000000005', 10, 'Carlos', 'Mendoza', 'Torres', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
-('02000000006', 11, 'Sofia', 'Ramos', 'Diaz', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
-('02000000007', 12, 'Miguel', 'Torres', 'Morales', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
-('02000000008', 13, 'Isabella', 'Cruz', 'Fernandez', '12', 'HUMSS', 'C', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
-('02000000009', 14, 'Luis', 'Fernandez', 'Diaz', '11', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
-('02000000010', 15, 'Carmen', 'Diaz', 'Gutierrez', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
-('02000000011', 16, 'Diego', 'Morales', 'Herrera', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
-('02000000012', 17, 'Lucia', 'Gutierrez', 'Jimenez', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
-('02000000013', 18, 'Alex', 'Johnson', 'Michael', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Mary Johnson', '09171234013'),
-('02000000014', 19, 'Emma', 'Wilson', 'Rose', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Sarah Wilson', '09171234014'),
-('02000000015', 20, 'Daniel', 'Lee', 'James', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Lisa Lee', '09171234015'),
--- College Students (user_id 21-35)
-('02000000016', 21, 'Marco', 'Villanueva', 'Santos', '1st Year', 'BSIT', 'IT-101', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
-('02000000017', 22, 'Angela', 'Castillo', 'Reyes', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
-('02000000018', 23, 'Rafael', 'Herrera', 'Cruz', '3rd Year', 'BSIT', 'IT-301', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
-('02000000019', 24, 'Gabriela', 'Jimenez', 'Torres', '4th Year', 'BSIT', 'IT-401', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
-('02000000020', 25, 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSBA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
-('02000000021', 26, 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSBA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
-('02000000022', 27, 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSBA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
-('02000000023', 28, 'Camila', 'Flores', 'Diaz', '4th Year', 'BSBA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
-('02000000024', 29, 'Sebastian', 'Martinez', 'Ramos', '1st Year', 'BSCS', 'CS-101', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
-('02000000025', 30, 'Nicole', 'Gonzalez', 'Morales', '2nd Year', 'BSCS', 'CS-201', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
-('02000000026', 31, 'Adrian', 'Lopez', 'Fernandez', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
-('02000000027', 32, 'Bianca', 'Perez', 'Gutierrez', '4th Year', 'BSCS', 'CS-401', 'College', 'Good Standing', 'Ramon Perez', '09181234012'),
-('02000000028', 33, 'James', 'Smith', 'Robert', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'John Smith', '09181234013'),
-('02000000029', 34, 'Sophia', 'Brown', 'Anne', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Brown', '09181234014'),
-('02000000030', 35, 'Michael', 'Wang', 'Chen', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Wei Wang', '09181234015');
+-- SHS Students (user_id 16-30)
+('02000000001', 16, 'Juan', 'Dela Cruz', 'Santos', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
+('02000000002', 17, 'Maria', 'Garcia', 'Reyes', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Jose Garcia', '09171234002'),
+('02000000003', 18, 'Pedro', 'Santos', 'Lopez', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Ana Santos', '09171234003'),
+('02000000004', 19, 'Ana', 'Reyes', 'Cruz', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Carlos Reyes', '09171234004'),
+('02000000005', 20, 'Carlos', 'Mendoza', 'Torres', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
+('02000000006', 21, 'Sofia', 'Ramos', 'Diaz', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
+('02000000007', 22, 'Miguel', 'Torres', 'Morales', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
+('02000000008', 23, 'Isabella', 'Cruz', 'Fernandez', '12', 'HUMSS', 'C', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
+('02000000009', 24, 'Luis', 'Fernandez', 'Diaz', '11', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
+('02000000010', 25, 'Carmen', 'Diaz', 'Gutierrez', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
+('02000000011', 26, 'Diego', 'Morales', 'Herrera', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
+('02000000012', 27, 'Lucia', 'Gutierrez', 'Jimenez', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
+('02000000013', 28, 'Alex', 'Johnson', 'Michael', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Mary Johnson', '09171234013'),
+('02000000014', 29, 'Emma', 'Wilson', 'Rose', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Sarah Wilson', '09171234014'),
+('02000000015', 30, 'Daniel', 'Lee', 'James', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Lisa Lee', '09171234015'),
+-- College Students (user_id 31-45)
+('02000000016', 31, 'Marco', 'Villanueva', 'Santos', '1st Year', 'BSIT', 'IT-101', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
+('02000000017', 32, 'Angela', 'Castillo', 'Reyes', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
+('02000000018', 33, 'Rafael', 'Herrera', 'Cruz', '3rd Year', 'BSIT', 'IT-301', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
+('02000000019', 34, 'Gabriela', 'Jimenez', 'Torres', '4th Year', 'BSIT', 'IT-401', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
+('02000000020', 35, 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSBA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
+('02000000021', 36, 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSBA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
+('02000000022', 37, 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSBA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
+('02000000023', 38, 'Camila', 'Flores', 'Diaz', '4th Year', 'BSBA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
+('02000000024', 39, 'Sebastian', 'Martinez', 'Ramos', '1st Year', 'BSCS', 'CS-101', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
+('02000000025', 40, 'Nicole', 'Gonzalez', 'Morales', '2nd Year', 'BSCS', 'CS-201', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
+('02000000026', 41, 'Adrian', 'Lopez', 'Fernandez', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
+('02000000027', 42, 'Bianca', 'Perez', 'Gutierrez', '4th Year', 'BSCS', 'CS-401', 'College', 'Good Standing', 'Ramon Perez', '09181234012'),
+('02000000028', 43, 'James', 'Smith', 'Robert', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'John Smith', '09181234013'),
+('02000000029', 44, 'Sophia', 'Brown', 'Anne', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Brown', '09181234014'),
+('02000000030', 45, 'Michael', 'Wang', 'Chen', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Wei Wang', '09181234015');
 
 PRINT 'Students inserted: 30';
 GO
-
 -- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)
 -- ============================================
@@ -930,6 +929,23 @@ FROM students
 GROUP BY track_course, student_type
 ORDER BY student_type, COUNT(*) DESC;
 GO
+
+PRINT '';
+PRINT '============================================';
+PRINT '2026 CASES SUMMARY';
+PRINT '============================================';
+
+SELECT 
+    case_id AS 'Case ID',
+    student_id AS 'Student ID',
+    case_type AS 'Offense Type',
+    severity AS 'Severity',
+    status AS 'Status',
+    date_reported AS 'Date'
+FROM cases
+ORDER BY date_reported DESC;
+GO
+
 
 PRINT '';
 PRINT '============================================';
