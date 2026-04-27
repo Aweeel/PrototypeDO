@@ -960,8 +960,17 @@ function getUnreadNotifications($userId) {
 }
 
 function markNotificationAsRead($notificationId) {
+    // Get notification details for audit logging
+    $notifSql = "SELECT title, is_read FROM notifications WHERE notification_id = ?";
+    $notification = fetchOne($notifSql, [$notificationId]);
+    
     $sql = "UPDATE notifications SET is_read = 1, read_at = GETDATE() WHERE notification_id = ?";
     executeQuery($sql, [$notificationId]);
+    
+    // 🧾 Audit Log - Log only if notification was previously unread
+    if ($notification && !$notification['is_read']) {
+        auditNotificationRead($notificationId, $notification['title'] ?? 'Notification');
+    }
 }
 
 /**
@@ -1216,6 +1225,7 @@ function logFailedLogin($username, $reason = 'Invalid credentials') {
 
 /**
  * Quick audit helper for CREATE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -1224,11 +1234,26 @@ function logFailedLogin($username, $reason = 'Invalid credentials') {
  */
 function auditCreate($tableName, $recordId, $data) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Created', $tableName, $recordId, null, $data);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Created',
+        'students' => 'Student Created',
+        'users' => 'User Created',
+        'calendar_events' => 'Calendar Event Created',
+        'lost_found_items' => 'Lost Item Created',
+        'notifications' => 'Notification Created',
+        'sanctions' => 'Sanction Created',
+        'case_sanctions' => 'Sanction Applied'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Created';
+    logAudit($userId, $action, $tableName, $recordId, null, $data);
 }
 
 /**
  * Quick audit helper for UPDATE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -1238,11 +1263,26 @@ function auditCreate($tableName, $recordId, $data) {
  */
 function auditUpdate($tableName, $recordId, $oldData, $newData) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Updated', $tableName, $recordId, $oldData, $newData);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Updated',
+        'students' => 'Student Updated',
+        'users' => 'User Updated',
+        'calendar_events' => 'Calendar Event Updated',
+        'lost_found_items' => 'Lost Item Updated',
+        'notifications' => 'Notification Updated',
+        'sanctions' => 'Sanction Updated',
+        'case_sanctions' => 'Sanction Updated'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Updated';
+    logAudit($userId, $action, $tableName, $recordId, $oldData, $newData);
 }
 
 /**
  * Quick audit helper for DELETE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -1251,11 +1291,26 @@ function auditUpdate($tableName, $recordId, $oldData, $newData) {
  */
 function auditDelete($tableName, $recordId, $oldData) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Deleted', $tableName, $recordId, $oldData, null);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Deleted',
+        'students' => 'Student Deleted',
+        'users' => 'User Deleted',
+        'calendar_events' => 'Calendar Event Deleted',
+        'lost_found_items' => 'Lost Item Deleted',
+        'notifications' => 'Notification Deleted',
+        'sanctions' => 'Sanction Removed',
+        'case_sanctions' => 'Sanction Removed'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Deleted';
+    logAudit($userId, $action, $tableName, $recordId, $oldData, null);
 }
 
 /**
  * Quick audit helper for ARCHIVE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -1264,7 +1319,17 @@ function auditDelete($tableName, $recordId, $oldData) {
  */
 function auditArchive($tableName, $recordId, $oldStatus) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Archived', $tableName, $recordId, 
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Archived',
+        'students' => 'Student Archived',
+        'lost_found_items' => 'Lost Item Archived',
+        'notifications' => 'Notification Archived'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Archived';
+    logAudit($userId, $action, $tableName, $recordId, 
         ['status' => $oldStatus], 
         ['status' => 'Archived', 'archived_date' => date('Y-m-d H:i:s')]
     );
@@ -1272,6 +1337,7 @@ function auditArchive($tableName, $recordId, $oldStatus) {
 
 /**
  * Quick audit helper for RESTORE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -1280,11 +1346,321 @@ function auditArchive($tableName, $recordId, $oldStatus) {
  */
 function auditRestore($tableName, $recordId, $oldStatus) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Restored', $tableName, $recordId, 
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Restored',
+        'students' => 'Student Restored',
+        'lost_found_items' => 'Lost Item Restored',
+        'notifications' => 'Notification Restored'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Restored';
+    logAudit($userId, $action, $tableName, $recordId, 
         ['status' => $oldStatus], 
         ['status' => 'Active', 'restored_date' => date('Y-m-d H:i:s')]
     );
 }
+
+// ==========================================
+// SANCTION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log sanction application
+ */
+function auditSanctionApplied($caseId, $sanctionId, $sanctionName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Applied', 'case_sanctions', $caseId, null, array_merge(
+        ['sanction_name' => $sanctionName, 'case_id' => $caseId],
+        $data
+    ));
+}
+
+/**
+ * Log sanction removal
+ */
+function auditSanctionRemoved($caseId, $sanctionName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Removed', 'case_sanctions', $caseId, 
+        array_merge(['sanction_name' => $sanctionName], $data), 
+        null
+    );
+}
+
+/**
+ * Log sanction deadline extension
+ */
+function auditSanctionExtended($caseId, $sanctionName, $oldDeadline, $newDeadline) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Deadline Extended', 'case_sanctions', $caseId, 
+        ['deadline' => $oldDeadline, 'sanction_name' => $sanctionName],
+        ['deadline' => $newDeadline, 'sanction_name' => $sanctionName]
+    );
+}
+
+/**
+ * Log sanction duration increase
+ */
+function auditSanctionDurationIncreased($caseId, $sanctionName, $oldDuration, $newDuration) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Duration Increased', 'case_sanctions', $caseId, 
+        ['duration_days' => $oldDuration, 'sanction_name' => $sanctionName],
+        ['duration_days' => $newDuration, 'sanction_name' => $sanctionName]
+    );
+}
+
+/**
+ * Log case resolution
+ */
+function auditCaseResolved($caseId, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Case Resolved', 'cases', $caseId, 
+        ['status' => 'On Going'],
+        array_merge(['status' => 'Resolved'], $data)
+    );
+}
+
+// ==========================================
+// CHECK-IN/CHECK-OUT AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log check-in recorded
+ */
+function auditCheckInRecorded($caseId, $dayNumber, $checkInTime) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Check-In Recorded', 'case_checkins', "$caseId-Day$dayNumber", null,
+        ['day_number' => $dayNumber, 'check_in_time' => $checkInTime, 'case_id' => $caseId]
+    );
+}
+
+/**
+ * Log check-out recorded
+ */
+function auditCheckOutRecorded($caseId, $dayNumber, $checkOutTime) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Check-Out Recorded', 'case_checkins', "$caseId-Day$dayNumber", null,
+        ['day_number' => $dayNumber, 'check_out_time' => $checkOutTime, 'case_id' => $caseId]
+    );
+}
+
+/**
+ * Log time correction
+ */
+function auditTimeRecordCorrected($caseId, $dayNumber, $oldTime, $newTime, $timeType) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, "Time Corrected ({$timeType})", 'case_checkins', "$caseId-Day$dayNumber",
+        [$timeType => $oldTime],
+        [$timeType => $newTime]
+    );
+}
+
+/**
+ * Log time record reverted
+ */
+function auditTimeRecordReverted($caseId, $dayNumber, $removedTime, $timeType) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, "Time Record Reverted ({$timeType})", 'case_checkins', "$caseId-Day$dayNumber",
+        [$timeType => $removedTime],
+        null
+    );
+}
+
+// ==========================================
+// LOST & FOUND AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log lost item added
+ */
+function auditLostItemAdded($itemId, $itemName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Added', 'lost_found_items', $itemId, null, 
+        array_merge(['item_name' => $itemName], $data)
+    );
+}
+
+/**
+ * Log lost item updated
+ */
+function auditLostItemUpdated($itemId, $oldData, $newData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Updated', 'lost_found_items', $itemId, $oldData, $newData);
+}
+
+/**
+ * Log lost item claimed
+ */
+function auditLostItemClaimed($itemId, $studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Claimed', 'lost_found_items', $itemId, 
+        ['status' => 'Unclaimed'],
+        ['status' => 'Claimed', 'claimed_by' => $studentName, 'claimed_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log lost item unclaimed
+ */
+function auditLostItemUnclaimed($itemId, $studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Unclaimed', 'lost_found_items', $itemId, 
+        ['status' => 'Claimed', 'claimed_by' => $studentName],
+        ['status' => 'Unclaimed']
+    );
+}
+
+/**
+ * Log lost item archived
+ */
+function auditLostItemArchived($itemId, $itemName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Archived', 'lost_found_items', $itemId, 
+        ['status' => 'Active'],
+        ['status' => 'Archived', 'archived_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+// ==========================================
+// CALENDAR AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log calendar event created
+ */
+function auditCalendarEventCreated($eventId, $eventTitle, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Created', 'calendar_events', $eventId, null,
+        array_merge(['title' => $eventTitle], $data)
+    );
+}
+
+/**
+ * Log calendar event updated
+ */
+function auditCalendarEventUpdated($eventId, $oldData, $newData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Updated', 'calendar_events', $eventId, $oldData, $newData);
+}
+
+/**
+ * Log calendar event deleted
+ */
+function auditCalendarEventDeleted($eventId, $eventTitle) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Deleted', 'calendar_events', $eventId,
+        ['title' => $eventTitle],
+        null
+    );
+}
+
+// ==========================================
+// NOTIFICATION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log notification marked as read
+ */
+function auditNotificationRead($notificationId, $notificationTitle) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Notification Read', 'notifications', $notificationId, 
+        ['is_read' => 0],
+        ['is_read' => 1, 'read_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log report generated
+ */
+function auditReportGenerated($reportType, $reportParams) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Report Generated', 'reports', null, null,
+        array_merge(['type' => $reportType, 'generated_at' => date('Y-m-d H:i:s')], $reportParams)
+    );
+}
+
+// ==========================================
+// USER ACTION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log student imported
+ */
+function auditStudentImported($studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Student Imported', 'students', $studentId, null,
+        ['name' => $studentName, 'imported_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log user created
+ */
+function auditUserCreated($userId, $username, $role) {
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    logAudit($currentUserId, 'User Created', 'users', $userId, null,
+        ['username' => $username, 'role' => $role, 'created_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log bulk import
+ */
+function auditBulkImport($count, $type, $filename) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Bulk Import', 'system', null, null,
+        ['type' => $type, 'count' => $count, 'filename' => $filename, 'imported_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+// ==========================================
+// SUBMISSION AUDIT HELPERS (Reports & Portfolios)
+// ==========================================
+
+/**
+ * Log report submission by teacher
+ */
+function auditReportSubmitted($caseId, $studentName, $caseType, $severity) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Report Submitted', 'cases', $caseId, null,
+        [
+            'student_name' => $studentName,
+            'case_type' => $caseType,
+            'severity' => $severity,
+            'submitted_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
+/**
+ * Log portfolio/community service submission by student
+ */
+function auditPortfolioSubmitted($caseId, $studentId, $sanctionName, $fileName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Portfolio Submitted', 'community_service_submissions', $caseId, null,
+        [
+            'student_id' => $studentId,
+            'sanction' => $sanctionName,
+            'file_name' => $fileName,
+            'submitted_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
+/**
+ * Log portfolio/community service submission viewed by DO
+ */
+function auditPortfolioViewed($caseId, $submissionCount) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Portfolio Viewed', 'community_service_submissions', $caseId, null,
+        [
+            'submissions_viewed' => $submissionCount,
+            'viewed_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
 // ==========================================
 // UTILITY FUNCTIONS
 // ==========================================

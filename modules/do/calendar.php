@@ -127,11 +127,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             executeQuery($sql, $params);
             
-            // Log to audit
-            auditCreate('calendar_events', $eventName, [
-                'event_name' => $eventName,
+            // 🧾 Audit Log - Use specialized calendar audit function
+            auditCalendarEventCreated($eventName, $eventName, [
                 'event_date' => $eventDate,
-                'category' => $category
+                'event_time' => $eventTime,
+                'category' => $category,
+                'description' => $description,
+                'location' => $location
             ]);
             
             echo json_encode(['success' => true, 'message' => 'Event created successfully']);
@@ -153,6 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 echo json_encode(['success' => false, 'error' => 'Event ID required']);
                 exit;
             }
+            
+            // Get old data for audit comparison
+            $oldEventSql = "SELECT * FROM calendar_events WHERE event_id = ?";
+            $oldEvent = fetchOne($oldEventSql, [$eventId]);
             
             // Normalize times to HH:MM:SS for SQL Server
             if ($eventTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
@@ -179,6 +185,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             executeQuery($sql, $params);
             
+            // 🧾 Audit Log - Use specialized calendar audit function
+            if ($oldEvent) {
+                auditCalendarEventUpdated($eventId,
+                    [
+                        'event_name' => $oldEvent['event_name'],
+                        'event_date' => $oldEvent['event_date'],
+                        'category' => $oldEvent['category'],
+                        'description' => $oldEvent['description']
+                    ],
+                    [
+                        'event_name' => $eventName,
+                        'event_date' => $eventDate,
+                        'category' => $category,
+                        'description' => $description
+                    ]
+                );
+            }
+            
             echo json_encode(['success' => true, 'message' => 'Event updated successfully']);
             exit;
         }
@@ -192,11 +216,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
             
+            // Get event details for audit logging
+            $eventSql = "SELECT * FROM calendar_events WHERE event_id = ?";
+            $event = fetchOne($eventSql, [$eventId]);
+            
             $sql = "DELETE FROM calendar_events WHERE event_id = ?";
             executeQuery($sql, [$eventId]);
             
-            // Log to audit
-            auditDelete('calendar_events', $eventId, ['event_id' => $eventId]);
+            // 🧾 Audit Log - Use specialized calendar audit function
+            if ($event) {
+                auditCalendarEventDeleted($eventId, $event['event_name']);
+            }
             
             echo json_encode(['success' => true, 'message' => 'Event deleted successfully']);
             exit;

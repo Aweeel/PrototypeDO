@@ -611,15 +611,27 @@ if ($_POST['action'] === 'updateSanction') {
     $durationDays = $_POST['durationDays'] ?? null;
     $notes = $_POST['notes'] ?? '';
 
+    // Get old data for audit comparison
+    $oldSql = "SELECT * FROM case_sanctions WHERE case_sanction_id = ?";
+    $oldData = fetchOne($oldSql, [$caseSanctionId]);
+
     $sql = "UPDATE case_sanctions SET duration_days = ?, notes = ? WHERE case_sanction_id = ?";
     executeQuery($sql, [$durationDays, $notes, $caseSanctionId]);
 
-    // 🧾 Audit Log
-    $auditData = [
-        'duration_days' => $durationDays,
-        'notes' => $notes
-    ];
-    auditUpdate('case_sanctions', $caseSanctionId, [], sanitizeAuditData($auditData));
+    // 🧾 Audit Log - Use specialized duration increase audit if duration changed
+    if ($oldData && $oldData['duration_days'] != $durationDays) {
+        $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$oldData['sanction_id']]);
+        $sanctionName = $sanctionInfo['sanction_name'] ?? 'Unknown Sanction';
+        
+        auditSanctionDurationIncreased($oldData['case_id'], $sanctionName, $oldData['duration_days'], $durationDays);
+    } else {
+        // Log as generic update if only notes changed
+        auditUpdate('case_sanctions', $caseSanctionId, 
+            ['notes' => $oldData['notes'] ?? null], 
+            ['notes' => $notes]
+        );
+    }
 
     echo json_encode(['success' => true, 'message' => 'Sanction updated successfully']);
     exit;
@@ -712,8 +724,16 @@ if ($_POST['action'] === 'removeSanction') {
             error_log("Case {$caseId} status changed to Pending (all sanctions removed)");
         }
 
-        // 🧾 Audit Log
-        auditDelete('case_sanctions', $caseSanctionId, sanitizeAuditData($sanctionData));
+        // 🧾 Audit Log - Use specialized sanction removal audit function
+        $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$sanctionData['sanction_id']]);
+        $sanctionName = $sanctionInfo['sanction_name'] ?? 'Unknown Sanction';
+        
+        auditSanctionRemoved($caseId, $sanctionName, [
+            'duration_days' => $sanctionData['duration_days'],
+            'scheduled_date' => $sanctionData['scheduled_date'],
+            'deadline' => $sanctionData['deadline']
+        ]);
     }
 
     echo json_encode([
@@ -970,6 +990,14 @@ if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
     }
 
     $viewerId = $_SESSION['user_id'] ?? null;
+    
+    // Count submissions being marked as viewed for audit logging
+    $countResult = fetchOne(
+        "SELECT COUNT(*) AS cnt FROM community_service_submissions WHERE case_id = ? AND is_seen_by_do = 0",
+        [$caseId]
+    );
+    $submissionCount = intval($countResult['cnt'] ?? 0);
+    
     executeQuery(
         "UPDATE community_service_submissions
          SET is_seen_by_do = 1,
@@ -978,6 +1006,11 @@ if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
          WHERE case_id = ? AND is_seen_by_do = 0",
         [$viewerId, $caseId]
     );
+
+    // Audit log the portfolio viewing
+    if ($submissionCount > 0) {
+        auditPortfolioViewed($caseId, $submissionCount);
+    }
 
     echo json_encode(['success' => true]);
     exit;
@@ -1065,12 +1098,28 @@ if ($_POST['action'] === 'recordCheckIn') {
         $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
         executeQuery($sql, [$now, $now, $existing['checkin_id']]);
+        
+        // Get case_id for audit logging
+        $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+        if ($sanctionInfo) {
+            auditCheckInRecorded($sanctionInfo['case_id'], $dayNumber, $now);
+        }
+        
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     } else {
         // Insert new check-in record
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
                 VALUES (?, ?, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
+        
+        // Get case_id for audit logging
+        $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+        if ($sanctionInfo) {
+            auditCheckInRecorded($sanctionInfo['case_id'], $dayNumber, $now);
+        }
+        
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     }
     exit;
@@ -1108,12 +1157,28 @@ if ($_POST['action'] === 'recordCheckOut') {
         $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
         executeQuery($sql, [$now, $now, $existing['checkin_id']]);
+        
+        // Get case_id for audit logging
+        $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+        if ($sanctionInfo) {
+            auditCheckOutRecorded($sanctionInfo['case_id'], $dayNumber, $now);
+        }
+        
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     } else {
         // Record doesn't exist - this shouldn't happen if check-in was recorded, but create one anyway
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_out_time, check_in_date) 
                 VALUES (?, ?, NULL, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
+        
+        // Get case_id for audit logging
+        $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+        if ($sanctionInfo) {
+            auditCheckOutRecorded($sanctionInfo['case_id'], $dayNumber, $now);
+        }
+        
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     }
     exit;
@@ -1158,6 +1223,13 @@ if ($_POST['action'] === 'manualCheckIn') {
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
                 VALUES (?, ?, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
+    }
+
+    // 🧾 Audit Log
+    $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+    $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+    if ($sanctionInfo) {
+        auditCheckInRecorded($sanctionInfo['case_id'], $dayNumber, $now);
     }
 
     error_log("Manual check-in: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
@@ -1242,6 +1314,9 @@ if ($_POST['action'] === 'correctTime') {
         exit;
     }
 
+    // Get old value for audit
+    $oldTime = $timeType === 'check_in' ? $existing['check_in_time'] : $existing['check_out_time'];
+
     // Build the corrected time with today's date
     $correctedDateTime = $today . ' ' . $correctedTime . ':00';
 
@@ -1258,6 +1333,13 @@ if ($_POST['action'] === 'correctTime') {
     }
 
     executeQuery($sql, [$correctedDateTime, date('Y-m-d H:i:s'), $existing['checkin_id']]);
+    
+    // 🧾 Audit Log
+    $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+    $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+    if ($sanctionInfo) {
+        auditTimeRecordCorrected($sanctionInfo['case_id'], $dayNumber, $oldTime, $correctedDateTime, $timeType);
+    }
     
     error_log("Time correction: Case Sanction $caseSanctionId, Day $dayNumber, $timeType corrected to $correctedTime");
     
@@ -1292,6 +1374,9 @@ if ($_POST['action'] === 'revertTime') {
         exit;
     }
 
+    // Get the removed time for audit logging
+    $removedTime = $timeType === 'check_in' ? $existing['check_in_time'] : $existing['check_out_time'];
+
     // Revert the appropriate time field to NULL.
     // For check_in revert, clear both fields to fully reset the day.
     if ($timeType === 'check_in') {
@@ -1308,6 +1393,13 @@ if ($_POST['action'] === 'revertTime') {
     $checkAfterRevert = fetchOne("SELECT check_in_time, check_out_time FROM case_checkins 
                                   WHERE checkin_id = ?", 
                                  [$existing['checkin_id']]);
+    
+    // 🧾 Audit Log
+    $sanctionSql = "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?";
+    $sanctionInfo = fetchOne($sanctionSql, [$caseSanctionId]);
+    if ($sanctionInfo) {
+        auditTimeRecordReverted($sanctionInfo['case_id'], $dayNumber, $removedTime, $timeType);
+    }
     
     if ($checkAfterRevert && $checkAfterRevert['check_in_time'] === null && $checkAfterRevert['check_out_time'] === null) {
         // Both times are NULL, delete the record entirely
@@ -1515,17 +1607,19 @@ if ($_POST['action'] === 'applySanction') {
         }
     }
 
-    // 🧾 Audit Log
-    $auditData = [
-        'sanction_id' => $sanctionId,
+    // 🧾 Audit Log - Use specialized sanction audit function
+    $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+    $sanctionInfo = fetchOne($sanctionSql, [$sanctionId]);
+    $sanctionName = $sanctionInfo['sanction_name'] ?? 'Unknown Sanction';
+    
+    auditSanctionApplied($caseId, $sanctionId, $sanctionName, [
         'duration_days' => $durationDays,
         'notes' => $notes,
         'scheduled_date' => $scheduleDate,
         'scheduled_time' => $scheduleTime,
-        'scheduled_end_time' => $scheduleEndTime,
-        'schedule_notes' => $scheduleNotes
-    ];
-    auditCreate('case_sanctions', $caseId, sanitizeAuditData($auditData));
+        'schedule_notes' => $scheduleNotes,
+        'deadline_date' => $deadlineDate
+    ]);
 
     echo json_encode(['success' => true, 'message' => 'Sanction applied successfully']);
     exit;

@@ -247,6 +247,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             ]
         );
 
+        // Audit log the portfolio submission
+        auditPortfolioSubmitted($caseId, $studentId, $sanction['sanction_name'] ?? 'Unknown', $originalName);
+
         notifyDOOnCommunityServicePortfolioSubmission(
             $caseId,
             $ownedCase['student_name'] ?? 'Student',
