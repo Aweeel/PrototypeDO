@@ -64,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
             
+            // Audit log the report submission
+            auditReportSubmitted($newCaseId, $data['student_name'], $data['case_type'], $data['severity']);
+            
             updateStudentOffenseCount($data['student_number']);
             
             error_log("studentReport: New case created - $newCaseId for student {$data['student_number']}");

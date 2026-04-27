@@ -139,6 +139,15 @@ function addLostFoundItem($data) {
     try {
         executeQuery($sql, $params);
         
+        // 🧾 Audit Log
+        auditLostItemAdded($item_id, $data['item_name'], [
+            'category' => $data['category'],
+            'location' => $data['location'],
+            'date_found' => $data['date_found'],
+            'finder_name' => $finder_name,
+            'status' => 'Unclaimed'
+        ]);
+        
         return [
             'success' => true,
             'item_id' => $item_id,
@@ -322,7 +331,30 @@ function updateItem($item_id, $data) {
     error_log("updateItem Params: " . print_r($params, true));
     
     try {
+        // Get old data for audit comparison
+        $oldItem = getItemById($item_id);
+        
         executeQuery($sql, $params);
+        
+        // Get new data after update
+        $newItem = getItemById($item_id);
+        
+        // 🧾 Audit Log
+        auditLostItemUpdated($item_id, 
+            [
+                'item_name' => $oldItem['item_name'],
+                'category' => $oldItem['category'],
+                'location' => $oldItem['found_location'],
+                'date_found' => $oldItem['date_found']
+            ],
+            [
+                'item_name' => $newItem['item_name'],
+                'category' => $newItem['category'],
+                'location' => $newItem['found_location'],
+                'date_found' => $newItem['date_found']
+            ]
+        );
+        
         return ['success' => true, 'message' => 'Item updated successfully'];
     } catch (Exception $e) {
         error_log("updateItem error: " . $e->getMessage());
@@ -334,6 +366,9 @@ function updateItem($item_id, $data) {
  * Mark item as claimed
  */
 function markAsClaimed($item_id, $claimer_data) {
+    // Get old data for audit
+    $oldItem = getItemById($item_id);
+    
     $sql = "UPDATE lost_found_items SET 
         status = 'Claimed',
         claimer_name = ?,
@@ -353,6 +388,10 @@ function markAsClaimed($item_id, $claimer_data) {
     
     try {
         executeQuery($sql, $params);
+        
+        // 🧾 Audit Log
+        auditLostItemClaimed($item_id, $claimer_student_id, $claimer_data['claimer_name']);
+        
         return ['success' => true, 'message' => 'Item marked as claimed'];
     } catch (Exception $e) {
         error_log("markAsClaimed error: " . $e->getMessage());
@@ -364,6 +403,10 @@ function markAsClaimed($item_id, $claimer_data) {
  * Mark item as unclaimed (reverse claim)
  */
 function markAsUnclaimed($item_id) {
+    // Get old data for audit
+    $oldItem = getItemById($item_id);
+    $claimer_name = $oldItem['claimer_name'] ?? 'Unknown';
+    
     $sql = "UPDATE lost_found_items SET 
         status = 'Unclaimed',
         claimer_name = NULL,
@@ -374,6 +417,10 @@ function markAsUnclaimed($item_id) {
     
     try {
         executeQuery($sql, [$item_id]);
+        
+        // 🧾 Audit Log
+        auditLostItemUnclaimed($item_id, $oldItem['claimer_student_id'] ?? null, $claimer_name);
+        
         return ['success' => true, 'message' => 'Item marked as unclaimed'];
     } catch (Exception $e) {
         error_log("markAsUnclaimed error: " . $e->getMessage());
@@ -480,6 +527,10 @@ function getLostFoundStats() {
  * Delete/Archive item
  */
 function archiveItem($item_id) {
+    // Get item name for audit logging
+    $item = getItemById($item_id);
+    $item_name = $item['item_name'] ?? 'Unknown Item';
+    
     $sql = "UPDATE lost_found_items SET 
         is_archived = 1,
         archived_at = GETDATE()
@@ -487,6 +538,10 @@ function archiveItem($item_id) {
     
     try {
         executeQuery($sql, [$item_id]);
+        
+        // 🧾 Audit Log
+        auditLostItemArchived($item_id, $item_name);
+        
         return ['success' => true, 'message' => 'Item archived successfully'];
     } catch (Exception $e) {
         error_log("archiveItem error: " . $e->getMessage());

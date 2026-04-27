@@ -51,6 +51,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $type   = $_GET['type']   ?? 'incident';
     $params = $_GET;
 
+    // 🧾 Audit Log - Log the export
+    auditReportGenerated(ucfirst($type) . ' Report (CSV Export)', [
+        'export_type' => 'CSV',
+        'report_type' => $type
+    ]);
+
     $csvData = buildCSVData($type, $params);
 
     $filename = 'STI_' . ucfirst($type) . '_Report_' . date('Y-m-d') . '.csv';
@@ -289,10 +295,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     }
     
     try {
-        if ($action === 'generateIncidentReport')   { echo json_encode(fetchIncidentData($_POST));   exit; }
-        if ($action === 'generateStatisticsReport') { echo json_encode(fetchStatisticsData($_POST)); exit; }
-        if ($action === 'generateLostFoundReport')  { echo json_encode(fetchLostFoundData($_POST));  exit; }
-        if ($action === 'generateStudentReport')    { echo json_encode(fetchStudentData($_POST));    exit; }
+        if ($action === 'generateIncidentReport') {
+            $data = fetchIncidentData($_POST);
+            // 🧾 Audit Log
+            auditReportGenerated('Incident Report', [
+                'date_from' => $_POST['dateFrom'] ?? '',
+                'date_to' => $_POST['dateTo'] ?? '',
+                'severity' => $_POST['severity'] ?? ''
+            ]);
+            echo json_encode($data);
+            exit;
+        }
+        if ($action === 'generateStatisticsReport') {
+            $data = fetchStatisticsData($_POST);
+            // 🧾 Audit Log
+            auditReportGenerated('Statistics Report', [
+                'groupBy' => $_POST['groupBy'] ?? '',
+                'filters' => 'Applied'
+            ]);
+            echo json_encode($data);
+            exit;
+        }
+        if ($action === 'generateLostFoundReport') {
+            $data = fetchLostFoundData($_POST);
+            // 🧾 Audit Log
+            auditReportGenerated('Lost & Found Report', [
+                'status' => $_POST['status'] ?? 'All',
+                'category' => $_POST['category'] ?? 'All'
+            ]);
+            echo json_encode($data);
+            exit;
+        }
+        if ($action === 'generateStudentReport') {
+            $data = fetchStudentData($_POST);
+            // 🧾 Audit Log
+            auditReportGenerated('Student Report', [
+                'gradeLevel' => $_POST['gradeLevel'] ?? '',
+                'course' => $_POST['course'] ?? ''
+            ]);
+            echo json_encode($data);
+            exit;
+        }
 
         if ($action === 'getGradeLevels') {
             echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT grade_year FROM students WHERE grade_year IS NOT NULL ORDER BY grade_year")]);

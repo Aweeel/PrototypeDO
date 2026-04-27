@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Load users for filter dropdown
+// Load user roles for filter dropdown
 async function loadUsers() {
     try {
         const formData = new FormData();
@@ -41,17 +41,21 @@ async function loadUsers() {
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
         const data = await response.json();
         
+        console.log('Users/Roles response:', data);
+        
         if (data.success) {
             const userFilter = document.getElementById('userFilter');
             data.users.forEach(user => {
                 const option = document.createElement('option');
-                option.value = user.user_id;
-                option.textContent = user.name;
+                option.value = user.role;
+                option.textContent = user.display;
                 userFilter.appendChild(option);
             });
+        } else {
+            console.error('Failed to load roles:', data.error);
         }
     } catch (error) {
-        console.error('Error loading users:', error);
+        console.error('Error loading roles:', error);
     }
 }
 
@@ -65,6 +69,8 @@ async function loadActionTypes() {
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
         const data = await response.json();
         
+        console.log('Action types response:', data);
+        
         if (data.success) {
             const actionFilter = document.getElementById('actionTypeFilter');
             data.actionTypes.forEach(action => {
@@ -73,6 +79,8 @@ async function loadActionTypes() {
                 option.textContent = action.action;
                 actionFilter.appendChild(option);
             });
+        } else {
+            console.error('Failed to load action types:', data.error);
         }
     } catch (error) {
         console.error('Error loading action types:', error);
@@ -92,18 +100,45 @@ async function loadLogs() {
         formData.append('dateTo', currentFilters.dateTo);
 
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if (data.success) {
+        console.log('Audit logs response:', data);
+        
+        if (data.success && data.logs) {
             allLogs = data.logs;
             filteredLogs = [...allLogs];
             currentPage = 1;
             renderTable();
             updatePagination();
+        } else {
+            console.error('Failed to load logs:', data.error || 'No logs in response');
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-red-500 dark:text-red-400">
+                        <p class="text-lg font-medium">Error loading audit logs</p>
+                        <p class="text-sm mt-1">${data.error || 'Failed to fetch audit logs'}</p>
+                    </td>
+                </tr>`;
+            document.getElementById('paginationInfo').textContent = 'Error loading logs';
         }
     } catch (error) {
         console.error('Error loading logs:', error);
-        showNotification('Error loading audit logs', 'error');
+        showNotification('Error loading audit logs: ' + error.message, 'error');
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-12 text-center text-red-500 dark:text-red-400">
+                    <p class="text-lg font-medium">Error loading audit logs</p>
+                    <p class="text-sm mt-1">${error.message}</p>
+                </td>
+            </tr>`;
+        document.getElementById('paginationInfo').textContent = 'Error loading logs';
     }
 }
 
@@ -130,7 +165,7 @@ function renderTable() {
     }
 
     let tableHTML = logsToShow.map(log => `
-      <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+      <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="openLogDetailModal(${JSON.stringify(log).replace(/"/g, '&quot;')})">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">#${log.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${log.user}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.role}</td>
@@ -279,7 +314,7 @@ function exportLogs() {
                     const filters = [];
                     if (currentFilters.search) filters.push(`Search: "${currentFilters.search}"`);
                     if (currentFilters.actionType) filters.push(`Action: ${currentFilters.actionType}`);
-                    if (currentFilters.user) filters.push(`User: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
+                    if (currentFilters.user) filters.push(`Role: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
                     if (currentFilters.dateFrom) filters.push(`From: ${currentFilters.dateFrom}`);
                     if (currentFilters.dateTo) filters.push(`To: ${currentFilters.dateTo}`);
                     
