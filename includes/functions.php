@@ -1214,7 +1214,8 @@ function notifyStudentOnCommunityServiceEvent($caseSanctionId, $eventType, array
                 $relatedId = 'community_service_checkout:' . $caseSanctionId . ':day' . $dayNumber;
                 break;
             case 'overdue':
-                if (!empty($sanction['is_complete'])) {
+                $completion = getCommunityServiceCompletionSnapshot($caseSanctionId);
+                if (!empty($completion['is_complete'])) {
                     return false;
                 }
 
