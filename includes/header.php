@@ -7,6 +7,13 @@ require_once __DIR__ . '/terms.php';
 // Include Password Warning Modal
 require_once __DIR__ . '/password_warning.php';
 
+if (isset($_SESSION['user_id']) && (($_SESSION['user_role'] ?? '') === 'student')) {
+    $headerStudentRecord = getStudentRecordForUser($_SESSION['user_id']);
+    if (!empty($headerStudentRecord['student_id'])) {
+        syncStudentCommunityServiceOverdueNotifications($headerStudentRecord['student_id']);
+    }
+}
+
 $unreadNotifications = [];
 if (isset($_SESSION['user_id'])) {
     $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
@@ -28,6 +35,7 @@ if (!isset($adminName) || empty($adminName)) {
     
     <!-- Global Notifications System -->
     <script src="/PrototypeDO/assets/js/notifications.js"></script>
+    <script src="/PrototypeDO/assets/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
         <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
             <?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Dashboard'; ?>

@@ -886,13 +886,11 @@ if ($_POST['action'] === 'getCheckInHistory') {
             }
         }
 
-        $displayTotalDays = max($totalDays, $maxRecordedDay);
-        $canStillAddDayByWindow = $maxDayByDeadlineWindow === null || $maxRecordedDay < intval($maxDayByDeadlineWindow);
-        if ($deadlineAllowsExtension && $maxRecordedDay > 0 && $lastRecordedDayComplete && $stillNeedsAdditionalDay && $canStillAddDayByWindow) {
+        $displayTotalDays = max(1, $maxRecordedDay);
+        if ($maxRecordedDay === 0) {
+            $displayTotalDays = 1;
+        } elseif ($lastRecordedDayComplete && $stillNeedsAdditionalDay) {
             $displayTotalDays = max($displayTotalDays, $maxRecordedDay + 1);
-        }
-        if ($maxDayByDeadlineWindow !== null) {
-            $displayTotalDays = min($displayTotalDays, intval($maxDayByDeadlineWindow));
         }
         
         // Build day data
@@ -1065,12 +1063,20 @@ if ($_POST['action'] === 'recordCheckIn') {
         $sql = "UPDATE case_checkins SET check_in_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
         executeQuery($sql, [$now, $now, $existing['checkin_id']]);
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_in', [
+            'dayNumber' => $dayNumber,
+            'time' => $displayTime
+        ]);
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     } else {
         // Insert new check-in record
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_in_date) 
                 VALUES (?, ?, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_in', [
+            'dayNumber' => $dayNumber,
+            'time' => $displayTime
+        ]);
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     }
     exit;
@@ -1108,12 +1114,20 @@ if ($_POST['action'] === 'recordCheckOut') {
         $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
         executeQuery($sql, [$now, $now, $existing['checkin_id']]);
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_out', [
+            'dayNumber' => $dayNumber,
+            'time' => date('H:i')
+        ]);
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     } else {
         // Record doesn't exist - this shouldn't happen if check-in was recorded, but create one anyway
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_out_time, check_in_date) 
                 VALUES (?, ?, NULL, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_out', [
+            'dayNumber' => $dayNumber,
+            'time' => date('H:i')
+        ]);
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     }
     exit;
@@ -1160,6 +1174,11 @@ if ($_POST['action'] === 'manualCheckIn') {
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
     }
 
+    notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_in', [
+        'dayNumber' => $dayNumber,
+        'time' => $displayTime
+    ]);
+
     error_log("Manual check-in: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
     echo json_encode(['success' => true, 'message' => 'Manual check-in recorded', 'time' => $displayTime]);
     exit;
@@ -1205,6 +1224,11 @@ if ($_POST['action'] === 'manualCheckOut') {
                 VALUES (?, ?, ?, ?)";
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
     }
+
+    notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_out', [
+        'dayNumber' => $dayNumber,
+        'time' => $displayTime
+    ]);
 
     error_log("Manual check-out: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
     echo json_encode(['success' => true, 'message' => 'Manual check-out recorded', 'time' => $displayTime]);
@@ -1713,7 +1737,7 @@ $adminName = getFormattedUserName() ?? 'User';
                         </button>
 
                         <button onclick="addCase()"
-                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 prevent-double">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>

@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         $portfolioSanction = fetchOne(
             "SELECT TOP 1 cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
-                    cs.applied_date, s.sanction_name
+                    cs.applied_date, cs.is_completed, s.sanction_name
              FROM case_sanctions cs
              JOIN sanctions s ON cs.sanction_id = s.sanction_id
              WHERE cs.case_id = ?
@@ -166,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $sanction = fetchOne(
-            "SELECT cs.case_sanction_id, s.sanction_name
+            "SELECT cs.case_sanction_id, s.sanction_name, cs.is_completed
              FROM case_sanctions cs
              JOIN sanctions s ON s.sanction_id = cs.sanction_id
              WHERE cs.case_sanction_id = ?
@@ -181,6 +181,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         if (!$sanction) {
             echo json_encode(['success' => false, 'error' => 'Portfolio-enabled sanction not found for this case']);
+            exit;
+        }
+
+        // Check if sanction is completed
+        if (!$sanction['is_completed']) {
+            echo json_encode(['success' => false, 'error' => 'You can only upload files after the suspension or community service is complete']);
             exit;
         }
 
@@ -404,6 +410,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const caseId = urlParams.get('case_id');
             
             if (caseId) {
+                // Remove the case_id parameter from URL to prevent modal from opening again on reload
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.delete('case_id');
+                window.history.replaceState({}, '', newUrl);
+                
                 // Wait a bit for cases to load, then open the specific case
                 setTimeout(() => {
                     viewCaseDetails(caseId);
@@ -588,16 +599,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                     <div class="grid grid-cols-1 gap-3">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
-                                            <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+                                            <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${caseData.portfolio_sanction.is_completed ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
                                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Remarks (Optional)</label>
-                                            <textarea id="portfolioRemarksInput" rows="3" placeholder="Add a brief summary of your submission" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"></textarea>
+                                            <textarea id="portfolioRemarksInput" rows="3" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} placeholder="Add a brief summary of your submission" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 ${!caseData.portfolio_sanction.is_completed ? 'opacity-50' : ''}"></textarea>
                                         </div>
                                         <div class="flex items-center justify-between gap-3">
                                             <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
-                                            <button onclick="uploadCommunityServicePortfolio('${escapeHtml(caseData.case_id)}', '${escapeHtml(caseData.portfolio_sanction.case_sanction_id)}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+                                            <button onclick="uploadCommunityServicePortfolio('${escapeHtml(caseData.case_id)}', '${escapeHtml(caseData.portfolio_sanction.case_sanction_id)}')" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!caseData.portfolio_sanction.is_completed ? 'opacity-50 cursor-not-allowed' : ''}">
                                                 Submit Portfolio
                                             </button>
                                         </div>
