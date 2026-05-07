@@ -595,8 +595,8 @@ function getDeadlineStatusSectionHTML(activeSanction, {
                 : `Not enough remaining time: ${formatHourValue(correctiveCapacity.maxPossibleHours)}h max possible before deadline, ${formatHourValue(correctiveCapacity.remainingHours)}h still needed.`}
           </p>
           <div class="flex flex-wrap gap-2 mt-2">
-            <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'extend')" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium">Extend Deadline</button>
-            ${!isSuspension ? `<button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'increase')" class="px-3 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors font-medium">Add Required Hours</button>` : ''}
+            <button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'extend')" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium prevent-double">Extend Deadline</button>
+            ${!isSuspension ? `<button type="button" onclick="openDeadlineActionModal(${activeSanction.case_sanction_id}, 'increase')" class="px-3 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors font-medium prevent-double">Add Required Hours</button>` : ''}
           </div>
         </div>
       ` : ''}
@@ -614,7 +614,7 @@ function getCommunityServiceSubmissionsButtonHTML(caseId, caseSanctionId, submis
     <button
       type="button"
       onclick="openCommunityServiceSubmissionsModal('${caseId}', ${caseSanctionId})"
-      class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium relative"
+      class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium relative prevent-double"
       title="View student-submitted community service files">
       <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
@@ -998,7 +998,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
 
 function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, studentName, sanctionName, caseSanctionId = '') {
   let dayCardsHTML = '';
-  const displayDays = totalDays;
+  const displayDays = Math.max(1, Math.min(totalDays, activeDayNum || 1));
 
   for (let day = 1; day <= displayDays; day++) {
     if (day <= completedDays) {
@@ -1082,6 +1082,7 @@ function getDayCardsHTML(totalDays, completedDays, activeDayNum, caseId, student
 function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSanctionId, totalDaysLimit = null) {
   let dayCardsHTML = '';
   const totalDays = Object.keys(days).length;
+  const displayDays = totalDays > 0 ? totalDays : Math.max(1, totalDaysLimit || 1);
   
   // Calculate active day (first incomplete)
   let activeDayNum = totalDays + 1;
@@ -1093,13 +1094,10 @@ function getDayCardsHTMLFromData(days, caseId, studentName, sanctionName, caseSa
     }
   }
 
-  // Only render the day rows explicitly returned by the backend.
-  const displayDays = Math.max(totalDays, totalDaysLimit || 0);
-  
   for (let day = 1; day <= displayDays; day++) {
     const dayData = days[day] || {};
-    const isCompleted = dayData.check_in_time && dayData.check_out_time;
-    const hasCheckIn = dayData.check_in_time !== null;
+    const isCompleted = Boolean(dayData.check_in_time && dayData.check_out_time);
+    const hasCheckIn = Boolean(dayData.check_in_time);
     const isActiveDay = day === activeDayNum;
     
     if (isCompleted) {

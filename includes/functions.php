@@ -973,6 +973,320 @@ function markNotificationAsRead($notificationId) {
     }
 }
 
+function createUniqueNotification($userId, $title, $message, $type = 'system', $relatedId = null) {
+    if (!$userId) {
+        return false;
+    }
+
+    $relatedKey = trim((string)($relatedId ?? ''));
+    if ($relatedKey !== '') {
+        $existing = fetchOne(
+            "SELECT TOP 1 notification_id FROM notifications WHERE user_id = ? AND related_id = ?",
+            [$userId, $relatedKey]
+        );
+
+        if ($existing) {
+            return false;
+        }
+    }
+
+    createNotification($userId, $title, $message, $type, $relatedKey !== '' ? $relatedKey : null);
+    return true;
+}
+
+function inferCommunityServiceDurationDays($durationValue, $sanctionName) {
+    $stored = intval($durationValue);
+    if ($stored > 0) {
+        return $stored;
+    }
+
+    $name = strtolower((string)$sanctionName);
+
+    if (preg_match('/(\d+)\s*-\s*(\d+)\s*days?/i', $name, $rangeMatch)) {
+        $minDays = intval($rangeMatch[1]);
+        if ($minDays > 0) {
+            return $minDays;
+        }
+    }
+
+    if (preg_match('/(\d+)\s*days?/i', $name, $singleMatch)) {
+        $explicitDays = intval($singleMatch[1]);
+        if ($explicitDays > 0) {
+            return $explicitDays;
+        }
+    }
+
+    if (strpos($name, 'corrective reinforcement') !== false || strpos($name, 'suspension from class') !== false) {
+        return 3;
+    }
+
+    return 0;
+}
+
+function resolveStudentRecordForNotification($studentId) {
+    if (!$studentId) {
+        return null;
+    }
+
+    $student = fetchOne("SELECT user_id, first_name, last_name, student_id FROM students WHERE student_id = ?", [$studentId]);
+    if (!$student) {
+        return null;
+    }
+
+    $userId = $student['user_id'] ?? null;
+
+    if (!$userId) {
+        $searchUsername = '%' . substr($studentId, -4) . '%';
+        $searchNamePattern = strtolower($student['first_name']) . '%';
+
+        $foundUser = fetchOne(
+            "SELECT TOP 1 user_id, role FROM users WHERE (
+                        username LIKE ? 
+                        OR username LIKE ?
+                        OR email LIKE ?
+                    )",
+            [$searchUsername, $searchNamePattern, $searchUsername]
+        );
+
+        if ($foundUser) {
+            error_log(
+                'resolveStudentRecordForNotification: Possible existing user match found for student_id ' .
+                $studentId .
+                ' (user_id ' . $foundUser['user_id'] . '), but automatic linking and role changes are disabled. ' .
+                'Manual admin verification is required before linking this student to an existing user.'
+            );
+        } else {
+            try {
+                $tempPassword = password_hash('TempPassword123!', PASSWORD_BCRYPT);
+                $username = strtolower(str_replace(' ', '.', $student['first_name'] . '.' . $student['last_name'] . '.' . substr($studentId, -4)));
+                $email = 'student.' . $studentId . '@sti.edu.ph';
+
+                executeQuery(
+                    "INSERT INTO users (username, password_hash, email, full_name, role, is_active)
+                            VALUES (?, ?, ?, ?, ?, 1)",
+                    [
+                        $username,
+                        $tempPassword,
+                        $email,
+                        $student['first_name'] . ' ' . $student['last_name'],
+                        'student'
+                    ]
+                );
+
+                $newUser = fetchOne("SELECT TOP 1 user_id FROM users WHERE username = ?", [$username]);
+                if ($newUser) {
+                    $userId = $newUser['user_id'];
+                    executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $studentId]);
+                }
+            } catch (Exception $createUserEx) {
+                error_log('resolveStudentRecordForNotification: Failed to create user account - ' . $createUserEx->getMessage());
+                return null;
+            }
+        }
+    }
+
+    if (!$userId) {
+        return null;
+    }
+
+    $student['user_id'] = $userId;
+    return $student;
+}
+
+function getCommunityServiceSanctionSnapshot($caseSanctionId) {
+    $sql = "SELECT cs.case_sanction_id,
+                   cs.case_id,
+                   cs.duration_days,
+                   cs.duration_extra_hours,
+                   cs.deadline,
+                   cs.applied_date,
+                   s.sanction_name,
+                   st.student_id,
+                   st.first_name,
+                   st.last_name,
+                   st.user_id
+            FROM case_sanctions cs
+            JOIN cases c ON c.case_id = cs.case_id
+            JOIN students st ON st.student_id = c.student_id
+            JOIN sanctions s ON s.sanction_id = cs.sanction_id
+            WHERE cs.case_sanction_id = ?";
+
+    $sanction = fetchOne($sql, [$caseSanctionId]);
+    if (!$sanction) {
+        return null;
+    }
+
+    $sanction['required_days'] = inferCommunityServiceDurationDays($sanction['duration_days'] ?? null, $sanction['sanction_name'] ?? '');
+    $extraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+    $sanction['required_hours'] = max(0, $sanction['required_days'] > 0 ? ($extraHours > 0 ? (($sanction['required_days'] - 1) * 8) + $extraHours : ($sanction['required_days'] * 8)) : 0);
+
+    return $sanction;
+}
+
+function getCommunityServiceCompletionSnapshot($caseSanctionId) {
+    $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+    if (!$sanction) {
+        return null;
+    }
+
+    $completedHoursSql = "SELECT COALESCE(SUM(
+                            CASE
+                                WHEN cci.check_in_time IS NOT NULL
+                                 AND cci.check_out_time IS NOT NULL
+                                 AND DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                THEN CASE
+                                    WHEN DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
+                                    ELSE CAST(DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS FLOAT) / 60.0
+                                END
+                                ELSE 0
+                            END
+                        ), 0) AS completed_hours
+                        FROM (
+                            SELECT check_in_time, check_out_time,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY day_number
+                                       ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC
+                                   ) AS rn
+                            FROM case_checkins
+                            WHERE case_sanction_id = ?
+                        ) cci
+                        WHERE cci.rn = 1";
+    $completedDaysSql = "SELECT COUNT(DISTINCT day_number) AS completed_days
+                         FROM case_checkins
+                         WHERE case_sanction_id = ?
+                           AND check_in_time IS NOT NULL
+                           AND check_out_time IS NOT NULL";
+
+    $completedHoursRow = fetchOne($completedHoursSql, [$caseSanctionId]);
+    $completedDaysRow = fetchOne($completedDaysSql, [$caseSanctionId]);
+
+    $sanction['completed_hours'] = floatval($completedHoursRow['completed_hours'] ?? 0);
+    $sanction['completed_days'] = intval($completedDaysRow['completed_days'] ?? 0);
+    $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+    $isSuspension = strpos($sanctionNameLower, 'suspension from class') !== false;
+
+    $sanction['is_complete'] = $isSuspension
+        ? ($sanction['completed_days'] >= intval($sanction['required_days'] ?? 0))
+        : ($sanction['completed_hours'] >= floatval($sanction['required_hours'] ?? 0));
+
+    return $sanction;
+}
+
+function notifyStudentOnCommunityServiceEvent($caseSanctionId, $eventType, array $context = []) {
+    try {
+        $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+        if (!$sanction) {
+            return false;
+        }
+
+        $student = resolveStudentRecordForNotification($sanction['student_id'] ?? null);
+        if (!$student || empty($student['user_id'])) {
+            error_log('notifyStudentOnCommunityServiceEvent: Student user account could not be resolved for case sanction ' . $caseSanctionId);
+            return false;
+        }
+
+        $caseId = $sanction['case_id'] ?? '';
+        $sanctionName = trim((string)($sanction['sanction_name'] ?? 'Community Service'));
+        $sanctionLabel = (strpos(strtolower($sanctionName), 'suspension from class') !== false) ? 'Suspension from Class' : 'Community Service';
+        $sanctionLabelLower = strtolower($sanctionLabel);
+        $title = '';
+        $message = '';
+        $relatedId = '';
+
+        switch ($eventType) {
+            case 'deadline_extended':
+                $daysToAdd = max(1, intval($context['daysToAdd'] ?? 0));
+                $newDeadline = (string)($sanction['deadline'] ?? date('Y-m-d H:i:s'));
+                $title = $sanctionLabel . ' Deadline Extended';
+                $message = "Your {$sanctionLabelLower} deadline for Case {$caseId} was extended by {$daysToAdd} day(s).";
+                $relatedId = 'community_service_deadline_extended:' . $caseSanctionId . ':' . $newDeadline;
+                break;
+            case 'hours_added':
+                $additionalHours = max(1, intval($context['additionalHours'] ?? 0));
+                $newExtraHours = intval($sanction['duration_extra_hours'] ?? 0);
+                $title = $sanctionLabel . ' Requirements Increased';
+                $message = "Your {$sanctionLabelLower} requirement for Case {$caseId} was increased by {$additionalHours} hour(s).";
+                $relatedId = 'community_service_hours_added:' . $caseSanctionId . ':' . $newExtraHours;
+                break;
+            case 'checked_in':
+                $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
+                $timeLabel = trim((string)($context['time'] ?? ''));
+                $title = $sanctionLabel . ' Check-In Recorded';
+                $message = "Day {$dayNumber} check-in for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
+                $relatedId = 'community_service_checkin:' . $caseSanctionId . ':day' . $dayNumber;
+                break;
+            case 'checked_out':
+                $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
+                $timeLabel = trim((string)($context['time'] ?? ''));
+                $title = $sanctionLabel . ' Check-Out Recorded';
+                $message = "Day {$dayNumber} check-out for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
+                $relatedId = 'community_service_checkout:' . $caseSanctionId . ':day' . $dayNumber;
+                break;
+            case 'overdue':
+                $completion = getCommunityServiceCompletionSnapshot($caseSanctionId);
+                if (!empty($completion['is_complete'])) {
+                    return false;
+                }
+
+                if (empty($sanction['deadline'])) {
+                    return false;
+                }
+
+                $deadline = new DateTime($sanction['deadline']);
+                if ($deadline >= new DateTime()) {
+                    return false;
+                }
+
+                $title = $sanctionLabel . ' Overdue';
+                $message = "Your {$sanctionLabelLower} for Case {$caseId} is overdue. Please complete the remaining requirement as soon as possible.";
+                $relatedId = 'community_service_overdue:' . $caseSanctionId;
+                break;
+            default:
+                return false;
+        }
+
+        return createUniqueNotification($student['user_id'], $title, $message, 'community_service_update', $relatedId);
+    } catch (Exception $e) {
+        error_log('notifyStudentOnCommunityServiceEvent: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function syncStudentCommunityServiceOverdueNotifications($studentId) {
+    try {
+        if (!$studentId) {
+            return 0;
+        }
+
+        $sanctions = fetchAll(
+            "SELECT cs.case_sanction_id
+             FROM case_sanctions cs
+             JOIN cases c ON c.case_id = cs.case_id
+             JOIN sanctions s ON s.sanction_id = cs.sanction_id
+             WHERE c.student_id = ?
+               AND cs.deadline IS NOT NULL
+               AND (
+                    LOWER(s.sanction_name) LIKE '%corrective%'
+                    OR LOWER(s.sanction_name) LIKE '%community service%'
+                    OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+               )",
+            [$studentId]
+        );
+
+        $count = 0;
+        foreach ($sanctions as $sanction) {
+            if (notifyStudentOnCommunityServiceEvent($sanction['case_sanction_id'], 'overdue')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    } catch (Exception $e) {
+        error_log('syncStudentCommunityServiceOverdueNotifications: ' . $e->getMessage());
+        return 0;
+    }
+}
+
 /**
  * Notify all DO (Discipline Office) users of a new report submission
  * 
@@ -2272,7 +2586,9 @@ function extendSanctionDeadline($caseSanctionId, $daysToAdd = 7, $extensionNotes
         if (!empty($sanction['case_id'])) {
             logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Deadline Extended', null, $newNote);
         }
-        
+
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'deadline_extended', ['daysToAdd' => $daysToAdd]);
+
         return true;
     } catch (Exception $e) {
         error_log("Error extending sanction deadline: " . $e->getMessage());
@@ -2316,6 +2632,8 @@ function increaseSanctionDuration($caseSanctionId, $additionalHours = 8, $reason
         if (!empty($sanction['case_id'])) {
             logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Duration Increased', null, $note);
         }
+
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'hours_added', ['additionalHours' => $hoursToAdd]);
 
         return true;
     } catch (Exception $e) {
