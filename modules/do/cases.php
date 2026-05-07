@@ -170,6 +170,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
         }
     };
 
+    $logCommunityServiceEventAudit = function ($caseSanctionId, $eventType, $dayNumber, $timeLabel, $now) {
+        $sanctionInfo = fetchOne(
+            "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?",
+            [$caseSanctionId]
+        );
+
+        if (!$sanctionInfo || empty($sanctionInfo['case_id'])) {
+            return;
+        }
+
+        $action = $eventType === 'checked_out' ? 'Community Service Check-Out Recorded' : 'Community Service Check-In Recorded';
+        logAudit(
+            $_SESSION['user_id'] ?? null,
+            $action,
+            'cases',
+            $sanctionInfo['case_id'],
+            null,
+            [
+                'case_sanction_id' => $caseSanctionId,
+                'day_number' => $dayNumber,
+                'time' => $timeLabel,
+                'recorded_at' => $now
+            ]
+        );
+    };
+
     // Mark password warning as shown in this login session
     if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
         $_SESSION['password_warning_modal_shown'] = true;
@@ -1067,6 +1093,7 @@ if ($_POST['action'] === 'recordCheckIn') {
             'dayNumber' => $dayNumber,
             'time' => $displayTime
         ]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_in', $dayNumber, $displayTime, $now);
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     } else {
         // Insert new check-in record
@@ -1077,6 +1104,7 @@ if ($_POST['action'] === 'recordCheckIn') {
             'dayNumber' => $dayNumber,
             'time' => $displayTime
         ]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_in', $dayNumber, $displayTime, $now);
         echo json_encode(['success' => true, 'message' => 'Check-in recorded', 'time' => $displayTime]);
     }
     exit;
@@ -1118,6 +1146,7 @@ if ($_POST['action'] === 'recordCheckOut') {
             'dayNumber' => $dayNumber,
             'time' => date('H:i')
         ]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('H:i'), $now);
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     } else {
         // Record doesn't exist - this shouldn't happen if check-in was recorded, but create one anyway
@@ -1128,6 +1157,7 @@ if ($_POST['action'] === 'recordCheckOut') {
             'dayNumber' => $dayNumber,
             'time' => date('H:i')
         ]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('H:i'), $now);
         echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
     }
     exit;
@@ -1178,6 +1208,7 @@ if ($_POST['action'] === 'manualCheckIn') {
         'dayNumber' => $dayNumber,
         'time' => $displayTime
     ]);
+    $logCommunityServiceEventAudit($caseSanctionId, 'checked_in', $dayNumber, $displayTime, $now);
 
     error_log("Manual check-in: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
     echo json_encode(['success' => true, 'message' => 'Manual check-in recorded', 'time' => $displayTime]);
@@ -1229,6 +1260,7 @@ if ($_POST['action'] === 'manualCheckOut') {
         'dayNumber' => $dayNumber,
         'time' => $displayTime
     ]);
+    $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, $displayTime, $now);
 
     error_log("Manual check-out: Case Sanction $caseSanctionId, Day $dayNumber, Time: $displayTime");
     echo json_encode(['success' => true, 'message' => 'Manual check-out recorded', 'time' => $displayTime]);
