@@ -9,7 +9,7 @@ $isSuperAdmin = $_SESSION['user_role'] === 'super_admin';
 
 // Load saved handbook content from JSON file
 $handbookContent = [];
-$contentFile = __DIR__ . '/../../assets/handbook_content.json';
+$contentFile = __DIR__ . '/../../assets/json/handbook_content.json';
 if (file_exists($contentFile)) {
     $jsonContent = file_get_contents($contentFile);
     $handbookContent = json_decode($jsonContent, true) ?? [];

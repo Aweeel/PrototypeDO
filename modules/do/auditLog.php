@@ -34,6 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $params = [];
 
+            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
+            // EXCEPT for reporting actions from those roles
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
+                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+            }
+
             if (!empty($filters['search'])) {
                 $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
                 $searchParam = '%' . $filters['search'] . '%';
@@ -94,7 +101,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Get distinct user roles
         if ($_POST['action'] === 'getUsers') {
-            $roles = fetchAll("SELECT DISTINCT role FROM users WHERE role IS NOT NULL ORDER BY role", []) ?? [];
+            $sql = "SELECT DISTINCT role FROM users WHERE role IS NOT NULL";
+            
+            // DO/Discipline Office users cannot see super_admin, teacher, or security roles in filter options
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND role NOT IN ('super_admin', 'teacher', 'security')";
+            }
+            
+            $sql .= " ORDER BY role";
+            $roles = fetchAll($sql, []) ?? [];
+            
             // Format roles for display
             $formattedRoles = array_map(function($row) {
                 $role = $row['role'];
@@ -114,7 +130,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Get distinct action types
         if ($_POST['action'] === 'getActionTypes') {
-            $actions = fetchAll("SELECT DISTINCT action FROM audit_log WHERE action IS NOT NULL ORDER BY action", []) ?? [];
+            $sql = "SELECT DISTINCT al.action FROM audit_log al 
+                    LEFT JOIN users u ON al.user_id = u.user_id 
+                    WHERE al.action IS NOT NULL";
+            
+            // DO/Discipline Office users cannot see actions from super_admin, teacher, or security
+            // EXCEPT for report-related actions
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND ((u.role IS NOT NULL AND u.role NOT IN ('super_admin', 'teacher', 'security')) OR al.action LIKE '%Report%')";
+            }
+            
+            $sql .= " ORDER BY al.action";
+            $actions = fetchAll($sql, []) ?? [];
             echo json_encode(['success' => true, 'actionTypes' => $actions]);
             exit;
         }
@@ -137,6 +164,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     WHERE 1=1";
 
             $params = [];
+
+            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
+            // EXCEPT for reporting actions from those roles
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
+                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+            }
 
             if (!empty($filters['search'])) {
                 $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
@@ -254,6 +288,7 @@ function getActionColor($action) {
         'Case Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
         'Case Resolved' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
         'Report Submitted' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Student Case Viewed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
         
         // Sanctions
         'Sanction Created' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
@@ -303,7 +338,12 @@ function getActionColor($action) {
         
         // Handbook
         'Student Handbook PDF Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-        'Student Handbook Content Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+        'Student Handbook Content Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        
+        // Terms and Conditions
+        'Terms Accepted' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Terms and Conditions Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Terms Viewed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
     ];
     return $colors[$action] ?? 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300';
 }
