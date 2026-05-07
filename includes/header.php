@@ -10,7 +10,20 @@ require_once __DIR__ . '/password_warning.php';
 if (isset($_SESSION['user_id']) && (($_SESSION['user_role'] ?? '') === 'student')) {
     $headerStudentRecord = getStudentRecordForUser($_SESSION['user_id']);
     if (!empty($headerStudentRecord['student_id'])) {
-        syncStudentCommunityServiceOverdueNotifications($headerStudentRecord['student_id']);
+        $headerStudentId = (string) $headerStudentRecord['student_id'];
+        $headerSyncSessionKey = 'student_community_service_overdue_sync_date';
+        $headerToday = date('Y-m-d');
+
+        if (!isset($_SESSION[$headerSyncSessionKey]) || !is_array($_SESSION[$headerSyncSessionKey])) {
+            $_SESSION[$headerSyncSessionKey] = [];
+        }
+
+        if (($_SESSION[$headerSyncSessionKey][$headerStudentId] ?? null) !== $headerToday) {
+            // Mark before syncing so repeated page loads in the same session/day
+            // do not repeatedly trigger potentially expensive DB work.
+            $_SESSION[$headerSyncSessionKey][$headerStudentId] = $headerToday;
+            syncStudentCommunityServiceOverdueNotifications($headerStudentId);
+        }
     }
 }
 
