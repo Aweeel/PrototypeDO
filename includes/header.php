@@ -181,9 +181,26 @@ if (!isset($adminName) || empty($adminName)) {
                     // Get the user role from the HTML data attribute or session
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
                     const isPortfolioNotification = relatedId.startsWith('community_service_submission:');
+                    const isCommunityServiceEvent = relatedId.startsWith('community_service_deadline_extended:') || 
+                                                   relatedId.startsWith('community_service_hours_added:') ||
+                                                   relatedId.startsWith('community_service_checkin:') ||
+                                                   relatedId.startsWith('community_service_checkout:') ||
+                                                   relatedId.startsWith('community_service_overdue:');
                     let relatedCaseId = relatedId;
                     let relatedSanctionType = 'corrective';
-                    if (isPortfolioNotification) {
+                    if (isCommunityServiceEvent) {
+                        // Parse community service event notification
+                        const relatedParts = relatedId.split(':');
+                        if (relatedParts.length >= 4) {
+                            // New format: community_service_<event>:<caseId>:<caseSanctionId>:<otherData>
+                            relatedCaseId = relatedParts[1]; // caseId is at index 1
+                        } else if (relatedParts.length >= 3) {
+                            // Old format: community_service_<event>:<caseSanctionId>:<otherData>
+                            // For backward compatibility with old notifications, use caseSanctionId as fallback
+                            // This will likely fail to find the case, but that's better than nothing
+                            relatedCaseId = relatedParts[1]; // This is caseSanctionId, not caseId
+                        }
+                    } else if (isPortfolioNotification) {
                         const relatedParts = relatedId.split(':');
                         if (relatedParts.length >= 3) {
                             relatedSanctionType = (relatedParts[1] === 'suspension') ? 'suspension' : 'corrective';

@@ -1199,28 +1199,28 @@ function notifyStudentOnCommunityServiceEvent($caseSanctionId, $eventType, array
                 $newDeadline = (string)($sanction['deadline'] ?? date('Y-m-d H:i:s'));
                 $title = $sanctionLabel . ' Deadline Extended';
                 $message = "Your {$sanctionLabelLower} deadline for Case {$caseId} was extended by {$daysToAdd} day(s).";
-                $relatedId = 'community_service_deadline_extended:' . $caseSanctionId . ':' . $newDeadline;
+                $relatedId = 'community_service_deadline_extended:' . $caseId . ':' . $caseSanctionId . ':' . $newDeadline;
                 break;
             case 'hours_added':
                 $additionalHours = max(1, intval($context['additionalHours'] ?? 0));
                 $newExtraHours = intval($sanction['duration_extra_hours'] ?? 0);
                 $title = $sanctionLabel . ' Requirements Increased';
                 $message = "Your {$sanctionLabelLower} requirement for Case {$caseId} was increased by {$additionalHours} hour(s).";
-                $relatedId = 'community_service_hours_added:' . $caseSanctionId . ':' . $newExtraHours;
+                $relatedId = 'community_service_hours_added:' . $caseId . ':' . $caseSanctionId . ':' . $newExtraHours;
                 break;
             case 'checked_in':
                 $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
                 $timeLabel = trim((string)($context['time'] ?? ''));
                 $title = $sanctionLabel . ' Check-In Recorded';
                 $message = "Day {$dayNumber} check-in for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
-                $relatedId = 'community_service_checkin:' . $caseSanctionId . ':day' . $dayNumber;
+                $relatedId = 'community_service_checkin:' . $caseId . ':' . $caseSanctionId . ':day' . $dayNumber;
                 break;
             case 'checked_out':
                 $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
                 $timeLabel = trim((string)($context['time'] ?? ''));
                 $title = $sanctionLabel . ' Check-Out Recorded';
                 $message = "Day {$dayNumber} check-out for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
-                $relatedId = 'community_service_checkout:' . $caseSanctionId . ':day' . $dayNumber;
+                $relatedId = 'community_service_checkout:' . $caseId . ':' . $caseSanctionId . ':day' . $dayNumber;
                 break;
             case 'overdue':
                 $completion = getCommunityServiceCompletionSnapshot($caseSanctionId);
@@ -1239,7 +1239,7 @@ function notifyStudentOnCommunityServiceEvent($caseSanctionId, $eventType, array
 
                 $title = $sanctionLabel . ' Overdue';
                 $message = "Your {$sanctionLabelLower} for Case {$caseId} is overdue. Please complete the remaining requirement as soon as possible.";
-                $relatedId = 'community_service_overdue:' . $caseSanctionId;
+                $relatedId = 'community_service_overdue:' . $caseId . ':' . $caseSanctionId;
                 break;
             default:
                 return false;
