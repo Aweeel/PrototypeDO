@@ -111,186 +111,75 @@ if ($pdo) {
                 with any part of these terms, you should not use this system.
             </p>
 
-            <!-- Section -->
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    1. Purpose and Use
-                </h3>
-                <p>
-                    This system is designed exclusively for authorized STI personnel and students
-                    to manage discipline cases, records, and related communications. Users shall
-                    use this system only for legitimate, authorized purposes in connection with
-                    discipline office functions.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    2. Confidentiality and Data Protection
-                </h3>
-                <p>
-                    Users acknowledge that discipline records are confidential and sensitive.
-                    All users commit to maintaining the confidentiality of student information
-                    and discipline case details accessed through this system, in accordance with
-                    the Data Privacy Act of 2012 (RA 10173) and STI's Data Privacy Policy.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    3. User Responsibilities
-                </h3>
-                <ul class="list-disc list-inside space-y-1 pl-2">
-                    <li>Maintain the confidentiality of your login credentials at all times.</li>
-                    <li>Report any unauthorized access or suspected breach immediately.</li>
-                    <li>Use the system in compliance with STI policies and applicable laws.</li>
-                    <li>Never share your account or credentials with other individuals.</li>
-                    <li>Update your password when prompted by the system.</li>
-                </ul>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    4. Compliance with School Policies
-                </h3>
-                <p>
-                    All users must comply with STI's discipline policies, code of conduct, and
-                    data protection guidelines as outlined in the Student Handbook. Violations
-                    may result in disciplinary action and/or termination of system access.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    5. Liability Limitation
-                </h3>
-                <p>
-                    STI shall not be liable for any indirect, incidental, special, consequential,
-                    or punitive damages arising from the use or inability to use this system.
-                    Users access and use the system at their own risk.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    6. Modification of Terms
-                </h3>
-                <p>
-                    STI reserves the right to modify these terms at any time. Users may be
-                    required to accept updated terms upon their next login following a material
-                    change. Continued use of the system constitutes acceptance of any revised terms.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    7. Termination
-                </h3>
-                <p>
-                    STI may suspend or terminate access to this system at any time for violation
-                    of these terms, applicable law, or school policy, or for any other reason at
-                    its sole discretion, without prior notice.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    8. Role-Based Access Control
-                </h3>
-                <p>
-                    The system enforces role-based access restrictions. Administrators, teachers,
-                    and students have different access levels. Users may only access information
-                    relevant to their role and responsibilities. Attempting to circumvent access
-                    controls or access unauthorized information is strictly prohibited and may
-                    result in immediate termination of account access and disciplinary action.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    9. Monitoring and Audit Logging
-                </h3>
-                <p>
-                    All user activities within this system are logged and monitored for security,
-                    compliance, and operational purposes. This includes login times, actions taken,
-                    data accessed, and modifications made. These logs may be reviewed by STI
-                    administrators. By accepting these terms, you acknowledge
-                    and consent to such monitoring. Access logs are retained in accordance with
-                    STI's data retention policy and applicable law.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    10. Data Retention and Deletion
-                </h3>
-                <p>
-                    Student discipline records are retained in accordance with Philippine educational
-                    regulations and STI policy. Upon request or as required by law, inactive user
-                    accounts and associated non-essential data may be deleted after a period determined
-                    by STI. Archived records may be maintained for audit and legal compliance purposes.
-                    Users should not rely on system access for permanent data retention; critical
-                    information should be backed up separately.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    11. Security and Incident Response
-                </h3>
-                <p>
-                    STI implements reasonable technical and organizational security measures to protect
-                    system data. However, no system is completely secure. Users must immediately report
-                    any suspected security breaches, unauthorized access, or compromised credentials to
-                    the IT department or administration. In the event of a data breach, affected users
-                    will be notified in accordance with applicable data protection laws. STI is not
-                    liable for damages resulting from unauthorized access if the user failed to maintain
-                    credential confidentiality.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    12. System Availability and Maintenance
-                </h3>
-                <p>
-                    STI makes no guarantee regarding continuous system availability. The system may be
-                    taken offline for maintenance, updates, or security purposes without advance notice.
-                    Users should not rely on the system for time-critical operations. STI is not liable
-                    for any losses or damages resulting from system downtime, data loss, or unavailability,
-                    even if STI has been advised of the possibility of such damages.
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    13. Account Management
-                </h3>
-                <ul class="list-disc list-inside space-y-1 pl-2">
-                    <li>Each user is responsible for maintaining the security of their account credentials.</li>
-                    <li>Inactive accounts may be disabled or deleted after a period specified by STI.</li>
-                    <li>Users requesting account termination must do so through official STI channels.</li>
-                    <li>Upon termination of employment or enrollment, system access will be revoked.</li>
-                    <li>Users may not create multiple accounts or share accounts with others.</li>
-                </ul>
-            </div>
-
-            <div>
-                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    14. Governing Law and Jurisdiction
-                </h3>
-                <p>
-                    These Terms and Conditions are governed by the laws of the Republic of the Philippines
-                    and comply with the Data Privacy Act of 2012 (RA 10173). Any disputes arising from the
-                    use of this system shall be resolved in accordance with Philippine law and submitted to
-                    the appropriate courts in the Philippines. By using this system, users consent to the
-                    exclusive jurisdiction of Philippine courts.
-                </p>
-            </div>
+            <!-- Terms will be loaded here dynamically -->
+            <div id="termsContent"></div>
 
             <!-- Spacer so user must scroll to reach the bottom visually -->
             <div class="h-4"></div>
         </div>
+
+        <script>
+            // Load terms content from JSON when modal is shown
+            async function loadTermsContent() {
+                try {
+                    const response = await fetch('/PrototypeDO/modules/shared/termsHandler.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'action=getAllContent'
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success && data.content) {
+                        const termsContainer = document.getElementById('termsContent');
+                        termsContainer.innerHTML = '';
+                        
+                        // Define the order of sections to display
+                        const sectionOrder = [
+                            'purpose-and-use',
+                            'confidentiality-and-data-protection',
+                            'user-responsibilities',
+                            'compliance-with-school-policies',
+                            'liability-limitation',
+                            'modification-of-terms',
+                            'termination',
+                            'role-based-access-control',
+                            'monitoring-and-audit-logging',
+                            'data-retention-and-deletion',
+                            'security-and-incident-response',
+                            'system-availability-and-maintenance',
+                            'account-management',
+                            'governing-law-and-jurisdiction'
+                        ];
+                        
+                        sectionOrder.forEach(sectionId => {
+                            if (data.content[sectionId]) {
+                                const sectionDiv = document.createElement('div');
+                                sectionDiv.innerHTML = data.content[sectionId];
+                                termsContainer.appendChild(sectionDiv);
+                            }
+                        });
+                        
+                        // After content loads, check if scroll is needed
+                        // Small delay to ensure DOM is fully rendered
+                        setTimeout(() => {
+                            if (window.checkTosScroll) {
+                                window.checkTosScroll();
+                            }
+                        }, 100);
+                    }
+                } catch (error) {
+                    console.error('Error loading terms content:', error);
+                    document.getElementById('termsContent').innerHTML = '<p>Error loading terms content. Please refresh the page.</p>';
+                }
+            }
+
+            // Load terms when the modal becomes visible
+            if (document.getElementById('tosModal')) {
+                loadTermsContent();
+            }
+        </script>
 
         <!-- Scroll hint (hidden after scroll) -->
         <div id="tosScrollHint"
@@ -319,10 +208,9 @@ if ($pdo) {
                 </a>
                 <!-- Accept button — disabled until scrolled to bottom -->
                 <button id="tosAcceptBtn"
-                        onclick="acceptTos()"
                         disabled
                         class="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg font-medium
-                               transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+                               transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
                                hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     I Accept
                 </button>

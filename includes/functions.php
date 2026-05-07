@@ -1661,6 +1661,19 @@ function auditPortfolioViewed($caseId, $submissionCount) {
     );
 }
 
+/**
+ * Log student viewing their case details
+ */
+function auditStudentCaseViewed($caseId) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Student Case Viewed', 'cases', $caseId, null,
+        [
+            'viewed_at' => date('Y-m-d H:i:s'),
+            'student_view' => true
+        ]
+    );
+}
+
 // ==========================================
 // UTILITY FUNCTIONS
 // ==========================================
@@ -1727,6 +1740,11 @@ function get_sidebar_items($role) {
                 'label' => 'Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
+            ],
+            [
+                'label' => 'Terms & Conditions',
+                'path' => '/PrototypeDO/modules/super-admin/adminTerms.php',
+                'icon' => 'Terms-icon.png'
             ],
             [
                 'label' => 'Users',
@@ -2574,6 +2592,50 @@ function getUserTermsAcceptanceHistory($userId) {
             WHERE user_id = ? 
             ORDER BY accepted_date DESC";
     return fetchAll($sql, [$userId]);
+}
+
+/**
+ * Audit log helper: User accepts Terms and Conditions
+ */
+function auditTermsAccepted($userId, $version = null) {
+    if ($version === null) {
+        $version = 2; // Current version
+    }
+    
+    $user = getUserById($userId);
+    $userName = $user ? ($user['name'] ?? $user['email'] ?? "User #$userId") : "User #$userId";
+    
+    logAudit($userId, 'Terms Accepted', 'terms', 0, null, [
+        'action' => 'User accepted Terms and Conditions',
+        'terms_version' => $version,
+        'accepted_by' => $userName,
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
+    ]);
+}
+
+/**
+ * Audit log helper: Admin updates Terms and Conditions
+ */
+function auditTermsUpdated($adminId, $sectionsChanged = 0, $details = []) {
+    $admin = getUserById($adminId);
+    $adminName = $admin ? ($admin['name'] ?? $admin['email'] ?? "Admin #$adminId") : "Admin #$adminId";
+    
+    logAudit($adminId, 'Terms and Conditions Updated', 'terms', 0, null, [
+        'action' => 'Terms and Conditions content updated',
+        'updated_by' => $adminName,
+        'sections_changed' => $sectionsChanged,
+        'details' => $details,
+        'note' => 'All users will be required to accept the new terms on their next login'
+    ]);
+}
+
+/**
+ * Audit log helper: Admin views Terms in admin panel
+ */
+function auditTermsViewed($adminId) {
+    logAudit($adminId, 'Terms Viewed', 'terms', 0, null, [
+        'action' => 'Super admin viewed Terms and Conditions'
+    ]);
 }
 
 ?>

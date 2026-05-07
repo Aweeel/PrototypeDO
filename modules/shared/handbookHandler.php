@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         // Get or create the handbook config file
-        $configFile = __DIR__ . '/../../assets/handbook_content.json';
+        $configFile = __DIR__ . '/../../assets/json/handbook_content.json';
         $handbookData = [];
 
         if (file_exists($configFile)) {
@@ -176,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Handle getting all handbook content
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'getAllContent') {
     try {
-        $configFile = __DIR__ . '/../../assets/handbook_content.json';
+        $configFile = __DIR__ . '/../../assets/json/handbook_content.json';
         $handbookData = [];
 
         if (file_exists($configFile)) {
@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
 
-        $configFile = __DIR__ . '/../../assets/handbook_content.json';
+        $configFile = __DIR__ . '/../../assets/json/handbook_content.json';
         $handbookData = [];
 
         if (file_exists($configFile)) {
