@@ -133,6 +133,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $case['suspension_sanction'] = $portfolioSanction ?: null;
         $case['community_service_submissions'] = $submissions;
 
+        // Log this student viewing their case
+        auditStudentCaseViewed($caseId);
+
         echo json_encode(['success' => true, 'case' => $case]);
         exit;
     }
@@ -252,6 +255,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $remarks !== '' ? $remarks : null,
             ]
         );
+
+        // Audit log the portfolio submission
+        auditPortfolioSubmitted($caseId, $studentId, $sanction['sanction_name'] ?? 'Unknown', $originalName);
 
         notifyDOOnCommunityServicePortfolioSubmission(
             $caseId,

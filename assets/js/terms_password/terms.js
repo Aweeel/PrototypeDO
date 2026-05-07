@@ -5,26 +5,48 @@
     const btn    = document.getElementById('tosAcceptBtn');
     const hint   = document.getElementById('tosScrollHint');
 
+    // Ensure button starts disabled
+    if (btn) {
+        btn.disabled = true;
+    }
+
     function checkTosScroll() {
+        if (!body || !btn) return;
+        
         const scrolled = body.scrollTop + body.clientHeight;
         const total    = body.scrollHeight;
-        if (scrolled >= total * 0.90) {
+        // Only enable button if:
+        // 1. Content requires scrolling (scrollHeight > clientHeight) AND user scrolled 90%
+        // 2. OR content doesn't require scrolling (scrollHeight <= clientHeight)
+        const contentRequiresScroll = total > body.clientHeight;
+        
+        if (!contentRequiresScroll || scrolled >= total * 0.90) {
             btn.disabled = false;
             if (hint) hint.classList.add('hidden');
+        } else {
+            btn.disabled = true;
+            if (hint) hint.classList.remove('hidden');
         }
     }
 
     // Expose globally so the inline onscroll attribute works
     window.checkTosScroll = checkTosScroll;
 
-    // Also check on load in case content is short enough to not need scrolling
-    checkTosScroll();
+    // Check after content loads (don't check on initial load - wait for dynamic content to load)
 
     // Accept handler
     window.acceptTos = function (event) {
         if (event) {
+            event.preventDefault();
             event.stopPropagation();
         }
+        
+        // Prevent submission if button is disabled
+        if (btn.disabled) {
+            console.warn('Button is disabled - cannot accept terms');
+            return false;
+        }
+        
         const modal = document.getElementById('tosModal');
 
         fetch(window.location.href, {
@@ -48,5 +70,12 @@
             console.error('Error accepting terms:', err);
             alert('An error occurred. Please try again.');
         });
+        
+        return false;
     };
+
+    // Attach click event listener instead of onclick
+    if (btn) {
+        btn.addEventListener('click', acceptTos);
+    }
 })();

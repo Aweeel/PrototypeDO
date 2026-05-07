@@ -34,6 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $params = [];
 
+            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
+            // EXCEPT for reporting actions from those roles
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
+                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+            }
+
             if (!empty($filters['search'])) {
                 $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
                 $searchParam = '%' . $filters['search'] . '%';
@@ -46,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             if (!empty($filters['user'])) {
-                $sql .= " AND al.user_id = ?";
+                $sql .= " AND u.role = ?";
                 $params[] = $filters['user'];
             }
 
@@ -61,7 +68,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             $sql .= " ORDER BY al.log_id DESC";
-            $logs = fetchAll($sql, $params) ?? [];
+            
+            try {
+                $logs = fetchAll($sql, $params) ?? [];
+            } catch (Exception $dbError) {
+                error_log("Audit Log Query Error: " . $dbError->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Database query failed: ' . $dbError->getMessage()]);
+                exit;
+            }
 
             $formattedLogs = array_map(function ($log) {
                 return [
@@ -85,16 +99,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Get all users
+        // Get distinct user roles
         if ($_POST['action'] === 'getUsers') {
-            $users = executeQuery("SELECT user_id, full_name as name FROM users ORDER BY full_name", []) ?? [];
-            echo json_encode(['success' => true, 'users' => $users]);
+            $sql = "SELECT DISTINCT role FROM users WHERE role IS NOT NULL";
+            
+            // DO/Discipline Office users cannot see super_admin, teacher, or security roles in filter options
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND role NOT IN ('super_admin', 'teacher', 'security')";
+            }
+            
+            $sql .= " ORDER BY role";
+            $roles = fetchAll($sql, []) ?? [];
+            
+            // Format roles for display
+            $formattedRoles = array_map(function($row) {
+                $role = $row['role'];
+                $display = match($role) {
+                    'super_admin' => 'Super Admin',
+                    'do' => 'Discipline Office',
+                    'discipline_office' => 'Discipline Office',
+                    'teacher' => 'Teacher',
+                    'student' => 'Student',
+                    default => ucwords(str_replace('_', ' ', $role))
+                };
+                return ['role' => $role, 'display' => $display];
+            }, $roles);
+            echo json_encode(['success' => true, 'users' => $formattedRoles]);
             exit;
         }
 
         // Get distinct action types
         if ($_POST['action'] === 'getActionTypes') {
-            $actions = executeQuery("SELECT DISTINCT action FROM audit_log WHERE action IS NOT NULL ORDER BY action", []) ?? [];
+            $sql = "SELECT DISTINCT al.action FROM audit_log al 
+                    LEFT JOIN users u ON al.user_id = u.user_id 
+                    WHERE al.action IS NOT NULL";
+            
+            // DO/Discipline Office users cannot see actions from super_admin, teacher, or security
+            // EXCEPT for report-related actions
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND ((u.role IS NOT NULL AND u.role NOT IN ('super_admin', 'teacher', 'security')) OR al.action LIKE '%Report%')";
+            }
+            
+            $sql .= " ORDER BY al.action";
+            $actions = fetchAll($sql, []) ?? [];
             echo json_encode(['success' => true, 'actionTypes' => $actions]);
             exit;
         }
@@ -118,6 +165,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $params = [];
 
+            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
+            // EXCEPT for reporting actions from those roles
+            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
+                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
+                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+            }
+
             if (!empty($filters['search'])) {
                 $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
                 $searchParam = '%' . $filters['search'] . '%';
@@ -130,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             if (!empty($filters['user'])) {
-                $sql .= " AND al.user_id = ?";
+                $sql .= " AND u.role = ?";
                 $params[] = $filters['user'];
             }
 
@@ -194,19 +248,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 // Helper function
 function getActionColor($action) {
     $colors = [
+        // Core Operations
         'Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
         'Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
         'Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
         'Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
         'Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
         'Unarchived' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        
+        // Authentication
         'Login' => 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
         'Logout' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
         'Failed Login' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        
+        // User Management
+        'User Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'User Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'User Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Password Reset' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'User Activated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'User Deactivated' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        'User Activated (Bulk)' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'User Deactivated (Bulk)' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        'Student Imported' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Bulk Import' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        
+        // Students
+        'Student Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Student Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Student Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Student Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+        'Student Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        
+        // Case Management
         'Case Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
         'Case Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
         'Case Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
-        'Case Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+        'Case Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+        'Case Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Case Resolved' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Report Submitted' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Student Case Viewed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        
+        // Sanctions
+        'Sanction Created' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Sanction Applied' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Sanction Updated' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Sanction Removed' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Sanction Deadline Extended' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Sanction Duration Increased' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        
+        // Check-In/Check-Out
+        'Check-In Recorded' => 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+        'Check-Out Recorded' => 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+        'Time Corrected (check_in)' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Time Corrected (check_out)' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Time Record Reverted (check_in)' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Time Record Reverted (check_out)' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        
+        // Lost & Found
+        'Lost Item Added' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Lost Item Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Lost Item Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Lost Item Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Lost Item Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+        'Lost Item Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Lost Item Claimed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Lost Item Unclaimed' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        
+        // Portfolio & Submissions
+        'Portfolio Submitted' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Portfolio Viewed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        
+        // Calendar
+        'Calendar Event Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Calendar Event Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Calendar Event Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        
+        // Notifications
+        'Notification Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Notification Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Notification Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Notification Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+        'Notification Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Notification Read' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        
+        // Reports
+        'Report Generated' => 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+        
+        // Handbook
+        'Student Handbook PDF Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Student Handbook Content Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        
+        // Terms and Conditions
+        'Terms Accepted' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Terms and Conditions Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Terms Viewed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
     ];
     return $colors[$action] ?? 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300';
 }
@@ -253,6 +390,15 @@ function getActionColor($action) {
         h1, h2, h3 { page-break-after: avoid; margin: 0.25rem 0; }
         @page { margin: 15mm 10mm; size: A4; }
     }
+    
+    @media print {
+    span[class*="rounded-full"] {
+        background: none !important;
+        color: #111827 !important;
+        padding: 0 !important;
+        font-weight: 600;
+    }
+}
 </style>
 </head>
 
@@ -301,10 +447,10 @@ function getActionColor($action) {
                             <!-- Populated by JS -->
                         </select>
 
-                        <!-- User Filter -->
+                        <!-- Role Filter -->
                         <select id="userFilter" onchange="filterLogs()"
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                            <option value="">All Users</option>
+                            <option value="">All Roles</option>
                             <!-- Populated by JS -->
                         </select>
 
@@ -458,8 +604,107 @@ function getActionColor($action) {
         </div>
     </div>
 
+    <!-- Audit Log Detail Modal -->
+    <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Audit Log Detail - <span id="detailLogId"></span></h3>
+                <button onclick="closeLogDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Basic Information -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">User</h4>
+                        <p class="text-gray-900 dark:text-gray-100" id="detailUser"></p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Role</h4>
+                        <p class="text-gray-900 dark:text-gray-100" id="detailRole"></p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Action</h4>
+                        <div id="detailAction"></div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Timestamp</h4>
+                        <p class="text-gray-900 dark:text-gray-100" id="detailTimestamp"></p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Table</h4>
+                        <p class="text-gray-900 dark:text-gray-100" id="detailTable"></p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Record ID</h4>
+                        <p class="text-gray-900 dark:text-gray-100" id="detailRecordId"></p>
+                    </div>
+                </div>
+
+                <!-- Network Information -->
+                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Network Information</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">IP Address</h4>
+                            <p class="text-gray-900 dark:text-gray-100 font-mono text-sm" id="detailIpAddress"></p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">User Agent</h4>
+                            <p class="text-gray-900 dark:text-gray-100 text-xs break-all" id="detailUserAgent"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Old Values -->
+                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
+                    <div id="oldValuesSection">
+                        <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- New Values -->
+                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
+                    <div id="newValuesSection">
+                        <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex justify-between gap-3">
+                <div class="flex gap-3">
+                    <button onclick="exportDetailAsCSV()" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export CSV
+                    </button>
+                    <button onclick="printDetailAsPDF()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        Print / Save PDF
+                    </button>
+                </div>
+                <button onclick="closeLogDetailModal()" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/PrototypeDO/assets/js/audit_log/main.js"></script>
     <script src="/PrototypeDO/assets/js/audit_log/filters.js"></script>
+    <script src="/PrototypeDO/assets/js/audit_log/modals.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
 </html>

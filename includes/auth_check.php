@@ -126,6 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             if (!$result) {
                 throw new Exception("Database update failed");
             }
+            
+            // Audit log the terms acceptance
+            auditTermsAccepted($_SESSION['user_id'], 2);
         }
         
         $_SESSION['tos_accepted'] = true;
