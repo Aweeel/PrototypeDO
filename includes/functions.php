@@ -1040,21 +1040,12 @@ function resolveStudentRecordForNotification($studentId) {
         );
 
         if ($foundUser) {
-            $userId = $foundUser['user_id'];
-
-            try {
-                executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $studentId]);
-            } catch (Exception $e) {
-                error_log('resolveStudentRecordForNotification: Could not update student record - ' . $e->getMessage());
-            }
-
-            if (($foundUser['role'] ?? '') !== 'student') {
-                try {
-                    executeQuery("UPDATE users SET role = 'student' WHERE user_id = ?", [$userId]);
-                } catch (Exception $roleEx) {
-                    error_log('resolveStudentRecordForNotification: Could not update user role - ' . $roleEx->getMessage());
-                }
-            }
+            error_log(
+                'resolveStudentRecordForNotification: Possible existing user match found for student_id ' .
+                $studentId .
+                ' (user_id ' . $foundUser['user_id'] . '), but automatic linking and role changes are disabled. ' .
+                'Manual admin verification is required before linking this student to an existing user.'
+            );
         } else {
             try {
                 $tempPassword = password_hash('TempPassword123!', PASSWORD_BCRYPT);
