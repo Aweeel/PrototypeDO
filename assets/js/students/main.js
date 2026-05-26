@@ -84,7 +84,7 @@ function renderStudents() {
 
     grid.innerHTML = pageStudents.map(student => `
         <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg p-5 hover:shadow-md transition-all duration-200 h-[100px]">
-            <div class="flex items-start justify-between h-full">
+            <div class="flex items-center justify-between h-full">
                 <!-- Student Info -->
                 <div class="flex items-center gap-4 flex-1">
                     <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
@@ -165,6 +165,19 @@ function formatDate(dateStr) {
     const date = new Date(dateStr);
     const options = { month: 'short', day: 'numeric', year: 'numeric' };
     return date.toLocaleDateString('en-US', options);
+}
+
+function openCaseDetails(caseId, isArchived = false, caseStatus = '') {
+    const normalizedStatus = String(caseStatus || '').trim().toLowerCase();
+    let targetTab = 'current';
+
+    if (isArchived) {
+        targetTab = 'archived';
+    } else if (normalizedStatus === 'resolved') {
+        targetTab = 'resolved';
+    }
+
+    window.location.href = `/PrototypeDO/modules/do/cases.php?highlightCase=1&highlightCaseId=${encodeURIComponent(caseId)}&tab=${encodeURIComponent(targetTab)}`;
 }
 
 // ====== Helper Functions ======
@@ -259,7 +272,7 @@ async function viewHistory(studentId) {
                     <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-4">Incident History</h5>
                     <div class="space-y-3">
                         ${cases.length > 0 ? cases.map(c => `
-                            <div class="rounded-lg p-4 border ${
+                            <button type="button" onclick="openCaseDetails('${c.case_id}', ${c.is_archived == 1 ? 'true' : 'false'}, '${String(c.status || '').replace(/'/g, "\\'")}')" class="w-full text-left rounded-lg p-4 border transition-colors hover:bg-blue-50 dark:hover:bg-slate-700/70 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                 c.is_archived == 1
                                     ? 'bg-gray-100 dark:bg-slate-800/30 border-gray-300 dark:border-slate-600 opacity-70'
                                     : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
@@ -285,7 +298,7 @@ async function viewHistory(studentId) {
                                         ` : ''}
                                     </div>
                                 </div>
-                            </div>
+                            </button>
                         `).join('') : `
                             <div class="text-center py-8 text-gray-500 dark:text-gray-400">
                                 <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

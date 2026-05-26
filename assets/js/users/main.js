@@ -398,63 +398,76 @@ function resetPassword(userId) {
 }
 
 function toggleUserStatus(userId, currentStatus) {
-    if (!confirm('Are you sure you want to ' + (currentStatus ? 'deactivate' : 'activate') + ' this user?')) {
-        return;
-    }
+    const user = allUsers.find(u => u.user_id == userId);
+    const userLabel = user ? `${user.full_name} (${user.email})` : 'this user';
 
-    const formData = new FormData();
-    formData.append('ajax', '1');
-    formData.append('action', 'toggleStatus');
-    formData.append('user_id', userId);
+    showConfirmDialog({
+        title: currentStatus ? 'Deactivate User' : 'Activate User',
+        message: `Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} ${userLabel}?`,
+        confirmText: currentStatus ? 'Deactivate' : 'Activate',
+        confirmClass: currentStatus ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'
+    }).then((confirmed) => {
+        if (!confirmed) return;
 
-    fetch(window.location.pathname, {
-        method: 'POST',
-        body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessage('User status updated successfully', 'success');
-            loadUsers();
-        } else {
-            showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showMessage('Error updating status', 'error');
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'toggleStatus');
+        formData.append('user_id', userId);
+
+        fetch(window.location.pathname, {
+            method: 'POST',
+            body: new URLSearchParams(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage('User status updated successfully', 'success');
+                loadUsers();
+            } else {
+                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error updating status', 'error');
+        });
     });
 }
 
 function deleteUser(userId) {
     const user = allUsers.find(u => u.user_id == userId);
-    const identifier = user ? user.email : 'Unknown';
-    
-    if (!confirm(`Are you sure you want to delete user "${identifier}"? This action cannot be undone.`)) {
-        return;
-    }
+    const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
-    const formData = new FormData();
-    formData.append('ajax', '1');
-    formData.append('action', 'deleteUser');
-    formData.append('user_id', userId);
+    showConfirmDialog({
+        title: 'Delete User',
+        message: `Are you sure you want to delete ${identifier}? This action cannot be undone.`,
+        confirmText: 'Delete',
+        confirmClass: 'bg-red-600 hover:bg-red-700'
+    }).then((confirmed) => {
+        if (!confirmed) return;
 
-    fetch(window.location.pathname, {
-        method: 'POST',
-        body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessage('User deleted successfully', 'success');
-            loadUsers();
-        } else {
-            showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showMessage('Error deleting user', 'error');
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'deleteUser');
+        formData.append('user_id', userId);
+
+        fetch(window.location.pathname, {
+            method: 'POST',
+            body: new URLSearchParams(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage('User deleted successfully', 'success');
+                loadUsers();
+            } else {
+                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error deleting user', 'error');
+        });
     });
 }
 
@@ -610,12 +623,15 @@ function bulkSetActive() {
         showMessage('No users selected', 'error');
         return;
     }
-    
-    if (!confirm(`Activate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`)) {
-        return;
-    }
-    
-    performBulkAction('setActive', Array.from(selectedUserIds));
+
+    showConfirmDialog({
+        title: 'Activate Users',
+        message: `Activate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
+        confirmText: 'Activate',
+        confirmClass: 'bg-green-600 hover:bg-green-700'
+    }).then((confirmed) => {
+        if (confirmed) performBulkAction('setActive', Array.from(selectedUserIds));
+    });
 }
 
 function bulkSetInactive() {
@@ -623,12 +639,15 @@ function bulkSetInactive() {
         showMessage('No users selected', 'error');
         return;
     }
-    
-    if (!confirm(`Deactivate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`)) {
-        return;
-    }
-    
-    performBulkAction('setInactive', Array.from(selectedUserIds));
+
+    showConfirmDialog({
+        title: 'Deactivate Users',
+        message: `Deactivate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
+        confirmText: 'Deactivate',
+        confirmClass: 'bg-yellow-600 hover:bg-yellow-700'
+    }).then((confirmed) => {
+        if (confirmed) performBulkAction('setInactive', Array.from(selectedUserIds));
+    });
 }
 
 function bulkDelete() {
@@ -636,12 +655,15 @@ function bulkDelete() {
         showMessage('No users selected', 'error');
         return;
     }
-    
-    if (!confirm(`Delete ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? This action cannot be undone.`)) {
-        return;
-    }
-    
-    performBulkAction('deleteUsers', Array.from(selectedUserIds));
+
+    showConfirmDialog({
+        title: 'Delete Users',
+        message: `Delete ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? This action cannot be undone.`,
+        confirmText: 'Delete',
+        confirmClass: 'bg-red-600 hover:bg-red-700'
+    }).then((confirmed) => {
+        if (confirmed) performBulkAction('deleteUsers', Array.from(selectedUserIds));
+    });
 }
 
 async function performBulkAction(action, userIds) {

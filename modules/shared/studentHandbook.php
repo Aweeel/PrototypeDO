@@ -57,6 +57,7 @@ function getHandbookSection($sectionId, $defaultContent) {
         let lastHighlights = [];
         let quillEditors = {};
         let editMode = false;
+        let handbookUnsavedChanges = {};
 
         function clearHighlights() {
             lastHighlights.forEach(el => {
@@ -79,6 +80,104 @@ function getHandbookSection($sectionId, $defaultContent) {
           
           svg.appendChild(path);
           return svg;
+        }
+
+        function getHandbookSectionElements(sectionId) {
+          const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+          return {
+            section,
+            contentDiv: section ? section.querySelector('.handbook-content') : null,
+            editorWrapper: section ? section.querySelector('.ql-editor-wrapper') : null,
+            iconContainer: document.getElementById(`icon-${sectionId}`),
+            buttonsContainer: document.getElementById(`buttons-${sectionId}`),
+            headerWrapper: section ? section.querySelector('.handbook-header-wrapper') : null
+          };
+        }
+
+        function resetHandbookEditorHost(sectionId, contentHtml) {
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (!contentDiv) return null;
+
+          const editorId = `editor-${sectionId}`;
+          const editorWrapper = document.createElement('div');
+          editorWrapper.id = editorId;
+          editorWrapper.className = 'ql-editor-wrapper mb-8 p-4 border border-blue-300 rounded-lg bg-gray-50 dark:bg-slate-700';
+          editorWrapper.innerHTML = contentHtml;
+
+          contentDiv.innerHTML = '';
+          contentDiv.appendChild(editorWrapper);
+          return editorWrapper;
+        }
+
+        function destroyHandbookEditor(sectionId) {
+          if (quillEditors[sectionId]) {
+            delete quillEditors[sectionId];
+          }
+        }
+
+        function syncHandbookEditControls(sectionId, isEditing) {
+          const { contentDiv, editorWrapper, iconContainer, buttonsContainer, headerWrapper } = getHandbookSectionElements(sectionId);
+
+          if (contentDiv) contentDiv.style.display = 'block';
+          if (editorWrapper) editorWrapper.style.display = isEditing ? 'block' : 'none';
+          if (iconContainer) iconContainer.style.display = isEditing ? 'none' : 'inline-flex';
+          if (buttonsContainer) {
+            buttonsContainer.style.display = isEditing ? 'flex' : 'none';
+            if (isEditing) {
+              const cancelBtn = buttonsContainer.querySelector('button:first-child');
+              const saveBtn = buttonsContainer.querySelector('button:last-child');
+              if (cancelBtn) cancelBtn.disabled = false;
+              if (saveBtn) saveBtn.disabled = false;
+            }
+          }
+          if (headerWrapper) headerWrapper.style.marginBottom = isEditing ? '1.5rem' : '';
+        }
+
+        function startHandbookEditing(sectionId) {
+          if (quillEditors[sectionId]) return;
+
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (!contentDiv) return;
+
+          contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
+          const editorWrapper = resetHandbookEditorHost(sectionId, contentDiv.innerHTML);
+          if (!editorWrapper) return;
+
+          const quill = new Quill(`#editor-${sectionId}`, {
+            theme: 'snow',
+            placeholder: 'Edit section content...',
+            modules: {
+              toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'header': [1, 2, 3, false] }],
+                ['link', 'image'],
+                ['clean']
+              ]
+            }
+          });
+
+          quillEditors[sectionId] = quill;
+          const initialEditorHtml = quill.root.innerHTML;
+          handbookUnsavedChanges[sectionId] = false;
+
+          quill.on('text-change', () => {
+            handbookUnsavedChanges[sectionId] = quill.root.innerHTML !== initialEditorHtml;
+          });
+
+          syncHandbookEditControls(sectionId, true);
+        }
+
+        function stopHandbookEditing(sectionId, restoreSavedContent = false) {
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (restoreSavedContent && contentDiv?.hasAttribute('data-original-html')) {
+            contentDiv.innerHTML = contentDiv.getAttribute('data-original-html');
+          }
+
+          destroyHandbookEditor(sectionId);
+          handbookUnsavedChanges[sectionId] = false;
+          syncHandbookEditControls(sectionId, false);
         }
     </script>
     
@@ -276,6 +375,63 @@ function getHandbookSection($sectionId, $defaultContent) {
   }
   .dark .active-toc-link {
     color: #60a5fa !important;
+  }
+
+  .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+
+  .ql-editor {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  .ql-toolbar.ql-snow {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+  }
+
+  .ql-toolbar.ql-snow button,
+  .ql-toolbar.ql-snow .ql-picker-label,
+  .ql-toolbar.ql-snow .ql-picker-item {
+    color: #374151;
+  }
+
+  .ql-toolbar.ql-snow button svg,
+  .ql-toolbar.ql-snow .ql-picker-label svg {
+    fill: currentColor;
+  }
+
+  .dark .ql-container.ql-snow {
+    border-color: #374151;
+  }
+
+  .dark .ql-toolbar.ql-snow {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .dark .ql-toolbar.ql-snow button,
+  .dark .ql-toolbar.ql-snow .ql-picker-label,
+  .dark .ql-toolbar.ql-snow .ql-picker-item {
+    color: #e5e7eb;
+  }
+
+  .dark .ql-toolbar.ql-snow .ql-stroke {
+    stroke: #e5e7eb;
+  }
+
+  .dark .ql-toolbar.ql-snow .ql-fill {
+    fill: #e5e7eb;
+  }
+
+  .dark .ql-editor {
+    background-color: #111827;
+    color: #e5e7eb;
+  }
+
+  .dark .ql-editor.ql-blank::before {
+    color: #6b7280;
   }
 </style>
 
@@ -3795,11 +3951,13 @@ function initializeEditIcons() {
     buttonsContainer.style.display = 'none';
     
     const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
     cancelBtn.className = 'bg-gray-600 hover:bg-gray-700 text-white font-medium px-3 py-1 rounded-lg shadow transition';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = () => cancelEditSection(sectionId);
     
     const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
     saveBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1 rounded-lg shadow transition';
     saveBtn.textContent = 'Save';
     saveBtn.onclick = () => saveSectionEdit(sectionId);
@@ -3816,102 +3974,84 @@ function initializeEditIcons() {
 }
 
 function startEditingSection(sectionId) {
-  // Prevent creating multiple editors for the same section
-  if (quillEditors[sectionId]) {
-    console.log('Editor already open for section:', sectionId);
-    return;
-  }
-  
-  // Get the section and its content
+  startHandbookEditing(sectionId);
+}
+
+function isSectionDirty(sectionId) {
   const section = document.querySelector(`[data-section-id="${sectionId}"]`);
-  const contentDiv = section.querySelector('.handbook-content');
-  
-  if (!contentDiv) return;
-  
-  // Store original HTML
-  contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
-  
-  // Create Quill editor wrapper
-  const editorId = 'editor-' + sectionId;
-  const editorWrapper = document.createElement('div');
-  editorWrapper.id = editorId;
-  editorWrapper.className = 'ql-editor-wrapper mb-8 p-4 border border-blue-300 rounded-lg bg-gray-50 dark:bg-slate-700';
-  
-  // Move content into editor
-  editorWrapper.innerHTML = contentDiv.innerHTML;
-  contentDiv.innerHTML = '';
-  contentDiv.appendChild(editorWrapper);
-  
-  // Initialize Quill
-  const quill = new Quill('#' + editorId, {
-    theme: 'snow',
-    placeholder: 'Edit section content...',
-    modules: {
-      toolbar: [
-        ['bold', 'italic', 'underline', 'strike'],
-        ['blockquote', 'code-block'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        [{ 'header': [1, 2, 3, false] }],
-        ['link', 'image'],
-        ['clean']
-      ]
-    }
+  const contentDiv = section ? section.querySelector('.handbook-content') : null;
+  const originalHtml = contentDiv?.getAttribute('data-original-html') ?? '';
+  const currentHtml = quillEditors[sectionId] ? quillEditors[sectionId].root.innerHTML : (contentDiv?.innerHTML ?? '');
+  return currentHtml !== originalHtml;
+}
+
+function showHandbookConfirmDialog(title, message, confirmText = 'Confirm', confirmClass = 'bg-blue-600 hover:bg-blue-700') {
+  const existing = document.getElementById('handbookConfirmDialog');
+  if (existing) {
+    existing.remove();
+  }
+
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.id = 'handbookConfirmDialog';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
+        </div>
+        <div class="p-6">
+          <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
+        </div>
+        <div class="flex gap-3 p-6 pt-0 justify-end">
+          <button type="button" data-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+          <button type="button" data-confirm class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">${confirmText}</button>
+        </div>
+      </div>
+    `;
+
+    const finish = (value) => {
+      modal.remove();
+      resolve(value);
+    };
+
+    modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
+    modal.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        finish(false);
+      }
+    });
+
+    document.body.appendChild(modal);
   });
-  
-  quillEditors[sectionId] = quill;
-  
-  // Hide icon and show buttons
-  const iconContainer = document.getElementById(`icon-${sectionId}`);
-  const buttonsContainer = document.getElementById(`buttons-${sectionId}`);
-  const headerWrapper = section.querySelector('.handbook-header-wrapper');
-  
-  if (iconContainer) {
-    iconContainer.style.display = 'none';
-  }
-  if (buttonsContainer) {
-    buttonsContainer.style.display = 'flex';
-  }
-  if (headerWrapper) {
-    headerWrapper.style.marginBottom = '1.5rem';
-  }
 }
 
-function cancelEditSection(sectionId) {
-  const section = document.querySelector(`[data-section-id="${sectionId}"]`);
-  const contentDiv = section.querySelector('.handbook-content');
-  
-  if (contentDiv.hasAttribute('data-original-html')) {
-    contentDiv.innerHTML = contentDiv.getAttribute('data-original-html');
-    contentDiv.removeAttribute('data-original-html');
+async function cancelEditSection(sectionId, skipConfirm = false) {
+  if (!skipConfirm && handbookUnsavedChanges[sectionId]) {
+    const confirmed = await showHandbookConfirmDialog('Discard Changes', 'You have unsaved changes. Are you sure you want to cancel?', 'Discard', 'bg-red-600 hover:bg-red-700');
+    if (!confirmed) {
+      return;
+    }
   }
-  
-  if (quillEditors[sectionId]) {
-    delete quillEditors[sectionId];
-  }
-  
-  // Show icon and hide buttons
-  const iconContainer = document.getElementById(`icon-${sectionId}`);
-  const buttonsContainer = document.getElementById(`buttons-${sectionId}`);
-  const headerWrapper = section.querySelector('.handbook-header-wrapper');
-  
-  if (iconContainer) {
-    iconContainer.style.display = 'inline-flex';
-  }
-  if (buttonsContainer) {
-    buttonsContainer.style.display = 'none';
-  }
-  if (headerWrapper) {
-    headerWrapper.style.marginBottom = '';
-  }
+
+  stopHandbookEditing(sectionId, true);
 }
 
 
 
-function saveSectionEdit(sectionId) {
+async function saveSectionEdit(sectionId) {
   if (!quillEditors[sectionId]) return;
   
   const buttonsContainer = document.getElementById(`buttons-${sectionId}`);
   const saveBtn = buttonsContainer ? buttonsContainer.querySelector('button:last-child') : null;
+
+  if (handbookUnsavedChanges[sectionId]) {
+    const confirmed = await showHandbookConfirmDialog('Save Changes', 'Save the changes you made to this section?', 'Save', 'bg-green-600 hover:bg-green-700');
+    if (!confirmed) {
+      return;
+    }
+  }
   
   // Disable save button
   if (saveBtn) saveBtn.disabled = true;
@@ -3931,8 +4071,14 @@ function saveSectionEdit(sectionId) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      const { contentDiv } = getHandbookSectionElements(sectionId);
+      if (contentDiv) {
+        contentDiv.innerHTML = content;
+        contentDiv.setAttribute('data-original-html', content);
+      }
+      handbookUnsavedChanges[sectionId] = false;
       // Auto-exit edit mode immediately
-      cancelEditSection(sectionId);
+      stopHandbookEditing(sectionId, false);
     } else {
       if (saveBtn) saveBtn.disabled = false;
       alert('Error saving section: ' + (data.message || 'Unknown error'));

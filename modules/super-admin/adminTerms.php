@@ -48,6 +48,56 @@ if (!$isSuperAdmin) {
       let editingSections = new Set();
       let hasUnsavedChanges = {};
 
+        function showConfirmDialog(options = {}) {
+          const {
+            title = 'Confirm',
+            message = '',
+            confirmText = 'Confirm',
+            cancelText = 'Cancel',
+            confirmClass = 'bg-blue-600 hover:bg-blue-700',
+          } = options;
+
+          return new Promise((resolve) => {
+            const existing = document.getElementById('termsConfirmDialog');
+            if (existing) {
+              existing.remove();
+            }
+
+            const modal = document.createElement('div');
+            modal.id = 'termsConfirmDialog';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+            modal.innerHTML = `
+              <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                  <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
+                </div>
+                <div class="p-6">
+                  <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
+                </div>
+                <div class="flex gap-3 p-6 pt-0 justify-end">
+                  <button type="button" data-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">${cancelText}</button>
+                  <button type="button" data-confirm class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">${confirmText}</button>
+                </div>
+              </div>
+            `;
+
+            const finish = (value) => {
+              modal.remove();
+              resolve(value);
+            };
+
+            modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
+            modal.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
+            modal.addEventListener('click', (event) => {
+              if (event.target === modal) {
+                finish(false);
+              }
+            });
+
+            document.body.appendChild(modal);
+          });
+        }
+
       // Track unsaved changes
       window.addEventListener('beforeunload', (e) => {
           if (Object.values(hasUnsavedChanges).some(v => v)) {
@@ -71,6 +121,62 @@ if (!$isSuperAdmin) {
           svg.appendChild(path);
           return svg;
       }
+
+          function getTermsSectionElements(sectionId) {
+            const section = document.getElementById(sectionId);
+            return {
+              section,
+              contentDiv: section ? section.querySelector('.terms-content') : null,
+              editorWrapper: document.getElementById(`editor-wrapper-${sectionId}`),
+              iconContainer: document.getElementById(`icon-${sectionId}`),
+              buttonsContainer: document.getElementById(`buttons-${sectionId}`)
+            };
+          }
+
+          function resetTermsEditorHost(sectionId) {
+            const { editorWrapper } = getTermsSectionElements(sectionId);
+            if (editorWrapper) {
+              editorWrapper.innerHTML = `<div id="quill-${sectionId}" class="ql-container"></div>`;
+            }
+          }
+
+          function destroyTermsEditor(sectionId) {
+            if (quillEditors[sectionId]) {
+              delete quillEditors[sectionId];
+            }
+            resetTermsEditorHost(sectionId);
+          }
+
+          function syncTermsEditControls(sectionId, isEditing) {
+            const { contentDiv, editorWrapper, iconContainer, buttonsContainer } = getTermsSectionElements(sectionId);
+
+            if (contentDiv) {
+              contentDiv.style.display = isEditing ? 'none' : 'block';
+            }
+            if (editorWrapper) {
+              editorWrapper.style.display = isEditing ? 'block' : 'none';
+            }
+            if (iconContainer) {
+              iconContainer.style.display = isEditing ? 'none' : 'inline';
+            }
+            if (buttonsContainer) {
+              buttonsContainer.style.display = isEditing ? 'flex' : 'none';
+            }
+          }
+
+          function startTermsEditing(sectionId) {
+            editingSections.add(sectionId);
+            initializeQuillEditor(sectionId);
+            hasUnsavedChanges[sectionId] = false;
+            syncTermsEditControls(sectionId, true);
+          }
+
+          function stopTermsEditing(sectionId) {
+            editingSections.delete(sectionId);
+            destroyTermsEditor(sectionId);
+            hasUnsavedChanges[sectionId] = false;
+            syncTermsEditControls(sectionId, false);
+          }
 
       const sectionIds = [
           'purpose-and-use',
@@ -164,12 +270,9 @@ if (!$isSuperAdmin) {
                       if (section) {
                           const contentDiv = section.querySelector('.terms-content');
                           if (contentDiv) {
-                              // Store original content in data attribute for cancel functionality
-                              if (!contentDiv.hasAttribute('data-original-html')) {
-                                  contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
-                              }
                               // Update with saved content
                               contentDiv.innerHTML = content;
+                        contentDiv.setAttribute('data-original-html', content);
                           }
                       }
                   });
@@ -182,6 +285,7 @@ if (!$isSuperAdmin) {
       function initializeQuillEditor(sectionId) {
           const editor = document.getElementById(`quill-${sectionId}`);
           if (editor && !quillEditors[sectionId]) {
+              resetTermsEditorHost(sectionId);
               quillEditors[sectionId] = new Quill(`#quill-${sectionId}`, {
                   theme: 'snow',
                   modules: {
@@ -197,15 +301,18 @@ if (!$isSuperAdmin) {
               });
 
               // Load content into editor
-              const contentDiv = document.querySelector(`#${sectionId} .terms-content`);
+              const { contentDiv } = getTermsSectionElements(sectionId);
               if (contentDiv) {
-                  quillEditors[sectionId].root.innerHTML = contentDiv.innerHTML;
+                  const savedHtml = contentDiv.getAttribute('data-original-html') || contentDiv.innerHTML;
+                  quillEditors[sectionId].root.innerHTML = savedHtml;
               }
+
+                const initialEditorHtml = quillEditors[sectionId].root.innerHTML;
 
               // Track changes
               quillEditors[sectionId].on('text-change', () => {
-                  hasUnsavedChanges[sectionId] = true;
-              });
+                  hasUnsavedChanges[sectionId] = quillEditors[sectionId].root.innerHTML !== initialEditorHtml;
+                });
           }
       }
 
@@ -218,6 +325,19 @@ if (!$isSuperAdmin) {
           try {
               const editor = quillEditors[sectionId];
               const content = editor.root.innerHTML;
+
+              if (hasUnsavedChanges[sectionId]) {
+              const confirmed = await showConfirmDialog({
+                title: 'Save Changes',
+                message: 'Save the changes you made to this section?',
+                confirmText: 'Save',
+                confirmClass: 'bg-green-600 hover:bg-green-700'
+              });
+
+              if (!confirmed) {
+                return;
+              }
+            }
 
               const formData = new FormData();
               formData.append('action', 'updateContent');
@@ -233,13 +353,14 @@ if (!$isSuperAdmin) {
                   hasUnsavedChanges[sectionId] = false;
                   
                   // Update the content div
-                  const contentDiv = document.querySelector(`#${sectionId} .terms-content`);
+                  const { contentDiv } = getTermsSectionElements(sectionId);
                   if (contentDiv) {
                       contentDiv.innerHTML = content;
+                    contentDiv.setAttribute('data-original-html', content);
                   }
                   
                   // Exit edit mode
-                  toggleSectionEditMode(sectionId);
+                  stopTermsEditing(sectionId);
               } else {
                   alert('Error saving section: ' + (data.message || 'Unknown error'));
               }
@@ -250,48 +371,37 @@ if (!$isSuperAdmin) {
 
       function toggleSectionEditMode(sectionId) {
           const isEditing = editingSections.has(sectionId);
-          
+
           if (isEditing) {
-              // Exit edit mode
-              editingSections.delete(sectionId);
-          } else {
-              // Enter edit mode
-              editingSections.add(sectionId);
-              initializeQuillEditor(sectionId);
-          }
-
-          // Update UI
-          const section = document.getElementById(sectionId);
-          const contentDiv = section ? section.querySelector('.terms-content') : null;
-          const editorWrapper = document.getElementById(`editor-wrapper-${sectionId}`);
-          const iconContainer = document.getElementById(`icon-${sectionId}`);
-          const buttonsContainer = document.getElementById(`buttons-${sectionId}`);
-
-          if (editingSections.has(sectionId)) {
-              // Enter edit mode
-              if (contentDiv) contentDiv.style.display = 'none';
-              if (editorWrapper) {
-                  editorWrapper.style.display = 'block';
-              }
-              if (iconContainer) iconContainer.style.display = 'none';
-              if (buttonsContainer) buttonsContainer.style.display = 'flex';
-          } else {
-              // Exit edit mode
-              if (contentDiv) contentDiv.style.display = 'block';
-              if (editorWrapper) {
-                  editorWrapper.style.display = 'none';
-              }
-              if (iconContainer) iconContainer.style.display = 'inline';
-              if (buttonsContainer) buttonsContainer.style.display = 'none';
-          }
-      }
-
-      function cancelSectionEditing(sectionId) {
-          if (hasUnsavedChanges[sectionId] && !confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+              stopTermsEditing(sectionId);
               return;
           }
-          hasUnsavedChanges[sectionId] = false;
-          toggleSectionEditMode(sectionId);
+
+          startTermsEditing(sectionId);
+      }
+
+        async function cancelSectionEditing(sectionId) {
+          return new Promise(async (resolve) => {
+            if (hasUnsavedChanges[sectionId]) {
+              const confirmed = await showConfirmDialog({
+                title: 'Discard Changes',
+                message: 'You have unsaved changes. Are you sure you want to cancel?',
+                confirmText: 'Discard',
+                confirmClass: 'bg-red-600 hover:bg-red-700'
+              });
+
+              if (!confirmed) {
+                resolve(false);
+                return;
+              }
+            }
+            const { contentDiv } = getTermsSectionElements(sectionId);
+            if (contentDiv && contentDiv.hasAttribute('data-original-html')) {
+              contentDiv.innerHTML = contentDiv.getAttribute('data-original-html');
+            }
+            stopTermsEditing(sectionId);
+            resolve(true);
+          });
       }
   </script>
   
@@ -318,25 +428,59 @@ if (!$isSuperAdmin) {
           font-family: inherit;
       }
 
+        .ql-container.ql-snow {
+          border-color: #d1d5db;
+        }
+
       .ql-editor {
           padding: 12px;
           min-height: 200px;
+          background-color: #ffffff;
+          color: #111827;
       }
 
-      .ql-toolbar {
+        .ql-toolbar.ql-snow {
           background-color: #f3f4f6;
+          border-color: #d1d5db;
           border-radius: 4px 4px 0 0;
       }
 
-      .dark .ql-toolbar {
-          background-color: #1f2937;
-      }
+        .ql-toolbar.ql-snow button,
+        .ql-toolbar.ql-snow .ql-picker-label,
+        .ql-toolbar.ql-snow .ql-picker-item {
+          color: #374151;
+        }
 
-      .dark .ql-container {
+        .ql-toolbar.ql-snow button svg,
+        .ql-toolbar.ql-snow .ql-picker-label svg {
+          fill: currentColor;
+        }
+
+        .dark .ql-container.ql-snow {
+          border-color: #374151;
+        }
+
+        .dark .ql-toolbar.ql-snow {
+          background-color: #1f2937;
           border-color: #374151;
       }
 
+        .dark .ql-toolbar.ql-snow button,
+        .dark .ql-toolbar.ql-snow .ql-picker-label,
+        .dark .ql-toolbar.ql-snow .ql-picker-item {
+          color: #e5e7eb;
+        }
+
+        .dark .ql-toolbar.ql-snow .ql-stroke {
+          stroke: #e5e7eb;
+        }
+
+        .dark .ql-toolbar.ql-snow .ql-fill {
+          fill: #e5e7eb;
+      }
+
       .dark .ql-editor {
+          background-color: #111827;
           color: #e5e7eb;
       }
 

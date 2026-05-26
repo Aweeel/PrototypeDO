@@ -95,6 +95,92 @@ async function openPendingCheckInFromUrl() {
     }
 }
 
+async function openCaseDetailsFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const caseId = params.get('caseId') || params.get('case_id');
+    const openDetails = params.get('viewCase');
+    const tab = params.get('tab');
+    const requestedPage = Number.parseInt(params.get('page') || '', 10);
+
+    if (openDetails !== '1' || !caseId || window.__openedViewCaseId === caseId) {
+        return;
+    }
+
+    const validTabs = ['current', 'resolved', 'archived'];
+    if (validTabs.includes(tab) && typeof currentTab !== 'undefined' && currentTab !== tab && typeof switchTab === 'function') {
+        switchTab(tab);
+        return;
+    }
+
+    const normalizedCaseId = String(caseId).trim().toLowerCase();
+    const caseIndex = filteredCases.findIndex((caseItem) => String(caseItem.id).trim().toLowerCase() === normalizedCaseId);
+
+    if (Number.isInteger(requestedPage) && requestedPage > 0) {
+        updateActiveTabPage(requestedPage);
+        renderCases();
+    } else if (caseIndex >= 0) {
+        const targetPage = Math.floor(caseIndex / casesPerPage) + 1;
+        updateActiveTabPage(targetPage);
+        renderCases();
+    }
+
+    window.__openedViewCaseId = caseId;
+
+    try {
+        if (typeof window.viewCase === 'function') {
+            await window.viewCase(caseId);
+        }
+    } catch (error) {
+        console.error('Failed to open case details from URL:', error);
+    }
+}
+
+async function highlightCaseFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const caseId = params.get('highlightCaseId');
+    const shouldHighlight = params.get('highlightCase') === '1';
+    const tab = params.get('tab');
+
+    if (!shouldHighlight || !caseId) {
+        return;
+    }
+
+    const validTabs = ['current', 'resolved', 'archived'];
+    if (validTabs.includes(tab) && typeof currentTab !== 'undefined' && currentTab !== tab && typeof switchTab === 'function') {
+        switchTab(tab);
+        return;
+    }
+
+    const normalizedCaseId = String(caseId).trim().toLowerCase();
+    const caseIndex = filteredCases.findIndex((caseItem) => String(caseItem.id).trim().toLowerCase() === normalizedCaseId);
+
+    if (caseIndex < 0) {
+        return;
+    }
+
+    const targetPage = Math.floor(caseIndex / casesPerPage) + 1;
+    if (currentPage !== targetPage) {
+        updateActiveTabPage(targetPage);
+        renderCases();
+    }
+
+    const targetRow = document.querySelector(`tr[data-case-id="${CSS.escape(String(caseId))}"]`);
+    if (!targetRow) {
+        return;
+    }
+
+    document.querySelectorAll('tr[data-case-id]').forEach((row) => {
+        row.classList.remove('bg-blue-100', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-500', 'shadow-sm');
+    });
+
+    targetRow.classList.add('bg-blue-100', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-500', 'shadow-sm');
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('highlightCase');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+}
+
 // Simple pagination renderer
 function renderPagination() {
     const paginationContainer = document.getElementById('paginationButtons');
@@ -170,7 +256,7 @@ function renderTableRows() {
     }
 
     let tableHTML = casesToDisplay.map(caseItem => `
-        <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+        <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors" data-case-id="${caseItem.id}">
             <td class="px-5 py-4 text-sm font-medium text-gray-900 dark:text-gray-100 w-28"><div class="truncate">${caseItem.id}</div></td>
             <td class="px-5 py-4 w-48">
                 <div class="flex items-center gap-2">
@@ -324,6 +410,8 @@ function loadCasesFromDB() {
                     applyClientSideFilters();
 
                     openPendingCheckInFromUrl();
+                    openCaseDetailsFromUrl();
+                    highlightCaseFromUrl();
 
                     console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
                 } catch (renderError) {

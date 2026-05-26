@@ -57,21 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Format data for JavaScript
         $formattedCases = array_map(function ($case) {
-            $statusColorClass = function ($status) {
-                switch ($status) {
-                    case 'Pending':
-                        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30';
-                    case 'On Going':
-                        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30';
-                    case 'Resolved':
-                        return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30';
-                    case 'Dismissed':
-                        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
-                    default:
-                        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
-                }
-            };
-
             $portfolioSanction = fetchOne(
                 "SELECT TOP 1 cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
                         cs.applied_date, cs.is_completed, s.sanction_name
@@ -96,7 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'date' => formatDate($case['date_reported']),
                 'status' => $case['status'],
                 'assignedTo' => $case['assigned_to_name'] ?? 'Unassigned',
-                'statusColor' => $statusColorClass($case['status']),
+                'statusColor' => match ($case['status']) {
+                    'Pending' => 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30',
+                    'On Going' => 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30',
+                    'Resolved' => 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30',
+                    'Dismissed' => 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30',
+                    default => 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30',
+                },
                 'description' => $case['description'] ?? '',
                 'notes' => $case['notes'] ?? '',
                 'severity' => $case['severity'] ?? 'Minor',
@@ -151,10 +142,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             [$caseId]
         );
 
+        $caseSanctions = fetchAll(
+            "SELECT cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
+                    cs.applied_date, cs.is_completed, s.sanction_name
+             FROM case_sanctions cs
+             JOIN sanctions s ON cs.sanction_id = s.sanction_id
+             WHERE cs.case_id = ?
+             ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC",
+            [$caseId]
+        );
+
         if ($portfolioSanction) {
             $completionSnapshot = getCommunityServiceCompletionSnapshot($portfolioSanction['case_sanction_id']);
             if ($completionSnapshot) {
                 $portfolioSanction['is_completed'] = !empty($completionSnapshot['is_complete']);
+                $portfolioSanction['completed_days'] = intval($completionSnapshot['completed_days'] ?? 0);
+                $portfolioSanction['completed_hours'] = floatval($completionSnapshot['completed_hours'] ?? 0);
+                $portfolioSanction['completion_percent'] = floatval($completionSnapshot['completion_percent'] ?? 0);
             }
         }
 
@@ -172,6 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $case['portfolio_sanction'] = $portfolioSanction ?: null;
         $case['community_service_sanction'] = $portfolioSanction ?: null;
         $case['suspension_sanction'] = $portfolioSanction ?: null;
+        $case['case_sanctions'] = $caseSanctions;
         $case['community_service_submissions'] = $submissions;
 
         // Log this student viewing their case
@@ -305,6 +310,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             ? ($totalDays > 0 ? min(100, round(((int)($sanction['completed_days'] ?? 0) / $totalDays) * 100)) : 0)
             : ($totalHours > 0 ? min(100, round(((float)($sanction['completed_hours'] ?? 0) / $totalHours) * 100)) : 0);
 
+        $portfolioSubmissions = fetchAll(
+            "SELECT submission_id, case_sanction_id, original_file_name, file_size_bytes, file_path, remarks, created_at
+             FROM community_service_submissions
+             WHERE case_id = ? AND case_sanction_id = ?
+             ORDER BY created_at DESC, submission_id DESC",
+            [$caseId, $caseSanctionId]
+        );
+
         echo json_encode([
             'success' => true,
             'progress' => [
@@ -322,7 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'progress_percent' => $progressPercent,
                 'days' => $days,
                 'display_total_days' => $displayTotalDays,
-                'is_completed' => !empty($sanction['is_completed'])
+                'is_completed' => !empty($sanction['is_completed']),
+                'portfolio_submissions' => $portfolioSubmissions
             ]
         ]);
         exit;
@@ -336,8 +350,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         $caseId = trim($_POST['caseId'] ?? '');
         $caseSanctionId = intval($_POST['caseSanctionId'] ?? 0);
-        $remarks = trim($_POST['remarks'] ?? '');
-
         if ($caseId === '' || $caseSanctionId <= 0) {
             echo json_encode(['success' => false, 'error' => 'Invalid case or sanction']);
             exit;
@@ -447,7 +459,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $publicPath,
                 intval($file['size'] ?? 0),
                 (string)($file['type'] ?? ''),
-                $remarks !== '' ? $remarks : null,
+                null,
             ]
         );
 
@@ -463,7 +475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         echo json_encode([
             'success' => true,
-            'message' => 'Portfolio/completion report uploaded successfully'
+            'message' => 'Completion report uploaded successfully'
         ]);
         exit;
     }
@@ -531,16 +543,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 <!-- Cases Table -->
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full table-fixed">
+                        <table class="w-full table-auto">
                             <thead>
                                 <tr class="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Case ID</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-48">Type</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-36">Date Reported</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Severity</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-48">Assigned To</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-56">Action</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Case ID</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Type</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Date Reported</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Severity</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Status</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Assigned To</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-36">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="casesTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -664,35 +676,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             emptyState.classList.add('hidden');
             tbody.innerHTML = filteredCases.map(caseItem => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
-                    <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100 w-28">
+                    <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100 w-32 align-middle">
                         <div class="truncate">${escapeHtml(caseItem.id)}</div>
                         ${caseItem.isArchived ? '<span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : ''}
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-48"><div class="truncate">${escapeHtml(caseItem.type)}</div></td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-36"><div class="truncate">${escapeHtml(caseItem.date)}</div></td>
-                    <td class="px-6 py-4 text-sm w-28">
-                        <div class="inline-flex align-middle">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold leading-none whitespace-nowrap ${getSeverityClass(caseItem.severity)}">
+                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.type)}</div></td>
+                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-32"><div class="truncate">${escapeHtml(caseItem.date)}</div></td>
+                    <td class="px-6 py-4 text-sm w-28 align-middle">
+                        <div class="inline-flex items-center justify-center">
+                            <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold leading-none px-2.5 py-1 ${getSeverityClass(caseItem.severity)}">
                                 ${escapeHtml(caseItem.severity)}
                             </span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm w-32">
-                        <div class="inline-flex align-middle">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold leading-none whitespace-nowrap ${caseItem.statusColor}">
+                    <td class="px-6 py-4 text-sm w-28 align-middle">
+                        <div class="inline-flex items-center justify-center">
+                            <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold leading-none px-2.5 py-1 ${caseItem.statusColor}">
                                 ${escapeHtml(caseItem.status)}
                             </span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-48"><div class="truncate">${escapeHtml(caseItem.assignedTo)}</div></td>
-                    <td class="px-6 py-4 text-sm w-56">
+                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.assignedTo)}</div></td>
+                    <td class="px-6 py-4 text-sm w-36 whitespace-nowrap align-middle">
                         <div class="flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
-                            <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors whitespace-nowrap">
+                            <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors whitespace-nowrap text-sm">
                                 View Details
                             </button>
                             ${caseItem.hasProgressModal ? '<span class="text-gray-400 dark:text-gray-500 text-sm font-medium select-none">|</span>' : ''}
                             ${caseItem.hasProgressModal ? `
-                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="corrective" data-case-id="${escapeHtml(caseItem.id)}" class="inline-flex items-center ${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap" title="Check-In Progress" aria-label="Check-In Progress">
+                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="corrective" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-sm" title="Check-In Progress" aria-label="Check-In Progress">
                                     Check-In Progress
                                 </button>
                             ` : ''}
@@ -792,49 +804,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 </div>
                             ` : ''}
 
+                            ${Array.isArray(caseData.case_sanctions) && caseData.case_sanctions.length ? `
+                                <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
+                                    <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Sanction Given</label>
+                                    <div class="mt-3 space-y-3">
+                                        ${caseData.case_sanctions.map((sanction) => {
+                                            const durationParts = [];
+                                            const durationDays = Number(sanction.duration_days || 0);
+                                            const durationExtraHours = Number(sanction.duration_extra_hours || 0);
+                                            if (durationDays > 0) {
+                                                durationParts.push(`${durationDays} ${durationDays === 1 ? 'day' : 'days'}`);
+                                            }
+                                            if (durationExtraHours > 0) {
+                                                durationParts.push(`${durationExtraHours} ${durationExtraHours === 1 ? 'hour' : 'hours'}`);
+                                            }
+                                            const durationLabel = durationParts.length > 0 ? durationParts.join(' • ') : 'No fixed duration';
+                                            const appliedDate = sanction.applied_date ? formatDisplayDate(sanction.applied_date) : 'Unknown date';
+                                            const deadline = sanction.deadline ? formatDisplayDate(sanction.deadline) : '';
+                                            const isCompleted = !!sanction.is_completed;
+
+                                            return `
+                                                <div class="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/40 p-4">
+                                                    <div class="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <p class="text-base font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(sanction.sanction_name || 'Sanction')}</p>
+                                                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(durationLabel)}</p>
+                                                        </div>
+                                                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${isCompleted ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30'}">${isCompleted ? 'Completed' : 'Active'}</span>
+                                                    </div>
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm">
+                                                        <div>
+                                                            <span class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Applied Date</span>
+                                                            <span class="text-gray-900 dark:text-gray-100">${escapeHtml(appliedDate)}</span>
+                                                        </div>
+                                                        ${deadline ? `
+                                                            <div>
+                                                                <span class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Deadline</span>
+                                                                <span class="text-gray-900 dark:text-gray-100">${escapeHtml(deadline)}</span>
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
                             ${caseData.location ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Location</label>
                                     <p class="text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.location)}</p>
-                                </div>
-                            ` : ''}
-
-                            ${caseData.portfolio_sanction ? `
-                                <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
-                                    <div class="flex items-center justify-between gap-3 mb-3">
-                                        <div>
-                                            <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Portfolio / Completion Report</label>
-                                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
-                                        </div>
-                                        <div class="flex flex-col items-end gap-2">
-                                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 gap-3">
-                                        <div>
-                                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
-                                            <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${caseData.portfolio_sanction.is_completed ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
-                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Remarks (Optional)</label>
-                                            <textarea id="portfolioRemarksInput" rows="3" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} placeholder="Add a brief summary of your submission" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 ${!caseData.portfolio_sanction.is_completed ? 'opacity-50' : ''}"></textarea>
-                                        </div>
-                                        <div class="flex items-center justify-between gap-3">
-                                            <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
-                                            <button onclick="uploadCommunityServicePortfolio('${escapeHtml(caseData.case_id)}', '${escapeHtml(caseData.portfolio_sanction.case_sanction_id)}')" ${!caseData.portfolio_sanction.is_completed ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!caseData.portfolio_sanction.is_completed ? 'opacity-50 cursor-not-allowed' : ''}">
-                                                Submit Portfolio
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div class="mt-4">
-                                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Submitted Files</label>
-                                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-                                            ${renderCommunityServiceSubmissions(caseData.community_service_submissions || [])}
-                                        </div>
-                                    </div>
                                 </div>
                             ` : ''}
 
@@ -944,7 +964,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         async function uploadCommunityServicePortfolio(caseId, caseSanctionId) {
             const fileInput = document.getElementById('portfolioFileInput');
-            const remarksInput = document.getElementById('portfolioRemarksInput');
             const statusEl = document.getElementById('portfolioUploadStatus');
 
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
@@ -960,7 +979,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             payload.append('action', 'uploadCommunityServicePortfolio');
             payload.append('caseId', caseId);
             payload.append('caseSanctionId', caseSanctionId);
-            payload.append('remarks', remarksInput ? remarksInput.value.trim() : '');
             payload.append('portfolioFile', fileInput.files[0]);
 
             if (statusEl) {
@@ -992,9 +1010,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     showNotification(result.message || 'Portfolio submitted successfully', 'success');
                 }
 
-                if (remarksInput) remarksInput.value = '';
                 fileInput.value = '';
-                await viewCaseDetails(caseId);
+                await openCheckInProgressModal(caseId, caseSanctionId);
             } catch (error) {
                 console.error('Portfolio upload error:', error);
                 if (statusEl) {
@@ -1085,6 +1102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const dayCards = Array.isArray(progress.days) ? progress.days : [];
             const displayDays = Math.max(1, Number(progress.display_total_days || dayCards.length || 1));
             const dayMap = new Map(dayCards.map((item) => [Number(item.day), item]));
+            const canUploadPortfolio = !!progress.is_completed;
+            const portfolioSubmissions = Array.isArray(progress.portfolio_submissions) ? progress.portfolio_submissions : [];
 
             const dayCardsHtml = Array.from({ length: displayDays }, (_, index) => {
                 const dayNumber = index + 1;
@@ -1181,6 +1200,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                     <div class="space-y-2 max-h-[48vh] overflow-y-auto pr-1">
                         ${dayCardsHtml}
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Completion Report</label>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
+                                <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
+                            </div>
+                            <div class="flex items-center justify-between gap-3">
+                                <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                                <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
+                                    Submit Completion Report
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Submitted Files</label>
+                            <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                                ${renderCommunityServiceSubmissions(portfolioSubmissions)}
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
