@@ -245,16 +245,17 @@ GO
 
 -- Insert default categories
 INSERT INTO lost_found_categories (category_name, description) VALUES
-('Electronics', 'Electronic devices, gadgets, and accessories'),
+('Electronics', 'Electronic devices, gadgets, phones, headphones, and tech accessories'),
 ('Books', 'Textbooks, notebooks, and reading materials'),
-('Accessories', 'Bags, belts, scarves, and other accessories'),
-('Clothing', 'Uniforms, jackets, shoes, and apparel'),
+('Bags', 'Backpacks, lunch boxes, and bag-type containers'),
+('Accessories', 'Belts, scarves, watches, hand sanitizer, and other personal accessories'),
+('Clothing', 'Uniforms, jackets, shoes, caps, and apparel'),
 ('ID/Documents', 'School IDs, documents, and important papers'),
 ('Keys', 'House keys, locker keys, and car keys'),
-('Sports Equipment', 'Sports gear, balls, and athletic equipment'),
-('Personal Items', 'Wallets, phones, and personal belongings'),
+('Sports Equipment', 'Sports gear, medals, balls, and athletic equipment'),
+('Personal Items', 'Wallets, personal belongings, and miscellaneous personal effects'),
 ('School Supplies', 'Pens, folders, pencils, and stationery'),
-('Others', 'Miscellaneous items');
+('Others', 'Miscellaneous items not fitting other categories');
 GO
 
 -- ============================================
@@ -797,12 +798,28 @@ PRINT 'Inserting Lost & Found items...';
 
 INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
 VALUES 
-('LF-1001', 'Backpack', 'Electronics', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
-('LF-1002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle'),
+('LF-1001', 'Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
+('LF-1002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle 500ml'),
 ('LF-1003', 'Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
-('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991');
+('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991'),
+('LF-1005', 'Mobile Phone', 'Electronics', 'Canteen', '2026-02-18', 'Unclaimed', 'iPhone 12 with black case'),
+('LF-1006', 'Wallet', 'Personal Items', 'Boys Restroom', '2026-02-17', 'Claimed', 'Brown leather wallet with ID card inside'),
+('LF-1007', 'Jacket', 'Clothing', 'Gym', '2026-02-16', 'Unclaimed', 'Black and red Nike windbreaker size M'),
+('LF-1008', 'Headphones', 'Electronics', 'Audio Lab', '2026-02-15', 'Unclaimed', 'Sony WH-CH720N wireless headphones, black'),
+('LF-1009', 'Keys', 'Personal Items', 'Parking Lot', '2026-02-14', 'Unclaimed', 'Set of 3 keys with blue keychain'),
+('LF-1010', 'Pen Drive', 'Electronics', 'Computer Lab 2', '2026-02-13', 'Unclaimed', '64GB Kingston DataTraveler pen drive'),
+('LF-1011', 'Scarf', 'Clothing', 'Building A Hallway', '2026-02-12', 'Claimed', 'Maroon wool scarf with STI logo'),
+('LF-1012', 'Notebook', 'Books', 'Student Lounge', '2026-02-11', 'Unclaimed', 'Spiral-bound notebook with name "Maria" written inside'),
+('LF-1013', 'Watch', 'Accessories', 'Cafeteria', '2026-02-10', 'Claimed', 'Casio digital watch with blue band'),
+('LF-1014', 'School ID', 'Personal Items', 'Main Gate', '2026-02-09', 'Unclaimed', 'STI School ID - Student ID: 02000000015'),
+('LF-1015', 'Hand Sanitizer', 'Accessories', 'Classroom Building B', '2026-02-08', 'Unclaimed', 'Pump bottle 250ml, lavender scent'),
+('LF-1016', 'USB Cable', 'Electronics', 'Library - Research Area', '2026-02-07', 'Unclaimed', 'Type-C charging cable 2 meters'),
+('LF-1017', 'Lunch Box', 'Bags', 'Cafeteria', '2026-02-06', 'Claimed', 'Stainless steel lunch container with handle'),
+('LF-1018', 'Baseball Cap', 'Clothing', 'Sports Complex', '2026-02-05', 'Unclaimed', 'Red and white STI Esports tournament cap'),
+('LF-1019', 'Earbuds', 'Electronics', 'Classroom C-305', '2026-02-04', 'Unclaimed', 'Apple AirPods with charging case'),
+('LF-1020', 'Sports Medal', 'Personal Items', 'Gym', '2026-02-03', 'Unclaimed', 'Gold medal from 2026 Sports Festival');
 
-PRINT 'Lost & Found items inserted: 4';
+PRINT 'Lost & Found items inserted: 20';
 GO
 
 -- ============================================

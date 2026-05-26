@@ -389,8 +389,32 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category *</label>
-                        <select name="category" id="categorySelect" required 
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                        <!-- Custom Dropdown -->
+                        <div id="customCategoryDropdown" class="relative">
+                            <button type="button" id="categoryDropdownBtn" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between hover:border-gray-400 dark:hover:border-slate-500">
+                                <span id="categoryDropdownDisplay">Select Category</span>
+                                <i class="fas fa-chevron-down text-sm"></i>
+                            </button>
+                            
+                            <!-- Dropdown Menu -->
+                            <div id="categoryDropdownMenu" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1F2937] border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                                <div class="p-2 space-y-1">
+                                    <?php foreach ($categories as $cat): ?>
+                                        <div class="category-option flex items-center justify-between px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer group" data-value="<?php echo $cat; ?>" data-is-default="true">
+                                            <span><?php echo $cat; ?></span>
+                                            <button type="button" class="delete-category-x ml-2 px-2 py-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition" onclick="deleteDefaultCategory(event, '<?php echo $cat; ?>')" title="Remove">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    <?php endforeach; ?>
+                                    <div class="category-option add-new-cat flex items-center px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-t border-gray-200 dark:border-slate-600 mt-2 pt-3 text-blue-600 dark:text-blue-400" data-value="__add_new__">
+                                        <i class="fas fa-plus mr-2"></i>Add New Category
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Hidden select for form submission -->
+                        <select name="category" id="categorySelect" required class="hidden">
                             <option value="">Select Category</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
@@ -477,6 +501,51 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Category Delete Confirmation Modal -->
+    <div id="categoryDeleteModal" class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-[#1F2937] rounded-lg shadow-xl p-6 w-96">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Confirm Delete</h3>
+            </div>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">
+                Remove category "<span id="deleteCategoryName" class="font-semibold"></span>"? This cannot be undone.
+            </p>
+            <div class="flex gap-3 justify-end">
+                <button type="button" onclick="closeCategoryDeleteModal()"
+                        class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition">
+                    Cancel
+                </button>
+                <button type="button" id="confirmDeleteBtn" onclick="executeCategoryDelete()"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    <i class="fas fa-trash-alt mr-2"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Cannot Delete Modal -->
+    <div id="categoryCannotDeleteModal" class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-[#1F2937] rounded-lg shadow-xl p-6 w-96">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fas fa-ban text-red-500 text-xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Cannot Delete Category</h3>
+            </div>
+            <p class="text-gray-700 dark:text-gray-300 mb-4">
+                The category "<span id="cannotDeleteCategoryName" class="font-semibold"></span>" has <span id="itemCountSpan" class="font-semibold text-red-600">0</span> item(s) assigned to it.
+            </p>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-6">
+                Please remove or reassign these items to a different category before deleting this category.
+            </p>
+            <div class="flex justify-end">
+                <button type="button" onclick="closeCannotDeleteModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-check mr-2"></i>OK
+                </button>
+            </div>
         </div>
     </div>
 

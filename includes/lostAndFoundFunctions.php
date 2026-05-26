@@ -639,13 +639,19 @@ function addCategory($categoryName, $description = null) {
     try {
         executeQuery($sql, [$categoryName, $description]);
         
+        // Get the inserted category ID
+        $selectSql = "SELECT TOP 1 category_id FROM lost_found_categories WHERE category_name = ? ORDER BY created_at DESC";
+        $result = fetchOne($selectSql, [$categoryName]);
+        $categoryId = $result['category_id'] ?? null;
+        
         // 🧾 Audit Log
         auditCategoryAdded($categoryName, $description);
         
         return [
             'success' => true,
             'message' => 'Category added successfully',
-            'category_name' => $categoryName
+            'category_name' => $categoryName,
+            'category_id' => $categoryId
         ];
     } catch (Exception $e) {
         error_log("addCategory error: " . $e->getMessage());
@@ -822,6 +828,175 @@ function auditCategoryDeactivated($categoryId) {
         ]);
     } catch (Exception $e) {
         error_log("auditCategoryDeactivated error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Delete a category (permanent deletion)
+ */
+function deleteCategory($categoryId) {
+    // First, get the category name
+    $getCategorySql = "SELECT category_name FROM lost_found_categories WHERE category_id = ?";
+    try {
+        $categoryResult = fetchOne($getCategorySql, [$categoryId]);
+        if (!$categoryResult) {
+            return [
+                'success' => false,
+                'message' => 'Category not found'
+            ];
+        }
+        $categoryName = $categoryResult['category_name'];
+    } catch (Exception $e) {
+        error_log("deleteCategory lookup error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Database error occurred'
+        ];
+    }
+    
+    // Check if category has any items
+    $checkSql = "SELECT COUNT(*) as count FROM lost_found_items WHERE category = ?";
+    try {
+        $countResult = fetchOne($checkSql, [$categoryName]);
+        if ($countResult && $countResult['count'] > 0) {
+            return [
+                'success' => false,
+                'message' => 'Cannot delete category with items',
+                'code' => 'HAS_ITEMS',
+                'itemCount' => $countResult['count']
+            ];
+        }
+    } catch (Exception $e) {
+        error_log("deleteCategory count check error: " . $e->getMessage());
+    }
+    
+    // Delete category
+    $sql = "DELETE FROM lost_found_categories WHERE category_id = ?";
+    try {
+        executeQuery($sql, [$categoryId]);
+        
+        // 🧾 Audit Log
+        auditCategoryDeleted($categoryId);
+        
+        return [
+            'success' => true,
+            'message' => 'Category deleted successfully'
+        ];
+    } catch (Exception $e) {
+        error_log("deleteCategory error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to delete category: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Audit log for category deleted
+ */
+function auditCategoryDeleted($categoryId) {
+    $userId = $_SESSION['user_id'] ?? null;
+    
+    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
+            VALUES (?, 'Lost & Found Categories', 'DELETE_CATEGORY', ?, ?)";
+    
+    try {
+        executeQuery($sql, [
+            $userId,
+            'Category ID: ' . $categoryId,
+            'Deleted'
+        ]);
+    } catch (Exception $e) {
+        error_log("auditCategoryDeleted error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Delete a category by name
+ */
+function deleteCategoryByName($categoryName) {
+    $categoryName = trim($categoryName);
+    
+    if (empty($categoryName)) {
+        return [
+            'success' => false,
+            'message' => 'Category name cannot be empty'
+        ];
+    }
+    
+    // Get category ID first for audit logging
+    $selectSql = "SELECT category_id FROM lost_found_categories WHERE category_name = ?";
+    try {
+        $result = fetchOne($selectSql, [$categoryName]);
+        if (!$result) {
+            return [
+                'success' => false,
+                'message' => 'Category not found'
+            ];
+        }
+        $categoryId = $result['category_id'];
+    } catch (Exception $e) {
+        error_log("deleteCategoryByName lookup error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Database error occurred'
+        ];
+    }
+    
+    // Check if category has any items
+    $checkSql = "SELECT COUNT(*) as count FROM lost_found_items WHERE category = ?";
+    try {
+        $countResult = fetchOne($checkSql, [$categoryName]);
+        if ($countResult && $countResult['count'] > 0) {
+            return [
+                'success' => false,
+                'message' => 'Cannot delete category with items',
+                'code' => 'HAS_ITEMS',
+                'itemCount' => $countResult['count']
+            ];
+        }
+    } catch (Exception $e) {
+        error_log("deleteCategoryByName count check error: " . $e->getMessage());
+    }
+    
+    // Delete category
+    $sql = "DELETE FROM lost_found_categories WHERE category_id = ?";
+    try {
+        executeQuery($sql, [$categoryId]);
+        
+        // 🧾 Audit Log
+        auditCategoryDeletedByName($categoryId, $categoryName);
+        
+        return [
+            'success' => true,
+            'message' => 'Category deleted successfully'
+        ];
+    } catch (Exception $e) {
+        error_log("deleteCategoryByName error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to delete category: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Audit log for category deleted by name
+ */
+function auditCategoryDeletedByName($categoryId, $categoryName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    
+    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
+            VALUES (?, 'Lost & Found Categories', 'DELETE_CATEGORY', ?, ?)";
+    
+    try {
+        executeQuery($sql, [
+            $userId,
+            'Category: ' . $categoryName . ' (ID: ' . $categoryId . ')',
+            'Deleted'
+        ]);
+    } catch (Exception $e) {
+        error_log("auditCategoryDeletedByName error: " . $e->getMessage());
     }
 }
 
