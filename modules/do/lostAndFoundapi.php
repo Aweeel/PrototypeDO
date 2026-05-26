@@ -161,6 +161,30 @@ try {
             echo json_encode($result);
             break;
             
+        case 'delete_category':
+            $categoryId = $_POST['category_id'] ?? '';
+            
+            if (!$categoryId) {
+                echo json_encode(['success' => false, 'message' => 'Category ID is required']);
+                break;
+            }
+            
+            $result = deleteCategory($categoryId);
+            echo json_encode($result);
+            break;
+            
+        case 'delete_category_by_name':
+            $categoryName = $_POST['category_name'] ?? '';
+            
+            if (!$categoryName) {
+                echo json_encode(['success' => false, 'message' => 'Category name is required']);
+                break;
+            }
+            
+            $result = deleteCategoryByName($categoryName);
+            echo json_encode($result);
+            break;
+            
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
     }

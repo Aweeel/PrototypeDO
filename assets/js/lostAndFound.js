@@ -718,25 +718,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Handle category selection and new category input
 function setupCategoryHandling() {
+    const dropdownBtn = document.getElementById('categoryDropdownBtn');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
     const categorySelect = document.getElementById('categorySelect');
     const newCategoryDiv = document.getElementById('newCategoryDiv');
     const newCategoryInput = document.getElementById('newCategoryInput');
+    const categoryDeleteModal = document.getElementById('categoryDeleteModal');
+    const cannotDeleteModal = document.getElementById('categoryCannotDeleteModal');
     
-    if (!categorySelect) return;
+    if (!dropdownBtn || !dropdownMenu) return;
     
-    categorySelect.addEventListener('change', function() {
-        if (this.value === '__add_new__') {
+    // Toggle dropdown
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('hidden');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        // Only close if click is outside the dropdown button and menu
+        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.classList.add('hidden');
+        }
+    });
+    
+    // Handle option selection
+    dropdownMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        const option = e.target.closest('.category-option');
+        if (!option) return;
+        
+        // Prevent delete click from selecting
+        if (e.target.closest('.delete-category-x')) return;
+        
+        const value = option.dataset.value;
+        
+        if (value === '__add_new__') {
             // Show new category input
             newCategoryDiv.classList.remove('hidden');
             newCategoryInput.focus();
-            // Clear the select
-            this.value = '';
+            dropdownMenu.classList.add('hidden');
         } else {
-            // Hide new category input
-            newCategoryDiv.classList.add('hidden');
-            newCategoryInput.value = '';
+            // Select the category
+            categorySelect.value = value;
+            const display = option.textContent.trim().split('\n')[0].trim();
+            document.getElementById('categoryDropdownDisplay').textContent = display;
+            dropdownMenu.classList.add('hidden');
         }
     });
+    
+    // Handle new category cancel
+    document.getElementById('addItemForm')?.addEventListener('reset', () => {
+        newCategoryDiv.classList.add('hidden');
+        newCategoryInput.value = '';
+        categorySelect.value = '';
+        document.getElementById('categoryDropdownDisplay').textContent = 'Select Category';
+    });
+    
+    // Close modals when clicking on overlay
+    if (categoryDeleteModal) {
+        categoryDeleteModal.addEventListener('click', (e) => {
+            if (e.target === categoryDeleteModal) {
+                closeCategoryDeleteModal();
+            }
+        });
+    }
+    
+    if (cannotDeleteModal) {
+        cannotDeleteModal.addEventListener('click', (e) => {
+            if (e.target === cannotDeleteModal) {
+                closeCannotDeleteModal();
+            }
+        });
+    }
 }
 
 // Create new category
@@ -746,6 +801,7 @@ async function createNewCategory() {
     const newCategoryInput = document.getElementById('newCategoryInput');
     const newCategoryDescription = document.getElementById('newCategoryDescription');
     const newCategoryDiv = document.getElementById('newCategoryDiv');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
     const categoryName = newCategoryInput.value.trim();
     
     if (!categoryName) {
@@ -770,29 +826,54 @@ async function createNewCategory() {
         if (result.success) {
             // Use canonical category name from server
             const canonicalName = result.category_name || categoryName;
+            const categoryId = result.category_id;
             
-            // Add new option to item form select
+            // Add to hidden select for form submission
             const newOption = document.createElement('option');
             newOption.value = canonicalName;
             newOption.textContent = canonicalName;
             newOption.selected = true;
-            
-            // Insert before the "Add New Category" option
+            newOption.dataset.categoryId = categoryId;
+            newOption.dataset.isNew = 'true';
             const addNewOption = categorySelect.querySelector('option[value="__add_new__"]');
             categorySelect.insertBefore(newOption, addNewOption);
             
-            // Also add to filter dropdown if it exists
+            // Add to custom dropdown with delete button
+            const categoryOption = document.createElement('div');
+            categoryOption.className = 'category-option flex items-center justify-between px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer group';
+            categoryOption.dataset.value = canonicalName;
+            categoryOption.dataset.isNew = 'true';
+            categoryOption.dataset.categoryId = categoryId;
+            categoryOption.innerHTML = `
+                <span>${canonicalName}</span>
+                <button type="button" class="delete-category-x ml-2 px-2 py-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition" onclick="deleteNewCategoryInline(event, ${categoryId}, '${canonicalName.replace(/'/g, "\\'")}')" title="Delete">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            // Insert before "Add New Category" option
+            const addNewBtn = dropdownMenu.querySelector('.add-new-cat');
+            addNewBtn.parentElement.insertBefore(categoryOption, addNewBtn);
+            
+            // Update or add to filter dropdown
             if (filterSelect) {
                 const filterOption = document.createElement('option');
                 filterOption.value = canonicalName;
                 filterOption.textContent = canonicalName;
+                filterOption.dataset.categoryId = categoryId;
+                filterOption.dataset.isNew = 'true';
                 filterSelect.appendChild(filterOption);
             }
+            
+            // Select the newly created category
+            categorySelect.value = canonicalName;
+            document.getElementById('categoryDropdownDisplay').textContent = canonicalName;
             
             // Hide the input and clear it
             newCategoryDiv.classList.add('hidden');
             newCategoryInput.value = '';
             newCategoryDescription.value = '';
+            dropdownMenu.classList.add('hidden');
             
             showNotification('Success!', `Category "${canonicalName}" created successfully`, 'success');
         } else {
@@ -804,15 +885,146 @@ async function createNewCategory() {
     }
 }
 
+// Delete category from inline dropdown
+async function deleteNewCategoryInline(event, categoryId, categoryName) {
+    event.stopPropagation();
+    showCategoryDeleteModal(categoryId, categoryName, 'new');
+}
+
+// Delete default category
+async function deleteDefaultCategory(event, categoryName) {
+    event.stopPropagation();
+    showCategoryDeleteModal(null, categoryName, 'default');
+}
+
+// Show category delete modal
+function showCategoryDeleteModal(categoryId, categoryName, type) {
+    // Store the delete context
+    window.pendingCategoryDelete = {
+        categoryId: categoryId,
+        categoryName: categoryName,
+        type: type
+    };
+    
+    // Update modal content
+    document.getElementById('deleteCategoryName').textContent = categoryName;
+    document.getElementById('categoryDeleteModal').classList.remove('hidden');
+}
+
+// Close category delete modal
+function closeCategoryDeleteModal() {
+    document.getElementById('categoryDeleteModal').classList.add('hidden');
+    window.pendingCategoryDelete = null;
+}
+
+// Close cannot delete modal
+function closeCannotDeleteModal() {
+    document.getElementById('categoryCannotDeleteModal').classList.add('hidden');
+}
+
+// Execute the actual category delete
+async function executeCategoryDelete() {
+    const deleteContext = window.pendingCategoryDelete;
+    if (!deleteContext) return;
+    
+    closeCategoryDeleteModal();
+    
+    const categorySelect = document.getElementById('categorySelect');
+    const filterSelect = document.getElementById('lostFoundCategoryFilter');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
+    const dropdownDisplay = document.getElementById('categoryDropdownDisplay');
+    
+    const formData = new FormData();
+    
+    if (deleteContext.type === 'new') {
+        // Delete by category ID
+        formData.append('action', 'delete_category');
+        formData.append('category_id', deleteContext.categoryId);
+    } else {
+        // Delete by category name
+        formData.append('action', 'delete_category_by_name');
+        formData.append('category_name', deleteContext.categoryName);
+    }
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if (deleteContext.type === 'new') {
+                // Remove from hidden select
+                const option = categorySelect.querySelector(`option[data-category-id="${deleteContext.categoryId}"]`);
+                if (option) option.remove();
+                
+                // Remove from filter dropdown
+                if (filterSelect) {
+                    const filterOption = filterSelect.querySelector(`option[data-category-id="${deleteContext.categoryId}"]`);
+                    if (filterOption) filterOption.remove();
+                }
+                
+                // Remove from custom dropdown
+                const dropdownOption = dropdownMenu.querySelector(`[data-category-id="${deleteContext.categoryId}"]`);
+                if (dropdownOption) dropdownOption.remove();
+            } else {
+                // Remove from hidden select
+                const option = categorySelect.querySelector(`option[value="${deleteContext.categoryName}"]`);
+                if (option) option.remove();
+                
+                // Remove from filter dropdown
+                if (filterSelect) {
+                    const filterOption = filterSelect.querySelector(`option[value="${deleteContext.categoryName}"]`);
+                    if (filterOption) filterOption.remove();
+                }
+                
+                // Remove from custom dropdown
+                const dropdownOptions = dropdownMenu.querySelectorAll('.category-option[data-value]');
+                dropdownOptions.forEach(opt => {
+                    if (opt.dataset.value === deleteContext.categoryName) {
+                        opt.remove();
+                    }
+                });
+            }
+            
+            // Reset display if this was selected
+            if (categorySelect.value === '' || !categorySelect.value) {
+                dropdownDisplay.textContent = 'Select Category';
+            }
+            
+            showNotification('Success!', `Category removed`, 'success');
+        } else {
+            // Check if category has items
+            if (result.code === 'HAS_ITEMS') {
+                showCannotDeleteModal(deleteContext.categoryName, result.itemCount);
+            } else {
+                showNotification('Error', result.message, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to delete category', 'error');
+    }
+}
+
+// Show cannot delete modal
+function showCannotDeleteModal(categoryName, itemCount) {
+    document.getElementById('cannotDeleteCategoryName').textContent = categoryName;
+    document.getElementById('itemCountSpan').textContent = itemCount;
+    document.getElementById('categoryCannotDeleteModal').classList.remove('hidden');
+}
+
 // Cancel new category creation
 function cancelNewCategory() {
-    const categorySelect = document.getElementById('categorySelect');
     const newCategoryDiv = document.getElementById('newCategoryDiv');
     const newCategoryInput = document.getElementById('newCategoryInput');
     const newCategoryDescription = document.getElementById('newCategoryDescription');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
     
     newCategoryDiv.classList.add('hidden');
     newCategoryInput.value = '';
     newCategoryDescription.value = '';
-    categorySelect.value = '';
+    dropdownMenu.classList.add('hidden');
 }

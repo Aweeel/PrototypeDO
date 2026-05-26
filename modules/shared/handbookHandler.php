@@ -136,8 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($oldContent !== $content) {
                 $changedSections[] = [
                     'section_id' => $sectionId,
-                    'old_content' => substr($oldContent ?? '', 0, 100),
-                    'new_content' => substr($content, 0, 100)
+                    'old_content' => $oldContent ?? '',
+                    'new_content' => $content
                 ];
             }
 
