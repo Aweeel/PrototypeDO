@@ -22,6 +22,7 @@ $categories = getCategories();
 $filterStatus = $_GET['status'] ?? '';
 $filterCategory = $_GET['category'] ?? '';
 $searchTerm = $_GET['search'] ?? '';
+$highlightItemId = $_GET['highlightItemId'] ?? '';
 
 // Server-side pagination setup
 $filters = [];
@@ -42,6 +43,19 @@ $totalPages = $totalItems > 0 ? (int) ceil($totalItems / $perPage) : 1;
 if ($lfCurrentPage > $totalPages) {
     $lfCurrentPage = $totalPages;
 }
+
+if (!empty($highlightItemId) && $totalItems > 0) {
+    foreach ($items as $index => $candidateItem) {
+        if ((string) $candidateItem['item_id'] === (string) $highlightItemId) {
+            $lfCurrentPage = (int) floor($index / $perPage) + 1;
+            break;
+        }
+    }
+    if ($lfCurrentPage > $totalPages) {
+        $lfCurrentPage = $totalPages;
+    }
+}
+
 $startIndex = max(0, ($lfCurrentPage - 1) * $perPage);
 $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : [];
 
@@ -170,10 +184,12 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                 </select>
                             </div>
                             <div class="flex justify-end">
-                                <a href="?" 
-                                   class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                                   title="Reset filters">
-                                    <i class="fas fa-redo"></i>
+                                <a href="?"
+                                   class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                   title="Reload page">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
                                 </a>
                             </div>
                         </form>
@@ -203,7 +219,8 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($itemsToShow as $item): ?>
-                                            <tr class="hover:bg-gray-50 dark:hover:bg-[#0F1623] transition"
+                                            <tr class="hover:bg-gray-50 dark:hover:bg-[#0F1623] transition <?php echo (!empty($highlightItemId) && (string) $item['item_id'] === (string) $highlightItemId) ? 'bg-blue-100 dark:bg-blue-900/20 ring-2 ring-blue-500 shadow-sm' : ''; ?>"
+                                                data-item-id="<?php echo htmlspecialchars($item['item_id']); ?>"
                                                 data-item-name="<?php echo htmlspecialchars(strtolower($item['item_name'])); ?>"
                                                 data-category="<?php echo htmlspecialchars(strtolower($item['category'])); ?>"
                                                 data-status="<?php echo htmlspecialchars(strtolower($item['status'])); ?>"

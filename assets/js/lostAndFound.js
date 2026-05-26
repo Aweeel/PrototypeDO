@@ -235,6 +235,21 @@ async function viewItem(itemId) {
     }
 }
 
+function openItemFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('item_id');
+
+    if (!itemId) {
+        return;
+    }
+
+    viewItem(itemId);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('item_id');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+}
+
 function showViewModal(item) {
     // Create modal if it doesn't exist
     let modal = document.getElementById('viewModal');
@@ -698,6 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupImageUpload();
     setupLostFoundFilters();
     setupCategoryHandling();
+    openItemFromUrl();
 });
 
 // Handle category selection and new category input

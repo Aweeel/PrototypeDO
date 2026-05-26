@@ -2481,8 +2481,8 @@ function notifyDOOnCommunityServicePortfolioSubmission($caseId, $studentName, $o
         $sanctionType = (strpos($sanctionNameLower, 'suspension from class') !== false) ? 'suspension' : 'corrective';
         $sanctionLabel = ($sanctionType === 'suspension') ? 'Suspension from Class' : 'Community Service';
 
-        $title = 'New ' . $sanctionLabel . ' Portfolio Submitted';
-        $message = "{$studentName} submitted a portfolio/completion report ({$originalFileName}) for {$sanctionLabel} in Case {$caseId}.";
+        $title = 'New ' . $sanctionLabel . ' Completion Report Submitted';
+        $message = "{$studentName} submitted a completion report ({$originalFileName}) for {$sanctionLabel} in Case {$caseId}.";
         $count = 0;
 
         $relatedId = 'community_service_submission:' . $sanctionType . ':' . $caseId;

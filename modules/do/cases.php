@@ -1954,8 +1954,10 @@ $adminName = getFormattedUserName() ?? 'User';
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const caseId = urlParams.get('caseId');
+            const isViewCaseRedirect = urlParams.get('viewCase') === '1';
+            const isHighlightCaseRedirect = urlParams.get('highlightCase') === '1';
             
-            if (caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
+            if (!isViewCaseRedirect && !isHighlightCaseRedirect && caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
                 // Wait for cases to be fully loaded, then open the specific case
                 const checkInterval = setInterval(() => {
                     if (typeof allCases !== 'undefined' && allCases.length > 0 && typeof viewCase === 'function') {

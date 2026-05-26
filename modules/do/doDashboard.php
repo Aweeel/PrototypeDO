@@ -33,7 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
 // Get statistics from database
 $stats = getCaseStatistics();
 $lostFoundStats = getLostFoundStatistics();
-$recentCases = getRecentCases(5);
+$recentCases = fetchAll("SELECT TOP 5 c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, u.full_name as assigned_to_name
+                        FROM cases c
+                        LEFT JOIN students s ON c.student_id = s.student_id
+                        LEFT JOIN users u ON c.assigned_to = u.user_id
+                        WHERE c.is_archived = 0
+                        ORDER BY c.date_reported DESC, c.created_at DESC");
 $caseTypes = array_slice(getCaseTypeDistribution(), 0, 7);
 $recentLostFound = getRecentLostFoundItems(4);
 $pendingCases = fetchAll("SELECT TOP 4 c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.student_id as student_number
@@ -41,6 +46,13 @@ $pendingCases = fetchAll("SELECT TOP 4 c.*, CONCAT(s.first_name, ' ', s.last_nam
                           LEFT JOIN students s ON c.student_id = s.student_id
                           WHERE c.status = 'Pending' AND c.is_archived = 0
                           ORDER BY c.date_reported DESC");
+
+// Recent calendar events (upcoming)
+$recentCalendarEvents = fetchAll("SELECT TOP 2 ce.*, u.full_name as created_by_name
+                                  FROM calendar_events ce
+                                  LEFT JOIN users u ON ce.created_by = u.user_id
+                                  WHERE ce.event_date >= CONVERT(date, GETDATE())
+                                  ORDER BY ce.event_date ASC, ce.event_time ASC");
 
 // Dynamic color generator for case types using Tailwind classes
 function generateCaseTypeColors($caseTypes) {
@@ -66,6 +78,60 @@ function generateCaseTypeColors($caseTypes) {
 }
 
 $progressColors = generateCaseTypeColors($caseTypes);
+
+// Small helper to render badge color classes for calendar categories
+function getCalendarBadgeColor($category) {
+    $map = [
+        'Meeting' => 'bg-blue-100 text-blue-800 dark:bg-[#1E3A8A] dark:text-blue-100',
+        'Conference' => 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100',
+        'Hearing' => 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100',
+        'Deadline' => 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
+        'Other' => 'bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-gray-100'
+    ];
+    return $map[$category] ?? 'bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-gray-100';
+}
+
+function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false) {
+    $tab = 'current';
+
+    if ($isArchived) {
+        $tab = 'archived';
+    } elseif (is_string($status) && strtolower($status) === 'resolved') {
+        $tab = 'resolved';
+    }
+
+    return '/PrototypeDO/modules/do/cases.php?caseId=' . urlencode((string) $caseId) . '&viewCase=1&tab=' . urlencode($tab);
+}
+
+function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false) {
+    $tab = 'current';
+
+    if ($isArchived) {
+        $tab = 'archived';
+    } elseif (is_string($status) && strtolower($status) === 'resolved') {
+        $tab = 'resolved';
+    }
+
+    return '/PrototypeDO/modules/do/cases.php?highlightCase=1&highlightCaseId=' . urlencode((string) $caseId) . '&tab=' . urlencode($tab);
+}
+
+function buildLostFoundHighlightUrl($itemId) {
+    return '/PrototypeDO/modules/do/lostAndFound.php?highlightItemId=' . urlencode((string) $itemId);
+}
+
+function buildLostFoundDetailsUrl($itemId) {
+    return '/PrototypeDO/modules/do/lostAndFound.php?item_id=' . urlencode((string) $itemId);
+}
+
+function buildCalendarEventUrl($eventId, $eventDate = null) {
+    $url = '/PrototypeDO/modules/do/calendar.php?event_id=' . urlencode((string) $eventId);
+
+    if (!empty($eventDate)) {
+        $url .= '&event_date=' . urlencode((string) $eventDate);
+    }
+
+    return $url;
+}
 ?>
 
 <!DOCTYPE html>
@@ -179,151 +245,195 @@ $progressColors = generateCaseTypeColors($caseTypes);
                             </div>
                         </div>
 
-                        <!-- Two Column Layout -->
+                        <!-- Row 1: Recent Cases and Case Types -->
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                             <!-- Recent Cases -->
                             <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases
-                                    </h2>
-                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 
-          font-medium transition-all duration-200 active:scale-95">
-                                        View All
-                                    </a>
+                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases</h2>
+                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
 
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
-                                    <?php foreach ($recentCases as $case): 
-                                        $statusColor = getStatusColor($case['status']);
-                                        $statusColors = [
-                                            'yellow' => 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
-                                            'green' => 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100',
-                                            'blue' => 'bg-blue-100 text-blue-800 dark:bg-[#1E3A8A] dark:text-blue-100',
-                                            'red' => 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100'
-                                        ];
-                                    ?>
-                                    <div class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg">
-                                        <div class="flex items-center space-x-3 flex-1">
-                                            <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
-                                                <span class="text-xs font-bold text-white"><?php 
-                                                    $names = explode(' ', $case['student_name']);
-                                                    $initials = strtoupper(substr($names[0], 0, 1));
-                                                    if (isset($names[1])) {
-                                                        $initials .= strtoupper(substr($names[1], 0, 1));
-                                                    }
-                                                    echo $initials;
-                                                ?></span>
+                                    <?php if (!empty($recentCases)): ?>
+                                        <?php foreach ($recentCases as $case): 
+                                            $statusColor = getStatusColor($case['status']);
+                                            $statusColors = [
+                                                'yellow' => 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
+                                                'green' => 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100',
+                                                'blue' => 'bg-blue-100 text-blue-800 dark:bg-[#1E3A8A] dark:text-blue-100',
+                                                'red' => 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100'
+                                            ];
+                                        ?>
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']))); ?>" class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block">
+                                            <div class="flex items-center space-x-3 flex-1">
+                                                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
+                                                    <span class="text-xs font-bold text-white"><?php 
+                                                        $names = explode(' ', $case['student_name']);
+                                                        $initials = strtoupper(substr($names[0], 0, 1));
+                                                        if (isset($names[1])) {
+                                                            $initials .= strtoupper(substr($names[1], 0, 1));
+                                                        }
+                                                        echo $initials;
+                                                    ?></span>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_id'] ?? $case['student_number'] ?? ''); ?></p>
+                                                </div>
                                             </div>
-                                            <div class="flex-1 min-w-0">
-                                                <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
-                                                <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_id']); ?></p>
+                                            <div class="flex items-center space-x-4">
+                                                <span class="px-3 py-1 text-xs font-medium rounded-full <?php echo $statusColors[$statusColor]; ?>"><?php echo htmlspecialchars($case['status']); ?></span>
+                                                <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
                                             </div>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="p-4">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No recent cases to display.</p>
                                         </div>
-                                        <div class="flex items-center space-x-4">
-                                            <span class="px-3 py-1 text-xs font-medium rounded-full <?php echo $statusColors[$statusColor]; ?>"><?php echo htmlspecialchars($case['status']); ?></span>
-                                            <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- Case Types - Dynamic Colors Only with Tailwind -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                            <!-- Case Types -->
+                            <div class="lg:col-span-1 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Case Types
-                                    </h2>
-                                    <a href="../do/statistics.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 
-          font-medium transition-all duration-200 active:scale-95">
-                                        View All
-                                    </a>
+                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Case Types</h2>
+                                    <a href="../do/statistics.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
                                 <div class="space-y-4">
-                                    <?php foreach ($caseTypes as $type): 
-                                        $color = $progressColors[$type['case_type']] ?? 'bg-gray-500';
-                                    ?>
-                                    <div>
-                                        <div class="flex items-center justify-between mb-2">
-                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300"><?php echo htmlspecialchars($type['case_type']); ?></span>
-                                            <span class="text-sm font-semibold text-gray-800 dark:text-gray-100"><?php echo number_format($type['percentage'], 0); ?>%</span>
+                                    <?php if (!empty($caseTypes)): ?>
+                                        <?php foreach ($caseTypes as $type): 
+                                            $color = $progressColors[$type['case_type']] ?? 'bg-gray-500';
+                                        ?>
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300"><?php echo htmlspecialchars($type['case_type']); ?></span>
+                                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-100"><?php echo number_format($type['percentage'], 0); ?>%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                                                <div class="<?php echo $color; ?> h-2 rounded-full transition-all duration-300" style="width: <?php echo $type['percentage']; ?>%"></div>
+                                            </div>
                                         </div>
-                                        <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div class="<?php echo $color; ?> h-2 rounded-full transition-all duration-300" style="width: <?php echo $type['percentage']; ?>%"></div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="p-4">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No case type data available.</p>
                                         </div>
-                                    </div>
-                                    <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Two Column Layout - Lost & Found and Pending Cases -->
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Row 2: Lost & Found, Pending Cases, Calendar Events -->
+                        <div class="grid grid-cols-1 lg:grid-cols-6 gap-6 mb-8">
                             <!-- Lost & Found Items -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Lost & Found
-                                        Items
-                                    </h2>
-                                    <a href="../do/lostAndFound.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 
-          font-medium transition-all duration-200 active:scale-95">
-                                        View All
-                                    </a>
+                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Lost & Found Items</h2>
+                                    <a href="../do/lostAndFound.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
-                                    <?php foreach ($recentLostFound as $item): 
-                                        $itemStatusColors = [
-                                            'Unclaimed' => 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
-                                            'Claimed' => 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100'
-                                        ];
-                                    ?>
-                                    <div class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg">
-                                        <div class="flex-1">
-                                            <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($item['item_name']); ?></p>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">Found at: <?php echo htmlspecialchars($item['found_location']); ?> • <?php echo formatDate($item['date_found']); ?></p>
+                                    <?php if (!empty($recentLostFound)): ?>
+                                        <?php foreach ($recentLostFound as $item): 
+                                            $itemStatusColors = [
+                                                'Unclaimed' => 'bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100',
+                                                'Claimed' => 'bg-green-100 text-green-800 dark:bg-[#14532D] dark:text-green-100'
+                                            ];
+                                        ?>
+                                        <a href="<?php echo htmlspecialchars(buildLostFoundHighlightUrl($item['item_id'])); ?>" class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block">
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($item['item_name']); ?></p>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($item['found_location']); ?> • <?php echo formatDate($item['date_found']); ?></p>
+                                            </div>
+                                            <span class="px-3 py-1 text-xs font-medium rounded-full <?php echo $itemStatusColors[$item['status']]; ?>"><?php echo htmlspecialchars($item['status']); ?></span>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="p-4">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No lost & found items.</p>
                                         </div>
-                                        <span class="px-3 py-1 text-xs font-medium rounded-full <?php echo $itemStatusColors[$item['status']]; ?>"><?php echo htmlspecialchars($item['status']); ?></span>
-                                    </div>
-                                    <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- Pending Cases -->
-                            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                            <!-- Pending Cases (card 5) - wider -->
+                            <div class="lg:col-span-3 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Pending
-                                        Cases</h2>
-                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 
-          font-medium transition-all duration-200 active:scale-95">
-                                        View All
-                                    </a>
+                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Pending Cases</h2>
+                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
-                                    <?php foreach ($pendingCases as $case): ?>
-                                    <div class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg">
-                                        <div class="flex items-center space-x-3 flex-1">
-                                            <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
-                                                <span class="text-xs font-bold text-white"><?php 
-                                                    $names = explode(' ', $case['student_name']);
-                                                    $initials = strtoupper(substr($names[0], 0, 1));
-                                                    if (isset($names[1])) {
-                                                        $initials .= strtoupper(substr($names[1], 0, 1));
-                                                    }
-                                                    echo $initials;
-                                                ?></span>
+                                    <?php if (!empty($pendingCases)): ?>
+                                        <?php foreach ($pendingCases as $case): ?>
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'])); ?>" class="w-full text-left flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset block">
+                                            <div class="flex items-center space-x-3 flex-1">
+                                                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
+                                                    <span class="text-xs font-bold text-white"><?php 
+                                                        $names = explode(' ', $case['student_name']);
+                                                        $initials = strtoupper(substr($names[0], 0, 1));
+                                                        if (isset($names[1])) {
+                                                            $initials .= strtoupper(substr($names[1], 0, 1));
+                                                        }
+                                                        echo $initials;
+                                                    ?></span>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_number']); ?></p>
+                                                </div>
                                             </div>
-                                            <div class="flex-1 min-w-0">
-                                                <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
-                                                <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_number']); ?></p>
+                                            <div class="flex items-center space-x-4">
+                                                <span class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100">Pending</span>
+                                                <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
                                             </div>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="p-4">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No pending cases.</p>
                                         </div>
-                                        <div class="flex items-center space-x-4">
-                                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100">Pending</span>
-                                            <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
+
+                            <!-- Calendar Events (narrower) -->
+                            <div class="lg:col-span-1 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Events</h2>
+                                    <a href="../do/calendar.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
+                                </div>
+                                <div class="divide-y divide-gray-200 dark:divide-slate-700">
+                                    <?php if (!empty($recentCalendarEvents)): ?>
+                                        <?php foreach ($recentCalendarEvents as $event): 
+                                            $timeDisplay = null;
+                                            if (!empty($event['event_time'])) {
+                                                $timeDisplay = date('g:i A', strtotime($event['event_time']));
+                                                if (!empty($event['event_end_time'])) {
+                                                    $timeDisplay .= ' - ' . date('g:i A', strtotime($event['event_end_time']));
+                                                }
+                                            }
+                                        ?>
+                                        <a href="<?php echo htmlspecialchars(buildCalendarEventUrl($event['event_id'], $event['event_date'])); ?>" class="block p-3 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="font-medium text-gray-800 dark:text-gray-100 truncate"><?php echo htmlspecialchars($event['event_name']); ?></p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1"><?php echo formatDate($event['event_date']); ?><?php echo $timeDisplay ? ' • ' . $timeDisplay : ''; ?></p>
+                                                </div>
+                                                <span class="px-2 py-1 text-[11px] font-medium rounded-full flex-shrink-0 <?php echo getCalendarBadgeColor($event['category']); ?>"><?php echo htmlspecialchars($event['category'] ?? 'Other'); ?></span>
+                                            </div>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="p-4">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No calendar events.</p>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
                         </div>
                     </main>
                 </div>

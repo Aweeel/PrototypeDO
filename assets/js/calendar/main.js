@@ -1,6 +1,9 @@
 // Global variables
 let allEvents = [];
 let currentDate = new Date();
+let selectedCategoryFilter = '';
+let pendingEventId = null;
+let pendingEventOpened = false;
 
 // Month names
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -17,10 +20,25 @@ const categoryColors = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    initializeCalendarFromUrl();
     renderCalendar();
     loadEvents();
     loadCategories();
 });
+
+function initializeCalendarFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    pendingEventId = urlParams.get('event_id');
+    const eventDate = urlParams.get('event_date');
+
+    if (eventDate) {
+        const parsedDate = new Date(`${eventDate}T00:00:00`);
+
+        if (!Number.isNaN(parsedDate.getTime())) {
+            currentDate = parsedDate;
+        }
+    }
+}
 
 // Navigation
 function previousMonth() {
@@ -104,7 +122,7 @@ function createDayCell(day, isOtherMonth, date) {
     const dayStr = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${dayStr}`;
     
-    const dayEvents = allEvents.filter(e => e.date === dateStr);
+    const dayEvents = allEvents.filter(e => e.date === dateStr && (!selectedCategoryFilter || e.category === selectedCategoryFilter));
     
     const eventsContainer = document.createElement('div');
     eventsContainer.className = 'space-y-1';
@@ -160,10 +178,31 @@ async function loadEvents() {
             allEvents = data.events;
             renderCalendar();
             renderUpcomingEvents();
+            openPendingEventFromUrl();
         }
     } catch (error) {
         console.error('Error loading events:', error);
     }
+}
+
+function openPendingEventFromUrl() {
+    if (!pendingEventId || pendingEventOpened) {
+        return;
+    }
+
+    const event = allEvents.find(item => String(item.id) === String(pendingEventId));
+
+    if (!event) {
+        return;
+    }
+
+    pendingEventOpened = true;
+    viewEvent(event);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('event_id');
+    url.searchParams.delete('event_date');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
 }
 
 // Load categories
@@ -192,17 +231,25 @@ async function loadCategories() {
 function renderCategories(categories) {
     const list = document.getElementById('categoriesList');
     list.innerHTML = categories.map(cat => {
-        const colors = categoryColors[cat.name];
+        const colors = categoryColors[cat.name] || categoryColors['Other'];
+        const isActive = selectedCategoryFilter === cat.name;
         return `
-            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+            <button type="button" onclick="toggleCategoryFilter('${cat.name}')" class="w-full flex items-center justify-between p-2 rounded-lg transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500' : 'hover:bg-gray-50 dark:hover:bg-slate-800'}">
                 <div class="flex items-center gap-3">
                     <div class="w-3 h-3 rounded-full ${colors.bg} ${colors.border} border-2"></div>
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${cat.name}</span>
                 </div>
                 <span class="text-sm text-gray-500 dark:text-gray-400">${cat.count}</span>
-            </div>
+            </button>
         `;
     }).join('');
+}
+
+function toggleCategoryFilter(category) {
+    selectedCategoryFilter = selectedCategoryFilter === category ? '' : category;
+    renderCalendar();
+    renderUpcomingEvents();
+    loadCategories();
 }
 
 // Render upcoming events
@@ -213,7 +260,8 @@ function renderUpcomingEvents() {
     const upcoming = allEvents
         .filter(e => {
             const eventDate = new Date(e.date + 'T00:00:00');
-            return eventDate >= today;
+            const matchesCategory = !selectedCategoryFilter || e.category === selectedCategoryFilter;
+            return eventDate >= today && matchesCategory;
         })
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, 3);
@@ -226,7 +274,7 @@ function renderUpcomingEvents() {
     }
     
     list.innerHTML = upcoming.map(event => {
-        const colors = categoryColors[event.category];
+        const colors = categoryColors[event.category] || categoryColors['Other'];
         const eventDate = new Date(event.date + 'T00:00:00');
         const dateStr = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
@@ -725,7 +773,7 @@ function showDayEvents(date, events) {
             
             <div class="space-y-2">
                 ${events.map(event => {
-                    const colors = categoryColors[event.category];
+                    const colors = categoryColors[event.category] || categoryColors['Other'];
                     return `
                         <div onclick='this.closest(".fixed").remove(); viewEvent(${JSON.stringify(event).replace(/'/g, "&#39;")})' class="p-3 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition-colors">
                             <div class="flex items-start gap-3">

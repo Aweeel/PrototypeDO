@@ -1,5 +1,66 @@
 // ====== Modal Management ======
 
+function showConfirmDialog(options = {}) {
+    const {
+        title = 'Confirm',
+        message = '',
+        confirmText = 'Confirm',
+        cancelText = 'Cancel',
+        confirmClass = 'bg-blue-600 hover:bg-blue-700',
+    } = options;
+
+    return new Promise((resolve) => {
+        const existing = document.getElementById('confirmActionModal');
+        if (existing) {
+            existing.remove();
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'confirmActionModal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
+                </div>
+                <div class="flex gap-3 p-6 pt-0 justify-end">
+                    <button type="button" data-confirm-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                        ${cancelText}
+                    </button>
+                    <button type="button" data-confirm-ok class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">
+                        ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const cleanup = (result) => {
+            modal.remove();
+            resolve(result);
+        };
+
+        modal.querySelector('[data-confirm-ok]').addEventListener('click', () => cleanup(true));
+        modal.querySelector('[data-confirm-cancel]').addEventListener('click', () => cleanup(false));
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                cleanup(false);
+            }
+        });
+
+        document.addEventListener('keydown', function onKeyDown(event) {
+            if (event.key === 'Escape' && document.getElementById('confirmActionModal')) {
+                document.removeEventListener('keydown', onKeyDown);
+                cleanup(false);
+            }
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
 // Close modals when clicking outside
 document.addEventListener('click', function(event) {
     const addModal = document.getElementById('addModal');

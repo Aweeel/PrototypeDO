@@ -20,17 +20,23 @@ if (isset($_SESSION['user_id'])) {
 $searchResults = [];
 $hasSearched = false;
 $errorMessage = '';
+$searchTerm = '';
+$selectedCategory = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['search'])) {
-    $hasSearched = true;
-    $searchTerm = trim($_GET['search']);
-    $category = !empty($_GET['category']) ? $_GET['category'] : null;
-    
-    try {
-        $searchResults = searchLostItems($searchTerm, $category);
-    } catch (Exception $e) {
-        $errorMessage = "Search error: " . $e->getMessage();
-        error_log("Lost & Found Search Error: " . $e->getMessage());
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $selectedCategory = !empty($_GET['category']) ? $_GET['category'] : '';
+
+    if ($searchTerm !== '' || $selectedCategory !== '') {
+        $hasSearched = true;
+        $category = $selectedCategory !== '' ? $selectedCategory : null;
+
+        try {
+            $searchResults = searchLostItems($searchTerm, $category);
+        } catch (Exception $e) {
+            $errorMessage = "Search error: " . $e->getMessage();
+            error_log("Lost & Found Search Error: " . $e->getMessage());
+        }
     }
 }
 ?>
@@ -101,14 +107,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['search'])) {
                                 </label>
                                 <input type="text" 
                                        name="search" 
-                                       required
-                                       placeholder="e.g., blue backpack, calculator, water bottle..."
-                                       value="<?php echo isset($_GET['search']) ? htmlspecialchars($_GET['search']) : ''; ?>"
+                                       placeholder="e.g., backpack, calculator, water bottle..."
+                                        value="<?php echo htmlspecialchars($searchTerm); ?>"
                                        class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-lg">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    <i class="fas fa-filter mr-2"></i>Category (Optional)
+                                    <i class="fas fa-filter mr-2"></i>Category
                                 </label>
                                 <select name="category" 
                                         class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-lg">
@@ -131,13 +136,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['search'])) {
                 <!-- Search Results -->
                 <?php if ($hasSearched && !$errorMessage): ?>
                     <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-8">
+                        <?php
+                            $searchSummaryParts = [];
+                            if ($searchTerm !== '') {
+                                $searchSummaryParts[] = '"<strong>' . htmlspecialchars($searchTerm) . '</strong>"';
+                            }
+                            if ($selectedCategory !== '') {
+                                $searchSummaryParts[] = 'category <strong>' . htmlspecialchars($selectedCategory) . '</strong>';
+                            }
+                            $searchSummary = !empty($searchSummaryParts) ? implode(' and ', $searchSummaryParts) : 'your criteria';
+                        ?>
                         <?php if (empty($searchResults)): ?>
                             <!-- No Results -->
                             <div class="text-center py-12">
                                 <i class="fas fa-inbox text-6xl text-gray-400 dark:text-gray-600 mb-4"></i>
                                 <h3 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Matching Items Found</h3>
                                 <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                    We couldn't find any items matching "<strong><?php echo htmlspecialchars($_GET['search']); ?></strong>"
+                                    We couldn't find any items matching <?php echo $searchSummary; ?>
                                 </p>
                                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-2xl mx-auto">
                                     <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">
@@ -160,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['search'])) {
                                     Found <?php echo count($searchResults); ?> Matching Item<?php echo count($searchResults) !== 1 ? 's' : ''; ?>!
                                 </h3>
                                 <p class="text-gray-600 dark:text-gray-400">
-                                    Items matching "<strong><?php echo htmlspecialchars($_GET['search']); ?></strong>"
+                                    Items matching <?php echo $searchSummary; ?>
                                 </p>
                             </div>
 
