@@ -18,6 +18,11 @@
             el.disabled = true;
             el.classList.add('opacity-50', 'cursor-not-allowed');
             setTimeout(() => {
+                // Persistent locks stay disabled until page code explicitly releases them.
+                if (el.getAttribute('data-prevent-double-persistent') === 'true') {
+                    return;
+                }
+
                 // Only re-enable if we set it
                 if (el.getAttribute('data-disabled-by-prevent') === '1') {
                     el.disabled = !!el.__prevDisabled;
