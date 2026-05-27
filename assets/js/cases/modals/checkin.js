@@ -2027,6 +2027,45 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
 
 // ====== DEADLINE EXTENSION AND PENALTY HANDLERS ======
 
+let deadlineActionInFlight = false;
+
+function getDeadlineActionSubmitButton() {
+  return document.querySelector('[data-deadline-action-submit="true"]');
+}
+
+function releaseDeadlineActionSubmitButton() {
+  const submitButton = getDeadlineActionSubmitButton();
+  if (submitButton) {
+    window.preventDoubleTap?.reenable(submitButton);
+    submitButton.removeAttribute('aria-busy');
+  }
+}
+
+function setDeadlineActionPendingState(isPending) {
+  const submitButton = getDeadlineActionSubmitButton();
+  if (!submitButton) {
+    return;
+  }
+
+  if (isPending) {
+    const label = submitButton.querySelector('[data-deadline-action-label="true"]');
+    const spinner = submitButton.querySelector('[data-deadline-action-spinner="true"]');
+    if (label) label.classList.add('opacity-0');
+    if (spinner) spinner.classList.remove('hidden');
+    submitButton.setAttribute('aria-busy', 'true');
+    submitButton.disabled = true;
+    submitButton.classList.add('cursor-wait');
+    return;
+  }
+
+  const label = submitButton.querySelector('[data-deadline-action-label="true"]');
+  const spinner = submitButton.querySelector('[data-deadline-action-spinner="true"]');
+  if (label) label.classList.remove('opacity-0');
+  if (spinner) spinner.classList.add('hidden');
+  submitButton.removeAttribute('aria-busy');
+  submitButton.classList.remove('cursor-wait');
+}
+
 function closeDeadlineActionModal() {
   document.querySelectorAll('[data-deadline-action-modal="true"]').forEach((el) => el.remove());
 }
@@ -2061,7 +2100,16 @@ function openDeadlineActionModal(caseSanctionId, actionType) {
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${label}</label>
       <input type="number" id="deadlineActionDaysInput" min="1" max="240" step="1" value="${defaultValue}" class="w-full px-3 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100" />
       <div style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:1.25rem;">
-        <button type="button" onclick="submitDeadlineAction(${caseSanctionId}, '${actionType}')" style="min-width:120px;" class="px-4 py-2.5 text-sm text-white rounded-lg ${buttonClass} transition-colors font-medium">${buttonText}</button>
+        <button type="button" onclick="submitDeadlineAction(${caseSanctionId}, '${actionType}')" style="min-width:120px; min-height:42px;" class="relative px-4 py-2.5 text-sm text-white rounded-lg ${buttonClass} transition-colors font-medium prevent-double inline-flex items-center justify-center" data-prevent-double="true" data-prevent-double-persistent="true" data-deadline-action-submit="true">
+          <span data-deadline-action-label="true" class="transition-opacity duration-150">${buttonText}</span>
+          <span data-deadline-action-spinner="true" class="hidden absolute inset-0 inline-flex items-center justify-center gap-2 pointer-events-none">
+            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            Saving...
+          </span>
+        </button>
         <button type="button" onclick="closeDeadlineActionModal()" style="min-width:120px;" class="px-4 py-2.5 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">Cancel</button>
       </div>
     </div>
@@ -2078,13 +2126,30 @@ function openDeadlineActionModal(caseSanctionId, actionType) {
 }
 
 async function submitDeadlineAction(caseSanctionId, actionType) {
+  if (deadlineActionInFlight) {
+    return;
+  }
+
+  deadlineActionInFlight = true;
+
+  const submitButton = getDeadlineActionSubmitButton();
+  if (submitButton) {
+    setDeadlineActionPendingState(true);
+  }
+
   const input = document.getElementById('deadlineActionDaysInput');
   const numericValue = Math.max(1, parseInt(input?.value || '1', 10) || 1);
 
-  if (actionType === 'extend') {
-    await handleExtendDeadline(caseSanctionId, Math.min(30, numericValue));
-  } else {
-    await handleIncreaseHours(caseSanctionId, Math.min(240, numericValue));
+  try {
+    if (actionType === 'extend') {
+      await handleExtendDeadline(caseSanctionId, Math.min(30, numericValue));
+    } else {
+      await handleIncreaseHours(caseSanctionId, Math.min(240, numericValue));
+    }
+  } finally {
+    setDeadlineActionPendingState(false);
+    releaseDeadlineActionSubmitButton();
+    deadlineActionInFlight = false;
   }
 }
 
