@@ -184,11 +184,13 @@ window.onclick = function(event) {
     const viewModal = document.getElementById('viewModal');
     const editModal = document.getElementById('editModal');
     const claimModal = document.getElementById('claimModal');
+    const unclaimedModal = document.getElementById('unclaimedModal');
     
     if (event.target === addModal) closeAddModal();
     if (viewModal && event.target === viewModal) closeViewModal();
     if (editModal && event.target === editModal) closeEditModal();
     if (claimModal && event.target === claimModal) closeClaimModal();
+    if (unclaimedModal && event.target === unclaimedModal) closeUnclaimedModal();
 }
 
 // Add new item
@@ -643,9 +645,49 @@ function closeClaimModal() {
 
 // Mark as unclaimed
 async function markUnclaimed(itemId) {
-    if (!confirm('Are you sure you want to mark this item as unclaimed?')) {
-        return;
+    let modal = document.getElementById('unclaimedModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'unclaimedModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
     }
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-undo mr-2 text-orange-600 dark:text-orange-400"></i>
+                    Mark as Unclaimed
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300">
+                    This will return the item to unclaimed status and remove the current claim record.
+                </p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="confirmMarkUnclaimed('${itemId}')"
+                            class="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                        <i class="fas fa-undo mr-2"></i>Mark as Unclaimed
+                    </button>
+                    <button type="button" onclick="closeUnclaimedModal()"
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+function closeUnclaimedModal() {
+    document.getElementById('unclaimedModal')?.classList.add('hidden');
+}
+
+async function confirmMarkUnclaimed(itemId) {
+    closeUnclaimedModal();
     
     const formData = new FormData();
     formData.append('action', 'mark_unclaimed');

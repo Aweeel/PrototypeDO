@@ -213,9 +213,9 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
 // ==========================================
 // AUTO-ARCHIVE FUNCTIONS
 // ==========================================
-
 /**
  * Automatically archive cases that are 1 year or older
+
  * based on date_reported
  */
 function autoArchiveOldCases() {
@@ -1168,6 +1168,60 @@ function getCommunityServiceCompletionSnapshot($caseSanctionId) {
     $sanction['is_complete'] = $isSuspension
         ? ($sanction['completed_days'] >= intval($sanction['required_days'] ?? 0))
         : ($sanction['completed_hours'] >= floatval($sanction['required_hours'] ?? 0));
+
+    return $sanction;
+}
+
+function getSuspensionCompletionSnapshot($caseSanctionId) {
+    $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+    if (!$sanction) {
+        return null;
+    }
+
+    $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+    if (strpos($sanctionNameLower, 'suspension from class') === false) {
+        return null;
+    }
+
+    $requiredDays = intval($sanction['required_days'] ?? 0);
+    if ($requiredDays <= 0) {
+        return null;
+    }
+
+    $countSchoolDaysInclusive = function ($startDateStr, $endDateStr) {
+        if (empty($startDateStr) || empty($endDateStr)) {
+            return 0;
+        }
+
+        $start = strtotime(date('Y-m-d', strtotime($startDateStr)));
+        $end = strtotime(date('Y-m-d', strtotime($endDateStr)));
+
+        if ($start === false || $end === false || $start > $end) {
+            return 0;
+        }
+
+        $days = 0;
+        for ($ts = $start; $ts <= $end; $ts += 86400) {
+            $isoDay = intval(date('N', $ts));
+            if ($isoDay >= 1 && $isoDay <= 6) {
+                $days++;
+            }
+        }
+
+        return $days;
+    };
+
+    $elapsedDays = $countSchoolDaysInclusive(
+        $sanction['applied_date'] ?? null,
+        date('Y-m-d', strtotime('-1 day'))
+    );
+
+    $sanction['completed_days'] = min($requiredDays, $elapsedDays);
+    $sanction['completed_hours'] = 0;
+    $sanction['progress_percent'] = $requiredDays > 0
+        ? min(100, round(($sanction['completed_days'] / $requiredDays) * 100))
+        : 0;
+    $sanction['is_complete'] = $sanction['completed_days'] >= $requiredDays;
 
     return $sanction;
 }

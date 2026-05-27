@@ -424,16 +424,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 );
                 $hasNewCommunityServiceSubmission = intval($newSubmissionCountRow['cnt'] ?? 0) > 0;
 
-                $correctivePortfolioCountRow = fetchOne(
-                    "SELECT COUNT(*) AS cnt
-                     FROM community_service_submissions css
-                     JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
-                     JOIN sanctions s ON s.sanction_id = cs.sanction_id
-                     WHERE css.case_id = ?
-                       AND LOWER(s.sanction_name) LIKE '%corrective%'",
-                    [$case['case_id']]
-                );
-                $hasCorrectivePortfolioSubmission = intval($correctivePortfolioCountRow['cnt'] ?? 0) > 0;
+                                $correctivePortfolioCountRow = fetchOne(
+                                        "SELECT COUNT(*) AS cnt
+                                         FROM community_service_submissions css
+                                         JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
+                                         JOIN sanctions s ON s.sanction_id = cs.sanction_id
+                                         WHERE css.case_id = ?
+                                             AND LOWER(s.sanction_name) LIKE '%corrective%'",
+                                        [$case['case_id']]
+                                );
+                                $hasCorrectivePortfolioSubmission = intval($correctivePortfolioCountRow['cnt'] ?? 0) > 0;
+
+                
 
                 return [
                     'id' => $case['case_id'],
@@ -1912,6 +1914,7 @@ $adminName = getFormattedUserName() ?? 'User';
                                 <th class="pl-4 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-36">Assigned to</th>
                                 <th class="pl-4 pr-1 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Status</th>
                                 <th class="pl-0 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-56">Actions</th>
+                                <th class="checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20"></th>
                             </tr>
                         </thead>
                         <tbody id="casesTableBody"
@@ -1954,10 +1957,8 @@ $adminName = getFormattedUserName() ?? 'User';
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const caseId = urlParams.get('caseId');
-            const isViewCaseRedirect = urlParams.get('viewCase') === '1';
-            const isHighlightCaseRedirect = urlParams.get('highlightCase') === '1';
             
-            if (!isViewCaseRedirect && !isHighlightCaseRedirect && caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
+            if (caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
                 // Wait for cases to be fully loaded, then open the specific case
                 const checkInterval = setInterval(() => {
                     if (typeof allCases !== 'undefined' && allCases.length > 0 && typeof viewCase === 'function') {

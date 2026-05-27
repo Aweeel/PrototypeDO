@@ -350,7 +350,7 @@ function renderTableRows() {
     for (let i = 0; i < emptyRowsCount; i++) {
         tableHTML += `
             <tr class="h-[72px] border-b border-gray-100 dark:border-slate-700">
-                <td colspan="7"></td>
+                <td colspan="${currentTab === 'archived' ? 8 : 7}"></td>
             </tr>
         `;
     }
@@ -458,29 +458,19 @@ function loadCasesFromDB() {
 function updateTableHeader() {
     const thead = document.querySelector('thead tr');
     if (!thead) return;
-    
-    if (currentTab === 'archived') {
-        // Remove old checkbox header if exists
-        const oldCheckboxTh = thead.querySelector('.checkbox-header');
-        if (oldCheckboxTh) {
-            oldCheckboxTh.remove();
-        }
-        
-        // Add checkbox column
-        const checkboxTh = document.createElement('th');
-        checkboxTh.className = 'checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20';
-        checkboxTh.innerHTML = `
-            <div class="flex items-center justify-center gap-2">
-                Select
-            </div>
-        `;
-        thead.appendChild(checkboxTh);
-    } else {
-        // Remove checkbox column if exists
-        const checkboxTh = thead.querySelector('.checkbox-header');
-        if (checkboxTh) {
+
+    const checkboxTh = thead.querySelector('.checkbox-header');
+    if (checkboxTh) {
+        if (currentTab === 'archived') {
+            checkboxTh.innerHTML = '<div class="flex items-center justify-center gap-2">Select</div>';
+        } else {
             checkboxTh.remove();
         }
+    } else if (currentTab === 'archived') {
+        const newCheckboxTh = document.createElement('th');
+        newCheckboxTh.className = 'checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20';
+        newCheckboxTh.innerHTML = '<div class="flex items-center justify-center gap-2">Select</div>';
+        thead.appendChild(newCheckboxTh);
     }
 }
 

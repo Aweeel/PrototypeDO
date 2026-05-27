@@ -38,7 +38,7 @@
 
                 <!-- Description -->
                 <p class="text-gray-300 max-w-md mb-12">
-                    Login your account to access our comprehensive education management platform and connect with the
+                    Login to your account to access our comprehensive education management platform and connect with the
                     STI community.
                 </p>
 

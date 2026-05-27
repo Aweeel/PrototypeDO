@@ -98,7 +98,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6">
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Unclaimed</p>
@@ -110,7 +110,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6">
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Claimed</p>
@@ -122,7 +122,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6">
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Last 7 Days</p>

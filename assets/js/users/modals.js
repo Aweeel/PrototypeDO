@@ -235,35 +235,38 @@ function createEditModal() {
                     </svg>
                 </button>
             </div>
-            <form id="edit_form" onsubmit="submitEditUser(event)" class="p-6 space-y-4">
+            <form id="edit_form" onsubmit="submitEditUser(event)" class="p-6">
                 <input type="hidden" id="edit_user_id">
 
-                <div>
-                    <label for="edit_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                    <input type="email" id="edit_email" name="email" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+                        <input type="email" id="edit_email" name="email" required 
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="edit_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                        <input type="text" id="edit_full_name" name="full_name" required 
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
+                        <select id="edit_role" name="role" required 
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                            <option value="super_admin">Super Admin</option>
+                            <option value="discipline_office">Discipline Office</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="security">Security</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
+                        <input type="tel" id="edit_contact_number" name="contact_number" 
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
                 </div>
-                <div>
-                    <label for="edit_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                    <input type="text" id="edit_full_name" name="full_name" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div>
-                    <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
-                    <select id="edit_role" name="role" required 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
-                        <option value="super_admin">Super Admin</option>
-                        <option value="discipline_office">Discipline Office</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="security">Security</option>
-                        <option value="student">Student</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="edit_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
-                    <input type="tel" id="edit_contact_number" name="contact_number" 
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
+
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="closeEditModal()" 
                         class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
@@ -341,15 +344,18 @@ function createResetPasswordModal() {
                     </svg>
                 </button>
             </div>
-            <form id="reset_form" onsubmit="submitResetPassword(event)" class="p-6 space-y-4">
+            <form id="reset_form" onsubmit="submitResetPassword(event)" class="p-6">
                 <input type="hidden" id="reset_user_id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                    <p id="reset_username" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"></p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                        <p id="reset_username" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100"></p>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Password will be reset to the default password: <strong>password</strong>
+                    </p>
                 </div>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Password will be reset to the default password: <strong>password</strong>
-                </p>
+
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="closeResetPasswordModal()" 
                         class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
