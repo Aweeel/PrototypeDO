@@ -1,11 +1,18 @@
 // ====== ADVANCED FILTERS MODAL ======
 
 async function openAdvancedFilters() {
+    const modalState = window.__casesModalState || (window.__casesModalState = {});
+    const openToken = Symbol('advancedFilters');
+    modalState.advancedFilters = openToken;
+    document.querySelectorAll('[data-advanced-filters-modal="true"]').forEach(existingModal => existingModal.remove());
+
     // Load all offense types for dropdown
     const allOffenses = await loadOffenseTypes('');
+    if (modalState.advancedFilters !== openToken) return;
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
+    modal.setAttribute('data-advanced-filters-modal', 'true');
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-5">
@@ -96,6 +103,7 @@ async function openAdvancedFilters() {
             </form>
         </div>
     `;
+    if (modalState.advancedFilters !== openToken) return;
     document.body.appendChild(modal);
 
     updateFilterSummary();

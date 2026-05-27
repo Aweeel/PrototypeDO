@@ -71,7 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                  ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC",
                 [$case['case_id']]
             );
-            $portfolioCompletion = $portfolioSanction ? getCommunityServiceCompletionSnapshot($portfolioSanction['case_sanction_id']) : null;
+            $isSuspensionSanction = $portfolioSanction
+                && strpos(strtolower((string)($portfolioSanction['sanction_name'] ?? '')), 'suspension from class') !== false;
+            $portfolioCompletion = $portfolioSanction
+                ? ($isSuspensionSanction
+                    ? getSuspensionCompletionSnapshot($portfolioSanction['case_sanction_id'])
+                    : getCommunityServiceCompletionSnapshot($portfolioSanction['case_sanction_id']))
+                : null;
 
             return [
                 'id' => $case['case_id'],
@@ -94,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'isArchived' => $case['is_archived'] == 1,
                 'portfolioSanctionId' => $portfolioSanction['case_sanction_id'] ?? null,
                 'hasProgressModal' => !empty($portfolioSanction['case_sanction_id']),
-                'checkInCompleted' => !empty($portfolioCompletion['is_complete'])
+                'checkInCompleted' => !empty($portfolioCompletion['is_complete']),
+                'isSuspension' => $isSuspensionSanction
             ];
         }, $cases);
 
@@ -232,11 +239,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        $snapshot = getCommunityServiceCompletionSnapshot($caseSanctionId);
+        $isSuspension = strpos(strtolower((string)($sanction['sanction_name'] ?? '')), 'suspension from class') !== false;
+        $snapshot = $isSuspension
+            ? getSuspensionCompletionSnapshot($caseSanctionId)
+            : getCommunityServiceCompletionSnapshot($caseSanctionId);
         if ($snapshot) {
             $sanction['is_completed'] = !empty($snapshot['is_complete']);
             $sanction['completed_hours'] = floatval($snapshot['completed_hours'] ?? 0);
             $sanction['completed_days'] = intval($snapshot['completed_days'] ?? 0);
+            $sanction['progress_percent'] = floatval($snapshot['progress_percent'] ?? 0);
         }
 
         $inferDurationDays = function ($durationValue, $sanctionName) {
@@ -307,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $progressPercent = $isSuspension
-            ? ($totalDays > 0 ? min(100, round(((int)($sanction['completed_days'] ?? 0) / $totalDays) * 100)) : 0)
+            ? intval($sanction['progress_percent'] ?? ($totalDays > 0 ? min(100, round(((int)($sanction['completed_days'] ?? 0) / $totalDays) * 100)) : 0))
             : ($totalHours > 0 ? min(100, round(((float)($sanction['completed_hours'] ?? 0) / $totalHours) * 100)) : 0);
 
         $portfolioSubmissions = fetchAll(
@@ -704,8 +715,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             </button>
                             ${caseItem.hasProgressModal ? '<span class="text-gray-400 dark:text-gray-500 text-sm font-medium select-none">|</span>' : ''}
                             ${caseItem.hasProgressModal ? `
-                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="corrective" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-sm" title="Check-In Progress" aria-label="Check-In Progress">
-                                    Check-In Progress
+                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="${caseItem.isSuspension ? 'suspension' : 'corrective'}" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-sm" title="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}" aria-label="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}">
+                                    ${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}
                                 </button>
                             ` : ''}
                         </div>
@@ -1035,7 +1046,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-slate-700">
                     <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between border-b border-blue-800 dark:border-blue-900">
                         <div>
-                            <h2 class="text-xl font-bold text-white">Check-In Progress</h2>
+                            <h2 class="text-xl font-bold text-white">${caseId && caseSanctionId ? 'Loading...' : 'Check-In Progress'}</h2>
                         </div>
                         <button type="button" class="text-white hover:bg-blue-800 rounded p-1 transition-colors" onclick="closeCheckInProgressModal()">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1080,6 +1091,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     return;
                 }
 
+                const title = data.progress.is_suspension ? 'Suspension Progress' : 'Check-In Progress';
+                const modalTitle = overlay.querySelector('h2');
+                if (modalTitle) {
+                    modalTitle.textContent = title;
+                }
+
                 renderCheckInProgressModal(content, data.progress);
             } catch (error) {
                 console.error('Error loading check-in progress:', error);
@@ -1105,65 +1122,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const canUploadPortfolio = !!progress.is_completed;
             const portfolioSubmissions = Array.isArray(progress.portfolio_submissions) ? progress.portfolio_submissions : [];
 
-            const dayCardsHtml = Array.from({ length: displayDays }, (_, index) => {
-                const dayNumber = index + 1;
-                const dayData = dayMap.get(dayNumber) || {};
-                const hasCheckIn = !!dayData.check_in_time;
-                const hasCheckOut = !!dayData.check_out_time;
+            let dayCardsHtml = '';
 
-                if (hasCheckIn && hasCheckOut) {
+            if (isSuspension) {
+                // Suspension progress is day-based: show days served vs upcoming days
+                const totalDaysForDisplay = Math.max(1, Number(progress.total_days || displayDays));
+                const completedDaysCount = Number(progress.completed_days || 0);
+
+                dayCardsHtml = Array.from({ length: totalDaysForDisplay }, (_, index) => {
+                    const dayNumber = index + 1;
+                    const isDone = dayNumber <= completedDaysCount;
+
+                    if (isDone) {
+                        return `
+                            <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Served</p>
+                                </div>
+                                <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+                            </div>
+                        `;
+                    }
+
                     return `
-                        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-                                </svg>
+                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-60">
+                            <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${dayNumber}</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
-                                <div class="flex items-center gap-2 mt-0.5">
-                                    <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-green-600 dark:text-green-400">In:</span> ${escapeHtml(formatTimeOnly(dayData.check_in_time))}</span>
-                                    <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${escapeHtml(formatTimeOnly(dayData.check_out_time))}</span>
-                                </div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${dayNumber}</p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming</p>
                             </div>
-                            <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">—</span>
                         </div>
                     `;
-                }
+                }).join('');
+            } else {
+                dayCardsHtml = Array.from({ length: displayDays }, (_, index) => {
+                    const dayNumber = index + 1;
+                    const dayData = dayMap.get(dayNumber) || {};
+                    const hasCheckIn = !!dayData.check_in_time;
+                    const hasCheckOut = !!dayData.check_out_time;
 
-                if (hasCheckIn) {
+                    if (hasCheckIn && hasCheckOut) {
+                        return `
+                            <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-green-600 dark:text-green-400">In:</span> ${escapeHtml(formatTimeOnly(dayData.check_in_time))}</span>
+                                        <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-green-600 dark:text-green-400">Out:</span> ${escapeHtml(formatTimeOnly(dayData.check_out_time))}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs font-semibold text-green-600 dark:text-green-400 flex-shrink-0">Completed</span>
+                            </div>
+                        `;
+                    }
+
+                    if (hasCheckIn) {
+                        return `
+                            <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500">
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span class="text-white text-xs font-bold">${dayNumber}</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">In:</span> ${escapeHtml(formatTimeOnly(dayData.check_in_time))}</span>
+                                        <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">Out:</span> <span class="italic text-gray-400 dark:text-gray-500">In progress</span></span>
+                                    </div>
+                                </div>
+                                <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex-shrink-0">In progress</span>
+                            </div>
+                        `;
+                    }
+
                     return `
-                        <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-400 dark:border-blue-500">
-                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span class="text-white text-xs font-bold">${dayNumber}</span>
+                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-60">
+                            <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${dayNumber}</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Day ${dayNumber}</p>
-                                <div class="flex items-center gap-2 mt-0.5">
-                                    <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">In:</span> ${escapeHtml(formatTimeOnly(dayData.check_in_time))}</span>
-                                    <span class="text-xs text-gray-300 dark:text-gray-600">|</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">Out:</span> <span class="italic text-gray-400 dark:text-gray-500">In progress</span></span>
-                                </div>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${dayNumber}</p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming</p>
                             </div>
-                            <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex-shrink-0">In progress</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">—</span>
                         </div>
                     `;
-                }
-
-                return `
-                    <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-200 dark:border-slate-600 opacity-60">
-                        <div class="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs font-bold">${dayNumber}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Day ${dayNumber}</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Upcoming</p>
-                        </div>
-                        <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">—</span>
-                    </div>
-                `;
-            }).join('');
+                }).join('');
+            }
 
             container.innerHTML = `
                 <div class="space-y-4">
@@ -1172,7 +1232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             <div>
                                 <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Case</p>
                                 <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(progress.case_id)}</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(progress.sanction_name || 'Community Service')}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(progress.sanction_name || (isSuspension ? 'Suspension' : 'Community Service'))}</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${escapeHtml(formatProgressValue(totalValue, isSuspension))}</p>
@@ -1203,34 +1263,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     </div>
 
                     <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
-                        <div class="flex items-center justify-between gap-3 mb-3">
+                        ${isSuspension ? '' : `
                             <div>
-                                <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Completion Report</label>
-                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
-                            </div>
-                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
-                        </div>
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Completion Report</label>
+                                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
+                                </div>
 
-                        <div class="grid grid-cols-1 gap-3">
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
-                                <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
-                            </div>
-                            <div class="flex items-center justify-between gap-3">
-                                <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
-                                <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
-                                    Submit Completion Report
-                                </button>
-                            </div>
-                        </div>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
+                                        <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                                        <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
+                                            Submit Completion Report
+                                        </button>
+                                    </div>
+                                </div>
 
-                        <div class="mt-4">
-                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Submitted Files</label>
-                            <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-                                ${renderCommunityServiceSubmissions(portfolioSubmissions)}
+                                <div class="mt-4">
+                                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Submitted Files</label>
+                                    <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                                        ${renderCommunityServiceSubmissions(portfolioSubmissions)}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        `}
                     </div>
                 </div>
             `;
