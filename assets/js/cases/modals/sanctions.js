@@ -104,11 +104,9 @@ async function manageSanctions(caseId) {
                             <p class="text-xs ${textColor} mb-2">
                                 <strong>Suggested:</strong> ${recommendationData.sanction_name}
                                 ${recommendationData.duration_range && !recommendationData.sanction_name.toLowerCase().includes(recommendationData.duration_range.toLowerCase()) ? `<br><span class="opacity-80">${recommendationData.duration_range}</span>` : ''}
-                        if (modalState.manageSanctions !== openToken) return;
                             </p>
                             <p class="text-xs ${textColor} opacity-90 mb-2">
                                 ${recommendationData.reason.replace(/(first|second|third|fourth|1st|2nd|3rd|4th)/gi, `<span class="font-bold px-1 py-0.5 rounded ${isHighSeverity ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100' : 'bg-blue-200 dark:bg-blue-700 text-blue-900 dark:text-blue-100'}">$1</span>`)}
-                        modal.setAttribute('data-manage-sanctions-modal', 'true');
                                 ${recommendationData.subcategory ? `<br><span class="opacity-75">Category ${recommendationData.subcategory}</span>` : ''}
                             </p>
                             ${recommendationData.requires_ched_approval ? `
@@ -141,7 +139,6 @@ async function manageSanctions(caseId) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
             <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Manage Sanctions - ${caseData.id}</h3>
