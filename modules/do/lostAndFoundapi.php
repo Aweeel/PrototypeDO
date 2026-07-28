@@ -152,6 +152,57 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Error fetching student']);
             }
             break;
+
+        case 'lookup_claimer_id':
+            $claimer_id = trim($_GET['claimer_id'] ?? '');
+
+            if (!$claimer_id) {
+                echo json_encode(['success' => false, 'message' => 'Claimer ID required']);
+                break;
+            }
+
+            $sql = "
+                SELECT TOP 1 id_type, claimer_id, full_name
+                FROM (
+                    SELECT 1 AS sort_order, 'student' AS id_type, student_id AS claimer_id, first_name + ' ' + last_name AS full_name
+                    FROM students
+                    WHERE student_id = ?
+
+                    UNION ALL
+
+                    SELECT 2 AS sort_order, 'teacher' AS id_type, teacher_id AS claimer_id, full_name
+                    FROM users
+                    WHERE teacher_id = ?
+
+                    UNION ALL
+
+                    SELECT 3 AS sort_order, 'discipline_office' AS id_type, do_id AS claimer_id, full_name
+                    FROM users
+                    WHERE do_id = ?
+                ) claimer_matches
+                ORDER BY sort_order
+            ";
+
+            try {
+                $claimer = fetchOne($sql, [$claimer_id, $claimer_id, $claimer_id]);
+
+                if ($claimer) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [
+                            'id_type' => $claimer['id_type'],
+                            'claimer_id' => $claimer['claimer_id'],
+                            'full_name' => $claimer['full_name']
+                        ]
+                    ]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Claimer ID not found']);
+                }
+            } catch (Exception $e) {
+                error_log("lookup_claimer_id error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Error fetching claimer ID']);
+            }
+            break;
             
         case 'add_category':
             $categoryName = $_POST['category_name'] ?? '';

@@ -44,7 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Expected columns: first_name, last_name, middle_name, contact_number
+        // Expected columns: student_id, teacher_id, do_id, first_name, last_name, middle_name, contact_number, role
+        $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'super_admin'];
         $imported = 0;
         $errors = [];
         $skipped = 0;
@@ -61,6 +62,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             // Validate required fields
             if (empty($data['first_name']) || empty($data['last_name']) || empty($data['role'])) {
                 $errors[] = "Row skipped: Missing required fields (first_name, last_name, or role)";
+                $skipped++;
+                continue;
+            }
+
+            $role = trim(strtolower($data['role']));
+            if (!in_array($role, $allowedRoles, true)) {
+                $errors[] = "Row skipped: Invalid role '{$data['role']}'. Valid roles are teacher, discipline_office, security, student, super_admin.";
+                $skipped++;
+                continue;
+            }
+
+            $studentId = trim($data['student_id'] ?? '');
+            $teacherId = trim($data['teacher_id'] ?? '');
+            $doId = trim($data['do_id'] ?? '');
+
+            if ($role === 'student' && $studentId === '') {
+                $errors[] = "Row skipped: student_id is required for student rows";
+                $skipped++;
+                continue;
+            }
+
+            if ($role === 'teacher' && $teacherId === '') {
+                $errors[] = "Row skipped: teacher_id is required for teacher rows";
+                $skipped++;
+                continue;
+            }
+
+            if ($role === 'discipline_office' && $doId === '') {
+                $errors[] = "Row skipped: do_id is required for discipline_office rows";
+                $skipped++;
+                continue;
+            }
+
+            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId])) {
+                $errors[] = "Row skipped: student_id '{$studentId}' already exists";
+                $skipped++;
+                continue;
+            }
+
+            if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE teacher_id = ?", [$teacherId])) {
+                $errors[] = "Row skipped: teacher_id '{$teacherId}' already exists";
+                $skipped++;
+                continue;
+            }
+
+            if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE do_id = ?", [$doId])) {
+                $errors[] = "Row skipped: do_id '{$doId}' already exists";
                 $skipped++;
                 continue;
             }
@@ -86,16 +134,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
 
                 // Insert user account
-                $userSql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, 1, GETDATE())";
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, GETDATE())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,
                     $email,
                     $fullName,
-                    $data['role'],
+                    $teacherId !== '' ? $teacherId : null,
+                    $doId !== '' ? $doId : null,
+                    $role,
                     $data['contact_number'] ?? null
                 ]);
+
+                if ($role === 'student') {
+                    $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
+                    $nameParts = preg_split('/\s+/', trim($fullName));
+                    $firstNameOnly = $nameParts[0] ?? $data['first_name'];
+                    $lastNameOnly = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : ($data['last_name'] ?? '');
+                    executeQuery(
+                        "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)",
+                        [$studentId, $newUserId, $firstNameOnly, $lastNameOnly, 'N/A', 'College']
+                    );
+                }
 
                 $imported++;
             } catch (Exception $e) {
@@ -134,21 +195,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
     try {
         // Get next student ID
-        if ($_POST['action'] === 'getNextStudentID') {
-            $prefix = '02000';
-            $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
-            $nextNum = 1;
-            if ($last) {
-                $num = intval(substr($last, strlen($prefix)));
-                $nextNum = $num + 1;
-            }
-            do {
-                $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
-                $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
-                $nextNum++;
-            } while ($exists);
-            
-            echo json_encode(['success' => true, 'student_id' => $studentId]);
+        if ($_POST['action'] === 'getNextStudentID' || $_POST['action'] === 'getNextRoleID') {
+            echo json_encode(['success' => false, 'error' => 'ID generation is disabled. IDs must be provided via import.']);
             exit;
         }
 
@@ -158,42 +206,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'] ?? '';
             $status = $_POST['status'] ?? '';
 
-            // Check if search term looks like a student ID (starts with 02000)
-            $isStudentIdSearch = !empty($search) && strpos($search, '02000') === 0;
-            
-            // If searching by student ID, find the student first, then get their user
-            if ($isStudentIdSearch) {
-                $sql = "SELECT 
-                            COALESCE(u.user_id, 0) as user_id,
-                            COALESCE(u.email, 'N/A') as email,
-                            COALESCE(u.full_name, s.first_name + ' ' + s.last_name) as full_name,
-                            COALESCE(u.role, 'student') as role,
-                            COALESCE(u.contact_number, '') as contact_number,
-                            COALESCE(u.is_active, 1) as is_active,
-                            u.last_login,
-                            COALESCE(u.created_at, s.created_at) as created_at,
-                            s.student_id,
-                            CASE 
-                                WHEN u.user_id IS NOT NULL AND EXISTS(
-                                    SELECT 1 FROM notifications n 
-                                    WHERE n.type = 'password_reset_request' 
-                                    AND n.is_read = 0
-                                    AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
-                                ) THEN 1
-                                ELSE 0
-                            END as has_pending_reset
-                        FROM students s
-                        LEFT JOIN users u ON s.user_id = u.user_id
-                        WHERE s.student_id = ?";
-                $params = [$search];
-                
-                // Apply role filter if set
+            $idSearchPrefixes = [
+                '02000' => ['role' => 'student', 'column' => 'student_id'],
+                '01000' => ['role' => 'teacher', 'column' => 'teacher_id'],
+                '03000' => ['role' => 'discipline_office', 'column' => 'do_id']
+            ];
+
+            $matchedIdSearch = null;
+            if (!empty($search)) {
+                foreach ($idSearchPrefixes as $prefix => $config) {
+                    if (strpos($search, $prefix) === 0) {
+                        $matchedIdSearch = $config;
+                        break;
+                    }
+                }
+            }
+
+            if ($matchedIdSearch) {
+                if ($matchedIdSearch['role'] === 'student') {
+                    $sql = "SELECT 
+                                COALESCE(u.user_id, 0) as user_id,
+                                COALESCE(u.email, 'N/A') as email,
+                                COALESCE(u.full_name, s.first_name + ' ' + s.last_name) as full_name,
+                                COALESCE(u.role, 'student') as role,
+                                COALESCE(u.contact_number, '') as contact_number,
+                                COALESCE(u.is_active, 1) as is_active,
+                                u.last_login,
+                                COALESCE(u.created_at, s.created_at) as created_at,
+                                s.student_id,
+                                u.teacher_id,
+                                u.do_id,
+                                CASE 
+                                    WHEN u.user_id IS NOT NULL AND EXISTS(
+                                        SELECT 1 FROM notifications n 
+                                        WHERE n.type = 'password_reset_request' 
+                                        AND n.is_read = 0
+                                        AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                    ) THEN 1
+                                    ELSE 0
+                                END as has_pending_reset
+                            FROM students s
+                            LEFT JOIN users u ON s.user_id = u.user_id
+                            WHERE s.student_id = ?";
+                    $params = [$search];
+                } else {
+                    $idColumn = $matchedIdSearch['column'];
+                    $sql = "SELECT 
+                                u.user_id,
+                                u.email,
+                                u.full_name,
+                                u.role,
+                                u.contact_number,
+                                u.is_active,
+                                u.last_login,
+                                u.created_at,
+                                s.student_id,
+                                u.teacher_id,
+                                u.do_id,
+                                CASE 
+                                    WHEN EXISTS(
+                                        SELECT 1 FROM notifications n 
+                                        WHERE n.type = 'password_reset_request' 
+                                        AND n.is_read = 0
+                                        AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                    ) THEN 1
+                                    ELSE 0
+                                END as has_pending_reset
+                            FROM users u
+                            LEFT JOIN students s ON s.user_id = u.user_id
+                            WHERE u.{$idColumn} = ?";
+                    $params = [$search];
+                }
+
                 if (!empty($role)) {
                     $sql .= " AND COALESCE(u.role, 'student') = ?";
                     $params[] = $role;
                 }
-                
-                // Apply status filter if set
+
                 if ($status !== '') {
                     if ($status === 'pending_reset') {
                         $sql .= " AND u.user_id IS NOT NULL AND EXISTS(
@@ -208,7 +297,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     }
                 }
             } else {
-                // Regular user search
                 $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
                                u.is_active, u.last_login, u.created_at,
                                CASE WHEN u.role = 'student' THEN (
@@ -216,6 +304,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                    WHERE user_id = u.user_id 
                                    ORDER BY created_at ASC
                                ) ELSE NULL END as student_id,
+                               u.teacher_id,
+                               u.do_id,
                                CASE 
                                    WHEN EXISTS(
                                        SELECT 1 FROM notifications n 
@@ -227,13 +317,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                END as has_pending_reset
                         FROM users u
                         WHERE 1=1";
-                
+
                 $params = [];
 
                 if (!empty($search)) {
-                    // Search by full name, email, or user ID
-                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND student_id LIKE ?)))";
+                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR u.teacher_id LIKE ? OR u.do_id LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND student_id LIKE ?)))";
                     $searchTerm = '%' . $search . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
                     $params[] = $searchTerm;
                     $params[] = $searchTerm;
                     $params[] = $searchTerm;
@@ -272,6 +363,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'role' => $user['role'],
                     'contact_number' => $user['contact_number'] ?? 'N/A',
                     'student_id' => $user['student_id'] ?? null,
+                    'teacher_id' => $user['teacher_id'] ?? null,
+                    'do_id' => $user['do_id'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
@@ -314,30 +407,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // Hash default password
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
+            $teacherId = trim($_POST['teacher_id'] ?? '');
+            $doId = trim($_POST['do_id'] ?? '');
+            $studentId = trim($_POST['student_id'] ?? '');
+
             // Insert new user record
-            $sql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 1, GETDATE())";
-            executeQuery($sql, [$username, $password_hash, $email, $full_name, $role, $contact_number]);
+            $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, GETDATE())";
+            executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
             $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
 
-            // if this is a student, create a linked student record with auto‑generated ID
-            if ($role === 'student') {
-                $prefix = '02000';
-                // find last student id with the prefix
-                $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
-                $nextNum = 1;
-                if ($last) {
-                    $num = intval(substr($last, strlen($prefix)));
-                    $nextNum = $num + 1;
-                }
-                // ensure uniqueness in a loop just in case
-                do {
-                    $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
-                    $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
-                    $nextNum++;
-                } while ($exists);
+            // If an imported student_id is supplied, create the linked student record
+            if ($role === 'student' && $studentId !== '') {
 
                 // split full name into first/last
                 $nameParts = preg_split('/\s+/', $full_name);
@@ -357,11 +440,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if (isset($studentId)) {
                 $logData['student_id'] = $studentId;
             }
+            if (isset($teacherId)) {
+                $logData['teacher_id'] = $teacherId;
+            }
+            if (isset($doId)) {
+                $logData['do_id'] = $doId;
+            }
             auditCreate('users', $newUserId, $logData);
 
             $response = ['success' => true, 'message' => 'User created successfully'];
             if (isset($studentId)) {
                 $response['student_id'] = $studentId;
+            }
+            if (isset($teacherId)) {
+                $response['teacher_id'] = $teacherId;
+            }
+            if (isset($doId)) {
+                $response['do_id'] = $doId;
             }
             echo json_encode($response);
             exit;
@@ -396,21 +491,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             executeQuery($sql, [$email, $full_name, $role, $contact_number, $is_active, $user_id]);
 
             // if becoming a student and no corresponding student record exists, create one
-            if ($role === 'student') {
+            if ($role === 'student' && $studentId !== '') {
                 $existingStudent = fetchOne("SELECT student_id FROM students WHERE user_id = ?", [$user_id]);
                 if (!$existingStudent) {
-                    $prefix = '02000';
-                    $last = fetchValue("SELECT TOP 1 student_id FROM students WHERE student_id LIKE ? ORDER BY student_id DESC", [$prefix . '%']);
-                    $nextNum = 1;
-                    if ($last) {
-                        $num = intval(substr($last, strlen($prefix)));
-                        $nextNum = $num + 1;
+                    $studentId = trim($_POST['student_id'] ?? '');
+                    if ($studentId === '') {
+                        echo json_encode(['success' => false, 'error' => 'student_id is required for student role updates']);
+                        exit;
                     }
-                    do {
-                        $studentId = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
-                        $exists = fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId]);
-                        $nextNum++;
-                    } while ($exists);
 
                     $nameParts = preg_split('/\s+/', $full_name);
                     $firstName = $nameParts[0];
@@ -727,7 +815,7 @@ $adminName = getFormattedUserName();
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input type="text" id="searchInput" placeholder="Search by name, email, user ID, or student ID (02000...)"
+                        <input type="text" id="searchInput" placeholder="Search by name, email, user ID, or staff ID (01000..., 02000..., 03000...)"
                             class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
                             oninput="filterUsers()">
                     </div>
@@ -888,14 +976,13 @@ $adminName = getFormattedUserName();
 
             <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
-                <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">The CSV file must have the following columns:</p>
+                <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
                 <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                    first_name, last_name, middle_name, contact_number, role
+                    student_id, teacher_id, do_id, first_name, last_name, middle_name, contact_number, role
                 </code>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">* Required fields: first_name, last_name, role</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">* Email will be auto-generated as: firstname.lastname@sti.edu</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">* Valid roles: teacher, discipline_office, security, student, super_admin</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">* Default password: password</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: first_name, last_name, role, and the matching ID for each role row.</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher rows use teacher_id, discipline office rows use do_id, and student rows use student_id.</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is auto-generated as firstname.lastname@sti.edu. Default password: password.</p>
             </div>
 
             <form id="importUsersForm" enctype="multipart/form-data">
