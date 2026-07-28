@@ -38,8 +38,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Expected columns: first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
-        // Student ID will be auto-generated based on most recent 02000XXXXXX number
+        // Expected columns: student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+        $expectedColumns = [
+            'student_id',
+            'first_name',
+            'last_name',
+            'middle_name',
+            'grade_year',
+            'track_course',
+            'section',
+            'student_type',
+            'guardian_name',
+            'guardian_contact'
+        ];
+
+        $normalizedHeader = array_map(function ($column) {
+            return strtolower(trim($column));
+        }, $header);
+
+        if ($normalizedHeader !== $expectedColumns) {
+            fclose($handle);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid CSV format. Expected columns: ' . implode(', ', $expectedColumns)
+            ]);
+            exit;
+        }
+
         $imported = 0;
         $errors = [];
         $skipped = 0;
@@ -51,49 +76,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             }
 
             // Map CSV columns to array
-            $data = array_combine($header, $row);
+            if (count($row) !== count($expectedColumns)) {
+                $errors[] = 'Row skipped: Column count does not match the CSV header';
+                $skipped++;
+                continue;
+            }
 
-            // Validate required fields (student_id is no longer required)
-            if (empty($data['first_name']) || empty($data['last_name']) || empty($data['grade_year'])) {
-                $errors[] = "Row skipped: Missing required fields (first_name, last_name, or grade_year)";
+            $data = array_combine($expectedColumns, $row);
+
+            $studentId = trim($data['student_id'] ?? '');
+            $firstName = trim($data['first_name'] ?? '');
+            $lastName = trim($data['last_name'] ?? '');
+            $gradeYear = trim($data['grade_year'] ?? '');
+
+            // Validate required fields including student_id.
+            if ($studentId === '' || $firstName === '' || $lastName === '' || $gradeYear === '') {
+                $errors[] = "Row skipped: Missing required fields (student_id, first_name, last_name, or grade_year)";
                 $skipped++;
                 continue;
             }
 
             try {
-                // Auto-generate student_id based on most recent 02000XXXXXX format
-                $lastStudentSql = "SELECT TOP 1 student_id FROM students 
-                                   WHERE student_id LIKE '02000%' 
-                                   ORDER BY student_id DESC";
-                $lastStudent = fetchOne($lastStudentSql);
-                
-                if ($lastStudent && isset($lastStudent['student_id'])) {
-                    // Extract the numeric part and increment
-                    $lastNumber = intval(substr($lastStudent['student_id'], 5)); // Get numbers after '02000'
-                    $newNumber = $lastNumber + 1;
-                    $newStudentId = '02000' . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
-                } else {
-                    // No existing students, start from 02000000001
-                    $newStudentId = '02000000001';
-                }
-
-                // Check if auto-generated student_id already exists (safety check)
+                // Check if provided student_id already exists.
                 $checkSql = "SELECT student_id FROM students WHERE student_id = ?";
-                $existing = fetchOne($checkSql, [$newStudentId]);
+                $existing = fetchOne($checkSql, [$studentId]);
 
                 if ($existing) {
-                    $errors[] = "Error: Auto-generated student ID {$newStudentId} already exists. Database may be out of sync.";
+                    $errors[] = "Error: Student ID {$studentId} already exists";
                     $skipped++;
                     continue;
                 }
 
                 // Auto-generate email: lastname.last6digits@sti.edu
-                $lastName = strtolower(str_replace(' ', '', $data['last_name'])); // Remove spaces and lowercase
-                $last6Digits = substr($newStudentId, -6); // Get last 6 digits
-                $email = $lastName . '.' . $last6Digits . '@sti.edu';
+                $emailLastName = strtolower(str_replace(' ', '', $lastName)); // Remove spaces and lowercase
+                $last6Digits = substr($studentId, -6); // Get last 6 digits
+                $email = $emailLastName . '.' . $last6Digits . '@sti.edu';
 
                 // Create user account for the student
-                $fullName = trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']);
+                $fullName = trim($firstName . ' ' . ($data['middle_name'] ?? '') . ' ' . $lastName);
                 $username = $email; // Use email as username
                 $defaultPassword = 'password'; // Default password for all students
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
@@ -125,12 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 executeQuery($insertSql, [
-                    $newStudentId,
+                    $studentId,
                     $userId,
-                    $data['first_name'],
-                    $data['last_name'],
+                    $firstName,
+                    $lastName,
                     $data['middle_name'] ?? null,
-                    $data['grade_year'],
+                    $gradeYear,
                     $data['track_course'] ?? null,
                     $data['section'] ?? null,
                     $data['student_type'] ?? null,
@@ -522,7 +542,7 @@ $adminName = getFormattedUserName();
                 <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
                 <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">The CSV file must have the following columns:</p>
                 <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                    first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+                    student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
                 </code>
                 <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">* Required fields: student_id, first_name, last_name, grade_year</p>
             </div>

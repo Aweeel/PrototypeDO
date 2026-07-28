@@ -3,7 +3,8 @@
 -- SQL Server 2019+
 -- Discipline Office Management System
 -- Safe to run multiple times - prevents duplicates
--- Student ID Format: 02000 + 6 digits (e.g., 02000000001)
+-- Student IDs are explicitly stored/provided (recommended format: 02000 + 6 digits, e.g., 02000000001)
+-- Teacher IDs use 01000 + 6 digits, and Discipline Office IDs use 03000 + 6 digits
 -- ============================================
 
 USE master;
@@ -31,6 +32,8 @@ CREATE TABLE users (
     password_hash NVARCHAR(255) NOT NULL,
     email NVARCHAR(100) UNIQUE NOT NULL,
     full_name NVARCHAR(100) NOT NULL,
+    teacher_id NVARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id LIKE '01000[0-9][0-9][0-9][0-9][0-9][0-9]'),
+    do_id NVARCHAR(20) NULL CHECK (do_id IS NULL OR do_id LIKE '03000[0-9][0-9][0-9][0-9][0-9][0-9]'),
     role NVARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number NVARCHAR(20),
     is_active BIT DEFAULT 1,
@@ -367,6 +370,8 @@ CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_audit_user ON audit_log(user_id);
 CREATE INDEX idx_lost_found_status ON lost_found_items(status);
 CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
+CREATE UNIQUE INDEX ux_users_teacher_id ON users(teacher_id) WHERE teacher_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_users_do_id ON users(do_id) WHERE do_id IS NOT NULL;
 GO
 
 -- ============================================
@@ -448,18 +453,18 @@ GO
 -- ============================================
 PRINT 'Inserting users...';
 
-INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'admin@sti.edu', 'System Administrator', 'super_admin', '09123456789'),
+ 'admin@sti.edu', 'System Administrator', NULL, NULL, 'super_admin', '09123456789'),
 ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'do@sti.edu', 'John Doe', 'discipline_office', '09187654321'),
+ 'do@sti.edu', 'John Doe', NULL, '03000000001', 'discipline_office', '09187654321'),
 ('teacher', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'teacher1@sti.edu', 'Maria Santos', 'teacher', '09171234567'),
+ 'teacher1@sti.edu', 'Maria Santos', '01000000001', NULL, 'teacher', '09171234567'),
 ('security', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'security1@sti.edu', 'Carlos Dela Cruz', 'security', '09184561234'),
+ 'security1@sti.edu', 'Carlos Dela Cruz', NULL, NULL, 'security', '09184561234'),
 ('student', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'student1@sti.edu', 'Alex Reyes', 'student', '09193456781');
+ 'student1@sti.edu', 'Alex Reyes', NULL, NULL, 'student', '09193456781');
 
 PRINT 'Users inserted: 5';
 GO
@@ -472,21 +477,21 @@ PRINT 'Inserting additional staff accounts...';
 -- Default password for all staff: 'password'
 DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
-INSERT INTO users (username, password_hash, email, full_name, role, contact_number)
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 -- Discipline Office Staff (2 additional)
-('torres.discipline@sti.edu', @defaultPassword, 'torres.discipline@sti.edu', 'Patricia Torres', 'discipline_office', '09189876543'),
-('reyes.discipline@sti.edu', @defaultPassword, 'reyes.discipline@sti.edu', 'Miguel Reyes', 'discipline_office', '09186543210'),
+('torres.discipline@sti.edu', @defaultPassword, 'torres.discipline@sti.edu', 'Patricia Torres', NULL, '03000000002', 'discipline_office', '09189876543'),
+('reyes.discipline@sti.edu', @defaultPassword, 'reyes.discipline@sti.edu', 'Miguel Reyes', NULL, '03000000003', 'discipline_office', '09186543210'),
 -- Security Staff (4)
-('santos.security1@sti.edu', @defaultPassword, 'santos.security1@sti.edu', 'Robert Santos', 'security', '09184567891'),
-('cruz.security2@sti.edu', @defaultPassword, 'cruz.security2@sti.edu', 'Fernando Cruz', 'security', '09184567892'),
-('diaz.security3@sti.edu', @defaultPassword, 'diaz.security3@sti.edu', 'Eduardo Diaz', 'security', '09184567893'),
-('herrera.security4@sti.edu', @defaultPassword, 'herrera.security4@sti.edu', 'Manuel Herrera', 'security', '09184567894'),
+('santos.security1@sti.edu', @defaultPassword, 'santos.security1@sti.edu', 'Robert Santos', NULL, NULL, 'security', '09184567891'),
+('cruz.security2@sti.edu', @defaultPassword, 'cruz.security2@sti.edu', 'Fernando Cruz', NULL, NULL, 'security', '09184567892'),
+('diaz.security3@sti.edu', @defaultPassword, 'diaz.security3@sti.edu', 'Eduardo Diaz', NULL, NULL, 'security', '09184567893'),
+('herrera.security4@sti.edu', @defaultPassword, 'herrera.security4@sti.edu', 'Manuel Herrera', NULL, NULL, 'security', '09184567894'),
 -- Teachers (4)
-('garcia.teacher@sti.edu', @defaultPassword, 'garcia.teacher@sti.edu', 'Lisa Garcia', 'teacher', '09173334567'),
-('morales.teacher@sti.edu', @defaultPassword, 'morales.teacher@sti.edu', 'Vincent Morales', 'teacher', '09173334568'),
-('gutierrez.teacher@sti.edu', @defaultPassword, 'gutierrez.teacher@sti.edu', 'Rachel Gutierrez', 'teacher', '09173334569'),
-('lopez.teacher@sti.edu', @defaultPassword, 'lopez.teacher@sti.edu', 'Francisco Lopez', 'teacher', '09173334570');
+('garcia.teacher@sti.edu', @defaultPassword, 'garcia.teacher@sti.edu', 'Lisa Garcia', '01000000002', NULL, 'teacher', '09173334567'),
+('morales.teacher@sti.edu', @defaultPassword, 'morales.teacher@sti.edu', 'Vincent Morales', '01000000003', NULL, 'teacher', '09173334568'),
+('gutierrez.teacher@sti.edu', @defaultPassword, 'gutierrez.teacher@sti.edu', 'Rachel Gutierrez', '01000000004', NULL, 'teacher', '09173334569'),
+('lopez.teacher@sti.edu', @defaultPassword, 'lopez.teacher@sti.edu', 'Francisco Lopez', '01000000005', NULL, 'teacher', '09173334570');
 
 PRINT 'Additional staff inserted: 10';
 GO
@@ -499,47 +504,47 @@ PRINT 'Inserting student user accounts...';
 -- Re-declare variable (DECLARE scope is per-batch in SQL Server)
 DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
-INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active)
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active)
 VALUES 
 -- SHS Students
-('delacruz.000001@sti.edu', @defaultPassword, 'delacruz.000001@sti.edu', 'Juan Santos Dela Cruz', 'student', '09171234001', 1),
-('garcia.000002@sti.edu', @defaultPassword, 'garcia.000002@sti.edu', 'Maria Reyes Garcia', 'student', '09171234002', 1),
-('santos.000003@sti.edu', @defaultPassword, 'santos.000003@sti.edu', 'Pedro Lopez Santos', 'student', '09171234003', 1),
-('reyes.000004@sti.edu', @defaultPassword, 'reyes.000004@sti.edu', 'Ana Cruz Reyes', 'student', '09171234004', 1),
-('mendoza.000005@sti.edu', @defaultPassword, 'mendoza.000005@sti.edu', 'Carlos Torres Mendoza', 'student', '09171234005', 1),
-('ramos.000006@sti.edu', @defaultPassword, 'ramos.000006@sti.edu', 'Sofia Diaz Ramos', 'student', '09171234006', 1),
-('torres.000007@sti.edu', @defaultPassword, 'torres.000007@sti.edu', 'Miguel Morales Torres', 'student', '09171234007', 1),
-('cruz.000008@sti.edu', @defaultPassword, 'cruz.000008@sti.edu', 'Isabella Fernandez Cruz', 'student', '09171234008', 1),
-('fernandez.000009@sti.edu', @defaultPassword, 'fernandez.000009@sti.edu', 'Luis Diaz Fernandez', 'student', '09171234009', 1),
-('diaz.000010@sti.edu', @defaultPassword, 'diaz.000010@sti.edu', 'Carmen Gutierrez Diaz', 'student', '09171234010', 1),
-('morales.000011@sti.edu', @defaultPassword, 'morales.000011@sti.edu', 'Diego Herrera Morales', 'student', '09171234011', 1),
-('gutierrez.000012@sti.edu', @defaultPassword, 'gutierrez.000012@sti.edu', 'Lucia Jimenez Gutierrez', 'student', '09171234012', 1),
-('johnson.000013@sti.edu', @defaultPassword, 'johnson.000013@sti.edu', 'Alex Michael Johnson', 'student', '09171234013', 1),
-('wilson.000014@sti.edu', @defaultPassword, 'wilson.000014@sti.edu', 'Emma Rose Wilson', 'student', '09171234014', 1),
-('lee.000015@sti.edu', @defaultPassword, 'lee.000015@sti.edu', 'Daniel James Lee', 'student', '09171234015', 1),
+('delacruz.000001@sti.edu', @defaultPassword, 'delacruz.000001@sti.edu', 'Juan Santos Dela Cruz', NULL, NULL, 'student', '09171234001', 1),
+('garcia.000002@sti.edu', @defaultPassword, 'garcia.000002@sti.edu', 'Maria Reyes Garcia', NULL, NULL, 'student', '09171234002', 1),
+('santos.000003@sti.edu', @defaultPassword, 'santos.000003@sti.edu', 'Pedro Lopez Santos', NULL, NULL, 'student', '09171234003', 1),
+('reyes.000004@sti.edu', @defaultPassword, 'reyes.000004@sti.edu', 'Ana Cruz Reyes', NULL, NULL, 'student', '09171234004', 1),
+('mendoza.000005@sti.edu', @defaultPassword, 'mendoza.000005@sti.edu', 'Carlos Torres Mendoza', NULL, NULL, 'student', '09171234005', 1),
+('ramos.000006@sti.edu', @defaultPassword, 'ramos.000006@sti.edu', 'Sofia Diaz Ramos', NULL, NULL, 'student', '09171234006', 1),
+('torres.000007@sti.edu', @defaultPassword, 'torres.000007@sti.edu', 'Miguel Morales Torres', NULL, NULL, 'student', '09171234007', 1),
+('cruz.000008@sti.edu', @defaultPassword, 'cruz.000008@sti.edu', 'Isabella Fernandez Cruz', NULL, NULL, 'student', '09171234008', 1),
+('fernandez.000009@sti.edu', @defaultPassword, 'fernandez.000009@sti.edu', 'Luis Diaz Fernandez', NULL, NULL, 'student', '09171234009', 1),
+('diaz.000010@sti.edu', @defaultPassword, 'diaz.000010@sti.edu', 'Carmen Gutierrez Diaz', NULL, NULL, 'student', '09171234010', 1),
+('morales.000011@sti.edu', @defaultPassword, 'morales.000011@sti.edu', 'Diego Herrera Morales', NULL, NULL, 'student', '09171234011', 1),
+('gutierrez.000012@sti.edu', @defaultPassword, 'gutierrez.000012@sti.edu', 'Lucia Jimenez Gutierrez', NULL, NULL, 'student', '09171234012', 1),
+('johnson.000013@sti.edu', @defaultPassword, 'johnson.000013@sti.edu', 'Alex Michael Johnson', NULL, NULL, 'student', '09171234013', 1),
+('wilson.000014@sti.edu', @defaultPassword, 'wilson.000014@sti.edu', 'Emma Rose Wilson', NULL, NULL, 'student', '09171234014', 1),
+('lee.000015@sti.edu', @defaultPassword, 'lee.000015@sti.edu', 'Daniel James Lee', NULL, NULL, 'student', '09171234015', 1),
 -- College Students
-('villanueva.000016@sti.edu', @defaultPassword, 'villanueva.000016@sti.edu', 'Marco Santos Villanueva', 'student', '09181234001', 1),
-('castillo.000017@sti.edu', @defaultPassword, 'castillo.000017@sti.edu', 'Angela Reyes Castillo', 'student', '09181234002', 1),
-('herrera.000018@sti.edu', @defaultPassword, 'herrera.000018@sti.edu', 'Rafael Cruz Herrera', 'student', '09181234003', 1),
-('jimenez.000019@sti.edu', @defaultPassword, 'jimenez.000019@sti.edu', 'Gabriela Torres Jimenez', 'student', '09181234004', 1),
-('navarro.000020@sti.edu', @defaultPassword, 'navarro.000020@sti.edu', 'Daniel Mendoza Navarro', 'student', '09181234005', 1),
-('romero.000021@sti.edu', @defaultPassword, 'romero.000021@sti.edu', 'Valentina Garcia Romero', 'student', '09181234006', 1),
-('vargas.000022@sti.edu', @defaultPassword, 'vargas.000022@sti.edu', 'Andres Lopez Vargas', 'student', '09181234007', 1),
-('flores.000023@sti.edu', @defaultPassword, 'flores.000023@sti.edu', 'Camila Diaz Flores', 'student', '09181234008', 1),
-('martinez.000024@sti.edu', @defaultPassword, 'martinez.000024@sti.edu', 'Sebastian Ramos Martinez', 'student', '09181234009', 1),
-('gonzalez.000025@sti.edu', @defaultPassword, 'gonzalez.000025@sti.edu', 'Nicole Morales Gonzalez', 'student', '09181234010', 1),
-('lopez.000026@sti.edu', @defaultPassword, 'lopez.000026@sti.edu', 'Adrian Fernandez Lopez', 'student', '09181234011', 1),
-('perez.000027@sti.edu', @defaultPassword, 'perez.000027@sti.edu', 'Bianca Gutierrez Perez', 'student', '09181234012', 1),
-('smith.000028@sti.edu', @defaultPassword, 'smith.000028@sti.edu', 'James Robert Smith', 'student', '09181234013', 1),
-('brown.000029@sti.edu', @defaultPassword, 'brown.000029@sti.edu', 'Sophia Anne Brown', 'student', '09181234014', 1),
-('wang.000030@sti.edu', @defaultPassword, 'wang.000030@sti.edu', 'Michael Chen Wang', 'student', '09181234015', 1);
+('villanueva.000016@sti.edu', @defaultPassword, 'villanueva.000016@sti.edu', 'Marco Santos Villanueva', NULL, NULL, 'student', '09181234001', 1),
+('castillo.000017@sti.edu', @defaultPassword, 'castillo.000017@sti.edu', 'Angela Reyes Castillo', NULL, NULL, 'student', '09181234002', 1),
+('herrera.000018@sti.edu', @defaultPassword, 'herrera.000018@sti.edu', 'Rafael Cruz Herrera', NULL, NULL, 'student', '09181234003', 1),
+('jimenez.000019@sti.edu', @defaultPassword, 'jimenez.000019@sti.edu', 'Gabriela Torres Jimenez', NULL, NULL, 'student', '09181234004', 1),
+('navarro.000020@sti.edu', @defaultPassword, 'navarro.000020@sti.edu', 'Daniel Mendoza Navarro', NULL, NULL, 'student', '09181234005', 1),
+('romero.000021@sti.edu', @defaultPassword, 'romero.000021@sti.edu', 'Valentina Garcia Romero', NULL, NULL, 'student', '09181234006', 1),
+('vargas.000022@sti.edu', @defaultPassword, 'vargas.000022@sti.edu', 'Andres Lopez Vargas', NULL, NULL, 'student', '09181234007', 1),
+('flores.000023@sti.edu', @defaultPassword, 'flores.000023@sti.edu', 'Camila Diaz Flores', NULL, NULL, 'student', '09181234008', 1),
+('martinez.000024@sti.edu', @defaultPassword, 'martinez.000024@sti.edu', 'Sebastian Ramos Martinez', NULL, NULL, 'student', '09181234009', 1),
+('gonzalez.000025@sti.edu', @defaultPassword, 'gonzalez.000025@sti.edu', 'Nicole Morales Gonzalez', NULL, NULL, 'student', '09181234010', 1),
+('lopez.000026@sti.edu', @defaultPassword, 'lopez.000026@sti.edu', 'Adrian Fernandez Lopez', NULL, NULL, 'student', '09181234011', 1),
+('perez.000027@sti.edu', @defaultPassword, 'perez.000027@sti.edu', 'Bianca Gutierrez Perez', NULL, NULL, 'student', '09181234012', 1),
+('smith.000028@sti.edu', @defaultPassword, 'smith.000028@sti.edu', 'James Robert Smith', NULL, NULL, 'student', '09181234013', 1),
+('brown.000029@sti.edu', @defaultPassword, 'brown.000029@sti.edu', 'Sophia Anne Brown', NULL, NULL, 'student', '09181234014', 1),
+('wang.000030@sti.edu', @defaultPassword, 'wang.000030@sti.edu', 'Michael Chen Wang', NULL, NULL, 'student', '09181234015', 1);
 
 PRINT 'Student user accounts inserted: 30';
 GO
 
 -- ============================================
 -- INSERT SAMPLE STUDENTS (Linked to user accounts)
--- Student ID Format: 02000 + 6 digits
+-- Student IDs below are explicitly assigned sample values
 -- ============================================
 PRINT 'Inserting students...';
 

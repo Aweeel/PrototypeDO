@@ -380,7 +380,7 @@ function showViewModal(item) {
                         </div>
                         ${item.claimer_student_id ? `
                             <div>
-                                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Claimer Student ID</label>
+                                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Claimer ID</label>
                                 <p class="text-gray-900 dark:text-gray-100">${item.claimer_student_id}</p>
                             </div>
                         ` : ''}
@@ -554,20 +554,20 @@ function markClaimed(itemId) {
                     Mark as Claimed
                 </h3>
             </div>
-            <form id="claimItemForm" class="p-6 space-y-4">
+            <form id="claimItemForm" class="p-4 space-y-4">
                 <input type="hidden" name="item_id" value="${itemId}">
                 
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer ID</label>
+                    <input type="text" name="claimer_student_id" id="claimerIdInput" placeholder="Enter Teacher, DO, or Student ID"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Entering a Teacher, DO, or Student ID will automatically fill the name field</p>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer Name *</label>
                     <input type="text" name="claimer_name" id="claimerNameInput" required placeholder="Full name of person claiming item"
                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer Student ID (Optional)</label>
-                    <input type="text" name="claimer_student_id" id="claimerStudentIdInput" placeholder="Enter student ID"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Entering a student ID will automatically fill the name field</p>
                 </div>
                 
                 <div class="flex gap-3 pt-4">
@@ -587,27 +587,27 @@ function markClaimed(itemId) {
     modal.classList.remove('hidden');
     
     // Add event listener to student ID input for auto-lookup
-    const studentIdInput = document.getElementById('claimerStudentIdInput');
+    const claimerIdInput = document.getElementById('claimerIdInput');
     const claimerNameInput = document.getElementById('claimerNameInput');
     
-    studentIdInput.addEventListener('blur', async function() {
-        const studentId = this.value.trim();
+    claimerIdInput.addEventListener('blur', async function() {
+        const claimerId = this.value.trim();
         
-        if (!studentId) {
+        if (!claimerId) {
             return; // Don't do anything if empty
         }
         
         try {
-            const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get_student&student_id=${encodeURIComponent(studentId)}`);
+            const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=lookup_claimer_id&claimer_id=${encodeURIComponent(claimerId)}`);
             const result = await response.json();
             
             if (result.success) {
                 claimerNameInput.value = result.data.full_name;
             } else {
-                showNotification('Info', 'Student not found', 'info');
+                showNotification('Info', 'ID not found', 'info');
             }
         } catch (error) {
-            console.error('Error fetching student:', error);
+            console.error('Error fetching claimer ID:', error);
         }
     });
     

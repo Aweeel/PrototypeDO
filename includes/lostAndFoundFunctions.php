@@ -59,7 +59,6 @@ function handleLostFoundImageUpload($file, $item_id) {
     $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mimeType = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
     
     if (!in_array($mimeType, $allowedMimes)) {
         return ['success' => false, 'error' => 'Invalid file type. Only images are allowed'];
@@ -169,10 +168,11 @@ function getLostFoundItems($filters = []) {
     $sql = "SELECT 
         lf.*,
         s1.first_name + ' ' + s1.last_name AS finder_full_name,
-        s2.first_name + ' ' + s2.last_name AS claimer_full_name
+        COALESCE(s2.first_name + ' ' + s2.last_name, u2.full_name) AS claimer_full_name
     FROM lost_found_items lf
     LEFT JOIN students s1 ON lf.finder_student_id = s1.student_id
     LEFT JOIN students s2 ON lf.claimer_student_id = s2.student_id
+    LEFT JOIN users u2 ON lf.claimer_student_id = u2.teacher_id OR lf.claimer_student_id = u2.do_id
     WHERE lf.is_archived = 0";
     
     $params = [];
@@ -237,10 +237,11 @@ function getItemById($item_id) {
     $sql = "SELECT 
         lf.*,
         s1.first_name + ' ' + s1.last_name AS finder_full_name,
-        s2.first_name + ' ' + s2.last_name AS claimer_full_name
+        COALESCE(s2.first_name + ' ' + s2.last_name, u2.full_name) AS claimer_full_name
     FROM lost_found_items lf
     LEFT JOIN students s1 ON lf.finder_student_id = s1.student_id
     LEFT JOIN students s2 ON lf.claimer_student_id = s2.student_id
+    LEFT JOIN users u2 ON lf.claimer_student_id = u2.teacher_id OR lf.claimer_student_id = u2.do_id
     WHERE lf.item_id = ?";
     
     try {

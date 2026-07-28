@@ -131,14 +131,9 @@ function createAddModal() {
                         <option value="student">Student</option>
                     </select>
                 </div>
-                <div id="student_id_display" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student ID</label>
-                    <input type="text" id="add_student_id" readonly
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100">
-                </div>
                 <div>
                     <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                    <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe" oninput="updateStudentEmail()"
+                    <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
                 <div id="email_container">
@@ -197,11 +192,7 @@ async function submitAddUser(event) {
         const data = await response.json();
         
         if (data.success) {
-            let msg = 'User created successfully';
-            if (data.student_id) {
-                msg += ' (Student ID: ' + data.student_id + ')';
-            }
-            showMessage(msg, 'success');
+            showMessage('User created successfully', 'success');
             closeAddModal();
             loadUsers();
         } else {
@@ -405,61 +396,21 @@ async function submitResetPassword(event) {
     }
 }
 
-// Helper to generate next student ID
-async function generateNextStudentID() {
-    try {
-        const response = await fetch(window.location.pathname, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'ajax=1&action=getNextStudentID'
-        });
-        const data = await response.json();
-        return data.success ? data.student_id : null;
-    } catch (error) {
-        console.error('Error generating student ID:', error);
-        return null;
-    }
+// Helper to generate next role-specific ID
+async function generateNextRoleID(role) {
+    return null;
 }
 
 // Handle role change in add user form
 async function handleRoleChange() {
-    const role = document.getElementById('add_role').value;
-    const studentIdDisplay = document.getElementById('student_id_display');
     const emailInput = document.getElementById('add_email');
-    
-    if (role === 'student') {
-        studentIdDisplay.classList.remove('hidden');
-        const studentId = await generateNextStudentID();
-        if (studentId) {
-            document.getElementById('add_student_id').value = studentId;
-            document.getElementById('add_student_id_value').value = studentId;
-        }
-        emailInput.readOnly = true;
-        emailInput.classList.add('bg-gray-50', 'dark:bg-slate-800');
-        updateStudentEmail();
-    } else {
-        studentIdDisplay.classList.add('hidden');
-        emailInput.readOnly = false;
-        emailInput.classList.remove('bg-gray-50', 'dark:bg-slate-800');
-        emailInput.value = '';
-    }
+    emailInput.readOnly = false;
+    emailInput.classList.remove('bg-gray-50', 'dark:bg-slate-800');
 }
 
-// Update email for student based on full name and student ID
+// Kept for compatibility with the existing oninput hook if any pages still call it.
 function updateStudentEmail() {
-    const role = document.getElementById('add_role').value;
-    if (role === 'student') {
-        const fullName = document.getElementById('add_full_name').value.trim();
-        const studentId = document.getElementById('add_student_id').value;
-        
-        if (fullName && studentId) {
-            const nameParts = fullName.split(/\s+/);
-            const lastName = nameParts[nameParts.length - 1].toLowerCase();
-            const lastSixDigits = studentId.slice(-6);
-            const email = `${lastName}.${lastSixDigits}@sti.edu`;
-            document.getElementById('add_email').value = email;
-        }
-    }
+    return;
 }
 
 // ====== Initialize Modals ======

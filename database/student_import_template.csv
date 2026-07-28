@@ -1,5 +1,9 @@
-first_name,last_name,middle_name,grade_year,track_course,section,student_type,guardian_name,guardian_contact
-Roberto,Aquino,Bautista,11,STEM,A,SHS,Elena Aquino,09171234567
-Patricia,Salazar,Medina,12,ABM,B,SHS,Victor Salazar,09187654321
-Fernando,Lim,Tan,1st Year,BSIT,IT-101,College,Michelle Lim,09191234567
-Christina,Rivera,Castro,2nd Year,BSCS,CS-201,College,Mario Rivera,09171112222
+student_id,first_name,last_name,middle_name,grade_year,track_course,section,student_type,guardian_name,guardian_contact
+02000000101,Roberto,Aquino,Bautista,11,STEM,A,SHS,Elena Aquino,09171234567
+02000000102,Patricia,Salazar,Medina,12,ABM,B,SHS,Victor Salazar,09187654321
+02000000103,Fernando,Lim,Tan,1st Year,BSIT,IT-101,College,Michelle Lim,09191234567
+02000000104,Christina,Rivera,Castro,2nd Year,BSCS,CS-201,College,Mario Rivera,09171112222
+02000000105,James,Santos,Reyes,1st Year,BSTM,TM-101,College,Rosa Santos,09198765432
+02000000106,Angela,Lopez,Garcia,2nd Year,BSBA,BA-202,College,Carlos Lopez,09171234588
+02000000107,David,Fernandez,Cruz,1st Year,BSMA,MA-101,College,Ana Fernandez,09197654321
+02000000108,Maria,Gonzales,Domingo,2nd Year,BACOMM,COMM-202,College,Juan Gonzales,09171234599

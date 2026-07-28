@@ -166,6 +166,8 @@ function renderUsers() {
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">
                         ${user.role === 'student' && user.student_id ? 'Student ID: ' + escapeHtml(user.student_id) : ''}
+                        ${user.role === 'teacher' && user.teacher_id ? 'Teacher ID: ' + escapeHtml(user.teacher_id) : ''}
+                        ${user.role === 'discipline_office' && user.do_id ? 'DO ID: ' + escapeHtml(user.do_id) : ''}
                     </p>
                 </div>
             </td>
