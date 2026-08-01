@@ -16,45 +16,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
     try {
         // Get events
-        if ($_POST['action'] === 'getEvents') {
-            $month = $_POST['month'] ?? date('n');
-            $year = $_POST['year'] ?? date('Y');
-            
-            $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
-                           ce.category, ce.description, ce.location, ce.created_by,
-                           u.full_name as created_by_name
-                    FROM calendar_events ce
-                    LEFT JOIN users u ON ce.created_by = u.user_id
-                    WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?
-                    ORDER BY ce.event_date, ce.event_time";
-            
-            $events = fetchAll($sql, [$month, $year]);
-            
-            // Format events
-            $formattedEvents = array_map(function($event) {
-                // Format time range
-                $timeDisplay = null;
-                if ($event['event_time']) {
-                    $timeDisplay = date('g:i A', strtotime($event['event_time']));
-                    if ($event['event_end_time']) {
-                        $timeDisplay .= ' - ' . date('g:i A', strtotime($event['event_end_time']));
-                    }
-                }
-                
-                return [
-                    'id' => $event['event_id'],
-                    'name' => $event['event_name'],
-                    'date' => $event['event_date'],
-                    'time' => $timeDisplay,
-                    'category' => $event['category'],
-                    'description' => $event['description'],
-                    'location' => $event['location'],
-                    'createdBy' => $event['created_by_name'],
-                    'color' => getCategoryColor($event['category'])
-                ];
-            }, $events);
-            
-            echo json_encode(['success' => true, 'events' => $formattedEvents]);
+if ($_POST['action'] === 'getEvents') {
+    $startDate = $_POST['startDate'] ?? null;
+    $endDate = $_POST['endDate'] ?? null;
+
+    if ($startDate && $endDate) {
+        // Preferred path: exact date range, covers whatever the grid actually shows
+        // (including leading/trailing days from adjacent months)
+        $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
+                       ce.category, ce.description, ce.location, ce.created_by,
+                       u.full_name as created_by_name
+                FROM calendar_events ce
+                LEFT JOIN users u ON ce.created_by = u.user_id
+                WHERE ce.event_date >= ? AND ce.event_date <= ?
+                ORDER BY ce.event_date, ce.event_time";
+        $events = fetchAll($sql, [$startDate, $endDate]);
+    } else {
+        // Backward-compatible fallback if startDate/endDate aren't sent
+        $month = $_POST['month'] ?? date('n');
+        $year = $_POST['year'] ?? date('Y');
+
+        $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
+                       ce.category, ce.description, ce.location, ce.created_by,
+                       u.full_name as created_by_name
+                FROM calendar_events ce
+                LEFT JOIN users u ON ce.created_by = u.user_id
+                WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?
+                ORDER BY ce.event_date, ce.event_time";
+        $events = fetchAll($sql, [$month, $year]);
+    }
+    
+    // Format events
+    $formattedEvents = array_map(function($event) {
+        $timeDisplay = null;
+        if ($event['event_time']) {
+            $timeDisplay = date('g:i A', strtotime($event['event_time']));
+            if ($event['event_end_time']) {
+                $timeDisplay .= ' - ' . date('g:i A', strtotime($event['event_end_time']));
+            }
+        }
+        
+        return [
+            'id' => $event['event_id'],
+            'name' => $event['event_name'],
+            'date' => $event['event_date'],
+            'time' => $timeDisplay,
+            'category' => $event['category'],
+            'description' => $event['description'],
+            'location' => $event['location'],
+            'createdBy' => $event['created_by_name'],
+            'color' => getCategoryColor($event['category'])
+        ];
+    }, $events);
+    
+    echo json_encode(['success' => true, 'events' => $formattedEvents]);
+    exit;
+}
+
+        // Get saved hearing schedule for a case
+        if ($_POST['action'] === 'getCaseSchedule') {
+            $caseId = $_POST['caseId'] ?? '';
+
+            if (empty($caseId)) {
+                echo json_encode(['success' => false, 'error' => 'Missing case id']);
+                exit;
+            }
+
+            $sql = "SELECT TOP 1 event_id, event_name, event_date, event_time, event_end_time, description
+                    FROM calendar_events
+                    WHERE category = 'Hearing' AND event_name LIKE ?
+                    ORDER BY event_date DESC, event_id DESC";
+
+            $schedule = fetchOne($sql, ["%Case {$caseId}%"]);
+
+            if (!$schedule) {
+                echo json_encode(['success' => true, 'schedule' => null]);
+                exit;
+            }
+
+            echo json_encode(['success' => true, 'schedule' => [
+                'id' => $schedule['event_id'],
+                'name' => $schedule['event_name'],
+                'date' => $schedule['event_date'],
+                'time' => $schedule['event_time'],
+                'endTime' => $schedule['event_end_time'],
+                'notes' => $schedule['description']
+            ]]);
             exit;
         }
 
@@ -126,6 +173,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             error_log("Params: " . print_r($params, true));
             
             executeQuery($sql, $params);
+
+                        $eventIdSql = "SELECT TOP 1 event_id
+                                                     FROM calendar_events
+                                                     WHERE event_name = ?
+                                                         AND event_date = ?
+                                                         AND created_by = ?
+                                                     ORDER BY event_id DESC";
+                        $eventRow = fetchOne($eventIdSql, [$eventName, $eventDate, $createdBy]);
             
             // 🧾 Audit Log - Use specialized calendar audit function
             auditCalendarEventCreated($eventName, $eventName, [
@@ -136,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'location' => $location
             ]);
             
-            echo json_encode(['success' => true, 'message' => 'Event created successfully']);
+            echo json_encode(['success' => true, 'message' => 'Event created successfully', 'event_id' => $eventRow['event_id'] ?? null]);
             exit;
         }
 

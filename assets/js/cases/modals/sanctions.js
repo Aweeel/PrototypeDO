@@ -166,89 +166,38 @@ async function manageSanctions(caseId) {
 
             <div class="overflow-y-auto flex-1 px-5">
             <form id="applySanctionForm" class="space-y-4">
-                <div class="relative">
-                    <div class="flex gap-2 items-end">
-                        <div class="flex-1 min-w-0">
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Select Sanction <span class="text-red-500">*</span>
-                                ${recommendationData ? `
-                                    <span class="relative inline-block ml-1 handbook-tooltip-trigger">
-                                        <button type="button" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-help" onmouseenter="showHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </button>
-                                        <!-- Tooltip content -->
-                                        <div id="handbookTooltip" class="hidden absolute left-full top-0 ml-2 z-50 w-80 transition-all duration-200" style="max-height: 500px; overflow-y: auto;" onmouseenter="keepHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
-                                            ${recommendationHTML}
-                                        </div>
-                                    </span>
-                                ` : ''}
-                            </label>
-                            <select id="sanctionSelect" required onchange="handleSanctionChange()" 
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                                <option value="">Choose...</option>
-                                ${sanctions.map(s => `
-                                    <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
-                                        ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
-                                    </option>
-                                `).join('')}
-                            </select>
-                        </div>
-                        <div id="durationDiv" class="w-28 flex-shrink-0" style="display: none;">
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Days <span class="text-red-500">*</span></label>
-                            <input type="number" id="sanctionDuration" min="1" 
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-center"
-                                placeholder="0">
-                        </div>
+                <!-- Schedule Hearing Section - FIRST -->
+                <div id="scheduleSection" class="p-4 border-2 border-blue-300 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <div class="flex items-center gap-2 mb-3">
+                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+    <path d="M6 2a1 1 0 012 0v1h4V2a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h1V2zm9 6H5v7h10V8z"></path>
+</svg>
+                        <h4 class="font-semibold text-blue-900 dark:text-blue-100">Schedule Hearing</h4>
+                        <span id="scheduleCheckmark" class="hidden ml-auto text-green-600 dark:text-green-400">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </span>
                     </div>
-                </div>
-
-                <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none; min-height: 60px;">
-                </div>
-
-                <!-- Deadline Section -->
-                <div id="deadlineSection" style="display: none;">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Completion Deadline
-                    </label>
-                    <div class="flex gap-2 items-end">
-                        <div class="flex-1">
-                            <input type="date" id="sanctionDeadlineDate" onchange="updateDeadlineDisplay()"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                                placeholder="Select deadline date">
-                        </div>
-                        <button type="button" onclick="setDefaultDeadline()" 
-                            class="px-3 py-2 text-xs border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                            Auto-set
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="deadlineDisplayText">No deadline set</p>
-                </div>
-
-                <!-- Schedule Button -->
-                <div>
                     <button type="button" onclick="openSchedulePopup()" id="scheduleToggleBtn"
-                        class="w-full px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2">
+                        class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span id="scheduleButtonText">Schedule Hearing</span>
-                        <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded">Required</span>
+                        <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded">Required</span>
                     </button>
                     <!-- Hidden inputs to store schedule data -->
                     <input type="hidden" id="sanctionScheduleDate" value="">
                     <input type="hidden" id="sanctionScheduleTime" value="">
                     <input type="hidden" id="sanctionScheduleEndTime" value="">
                     <input type="hidden" id="sanctionScheduleNotes" value="">
+                    <input type="hidden" id="sanctionScheduleEventId" value="">
                     <!-- Schedule display -->
-                    <div id="scheduleDisplay" class="hidden mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs">
+                    <div id="scheduleDisplay" class="hidden mt-3 p-3 bg-white dark:bg-slate-700 rounded border border-green-300 dark:border-green-700">
                         <div class="flex items-center justify-between">
-                            <span id="scheduleDisplayText" class="text-blue-800 dark:text-blue-300"></span>
-                            <button type="button" onclick="clearSchedule()" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
+                            <span id="scheduleDisplayText" class="text-green-800 dark:text-green-300 text-sm font-medium"></span>
+                            <button type="button" onclick="clearSchedule()" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -257,11 +206,86 @@ async function manageSanctions(caseId) {
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Notes</label>
-                    <textarea id="sanctionNotes" rows="3" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
-                        placeholder="Any additional information about this sanction..."></textarea>
+                <!-- Message sits OUTSIDE the opacity-50 wrapper so it stays fully readable while the section below is grayed out -->
+                    <p id="scheduleRequiredMessage" class="text-xs text-gray-600 dark:text-gray-400 text-center font-medium">Complete the hearing schedule first</p>
+
+                <!-- All Other Sections - Grayed Out Until Schedule is Set -->
+                    <div id="remainingSectionsWrapper" class="opacity-50 pointer-events-none">
+                        <div class="relative">
+                        <div id="disablingOverlay" class="absolute inset-0 bg-gray-400 dark:bg-slate-600 opacity-30 rounded-lg z-10"></div>
+                            <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 space-y-4 relative z-0">
+
+                            <div class="relative">
+                                <div class="flex gap-2 items-end">
+                                    <div class="flex-1 min-w-0">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Select Sanction <span class="text-red-500">*</span>
+                                            ${recommendationData ? `
+                                                <span class="relative inline-block ml-1 handbook-tooltip-trigger">
+                                                    <button type="button" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-help" onmouseenter="showHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </button>
+                                                    <!-- Tooltip content -->
+                                                    <div id="handbookTooltip" class="hidden absolute left-full top-0 ml-2 z-50 w-80 transition-all duration-200" style="max-height: 500px; overflow-y: auto;" onmouseenter="keepHandbookTooltip()" onmouseleave="scheduleHideHandbookTooltip()">
+                                                        ${recommendationHTML}
+                                                    </div>
+                                                </span>
+                                            ` : ''}
+                                        </label>
+                                        <select id="sanctionSelect" required onchange="handleSanctionChange()" 
+                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                            <option value="">Choose...</option>
+                                            ${sanctions.map(s => `
+                                                <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
+                                                    ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
+                                                </option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                    <div id="durationDiv" class="w-28 flex-shrink-0" style="display: none;">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Days <span class="text-red-500">*</span></label>
+                                        <input type="number" id="sanctionDuration" min="1" 
+                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 text-center"
+                                            placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="sanctionDescription" class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-gray-700 dark:text-gray-300" style="display: none; min-height: 60px;">
+                            </div>
+
+                            <!-- Deadline Section -->
+                            <div id="deadlineSection" style="display: none;">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Completion Deadline
+                                </label>
+                                <div class="flex gap-2 items-end">
+                                    <div class="flex-1">
+                                        <input type="date" id="sanctionDeadlineDate" onchange="updateDeadlineDisplay()"
+                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                                            placeholder="Select deadline date">
+                                    </div>
+                                    <button type="button" onclick="setDefaultDeadline()" 
+                                        class="px-3 py-2 text-xs border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                                        Auto-set
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="deadlineDisplayText">No deadline set</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Notes</label>
+                                <textarea id="sanctionNotes" rows="3" 
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
+                                    placeholder="Any additional information about this sanction..."></textarea>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-1 mb-6">
@@ -269,8 +293,8 @@ async function manageSanctions(caseId) {
                         class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
                         Cancel
                     </button>
-                    <button type="submit" 
-                        class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                    <button type="submit" id="applySanctionBtn"
+                        class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Apply Sanction
                     </button>
                 </div>
@@ -288,6 +312,21 @@ async function manageSanctions(caseId) {
 
     if (modalState.manageSanctions !== openToken) return;
     document.body.appendChild(modal);
+
+    // Store case ID for use in other functions
+    window.currentCaseId = caseId;
+    
+    // Initialize form sections as disabled (until schedule is set)
+    disableFormSections();
+    
+    // Load saved schedule from calendar
+    loadSavedSchedule(caseId).then(() => {
+        // Check if schedule already exists - if so, enable form sections
+        const existingScheduleDate = document.getElementById('sanctionScheduleDate').value;
+        if (existingScheduleDate) {
+            enableFormSectionsAfterSchedule();
+        }
+    });
 
     loadAppliedSanctions(caseId);
     window.sanctionsData = sanctions;
@@ -342,16 +381,17 @@ async function manageSanctions(caseId) {
             return;
         }
         
-        // Validate time range if schedule date is provided
-        if (scheduleDate && scheduleTime) {
-            if (!scheduleEndTime) {
-                showNotification('Please enter an end time for the hearing', "warning");
-                return;
-            }
-            
+        // Validate time range if both start and end times are provided
+        if (scheduleDate && scheduleTime && scheduleEndTime) {
             // Check if end time is after start time
             if (scheduleEndTime <= scheduleTime) {
                 showNotification('End time must be after start time', "warning");
+                return;
+            }
+        } else if (scheduleDate && (scheduleTime || scheduleEndTime)) {
+            // If one time is provided, both must be provided
+            if (!scheduleTime || !scheduleEndTime) {
+                showNotification('Please provide both start and end time, or leave both empty', "warning");
                 return;
             }
         }
@@ -364,7 +404,7 @@ async function manageSanctions(caseId) {
 
         const sanctionName = selectedOption.text;
         
-        // Format time range for display
+        // Format time range for display (both or neither)
         let timeRangeDisplay = '';
         if (scheduleTime && scheduleEndTime) {
             timeRangeDisplay = `${scheduleTime} - ${scheduleEndTime}`;
@@ -558,7 +598,6 @@ function applyRecommendedSanction(sanctionName, durationDays, silent = false) {
 // Handle sanction selection change
 function handleSanctionChange() {
     const select = document.getElementById('sanctionSelect');
-    const scheduleSection = document.getElementById('scheduleSection');
     const selectedOption = select.options[select.selectedIndex];
     const durationDiv = document.getElementById('durationDiv');
     const durationInput = document.getElementById('sanctionDuration');
@@ -575,25 +614,6 @@ function handleSanctionChange() {
     const defaultDays = selectedOption.dataset.defaultDays;
     const sanctionName = selectedOption.text.toLowerCase();
     const description = selectedOption.dataset.description;
-    const requiresSchedule = selectedOption.dataset.requiresSchedule === '1';
-    
-    // Update schedule button based on sanction type
-    const scheduleBtn = document.getElementById('scheduleToggleBtn');
-    const scheduleBadge = document.getElementById('scheduleRequiredBadge');
-    
-    if (requiresSchedule) {
-        scheduleBadge.classList.remove('hidden');
-        scheduleBtn.classList.add('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20', 'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'text-red-700', 'dark:text-red-300');
-        scheduleBtn.classList.remove('border-blue-200', 'dark:border-blue-700', 'bg-blue-50', 'dark:bg-blue-900/20', 'hover:bg-blue-100', 'dark:hover:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-300');
-        // Auto-open schedule section if required
-        document.getElementById('scheduleSection').style.display = 'block';
-        document.getElementById('scheduleButtonText').textContent = 'Schedule Event (Required)';
-    } else {
-        scheduleBadge.classList.add('hidden');
-        scheduleBtn.classList.remove('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20', 'hover:bg-red-100', 'dark:hover:bg-red-900/30', 'text-red-700', 'dark:text-red-300');
-        scheduleBtn.classList.add('border-blue-200', 'dark:border-blue-700', 'bg-blue-50', 'dark:bg-blue-900/20', 'hover:bg-blue-100', 'dark:hover:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-300');
-        document.getElementById('scheduleButtonText').textContent = 'Schedule Hearing';
-    }
     
     if (description && description !== 'null' && description !== '') {
         descriptionDiv.innerHTML = `<strong>Description:</strong> ${description}`;
@@ -756,28 +776,33 @@ function openSchedulePopup() {
             </div>
             
             <div class="p-5 space-y-4">
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-3 items-end">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span class="text-red-500">*</span></label>
                         <input type="date" id="popupScheduleDate" value="${existingData.date}"
                             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time <span class="text-red-500">*</span></label>
-                        <input type="time" id="popupScheduleTime" value="${existingData.time}"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                    </div>
+                    <button type="button" onclick="setScheduleDateToToday()" 
+                        class="px-4 py-2 text-sm border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors font-medium">
+                        Today
+                    </button>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time <span class="text-gray-400">(Optional)</span></label>
+                        <input type="time" id="popupScheduleTime" value="${existingData.time}"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time <span class="text-gray-400">(Optional)</span></label>
                         <input type="time" id="popupScheduleEndTime" value="${existingData.endTime}"
                             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                     </div>
-                    <div class="flex items-end">
-                        <span id="popupScheduleDuration" class="text-xs text-gray-500 dark:text-gray-400 pb-2"></span>
-                    </div>
+                </div>
+                
+                <div>
+                    <div id="popupScheduleDuration" class="text-xs text-gray-500 dark:text-gray-400 pb-2"></div>
                 </div>
                 
                 <div>
@@ -822,39 +847,50 @@ function closeSchedulePopup() {
     if (modal) modal.remove();
 }
 
+// Set the popup schedule date to today
+function setScheduleDateToToday() {
+    const dateInput = document.getElementById('popupScheduleDate');
+    if (!dateInput) return;
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${year}-${month}-${day}`;
+    dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // Save schedule from popup
-function saveSchedule() {
+async function saveSchedule() {
     const date = document.getElementById('popupScheduleDate').value;
     const time = document.getElementById('popupScheduleTime').value;
     const endTime = document.getElementById('popupScheduleEndTime').value;
     const notes = document.getElementById('popupScheduleNotes').value;
     
-    // Validation
+    // Validation - Date is required, times are optional
     if (!date) {
-        showNotification('Please select a date', 'warning');
+        showNotification('Please select a date', 'error');
         return;
     }
     
-    if (!time) {
-        showNotification('Please select a start time', 'warning');
+    // If time is provided, end time must also be provided and be after start time
+    if ((time && !endTime) || (!time && endTime)) {
+        showNotification('Please provide both start and end time, or leave both empty', 'warning');
         return;
     }
     
-    if (!endTime) {
-        showNotification('Please select an end time', 'warning');
-        return;
-    }
-    
-    if (endTime <= time) {
+    if (time && endTime && endTime <= time) {
         showNotification('End time must be after start time', 'warning');
         return;
     }
     
-    // Check for conflicts
-    const conflictWarning = document.getElementById('popupConflictWarning');
-    if (conflictWarning && !conflictWarning.classList.contains('hidden')) {
-        showNotification('Cannot save - there is a time conflict. Please choose a different time.', 'error');
-        return;
+    // Check for conflicts only if times are provided
+    if (time && endTime) {
+        const conflictWarning = document.getElementById('popupConflictWarning');
+        if (conflictWarning && !conflictWarning.classList.contains('hidden')) {
+            showNotification('Cannot save - there is a time conflict. Please choose a different time.', 'error');
+            return;
+        }
     }
     
     // Save to hidden fields
@@ -862,14 +898,150 @@ function saveSchedule() {
     document.getElementById('sanctionScheduleTime').value = time;
     document.getElementById('sanctionScheduleEndTime').value = endTime;
     document.getElementById('sanctionScheduleNotes').value = notes;
+
+    const caseId = window.currentCaseId;
+    const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes);
+    if (!saved) {
+        showNotification('Unable to save schedule to calendar', 'error');
+        return;
+    }
     
     // Update display
     updateScheduleDisplay();
+    
+    // Enable the remaining sections and submit button
+    enableFormSectionsAfterSchedule();
     
     // Close popup
     closeSchedulePopup();
     
     showNotification('Schedule saved successfully', 'success');
+}
+
+// Save schedule to the shared calendar database
+async function saveScheduleToCalendar(caseId, date, time, endTime, notes) {
+    try {
+        const eventIdInput = document.getElementById('sanctionScheduleEventId');
+        const existingEventId = eventIdInput ? eventIdInput.value : '';
+
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', existingEventId ? 'updateEvent' : 'createEvent');
+        if (existingEventId) {
+            formData.append('eventId', existingEventId);
+        }
+        formData.append('eventName', `Hearing - Case ${caseId}`);
+        formData.append('eventDate', date);
+        formData.append('eventTime', time || '');
+        formData.append('eventEndTime', endTime || '');
+        formData.append('category', 'Hearing');
+        formData.append('description', notes || `Scheduled hearing for case ${caseId}`);
+        formData.append('location', 'Discipline Office');
+
+        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (result.success && result.event_id && eventIdInput && !existingEventId) {
+            eventIdInput.value = result.event_id;
+        }
+        return !!result.success;
+    } catch (error) {
+        console.error('Error saving schedule to calendar:', error);
+        return false;
+    }
+}
+
+// Load saved schedule from the shared calendar database
+async function loadSavedSchedule(caseId) {
+    try {
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getCaseSchedule');
+        formData.append('caseId', caseId);
+
+        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (result.success && result.schedule) {
+            document.getElementById('sanctionScheduleDate').value = result.schedule.date || '';
+            document.getElementById('sanctionScheduleTime').value = result.schedule.time || '';
+            document.getElementById('sanctionScheduleEndTime').value = result.schedule.endTime || '';
+            document.getElementById('sanctionScheduleNotes').value = result.schedule.notes || '';
+            const eventIdInput = document.getElementById('sanctionScheduleEventId');
+            if (eventIdInput) {
+                eventIdInput.value = result.schedule.id || '';
+            }
+            updateScheduleDisplay();
+        }
+    } catch (error) {
+        console.error('Error loading saved schedule:', error);
+    }
+}
+
+// Enable form sections after schedule is set
+function enableFormSectionsAfterSchedule() {
+    const wrapper = document.getElementById('remainingSectionsWrapper');
+    const content = document.getElementById('remainingSectionsContent');
+    const overlay = document.getElementById('disablingOverlay');
+    const checkmark = document.getElementById('scheduleCheckmark');
+    const applyBtn = document.getElementById('applySanctionBtn');
+    const messageDiv = document.getElementById('scheduleRequiredMessage');
+    
+    if (wrapper) {
+        wrapper.classList.remove('opacity-50', 'pointer-events-none');
+    }
+    if (content) {
+        content.classList.remove('bg-gray-100', 'dark:bg-slate-700', 'border-dashed', 'border-gray-300', 'dark:border-slate-600');
+        content.classList.add('bg-white', 'dark:bg-slate-600', 'border-solid');
+    }
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+    if (messageDiv) {
+        messageDiv.style.display = 'none';
+    }
+    if (checkmark) {
+        checkmark.classList.remove('hidden');
+    }
+    if (applyBtn) {
+        applyBtn.disabled = false;
+    }
+}
+
+// Disable form sections (called when schedule is cleared)
+function disableFormSections() {
+    const wrapper = document.getElementById('remainingSectionsWrapper');
+    const content = document.getElementById('remainingSectionsContent');
+    const overlay = document.getElementById('disablingOverlay');
+    const checkmark = document.getElementById('scheduleCheckmark');
+    const applyBtn = document.getElementById('applySanctionBtn');
+    const messageDiv = document.getElementById('scheduleRequiredMessage');
+    
+    if (wrapper) {
+        wrapper.classList.add('opacity-50', 'pointer-events-none');
+    }
+    if (content) {
+        content.classList.add('bg-gray-100', 'dark:bg-slate-700', 'border-dashed', 'border-gray-300', 'dark:border-slate-600');
+        content.classList.remove('bg-white', 'dark:bg-slate-600', 'border-solid');
+    }
+    if (overlay) {
+        overlay.classList.remove('hidden');
+    }
+    if (messageDiv) {
+        messageDiv.style.display = 'block';
+    }
+    if (checkmark) {
+        checkmark.classList.add('hidden');
+    }
+    if (applyBtn) {
+        applyBtn.disabled = true;
+    }
 }
 
 // Clear schedule data
@@ -878,12 +1050,16 @@ function clearSchedule() {
     document.getElementById('sanctionScheduleTime').value = '';
     document.getElementById('sanctionScheduleEndTime').value = '';
     document.getElementById('sanctionScheduleNotes').value = '';
+    document.getElementById('sanctionScheduleEventId').value = '';
     
     const display = document.getElementById('scheduleDisplay');
     if (display) display.classList.add('hidden');
     
     const buttonText = document.getElementById('scheduleButtonText');
     if (buttonText) buttonText.textContent = 'Schedule Hearing';
+    
+    // Re-disable form sections
+    disableFormSections();
 }
 
 // Update schedule display
@@ -897,12 +1073,15 @@ function updateScheduleDisplay() {
     const displayText = document.getElementById('scheduleDisplayText');
     const buttonText = document.getElementById('scheduleButtonText');
     
-    if (date && time && endTime) {
+    if (date) {
         const dateObj = new Date(date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const timeStr = `${time} - ${endTime}`;
-        
-        let scheduleText = `📅 ${dateStr} at ${timeStr}`;
+        let scheduleText = `${dateStr}`;
+        if (time && endTime) {
+            scheduleText += ` at ${time} - ${endTime}`;
+        } else if (time) {
+            scheduleText += ` at ${time}`;
+        }
         if (notes) {
             scheduleText += ` - ${notes}`;
         }
@@ -1104,7 +1283,7 @@ function calculatePopupDuration() {
             const hours = Math.floor(diffMinutes / 60);
             const minutes = diffMinutes % 60;
             
-            let durationText = '';
+            let durationText = 'Duration: ';
             if (hours > 0) {
                 durationText += `${hours} hr${hours > 1 ? 's' : ''}`;
             }
@@ -1138,16 +1317,22 @@ async function checkPopupConflicts() {
     const conflictWarning = document.getElementById('popupConflictWarning');
     const conflictDetails = document.getElementById('popupConflictDetails');
     
-    if (!dateInput || !startTimeInput || !endTimeInput || !conflictWarning || !conflictDetails) {
+    if (!dateInput || !conflictWarning || !conflictDetails) {
         return;
     }
     
     const scheduleDate = dateInput.value;
-    const scheduleTime = startTimeInput.value;
-    const scheduleEndTime = endTimeInput.value;
+    const scheduleTime = startTimeInput?.value || '';
+    const scheduleEndTime = endTimeInput?.value || '';
     
-    // Hide warning if inputs are incomplete
-    if (!scheduleDate || !scheduleTime || !scheduleEndTime) {
+    // Hide warning if date is not provided
+    if (!scheduleDate) {
+        conflictWarning.classList.add('hidden');
+        return;
+    }
+    
+    // Only check conflicts if times are provided
+    if (!scheduleTime || !scheduleEndTime) {
         conflictWarning.classList.add('hidden');
         return;
     }
@@ -1225,12 +1410,12 @@ async function loadAppliedSanctions(caseId) {
                         // Format time range
                         const startTime = s.scheduled_time.substring(0, 5); // HH:MM
                         const endTime = s.scheduled_end_time.substring(0, 5); // HH:MM
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} (${startTime} - ${endTime})</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr} (${startTime} - ${endTime})</p>`;
                     } else if (s.scheduled_time) {
                         const timeStr = s.scheduled_time.substring(0, 5);
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} at ${timeStr}</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr} at ${timeStr}</p>`;
                     } else {
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr}</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr}</p>`;
                     }
                     if (s.scheduled_by_name) {
                         scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`;

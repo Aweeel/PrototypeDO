@@ -104,6 +104,11 @@ function createDayCell(day, isOtherMonth, date) {
     const cell = document.createElement('div');
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
+
+    // Date-only comparison so "past" doesn't depend on time-of-day
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const cellDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const isPastDay = cellDateOnly < todayDateOnly;
     
     cell.className = `min-h-[120px] p-2 ${isOtherMonth ? 'bg-gray-50 dark:bg-slate-800/50' : 'bg-white dark:bg-[#111827]'} hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer`;
     
@@ -130,7 +135,7 @@ function createDayCell(day, isOtherMonth, date) {
     dayEvents.slice(0, 3).forEach(event => {
         const eventEl = document.createElement('div');
         const colors = categoryColors[event.category] || categoryColors['Other'];
-        eventEl.className = `text-xs px-2 py-1 rounded ${colors.bg} ${colors.text} border-l-2 ${colors.border} truncate cursor-pointer hover:opacity-80`;
+        eventEl.className = `text-xs px-2 py-1 rounded ${colors.bg} ${colors.text} border-l-2 ${colors.border} truncate cursor-pointer hover:opacity-80${isPastDay ? ' line-through opacity-60' : ''}`;
         eventEl.textContent = event.time ? `${event.time} ${event.name}` : event.name;
         eventEl.onclick = (e) => {
             e.stopPropagation();
@@ -158,14 +163,43 @@ function createDayCell(day, isOtherMonth, date) {
     return cell;
 }
 
+// Compute the date range actually shown on the grid (including leading/trailing
+// days from the previous/next month), so we always fetch what's visible.
+function getVisibleGridRange(date) {
+    const month = date.getMonth();
+    const year = date.getFullYear();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Same 35-vs-42-cell decision renderCalendar() makes
+    const totalNeeded = firstDay + daysInMonth;
+    const cells = totalNeeded > 35 ? 42 : 35;
+
+    const startDate = new Date(year, month, 1 - firstDay);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + cells - 1);
+
+    const toDateStr = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    return { startDate: toDateStr(startDate), endDate: toDateStr(endDate) };
+}
+
 // Load events
 async function loadEvents() {
     try {
+        const { startDate, endDate } = getVisibleGridRange(currentDate);
+
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getEvents');
-        formData.append('month', currentDate.getMonth() + 1);
-        formData.append('year', currentDate.getFullYear());
+        formData.append('startDate', startDate);
+        formData.append('endDate', endDate);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -757,6 +791,11 @@ function editEvent(event) {
 // Show day events
 function showDayEvents(date, events) {
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const today = new Date();
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const cellDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const isPastDay = cellDateOnly < todayDateOnly;
     
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
@@ -779,7 +818,7 @@ function showDayEvents(date, events) {
                             <div class="flex items-start gap-3">
                                 <div class="w-3 h-3 mt-1 rounded-full ${colors.bg} ${colors.border} border-2"></div>
                                 <div class="flex-1">
-                                    <div class="font-medium text-sm text-gray-900 dark:text-gray-100">${event.name}</div>
+                                    <div class="font-medium text-sm text-gray-900 dark:text-gray-100${isPastDay ? ' line-through opacity-60' : ''}">${event.name}</div>
                                     <div class="flex items-center gap-2 mt-1">
                                         <span class="text-xs ${colors.text}">${event.category}</span>
                                         ${event.time ? `<span class="text-xs text-gray-500 dark:text-gray-400">• ${event.time}</span>` : ''}
