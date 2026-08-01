@@ -170,8 +170,8 @@ async function manageSanctions(caseId) {
                 <div id="scheduleSection" class="p-4 border-2 border-blue-300 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                     <div class="flex items-center gap-2 mb-3">
                         <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M6 2a1 1 0 000 2h8a1 1 0 100-2H6zM4 5a2 2 0 012-2 1 1 0 000 2c.306 0 .604.08.869.23a1 1 0 11-.738 1.878A2 2 0 014 5zm12 0a2 2 0 00-2-2 1 1 0 100 2c.306 0 .604.08.869.23a1 1 0 11-.738 1.878A2 2 0 0116 5zM7 10a1 1 0 100-2 1 1 0 000 2zm6 0a1 1 0 100-2 1 1 0 000 2z" />
-                        </svg>
+    <path d="M6 2a1 1 0 012 0v1h4V2a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h1V2zm9 6H5v7h10V8z"></path>
+</svg>
                         <h4 class="font-semibold text-blue-900 dark:text-blue-100">Schedule Hearing</h4>
                         <span id="scheduleCheckmark" class="hidden ml-auto text-green-600 dark:text-green-400">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -192,6 +192,7 @@ async function manageSanctions(caseId) {
                     <input type="hidden" id="sanctionScheduleTime" value="">
                     <input type="hidden" id="sanctionScheduleEndTime" value="">
                     <input type="hidden" id="sanctionScheduleNotes" value="">
+                    <input type="hidden" id="sanctionScheduleEventId" value="">
                     <!-- Schedule display -->
                     <div id="scheduleDisplay" class="hidden mt-3 p-3 bg-white dark:bg-slate-700 rounded border border-green-300 dark:border-green-700">
                         <div class="flex items-center justify-between">
@@ -205,12 +206,14 @@ async function manageSanctions(caseId) {
                     </div>
                 </div>
 
+                <!-- Message sits OUTSIDE the opacity-50 wrapper so it stays fully readable while the section below is grayed out -->
+                    <p id="scheduleRequiredMessage" class="text-xs text-gray-600 dark:text-gray-400 text-center font-medium">Complete the hearing schedule first</p>
+
                 <!-- All Other Sections - Grayed Out Until Schedule is Set -->
-                <div id="remainingSectionsWrapper" class="opacity-50 pointer-events-none">
-                    <div class="relative">
+                    <div id="remainingSectionsWrapper" class="opacity-50 pointer-events-none">
+                        <div class="relative">
                         <div id="disablingOverlay" class="absolute inset-0 bg-gray-400 dark:bg-slate-600 opacity-30 rounded-lg z-10"></div>
-                        <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 space-y-4 relative z-0">
-                            <p id="scheduleRequiredMessage" class="text-xs text-gray-600 dark:text-gray-400 text-center font-medium mb-4">Complete the hearing schedule first</p>
+                            <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 space-y-4 relative z-0">
 
                             <div class="relative">
                                 <div class="flex gap-2 items-end">
@@ -844,8 +847,21 @@ function closeSchedulePopup() {
     if (modal) modal.remove();
 }
 
+// Set the popup schedule date to today
+function setScheduleDateToToday() {
+    const dateInput = document.getElementById('popupScheduleDate');
+    if (!dateInput) return;
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${year}-${month}-${day}`;
+    dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // Save schedule from popup
-function saveSchedule() {
+async function saveSchedule() {
     const date = document.getElementById('popupScheduleDate').value;
     const time = document.getElementById('popupScheduleTime').value;
     const endTime = document.getElementById('popupScheduleEndTime').value;
@@ -882,15 +898,13 @@ function saveSchedule() {
     document.getElementById('sanctionScheduleTime').value = time;
     document.getElementById('sanctionScheduleEndTime').value = endTime;
     document.getElementById('sanctionScheduleNotes').value = notes;
-    
-    // Store in sessionStorage for persistence across modal close/open
+
     const caseId = window.currentCaseId;
-    sessionStorage.setItem(`schedule_${caseId}`, JSON.stringify({
-        date: date,
-        time: time,
-        endTime: endTime,
-        notes: notes
-    }));
+    const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes);
+    if (!saved) {
+        showNotification('Unable to save schedule to calendar', 'error');
+        return;
+    }
     
     // Update display
     updateScheduleDisplay();
@@ -904,16 +918,65 @@ function saveSchedule() {
     showNotification('Schedule saved successfully', 'success');
 }
 
-// Load saved schedule from sessionStorage
+// Save schedule to the shared calendar database
+async function saveScheduleToCalendar(caseId, date, time, endTime, notes) {
+    try {
+        const eventIdInput = document.getElementById('sanctionScheduleEventId');
+        const existingEventId = eventIdInput ? eventIdInput.value : '';
+
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', existingEventId ? 'updateEvent' : 'createEvent');
+        if (existingEventId) {
+            formData.append('eventId', existingEventId);
+        }
+        formData.append('eventName', `Hearing - Case ${caseId}`);
+        formData.append('eventDate', date);
+        formData.append('eventTime', time || '');
+        formData.append('eventEndTime', endTime || '');
+        formData.append('category', 'Hearing');
+        formData.append('description', notes || `Scheduled hearing for case ${caseId}`);
+        formData.append('location', 'Discipline Office');
+
+        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (result.success && result.event_id && eventIdInput && !existingEventId) {
+            eventIdInput.value = result.event_id;
+        }
+        return !!result.success;
+    } catch (error) {
+        console.error('Error saving schedule to calendar:', error);
+        return false;
+    }
+}
+
+// Load saved schedule from the shared calendar database
 async function loadSavedSchedule(caseId) {
     try {
-        const saved = sessionStorage.getItem(`schedule_${caseId}`);
-        if (saved) {
-            const scheduleData = JSON.parse(saved);
-            document.getElementById('sanctionScheduleDate').value = scheduleData.date;
-            document.getElementById('sanctionScheduleTime').value = scheduleData.time || '';
-            document.getElementById('sanctionScheduleEndTime').value = scheduleData.endTime || '';
-            document.getElementById('sanctionScheduleNotes').value = scheduleData.notes || '';
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getCaseSchedule');
+        formData.append('caseId', caseId);
+
+        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (result.success && result.schedule) {
+            document.getElementById('sanctionScheduleDate').value = result.schedule.date || '';
+            document.getElementById('sanctionScheduleTime').value = result.schedule.time || '';
+            document.getElementById('sanctionScheduleEndTime').value = result.schedule.endTime || '';
+            document.getElementById('sanctionScheduleNotes').value = result.schedule.notes || '';
+            const eventIdInput = document.getElementById('sanctionScheduleEventId');
+            if (eventIdInput) {
+                eventIdInput.value = result.schedule.id || '';
+            }
             updateScheduleDisplay();
         }
     } catch (error) {
@@ -987,10 +1050,7 @@ function clearSchedule() {
     document.getElementById('sanctionScheduleTime').value = '';
     document.getElementById('sanctionScheduleEndTime').value = '';
     document.getElementById('sanctionScheduleNotes').value = '';
-    
-    // Clear from sessionStorage
-    const caseId = window.currentCaseId;
-    sessionStorage.removeItem(`schedule_${caseId}`);
+    document.getElementById('sanctionScheduleEventId').value = '';
     
     const display = document.getElementById('scheduleDisplay');
     if (display) display.classList.add('hidden');
@@ -1013,12 +1073,15 @@ function updateScheduleDisplay() {
     const displayText = document.getElementById('scheduleDisplayText');
     const buttonText = document.getElementById('scheduleButtonText');
     
-    if (date && time && endTime) {
+    if (date) {
         const dateObj = new Date(date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const timeStr = `${time} - ${endTime}`;
-        
-        let scheduleText = `📅 ${dateStr} at ${timeStr}`;
+        let scheduleText = `${dateStr}`;
+        if (time && endTime) {
+            scheduleText += ` at ${time} - ${endTime}`;
+        } else if (time) {
+            scheduleText += ` at ${time}`;
+        }
         if (notes) {
             scheduleText += ` - ${notes}`;
         }
@@ -1347,12 +1410,12 @@ async function loadAppliedSanctions(caseId) {
                         // Format time range
                         const startTime = s.scheduled_time.substring(0, 5); // HH:MM
                         const endTime = s.scheduled_end_time.substring(0, 5); // HH:MM
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} (${startTime} - ${endTime})</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr} (${startTime} - ${endTime})</p>`;
                     } else if (s.scheduled_time) {
                         const timeStr = s.scheduled_time.substring(0, 5);
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr} at ${timeStr}</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr} at ${timeStr}</p>`;
                     } else {
-                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">📅 Scheduled: ${dateStr}</p>`;
+                        scheduledInfo = `<p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Scheduled: ${dateStr}</p>`;
                     }
                     if (s.scheduled_by_name) {
                         scheduledInfo += `<p class="text-xs text-gray-500 dark:text-gray-400">Scheduled by: ${s.scheduled_by_name}</p>`;
