@@ -34,6 +34,7 @@ CREATE TABLE users (
     full_name NVARCHAR(100) NOT NULL,
     teacher_id NVARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id LIKE '01000[0-9][0-9][0-9][0-9][0-9][0-9]'),
     do_id NVARCHAR(20) NULL CHECK (do_id IS NULL OR do_id LIKE '03000[0-9][0-9][0-9][0-9][0-9][0-9]'),
+    teacher_subrole NVARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
     role NVARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number NVARCHAR(20),
     is_active BIT DEFAULT 1,

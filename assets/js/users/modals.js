@@ -95,6 +95,7 @@ function openAddModal() {
     }
     document.getElementById('addModal').classList.remove('hidden');
     document.getElementById('add_form').reset();
+    handleRoleChange('add');
 }
 
 function closeAddModal() {
@@ -121,7 +122,7 @@ function createAddModal() {
             <form id="add_form" onsubmit="submitAddUser(event)" class="p-6 space-y-4">
                 <div>
                     <label for="add_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
-                    <select id="add_role" name="role" required onchange="handleRoleChange()"
+                    <select id="add_role" name="role" required onchange="handleRoleChange('add')"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
                         <option value="">-- Select Role --</option>
                         <option value="super_admin">Super Admin</option>
@@ -130,6 +131,27 @@ function createAddModal() {
                         <option value="security">Security</option>
                         <option value="student">Student</option>
                     </select>
+                </div>
+                <div id="add_teacher_subrole_container" class="hidden">
+                    <label for="add_teacher_subrole" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher Subrole</label>
+                    <select id="add_teacher_subrole" name="teacher_subrole"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- No Subrole --</option>
+                        <option value="department_head">Department Head</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Department Heads can be invited to hearings by the DO.</p>
+                </div>
+                <div id="add_teacher_id_container" class="hidden">
+                    <label for="add_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
+                    <input type="text" id="add_teacher_id" name="teacher_id" placeholder="01000000001"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for teacher accounts.</p>
+                </div>
+                <div id="add_do_id_container" class="hidden">
+                    <label for="add_do_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discipline Office ID *</label>
+                    <input type="text" id="add_do_id" name="do_id" placeholder="03000000001"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for discipline office accounts.</p>
                 </div>
                 <div>
                     <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
@@ -173,6 +195,9 @@ async function submitAddUser(event) {
     const full_name = document.getElementById('add_full_name').value;
     const role = document.getElementById('add_role').value;
     const contact_number = document.getElementById('add_contact_number').value;
+    const teacher_subrole = document.getElementById('add_teacher_subrole')?.value || '';
+    const teacher_id = document.getElementById('add_teacher_id')?.value || '';
+    const do_id = document.getElementById('add_do_id')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -182,6 +207,9 @@ async function submitAddUser(event) {
     formData.append('full_name', full_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
+    formData.append('teacher_subrole', teacher_subrole);
+    formData.append('teacher_id', teacher_id);
+    formData.append('do_id', do_id);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -243,6 +271,7 @@ function createEditModal() {
                     <div>
                         <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
                         <select id="edit_role" name="role" required 
+                            onchange="handleRoleChange('edit')"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
                             <option value="super_admin">Super Admin</option>
                             <option value="discipline_office">Discipline Office</option>
@@ -250,6 +279,25 @@ function createEditModal() {
                             <option value="security">Security</option>
                             <option value="student">Student</option>
                         </select>
+                    </div>
+                    <div id="edit_teacher_subrole_container" class="hidden">
+                        <label for="edit_teacher_subrole" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher Subrole</label>
+                        <select id="edit_teacher_subrole" name="teacher_subrole"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- No Subrole --</option>
+                            <option value="department_head">Department Head</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Department Heads can be invited to hearings by the DO.</p>
+                    </div>
+                    <div id="edit_teacher_id_container" class="hidden">
+                        <label for="edit_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
+                        <input type="text" id="edit_teacher_id" name="teacher_id" placeholder="01000000001"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div id="edit_do_id_container" class="hidden">
+                        <label for="edit_do_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discipline Office ID *</label>
+                        <input type="text" id="edit_do_id" name="do_id" placeholder="03000000001"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
                         <label for="edit_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
@@ -282,6 +330,9 @@ async function submitEditUser(event) {
     const full_name = document.getElementById('edit_full_name').value;
     const role = document.getElementById('edit_role').value;
     const contact_number = document.getElementById('edit_contact_number').value;
+    const teacher_subrole = document.getElementById('edit_teacher_subrole')?.value || '';
+    const teacher_id = document.getElementById('edit_teacher_id')?.value || '';
+    const do_id = document.getElementById('edit_do_id')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -291,6 +342,9 @@ async function submitEditUser(event) {
     formData.append('full_name', full_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
+    formData.append('teacher_subrole', teacher_subrole);
+    formData.append('teacher_id', teacher_id);
+    formData.append('do_id', do_id);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -401,11 +455,55 @@ async function generateNextRoleID(role) {
     return null;
 }
 
+function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
+    const subroleContainer = document.getElementById(`${formType}_teacher_subrole_container`);
+    const subroleSelect = document.getElementById(`${formType}_teacher_subrole`);
+    const teacherIdContainer = document.getElementById(`${formType}_teacher_id_container`);
+    const teacherIdInput = document.getElementById(`${formType}_teacher_id`);
+    const doIdContainer = document.getElementById(`${formType}_do_id_container`);
+    const doIdInput = document.getElementById(`${formType}_do_id`);
+
+    const isTeacher = roleValue === 'teacher';
+    const isDo = roleValue === 'discipline_office';
+
+    if (subroleContainer && subroleSelect) {
+        subroleContainer.classList.toggle('hidden', !isTeacher);
+        subroleSelect.required = isTeacher;
+        subroleSelect.value = isTeacher ? (subroleValue || '') : '';
+    }
+
+    if (teacherIdContainer && teacherIdInput) {
+        teacherIdContainer.classList.toggle('hidden', !isTeacher);
+        teacherIdInput.required = isTeacher;
+        if (!isTeacher) {
+            teacherIdInput.value = '';
+        }
+    }
+
+    if (doIdContainer && doIdInput) {
+        doIdContainer.classList.toggle('hidden', !isDo);
+        doIdInput.required = isDo;
+        if (!isDo) {
+            doIdInput.value = '';
+        }
+    }
+}
+
 // Handle role change in add user form
-async function handleRoleChange() {
-    const emailInput = document.getElementById('add_email');
-    emailInput.readOnly = false;
-    emailInput.classList.remove('bg-gray-50', 'dark:bg-slate-800');
+async function handleRoleChange(formType = 'add') {
+    const roleSelect = document.getElementById(`${formType}_role`);
+    const emailInput = formType === 'add' ? document.getElementById('add_email') : null;
+
+    if (emailInput) {
+        emailInput.readOnly = false;
+        emailInput.classList.remove('bg-gray-50', 'dark:bg-slate-800');
+    }
+
+    if (!roleSelect) {
+        return;
+    }
+
+    syncTeacherSubroleField(formType, roleSelect.value, document.getElementById(`${formType}_teacher_subrole`)?.value || '');
 }
 
 // Kept for compatibility with the existing oninput hook if any pages still call it.

@@ -9,6 +9,48 @@ if ($_SESSION['user_role'] !== 'super_admin') {
     exit;
 }
 
+ensureUsersTeacherSubroleColumn();
+
+function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
+    if ($role === 'teacher') {
+        if ($teacherId === '') {
+            return 'Teacher ID is required for teacher accounts';
+        }
+        if (!preg_match('/^01000\d{6}$/', $teacherId)) {
+            return 'Teacher ID must use the 01000xxxxxx format';
+        }
+    }
+
+    if ($role === 'discipline_office') {
+        if ($doId === '') {
+            return 'Discipline Office ID is required for discipline office accounts';
+        }
+        if (!preg_match('/^03000\d{6}$/', $doId)) {
+            return 'Discipline Office ID must use the 03000xxxxxx format';
+        }
+    }
+
+    if ($role === 'student') {
+        if ($studentId === '') {
+            return 'Student ID is required for student accounts';
+        }
+        if (!preg_match('/^02000\d{6}$/', $studentId)) {
+            return 'Student ID must use the 02000xxxxxx format';
+        }
+    }
+
+    return null;
+}
+
+function getPendingResetExistsSql() {
+    return "EXISTS(
+                SELECT 1 FROM notifications n
+                WHERE n.type = 'password_reset_request'
+                  AND n.is_read = 0
+                                    AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+            )";
+}
+
 // Handle CSV Import for Users
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
     header('Content-Type: application/json');
@@ -44,8 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Expected columns: student_id, teacher_id, do_id, first_name, last_name, middle_name, contact_number, role
+        // Expected columns: student_id, teacher_id, do_id, teacher_subrole, first_name, last_name, middle_name, contact_number, role
         $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'super_admin'];
+        $allowedTeacherSubroles = ['department_head'];
         $imported = 0;
         $errors = [];
         $skipped = 0;
@@ -76,6 +119,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             $studentId = trim($data['student_id'] ?? '');
             $teacherId = trim($data['teacher_id'] ?? '');
             $doId = trim($data['do_id'] ?? '');
+            $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
+
+            if ($role !== 'teacher') {
+                $teacherSubrole = '';
+            } elseif ($teacherSubrole !== '' && !in_array($teacherSubrole, $allowedTeacherSubroles, true)) {
+                $errors[] = "Row skipped: Invalid teacher_subrole '{$data['teacher_subrole']}'. Valid values are department_head.";
+                $skipped++;
+                continue;
+            }
 
             if ($role === 'student' && $studentId === '') {
                 $errors[] = "Row skipped: student_id is required for student rows";
@@ -95,19 +147,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 continue;
             }
 
-            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE student_id = ?", [$studentId])) {
+            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS NVARCHAR(50)) = ?", [$studentId])) {
                 $errors[] = "Row skipped: student_id '{$studentId}' already exists";
                 $skipped++;
                 continue;
             }
 
-            if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE teacher_id = ?", [$teacherId])) {
+            if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(teacher_id AS NVARCHAR(50)) = ?", [$teacherId])) {
                 $errors[] = "Row skipped: teacher_id '{$teacherId}' already exists";
                 $skipped++;
                 continue;
             }
 
-            if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE do_id = ?", [$doId])) {
+            if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(do_id AS NVARCHAR(50)) = ?", [$doId])) {
                 $errors[] = "Row skipped: do_id '{$doId}' already exists";
                 $skipped++;
                 continue;
@@ -134,8 +186,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
 
                 // Insert user account
-                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, GETDATE())";
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, CAST(? AS NVARCHAR(20)), CAST(? AS NVARCHAR(20)), CAST(? AS NVARCHAR(30)), ?, ?, 1, GETDATE())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,
@@ -143,6 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                     $fullName,
                     $teacherId !== '' ? $teacherId : null,
                     $doId !== '' ? $doId : null,
+                    $teacherSubrole !== '' ? $teacherSubrole : null,
                     $role,
                     $data['contact_number'] ?? null
                 ]);
@@ -236,21 +289,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 s.student_id,
                                 u.teacher_id,
                                 u.do_id,
+                                u.teacher_subrole,
                                 CASE 
                                     WHEN u.user_id IS NOT NULL AND EXISTS(
                                         SELECT 1 FROM notifications n 
                                         WHERE n.type = 'password_reset_request' 
                                         AND n.is_read = 0
-                                        AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                        AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
                                     ) THEN 1
                                     ELSE 0
                                 END as has_pending_reset
                             FROM students s
                             LEFT JOIN users u ON s.user_id = u.user_id
-                            WHERE s.student_id = ?";
+                                WHERE CAST(s.student_id AS NVARCHAR(50)) = ?";
                     $params = [$search];
                 } else {
                     $idColumn = $matchedIdSearch['column'];
+                            $castColumn = "CAST(u.{$idColumn} AS NVARCHAR(50))";
                     $sql = "SELECT 
                                 u.user_id,
                                 u.email,
@@ -263,18 +318,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 s.student_id,
                                 u.teacher_id,
                                 u.do_id,
+                                u.teacher_subrole,
                                 CASE 
                                     WHEN EXISTS(
                                         SELECT 1 FROM notifications n 
                                         WHERE n.type = 'password_reset_request' 
                                         AND n.is_read = 0
-                                        AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                        AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
                                     ) THEN 1
                                     ELSE 0
                                 END as has_pending_reset
                             FROM users u
                             LEFT JOIN students s ON s.user_id = u.user_id
-                            WHERE u.{$idColumn} = ?";
+                            WHERE {$castColumn} = ?";
                     $params = [$search];
                 }
 
@@ -289,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             SELECT 1 FROM notifications n 
                             WHERE n.type = 'password_reset_request' 
                             AND n.is_read = 0
-                            AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                            AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
                         )";
                     } else {
                         $sql .= " AND COALESCE(u.is_active, 1) = ?";
@@ -306,12 +362,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                ) ELSE NULL END as student_id,
                                u.teacher_id,
                                u.do_id,
+                               u.teacher_subrole,
                                CASE 
                                    WHEN EXISTS(
                                        SELECT 1 FROM notifications n 
                                        WHERE n.type = 'password_reset_request' 
                                        AND n.is_read = 0
-                                       AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
+                                       AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
                                    ) THEN 1
                                    ELSE 0
                                END as has_pending_reset
@@ -321,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params = [];
 
                 if (!empty($search)) {
-                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR u.teacher_id LIKE ? OR u.do_id LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND student_id LIKE ?)))";
+                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR CAST(u.teacher_id AS NVARCHAR(50)) LIKE ? OR CAST(u.do_id AS NVARCHAR(50)) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND CAST(student_id AS NVARCHAR(50)) LIKE ?)))";
                     $searchTerm = '%' . $search . '%';
                     $params[] = $searchTerm;
                     $params[] = $searchTerm;
@@ -338,12 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                 if ($status !== '') {
                     if ($status === 'pending_reset') {
-                        $sql .= " AND EXISTS(
-                            SELECT 1 FROM notifications n 
-                            WHERE n.type = 'password_reset_request' 
-                            AND n.is_read = 0
-                            AND CAST(SUBSTRING(n.related_id, CHARINDEX(':', n.related_id) + 1, LEN(n.related_id)) AS INT) = u.user_id
-                        )";
+                        $sql .= ' AND ' . getPendingResetExistsSql();
                     } else {
                         $sql .= " AND is_active = ?";
                         $params[] = $status === 'active' ? 1 : 0;
@@ -365,6 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'student_id' => $user['student_id'] ?? null,
                     'teacher_id' => $user['teacher_id'] ?? null,
                     'do_id' => $user['do_id'] ?? null,
+                    'teacher_subrole' => $user['teacher_subrole'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
@@ -384,6 +437,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $full_name = trim($_POST['full_name']);
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
+            $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
+            $teacherId = trim($_POST['teacher_id'] ?? '');
+            $doId = trim($_POST['do_id'] ?? '');
+            $studentId = trim($_POST['student_id'] ?? '');
+
+            if ($role !== 'teacher') {
+                $teacherSubrole = null;
+            } elseif ($teacherSubrole !== '' && $teacherSubrole !== 'department_head') {
+                echo json_encode(['success' => false, 'error' => 'Invalid teacher subrole']);
+                exit;
+            } elseif ($teacherSubrole === '') {
+                $teacherSubrole = null;
+            }
 
             // default password for every new account
             $password = 'password';
@@ -391,6 +457,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // Validate required fields
             if (empty($email) || empty($full_name) || empty($role)) {
                 echo json_encode(['success' => false, 'error' => 'Email, full name and role are required']);
+                exit;
+            }
+
+            if ($role === 'teacher' && $teacherId === '') {
+                echo json_encode(['success' => false, 'error' => 'Teacher ID is required for teacher accounts']);
+                exit;
+            }
+
+            if ($role === 'discipline_office' && $doId === '') {
+                echo json_encode(['success' => false, 'error' => 'Discipline Office ID is required for discipline office accounts']);
+                exit;
+            }
+
+            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, $studentId);
+            if ($roleIdError) {
+                echo json_encode(['success' => false, 'error' => $roleIdError]);
                 exit;
             }
 
@@ -407,14 +489,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // Hash default password
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-            $teacherId = trim($_POST['teacher_id'] ?? '');
-            $doId = trim($_POST['do_id'] ?? '');
-            $studentId = trim($_POST['student_id'] ?? '');
-
             // Insert new user record
-            $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, GETDATE())";
-            executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $role, $contact_number]);
+                $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, role, contact_number, is_active, created_at)
+                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), ?, ?, 1, GETDATE())";
+                executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
             $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
@@ -446,6 +524,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if (isset($doId)) {
                 $logData['do_id'] = $doId;
             }
+            if (isset($teacherSubrole)) {
+                $logData['teacher_subrole'] = $teacherSubrole;
+            }
             auditCreate('users', $newUserId, $logData);
 
             $response = ['success' => true, 'message' => 'User created successfully'];
@@ -458,6 +539,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if (isset($doId)) {
                 $response['do_id'] = $doId;
             }
+            if (isset($teacherSubrole)) {
+                $response['teacher_subrole'] = $teacherSubrole;
+            }
             echo json_encode($response);
             exit;
         }
@@ -469,6 +553,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $full_name = trim($_POST['full_name']);
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
+            $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
+            $teacherId = trim($_POST['teacher_id'] ?? '');
+            $doId = trim($_POST['do_id'] ?? '');
+
+            if ($role !== 'teacher') {
+                $teacherSubrole = null;
+            } elseif ($teacherSubrole !== '' && $teacherSubrole !== 'department_head') {
+                echo json_encode(['success' => false, 'error' => 'Invalid teacher subrole']);
+                exit;
+            } elseif ($teacherSubrole === '') {
+                $teacherSubrole = null;
+            }
+
+            if ($role === 'teacher' && $teacherId === '') {
+                echo json_encode(['success' => false, 'error' => 'Teacher ID is required for teacher accounts']);
+                exit;
+            }
+
+            if ($role === 'discipline_office' && $doId === '') {
+                echo json_encode(['success' => false, 'error' => 'Discipline Office ID is required for discipline office accounts']);
+                exit;
+            }
+
+            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, trim($_POST['student_id'] ?? ''));
+            if ($roleIdError) {
+                echo json_encode(['success' => false, 'error' => $roleIdError]);
+                exit;
+            }
 
             // Get old data for audit
             $oldData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$user_id]);
@@ -484,11 +596,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             // Update user
-            $sql = "UPDATE users 
-                    SET email = ?, full_name = ?, role = ?, contact_number = ?, is_active = ?, updated_at = GETDATE()
-                    WHERE user_id = ?";
+                $sql = "UPDATE users 
+                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), do_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), teacher_subrole = NULLIF(CAST(? AS NVARCHAR(30)), ''), is_active = ?, updated_at = GETDATE()
+                    WHERE user_id = CAST(? AS INT)";
             
-            executeQuery($sql, [$email, $full_name, $role, $contact_number, $is_active, $user_id]);
+                executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $is_active, $user_id]);
 
             // if becoming a student and no corresponding student record exists, create one
             if ($role === 'student' && $studentId !== '') {
@@ -536,7 +648,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                          SET is_read = 1, read_at = GETDATE()
                          WHERE type = 'password_reset_request' 
                          AND is_read = 0
-                         AND CAST(SUBSTRING(related_id, CHARINDEX(':', related_id) + 1, LEN(related_id)) AS INT) = ?";
+                         AND TRY_CAST(SUBSTRING(CAST(related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(related_id AS NVARCHAR(255))) + 1, LEN(CAST(related_id AS NVARCHAR(255)))) AS INT) = ?";
             executeQuery($notifSql, [$user_id]);
 
             // Audit log
@@ -978,10 +1090,11 @@ $adminName = getFormattedUserName();
                 <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
                 <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
                 <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                    student_id, teacher_id, do_id, first_name, last_name, middle_name, contact_number, role
+                    student_id, teacher_id, do_id, teacher_subrole, first_name, last_name, middle_name, contact_number, role
                 </code>
                 <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: first_name, last_name, role, and the matching ID for each role row.</p>
                 <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher rows use teacher_id, discipline office rows use do_id, and student rows use student_id.</p>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
                 <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is auto-generated as firstname.lastname@sti.edu. Default password: password.</p>
             </div>
 

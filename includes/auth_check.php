@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             
             // Explicitly bind parameters with type hints
             $stmt->bindValue(1, 2, PDO::PARAM_INT);
-            $stmt->bindValue(2, (int)$_SESSION['user_id'], PDO::PARAM_INT);
+            $stmt->bindValue(2, (string)$_SESSION['user_id'], PDO::PARAM_STR);
             
             $result = $stmt->execute();
             
