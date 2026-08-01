@@ -190,6 +190,10 @@ if ($_POST['action'] === 'getEvents') {
                 'description' => $description,
                 'location' => $location
             ]);
+
+            if ($category === 'Hearing' && in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office', 'super_admin'], true)) {
+                notifyDepartmentHeadTeachersOfHearing($eventRow['event_id'] ?? null, $eventName, $eventDate, $eventTime, $eventEndTime, $description, $location);
+            }
             
             echo json_encode(['success' => true, 'message' => 'Event created successfully', 'event_id' => $eventRow['event_id'] ?? null]);
             exit;

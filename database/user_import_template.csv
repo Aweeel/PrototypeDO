@@ -1,5 +1,7 @@
-first_name,last_name,middle_name,contact_number,role
-Maria,Santos,Dela Cruz,09171234567,teacher
-Jose,Reyes,Garcia,09187654321,teacher
-Anna,Cruz,Lopez,09191234567,discipline_office
-Roberto,Lim,Tan,09171112222,security
+student_id,teacher_id,do_id,teacher_subrole,first_name,last_name,middle_name,contact_number,role
+,01000000069,,department_head,Maria,Santos,Dela Cruz,09171234567,teacher
+,01000000070,,,Jose,Reyes,Garcia,09187654321,teacher
+,,03000000080,,Anna,Cruz,Lopez,09191234567,discipline_office
+,,,,Roberto,Lim,Tan,09171112222,security
+,01000000088,,,Kamita,Mayo,Dela Cruz,09171234567,teacher
+ 

@@ -18,6 +18,99 @@ function getUserByUsername($username) {
     return fetchOne($sql, [$username]);
 }
 
+function ensureUsersTeacherSubroleColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT 1 AS column_exists
+                ,DATA_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'teacher_subrole'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE users ADD teacher_subrole NVARCHAR(30) NULL");
+    } else {
+        $dataType = strtolower((string)($columnInfo['DATA_TYPE'] ?? ''));
+        if (!in_array($dataType, ['nvarchar', 'varchar', 'nchar', 'char'], true)) {
+            executeQuery("ALTER TABLE users ALTER COLUMN teacher_subrole NVARCHAR(30) NULL");
+        }
+    }
+
+    $constraintExists = fetchOne(
+        "SELECT 1 AS constraint_exists
+         FROM sys.check_constraints
+         WHERE name = 'CK_users_teacher_subrole'"
+    );
+
+    if (!$constraintExists) {
+        executeQuery("ALTER TABLE users ADD CONSTRAINT CK_users_teacher_subrole CHECK (teacher_subrole IS NULL OR CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head')");
+    }
+
+    $initialized = true;
+}
+
+function getDepartmentHeadTeachers() {
+    ensureUsersTeacherSubroleColumn();
+
+    $sql = "SELECT user_id, full_name, email
+            FROM users
+            WHERE role = 'teacher'
+              AND is_active = 1
+                            AND CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head'
+            ORDER BY full_name";
+
+    return fetchAll($sql);
+}
+
+function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime = null, $eventEndTime = null, $description = null, $location = null) {
+    $teachers = getDepartmentHeadTeachers();
+
+    if (empty($teachers)) {
+        return 0;
+    }
+
+    $dateText = date('F j, Y', strtotime($eventDate));
+    $timeText = '';
+    if (!empty($eventTime)) {
+        $timeText = ' at ' . date('g:i A', strtotime($eventTime));
+        if (!empty($eventEndTime)) {
+            $timeText .= ' - ' . date('g:i A', strtotime($eventEndTime));
+        }
+    }
+
+    $title = 'Hearing Invitation';
+    $message = 'You are invited to a hearing scheduled for ' . $dateText . $timeText . '.';
+
+    if (!empty($eventName)) {
+        $message = $eventName . ': ' . $message;
+    }
+
+    if (!empty($location)) {
+        $message .= ' Location: ' . $location . '.';
+    }
+
+    if (!empty($description)) {
+        $message .= ' Notes: ' . $description;
+    }
+
+    $relatedId = $eventId ? 'event:' . $eventId : null;
+    $count = 0;
+
+    foreach ($teachers as $teacher) {
+        if (createUniqueNotification($teacher['user_id'], $title, $message, 'hearing_invitation', $relatedId)) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
 function authenticateUser($username, $password) {
     $user = getUserByUsername($username);
     
@@ -981,7 +1074,10 @@ function createUniqueNotification($userId, $title, $message, $type = 'system', $
     $relatedKey = trim((string)($relatedId ?? ''));
     if ($relatedKey !== '') {
         $existing = fetchOne(
-            "SELECT TOP 1 notification_id FROM notifications WHERE user_id = ? AND related_id = ?",
+            "SELECT TOP 1 notification_id
+             FROM notifications
+             WHERE user_id = ?
+               AND CAST(related_id AS NVARCHAR(255)) = CAST(? AS NVARCHAR(255))",
             [$userId, $relatedKey]
         );
 

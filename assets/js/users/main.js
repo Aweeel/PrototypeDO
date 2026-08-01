@@ -159,16 +159,30 @@ function renderUsers() {
         ${(() => {
             const isActive = Number(user.is_active) === 1;
             const statusText = isActive ? 'Active' : 'Inactive';
+            const details = [];
+
+            if (user.role === 'student' && user.student_id) {
+                details.push('Student ID: ' + escapeHtml(user.student_id));
+            }
+
+            if (user.role === 'teacher' && user.teacher_id) {
+                details.push('Teacher ID: ' + escapeHtml(user.teacher_id));
+            }
+
+            if (user.role === 'teacher' && user.teacher_subrole) {
+                details.push('Subrole: ' + escapeHtml(formatTeacherSubrole(user.teacher_subrole)));
+            }
+
+            if (user.role === 'discipline_office' && user.do_id) {
+                details.push('DO ID: ' + escapeHtml(user.do_id));
+            }
+
             return `
         <tr class="group h-[72px] overflow-hidden hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 border-l-4 transition-colors ${selectedUserIds.has(user.user_id) ? 'bg-blue-50 dark:bg-slate-800 border-l-blue-600' : 'border-l-transparent'}">
             <td class="px-6 py-4">
                 <div>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">
-                        ${user.role === 'student' && user.student_id ? 'Student ID: ' + escapeHtml(user.student_id) : ''}
-                        ${user.role === 'teacher' && user.teacher_id ? 'Teacher ID: ' + escapeHtml(user.teacher_id) : ''}
-                        ${user.role === 'discipline_office' && user.do_id ? 'DO ID: ' + escapeHtml(user.do_id) : ''}
-                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${details.join(' • ')}</p>
                 </div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(user.email)}</td>
@@ -357,6 +371,21 @@ function editUser(userId) {
         document.getElementById('edit_full_name').value = user.full_name;
         document.getElementById('edit_role').value = user.role;
         document.getElementById('edit_contact_number').value = user.contact_number || '';
+        const editTeacherId = document.getElementById('edit_teacher_id');
+        const editDoId = document.getElementById('edit_do_id');
+        if (editTeacherId) {
+            editTeacherId.value = user.teacher_id || '';
+        }
+        if (editDoId) {
+            editDoId.value = user.do_id || '';
+        }
+        const editTeacherSubrole = document.getElementById('edit_teacher_subrole');
+        if (editTeacherSubrole) {
+            editTeacherSubrole.value = user.teacher_subrole || '';
+        }
+        if (typeof handleRoleChange === 'function') {
+            handleRoleChange('edit');
+        }
         document.getElementById('editModal').classList.remove('hidden');
         console.log('Modal opened');
     } catch(e) {
@@ -711,6 +740,14 @@ function formatRole(role) {
         'student': 'Student'
     };
     return roles[role] || role;
+}
+
+function formatTeacherSubrole(subrole) {
+    const subroles = {
+        'department_head': 'Department Head'
+    };
+
+    return subroles[subrole] || subrole;
 }
 
 function getRoleBadgeClass(role) {

@@ -42,7 +42,7 @@ if ($pdo) {
         $stmt = $pdo->prepare("SELECT terms_accepted_version FROM users WHERE user_id = ?");
         
         // Explicitly bind parameter with type hint
-        $stmt->bindValue(1, (int)$_SESSION['user_id'], PDO::PARAM_INT);
+        $stmt->bindValue(1, (string)$_SESSION['user_id'], PDO::PARAM_STR);
         $stmt->execute();
         
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
