@@ -55,21 +55,129 @@ function ensureUsersTeacherSubroleColumn() {
     $initialized = true;
 }
 
-function getDepartmentHeadTeachers() {
+function ensureCalendarTargetUserColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT 1 AS column_exists
+                ,DATA_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'calendar_events'
+           AND COLUMN_NAME = 'target_user_id'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE calendar_events ADD target_user_id INT NULL");
+    }
+
+    $constraintExists = fetchOne(
+        "SELECT 1 AS constraint_exists
+         FROM sys.foreign_keys
+         WHERE name = 'FK_calendar_events_target_user_id'"
+    );
+
+    if (!$constraintExists) {
+        executeQuery("ALTER TABLE calendar_events ADD CONSTRAINT FK_calendar_events_target_user_id FOREIGN KEY (target_user_id) REFERENCES users(user_id)");
+    }
+
+    $initialized = true;
+}
+
+function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
+    $normalized = strtolower(trim((string)$trackCourse));
+
+    $mapping = [
+        'bsit' => 'Information Technology',
+        'bscs' => 'Information Technology',
+        'bsba' => 'Business & Management',
+        'bsa' => 'Business & Management',
+        'bsma' => 'Business & Management',
+        'bachelor of science in accountancy' => 'Business & Management',
+        'bachelor of science in management accounting' => 'Business & Management',
+        'bshm' => 'Hospitality Management',
+        'bachelor of science in hospitality management' => 'Hospitality Management',
+        'bstm' => 'Tourism Management',
+        'bachelor of science in tourism management' => 'Tourism Management',
+        'bscpe' => 'Engineering',
+        'bachelor of science in computer engineering' => 'Engineering',
+        'bacomm' => 'Arts & Sciences',
+        'bmma' => 'Arts & Sciences',
+        'ba in communication' => 'Arts & Sciences',
+        'bachelor of arts in communication' => 'Arts & Sciences',
+        'bachelor of multimedia arts' => 'Arts & Sciences',
+        'bachelor of arts in psychology' => 'Arts & Sciences',
+        'bs criminology' => 'Criminal Justice Education',
+        'bachelor of science in criminology' => 'Criminal Justice Education'
+    ];
+
+    return $mapping[$normalized] ?? null;
+}
+
+function getDepartmentHeadTeachers($program = null) {
     ensureUsersTeacherSubroleColumn();
 
-    $sql = "SELECT user_id, full_name, email
+    $sql = "SELECT user_id, full_name, email, program
             FROM users
             WHERE role = 'teacher'
               AND is_active = 1
-                            AND CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head'
-            ORDER BY full_name";
+              AND CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head'";
+    $params = [];
 
-    return fetchAll($sql);
+    if (!empty($program)) {
+        $sql .= " AND program = ?";
+        $params[] = $program;
+    }
+
+    $sql .= " ORDER BY full_name";
+
+    return fetchAll($sql, $params);
+}
+
+function getDepartmentHeadTeacherForProgram($program) {
+    $teachers = getDepartmentHeadTeachers($program);
+    return !empty($teachers) ? $teachers[0] : null;
 }
 
 function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime = null, $eventEndTime = null, $description = null, $location = null) {
-    $teachers = getDepartmentHeadTeachers();
+    if (empty($eventName)) {
+        return 0;
+    }
+
+    if (!preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+        return 0;
+    }
+
+    $caseId = trim((string)($matches[1] ?? ''));
+    if ($caseId === '') {
+        return 0;
+    }
+
+    $case = getCaseById($caseId);
+    if (!$case || strcasecmp((string)($case['severity'] ?? ''), 'Major') !== 0) {
+        return 0;
+    }
+
+    $student = fetchOne(
+        "SELECT student_id, first_name, last_name, track_course
+         FROM students
+         WHERE student_id = ?",
+        [$case['student_id']]
+    );
+
+    if (!$student) {
+        return 0;
+    }
+
+    $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+    if (empty($program)) {
+        return 0;
+    }
+
+    $teachers = getDepartmentHeadTeachers($program);
 
     if (empty($teachers)) {
         return 0;
@@ -85,7 +193,13 @@ function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate,
     }
 
     $title = 'Hearing Invitation';
-    $message = 'You are invited to a hearing scheduled for ' . $dateText . $timeText . '.';
+    $studentName = trim(($student['first_name'] ?? '') . ' ' . ($student['last_name'] ?? ''));
+    $courseName = trim((string)($student['track_course'] ?? $program));
+    $message = 'You are invited to the scheduled hearing for Major Case ' . $caseId . ' involving ' . $studentName;
+    if ($courseName !== '') {
+        $message .= ' (' . $courseName . ')';
+    }
+    $message .= ' on ' . $dateText . $timeText . '.';
 
     if (!empty($eventName)) {
         $message = $eventName . ': ' . $message;
@@ -99,7 +213,7 @@ function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate,
         $message .= ' Notes: ' . $description;
     }
 
-    $relatedId = $eventId ? 'event:' . $eventId : null;
+    $relatedId = 'hearing:' . $caseId . ':' . ($eventId ?: 'new') . ':' . $eventDate . ':' . ($eventTime ?: 'all-day') . ':' . ($eventEndTime ?: 'none');
     $count = 0;
 
     foreach ($teachers as $teacher) {
@@ -2167,6 +2281,12 @@ function getStatusColor($status) {
 
 function get_sidebar_items($role) {
     $items = [];
+
+    $teacherSubrole = $_SESSION['teacher_subrole'] ?? ($_SESSION['user']['teacher_subrole'] ?? null);
+    if ($role === 'teacher' && $teacherSubrole !== 'department_head' && !empty($_SESSION['user_id'])) {
+        $currentUser = getUserById($_SESSION['user_id']);
+        $teacherSubrole = $currentUser['teacher_subrole'] ?? $teacherSubrole;
+    }
     
     if ($role === 'super_admin') {
         $items = [
@@ -2305,6 +2425,14 @@ function get_sidebar_items($role) {
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
+
+        if ($teacherSubrole === 'department_head') {
+            $items[] = [
+                'label' => 'Calendar',
+                'path' => '/PrototypeDO/modules/do/calendar.php?calendar_view=personal',
+                'icon' => 'calendar-icon.png'
+            ];
+        }
     } elseif ($role === 'security') {
         $items = [
             [

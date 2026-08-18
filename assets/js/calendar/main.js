@@ -4,6 +4,7 @@ let currentDate = new Date();
 let selectedCategoryFilter = '';
 let pendingEventId = null;
 let pendingEventOpened = false;
+let currentCalendarView = 'shared';
 
 // Month names
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -37,6 +38,7 @@ function initializeCalendarFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     pendingEventId = urlParams.get('event_id');
     const eventDate = urlParams.get('event_date');
+    currentCalendarView = urlParams.get('calendar_view') || window.CALENDAR_VIEW || 'shared';
 
     if (eventDate) {
         const parsedDate = new Date(`${eventDate}T00:00:00`);
@@ -239,6 +241,7 @@ async function loadEvents() {
         formData.append('action', 'getEvents');
         formData.append('startDate', startDate);
         formData.append('endDate', endDate);
+        formData.append('calendarView', currentCalendarView);
 
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -556,6 +559,7 @@ function viewEvent(event) {
     const eventDate = new Date(event.date + 'T00:00:00');
     const dateStr = eventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const linkedCaseId = extractCaseIdFromHearingEvent(event);
+    const isPersonalCalendar = currentCalendarView === 'personal';
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
@@ -616,26 +620,32 @@ function viewEvent(event) {
                 ` : ''}
             </div>
 
-            <div class="flex justify-between gap-2 pt-4 border-t border-gray-200 dark:border-slate-700">
-                <button onclick="deleteEvent(${event.id})" class="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    Delete
-                </button>
-                <div class="flex gap-2">
-                    ${linkedCaseId ? `
-                        <a href="/PrototypeDO/modules/do/cases.php?highlightCaseId=${encodeURIComponent(linkedCaseId)}&highlightCase=1" class="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors inline-flex items-center gap-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                            </svg>
-                            View Case
-                        </a>
-                    ` : ''}
+            <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-slate-700">
+                ${isPersonalCalendar ? `
                     <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Close
                     </button>
-                    <button onclick='editEvent(${JSON.stringify(event).replace(/'/g, "&#39;")})' class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Edit
+                ` : `
+                    <button onclick="deleteEvent(${event.id})" class="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        Delete
                     </button>
-                </div>
+                    <div class="flex gap-2">
+                        ${linkedCaseId ? `
+                            <a href="/PrototypeDO/modules/do/cases.php?highlightCaseId=${encodeURIComponent(linkedCaseId)}&highlightCase=1" class="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors inline-flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                                View Case
+                            </a>
+                        ` : ''}
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                            Close
+                        </button>
+                        <button onclick='editEvent(${JSON.stringify(event).replace(/'/g, "&#39;")})' class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            Edit
+                        </button>
+                    </div>
+                `}
             </div>
         </div>
     `;

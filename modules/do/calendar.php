@@ -3,6 +3,8 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+ensureCalendarTargetUserColumn();
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -19,12 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 if ($_POST['action'] === 'getEvents') {
     $startDate = $_POST['startDate'] ?? null;
     $endDate = $_POST['endDate'] ?? null;
+    $calendarView = $_POST['calendarView'] ?? 'shared';
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    $isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher') && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
 
     if ($startDate && $endDate) {
         // Preferred path: exact date range, covers whatever the grid actually shows
         // (including leading/trailing days from adjacent months)
         $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
-                       ce.category, ce.description, ce.location, ce.created_by,
+                       ce.category, ce.description, ce.location, ce.created_by, ce.target_user_id,
                        u.full_name as created_by_name
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
@@ -37,13 +42,19 @@ if ($_POST['action'] === 'getEvents') {
         $year = $_POST['year'] ?? date('Y');
 
         $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
-                       ce.category, ce.description, ce.location, ce.created_by,
+                       ce.category, ce.description, ce.location, ce.created_by, ce.target_user_id,
                        u.full_name as created_by_name
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
                 WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?
                 ORDER BY ce.event_date, ce.event_time";
         $events = fetchAll($sql, [$month, $year]);
+    }
+
+    if ($calendarView === 'personal' && $isDepartmentHead && $currentUserId) {
+        $events = array_values(array_filter($events, function($event) use ($currentUserId) {
+            return !empty($event['target_user_id']) && (int)$event['target_user_id'] === (int)$currentUserId;
+        }));
     }
     
     // Format events
@@ -135,17 +146,33 @@ if ($_POST['action'] === 'getEvents') {
             $description = isset($_POST['description']) && !empty(trim($_POST['description'])) ? trim($_POST['description']) : null;
             $location = isset($_POST['location']) && !empty(trim($_POST['location'])) ? trim($_POST['location']) : null;
             $createdBy = $_SESSION['user_id'] ?? null;
+            $targetUserId = null;
             
             // Validate required fields
             if (empty($eventName) || empty($eventDate) || empty($category)) {
                 echo json_encode(['success' => false, 'error' => 'Missing required fields']);
                 exit;
             }
+
+            if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+                $caseId = trim((string)($matches[1] ?? ''));
+                if ($caseId !== '') {
+                    $case = getCaseById($caseId);
+                    if ($case) {
+                        $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
+                        $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+                        if ($program) {
+                            $departmentHead = getDepartmentHeadTeacherForProgram($program);
+                            $targetUserId = $departmentHead['user_id'] ?? null;
+                        }
+                    }
+                }
+            }
             
             // Build SQL based on whether time is provided
             if ($eventTime !== null) {
-                $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
                 $params = [
                     $eventName,
                     $eventDate,
@@ -154,18 +181,20 @@ if ($_POST['action'] === 'getEvents') {
                     $category,
                     $description,
                     $location,
-                    $createdBy
+                    $createdBy,
+                    $targetUserId
                 ];
             } else {
-                $sql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, GETDATE())";
+                $sql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, target_user_id, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())";
                 $params = [
                     $eventName,
                     $eventDate,
                     $category,
                     $description,
                     $location,
-                    $createdBy
+                    $createdBy,
+                    $targetUserId
                 ];
             }
             
@@ -209,6 +238,7 @@ if ($_POST['action'] === 'getEvents') {
             $category = $_POST['category'] ?? '';
             $description = isset($_POST['description']) && !empty(trim($_POST['description'])) ? trim($_POST['description']) : null;
             $location = isset($_POST['location']) && !empty(trim($_POST['location'])) ? trim($_POST['location']) : null;
+            $targetUserId = null;
             
             if (empty($eventId)) {
                 echo json_encode(['success' => false, 'error' => 'Event ID required']);
@@ -218,6 +248,23 @@ if ($_POST['action'] === 'getEvents') {
             // Get old data for audit comparison
             $oldEventSql = "SELECT * FROM calendar_events WHERE event_id = ?";
             $oldEvent = fetchOne($oldEventSql, [$eventId]);
+
+            if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+                $caseId = trim((string)($matches[1] ?? ''));
+                if ($caseId !== '') {
+                    $case = getCaseById($caseId);
+                    if ($case) {
+                        $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
+                        $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+                        if ($program) {
+                            $departmentHead = getDepartmentHeadTeacherForProgram($program);
+                            $targetUserId = $departmentHead['user_id'] ?? ($oldEvent['target_user_id'] ?? null);
+                        }
+                    }
+                }
+            } else {
+                $targetUserId = $oldEvent['target_user_id'] ?? null;
+            }
             
             // Normalize times to HH:MM:SS for SQL Server
             if ($eventTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
@@ -227,8 +274,8 @@ if ($_POST['action'] === 'getEvents') {
                 $eventEndTime .= ':00';
             }
             
-            $sql = "UPDATE calendar_events 
-                    SET event_name = ?, event_date = ?, event_time = ?, event_end_time = ?, category = ?, description = ?, location = ?, updated_at = GETDATE()
+                $sql = "UPDATE calendar_events 
+                    SET event_name = ?, event_date = ?, event_time = ?, event_end_time = ?, category = ?, description = ?, location = ?, target_user_id = ?, updated_at = GETDATE()
                     WHERE event_id = ?";
             
             $params = [
@@ -239,6 +286,7 @@ if ($_POST['action'] === 'getEvents') {
                 $category,
                 $description,
                 $location,
+                $targetUserId,
                 $eventId
             ];
             

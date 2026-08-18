@@ -221,6 +221,22 @@ if (!isset($adminName) || empty($adminName)) {
                             // Navigate to admin users page and open reset password modal
                             const url = userId ? `/PrototypeDO/modules/super-admin/adminUsers.php?resetUser=${encodeURIComponent(userId)}` : `/PrototypeDO/modules/super-admin/adminUsers.php`;
                             window.location.href = url;
+                        } else if (relatedId.startsWith('hearing:')) {
+                            const hearingParts = relatedId.split(':');
+                            const hearingCaseId = hearingParts.length > 1 ? hearingParts[1] : null;
+                            const hearingEventId = hearingParts.length > 2 ? hearingParts[2] : null;
+                            const hearingDate = hearingParts.length > 3 ? hearingParts[3] : null;
+                            const url = new URL('/PrototypeDO/modules/do/calendar.php', window.location.origin);
+                            url.searchParams.set('calendar_view', 'personal');
+                            if (hearingEventId) {
+                                url.searchParams.set('event_id', hearingEventId);
+                            }
+                            if (hearingDate) {
+                                url.searchParams.set('event_date', hearingDate);
+                            } else if (hearingCaseId) {
+                                url.searchParams.set('case_id', hearingCaseId);
+                            }
+                            window.location.href = url.toString();
                         } else if (isPortfolioNotification) {
                             window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
                         } else if (userRole === 'student') {

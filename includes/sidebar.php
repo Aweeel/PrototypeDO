@@ -4,7 +4,8 @@
 require_once __DIR__ . '/functions.php';
 
 // Get current page for highlighting
-$currentPage = basename($_SERVER['PHP_SELF']);
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ($_SERVER['PHP_SELF'] ?? '');
+$currentPage = basename($currentPath);
 
 // Default to Dashboard if nothing else is set
 if (empty($currentPage) || $currentPage === 'index.php') {
@@ -64,7 +65,8 @@ switch ($role) {
     <!-- Navigation -->
     <nav class="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
         <?php foreach ($sidebarItems as $item):
-            $isActive = basename($item['path']) === $currentPage;
+            $itemPath = parse_url($item['path'], PHP_URL_PATH) ?: $item['path'];
+            $isActive = basename($itemPath) === $currentPage;
             ?>
             <a href="<?= htmlspecialchars($item['path']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
                       <?= $isActive
