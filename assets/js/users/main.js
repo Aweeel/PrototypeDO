@@ -383,6 +383,10 @@ function editUser(userId) {
         if (editTeacherSubrole) {
             editTeacherSubrole.value = user.teacher_subrole || '';
         }
+        const editProgram = document.getElementById('edit_program');
+        if (editProgram) {
+            editProgram.value = user.program || '';
+        }
         if (typeof handleRoleChange === 'function') {
             handleRoleChange('edit');
         }

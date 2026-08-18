@@ -35,6 +35,7 @@ CREATE TABLE users (
     teacher_id NVARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id LIKE '01000[0-9][0-9][0-9][0-9][0-9][0-9]'),
     do_id NVARCHAR(20) NULL CHECK (do_id IS NULL OR do_id LIKE '03000[0-9][0-9][0-9][0-9][0-9][0-9]'),
     teacher_subrole NVARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
+    program NVARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering')),
     role NVARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number NVARCHAR(20),
     is_active BIT DEFAULT 1,
@@ -44,7 +45,12 @@ CREATE TABLE users (
     terms_accepted_version INT DEFAULT 0,
     terms_accepted_date DATETIME NULL,
     created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    updated_at DATETIME DEFAULT GETDATE(),
+    -- department heads must have a program; non-heads/other roles must not
+    CONSTRAINT chk_department_head_program CHECK (
+        (teacher_subrole = 'department_head' AND program IS NOT NULL)
+        OR (teacher_subrole IS NULL AND program IS NULL)
+    )
 );
 GO
 

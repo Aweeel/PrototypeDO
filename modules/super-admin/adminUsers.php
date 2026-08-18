@@ -42,6 +42,36 @@ function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
     return null;
 }
 
+function validateTeacherProgram($teacherSubrole, $program) {
+    $allowedPrograms = [
+        'Information Technology',
+        'Tourism Management',
+        'Criminal Justice Education',
+        'Hospitality Management',
+        'Business & Management',
+        'Arts & Sciences',
+        'Engineering'
+    ];
+
+    if ($teacherSubrole === 'department_head') {
+        if ($program === '') {
+            return 'Program is required for department head teachers';
+        }
+
+        if (!in_array($program, $allowedPrograms, true)) {
+            return 'Invalid program';
+        }
+
+        return null;
+    }
+
+    if ($program !== '') {
+        return 'Program is only allowed for department head teachers';
+    }
+
+    return null;
+}
+
 function getPendingResetExistsSql() {
     return "EXISTS(
                 SELECT 1 FROM notifications n
@@ -290,6 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 u.teacher_id,
                                 u.do_id,
                                 u.teacher_subrole,
+                                u.program,
                                 CASE 
                                     WHEN u.user_id IS NOT NULL AND EXISTS(
                                         SELECT 1 FROM notifications n 
@@ -319,6 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 u.teacher_id,
                                 u.do_id,
                                 u.teacher_subrole,
+                                u.program,
                                 CASE 
                                     WHEN EXISTS(
                                         SELECT 1 FROM notifications n 
@@ -363,6 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                u.teacher_id,
                                u.do_id,
                                u.teacher_subrole,
+                               u.program,
                                CASE 
                                    WHEN EXISTS(
                                        SELECT 1 FROM notifications n 
@@ -418,6 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'teacher_id' => $user['teacher_id'] ?? null,
                     'do_id' => $user['do_id'] ?? null,
                     'teacher_subrole' => $user['teacher_subrole'] ?? null,
+                    'program' => $user['program'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
@@ -438,17 +472,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
+            $program = trim($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = null;
+                $program = null;
             } elseif ($teacherSubrole !== '' && $teacherSubrole !== 'department_head') {
                 echo json_encode(['success' => false, 'error' => 'Invalid teacher subrole']);
                 exit;
             } elseif ($teacherSubrole === '') {
                 $teacherSubrole = null;
+            }
+
+            if ($role === 'teacher') {
+                $programError = validateTeacherProgram($teacherSubrole, $program);
+                if ($programError) {
+                    echo json_encode(['success' => false, 'error' => $programError]);
+                    exit;
+                }
             }
 
             // default password for every new account
@@ -490,9 +534,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
             // Insert new user record
-                $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, role, contact_number, is_active, created_at)
-                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), ?, ?, 1, GETDATE())";
-                executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $role, $contact_number]);
+                $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
+                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), NULLIF(CAST(? AS NVARCHAR(50)), ''), ?, ?, 1, GETDATE())";
+                executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
             $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
@@ -527,6 +571,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if (isset($teacherSubrole)) {
                 $logData['teacher_subrole'] = $teacherSubrole;
             }
+            if (isset($program)) {
+                $logData['program'] = $program;
+            }
             auditCreate('users', $newUserId, $logData);
 
             $response = ['success' => true, 'message' => 'User created successfully'];
@@ -542,6 +589,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if (isset($teacherSubrole)) {
                 $response['teacher_subrole'] = $teacherSubrole;
             }
+            if (isset($program)) {
+                $response['program'] = $program;
+            }
             echo json_encode($response);
             exit;
         }
@@ -554,16 +604,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
+            $program = trim($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = null;
+                $program = null;
             } elseif ($teacherSubrole !== '' && $teacherSubrole !== 'department_head') {
                 echo json_encode(['success' => false, 'error' => 'Invalid teacher subrole']);
                 exit;
             } elseif ($teacherSubrole === '') {
                 $teacherSubrole = null;
+            }
+
+            if ($role === 'teacher') {
+                $programError = validateTeacherProgram($teacherSubrole, $program);
+                if ($programError) {
+                    echo json_encode(['success' => false, 'error' => $programError]);
+                    exit;
+                }
             }
 
             if ($role === 'teacher' && $teacherId === '') {
@@ -597,10 +657,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // Update user
                 $sql = "UPDATE users 
-                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), do_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), teacher_subrole = NULLIF(CAST(? AS NVARCHAR(30)), ''), is_active = ?, updated_at = GETDATE()
+                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), do_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), teacher_subrole = NULLIF(CAST(? AS NVARCHAR(30)), ''), program = NULLIF(CAST(? AS NVARCHAR(50)), ''), is_active = ?, updated_at = GETDATE()
                     WHERE user_id = CAST(? AS INT)";
             
-                executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $is_active, $user_id]);
+                executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
 
             // if becoming a student and no corresponding student record exists, create one
             if ($role === 'student' && $studentId !== '') {
