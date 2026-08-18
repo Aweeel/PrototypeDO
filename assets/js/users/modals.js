@@ -135,11 +135,26 @@ function createAddModal() {
                 <div id="add_teacher_subrole_container" class="hidden">
                     <label for="add_teacher_subrole" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher Subrole</label>
                     <select id="add_teacher_subrole" name="teacher_subrole"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
-                        <option value="">-- No Subrole --</option>
+                        onchange="syncTeacherSubroleField('add', document.getElementById('add_role').value, this.value)"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">                        <option value="">-- No Subrole --</option>
                         <option value="department_head">Department Head</option>
                     </select>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Department Heads can be invited to hearings by the DO.</p>
+                </div>
+                <div id="add_program_container" class="hidden">
+                    <label for="add_program" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program *</label>
+                    <select id="add_program" name="program"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                      <option value="">-- Select Program --</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Tourism Management">Tourism Management</option>
+                            <option value="Criminal Justice Education">Criminal Justice Education</option>
+                            <option value="Hospitality Management">Hospitality Management</option>
+                            <option value="Business & Management">Business & Management</option>
+                            <option value="Arts & Sciences">Arts & Sciences</option>
+                            <option value="Engineering">Engineering</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for department head teachers.</p>
                 </div>
                 <div id="add_teacher_id_container" class="hidden">
                     <label for="add_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
@@ -196,6 +211,7 @@ async function submitAddUser(event) {
     const role = document.getElementById('add_role').value;
     const contact_number = document.getElementById('add_contact_number').value;
     const teacher_subrole = document.getElementById('add_teacher_subrole')?.value || '';
+    const program = document.getElementById('add_program')?.value || '';
     const teacher_id = document.getElementById('add_teacher_id')?.value || '';
     const do_id = document.getElementById('add_do_id')?.value || '';
 
@@ -208,6 +224,7 @@ async function submitAddUser(event) {
     formData.append('role', role);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
+    formData.append('program', program);
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
 
@@ -283,11 +300,26 @@ function createEditModal() {
                     <div id="edit_teacher_subrole_container" class="hidden">
                         <label for="edit_teacher_subrole" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher Subrole</label>
                         <select id="edit_teacher_subrole" name="teacher_subrole"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
-                            <option value="">-- No Subrole --</option>
+                            onchange="syncTeacherSubroleField('edit', document.getElementById('edit_role').value, this.value)"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">                            <option value="">-- No Subrole --</option>
                             <option value="department_head">Department Head</option>
                         </select>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Department Heads can be invited to hearings by the DO.</p>
+                    </div>
+                    <div id="edit_program_container" class="hidden">
+                        <label for="edit_program" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program *</label>
+                        <select id="edit_program" name="program"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Select Program --</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Tourism Management">Tourism Management</option>
+                            <option value="Criminal Justice Education">Criminal Justice Education</option>
+                            <option value="Hospitality Management">Hospitality Management</option>
+                            <option value="Business & Management">Business & Management</option>
+                            <option value="Arts & Sciences">Arts & Sciences</option>
+                            <option value="Engineering">Engineering</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for department head teachers.</p>
                     </div>
                     <div id="edit_teacher_id_container" class="hidden">
                         <label for="edit_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
@@ -331,6 +363,7 @@ async function submitEditUser(event) {
     const role = document.getElementById('edit_role').value;
     const contact_number = document.getElementById('edit_contact_number').value;
     const teacher_subrole = document.getElementById('edit_teacher_subrole')?.value || '';
+    const program = document.getElementById('edit_program')?.value || '';
     const teacher_id = document.getElementById('edit_teacher_id')?.value || '';
     const do_id = document.getElementById('edit_do_id')?.value || '';
 
@@ -343,6 +376,7 @@ async function submitEditUser(event) {
     formData.append('role', role);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
+    formData.append('program', program);
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
 
@@ -458,6 +492,8 @@ async function generateNextRoleID(role) {
 function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
     const subroleContainer = document.getElementById(`${formType}_teacher_subrole_container`);
     const subroleSelect = document.getElementById(`${formType}_teacher_subrole`);
+    const programContainer = document.getElementById(`${formType}_program_container`);
+    const programSelect = document.getElementById(`${formType}_program`);
     const teacherIdContainer = document.getElementById(`${formType}_teacher_id_container`);
     const teacherIdInput = document.getElementById(`${formType}_teacher_id`);
     const doIdContainer = document.getElementById(`${formType}_do_id_container`);
@@ -465,11 +501,19 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
 
     const isTeacher = roleValue === 'teacher';
     const isDo = roleValue === 'discipline_office';
+    const isDepartmentHead = isTeacher && subroleValue === 'department_head';
 
     if (subroleContainer && subroleSelect) {
         subroleContainer.classList.toggle('hidden', !isTeacher);
-        subroleSelect.required = isTeacher;
         subroleSelect.value = isTeacher ? (subroleValue || '') : '';
+    }
+
+    if (programContainer && programSelect) {
+        programContainer.classList.toggle('hidden', !isDepartmentHead);
+        programSelect.required = isDepartmentHead;
+        if (!isDepartmentHead) {
+            programSelect.value = '';
+        }
     }
 
     if (teacherIdContainer && teacherIdInput) {
@@ -503,7 +547,11 @@ async function handleRoleChange(formType = 'add') {
         return;
     }
 
-    syncTeacherSubroleField(formType, roleSelect.value, document.getElementById(`${formType}_teacher_subrole`)?.value || '');
+    syncTeacherSubroleField(
+        formType,
+        roleSelect.value,
+        document.getElementById(`${formType}_teacher_subrole`)?.value || ''
+    );
 }
 
 // Kept for compatibility with the existing oninput hook if any pages still call it.
