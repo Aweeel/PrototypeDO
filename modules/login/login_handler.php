@@ -21,11 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'username' => $user['username'],
                 'email' => $user['email'],
                 'full_name' => $user['full_name'],
-                'role' => $user['role']
+                'role' => $user['role'],
+                'teacher_subrole' => $user['teacher_subrole'] ?? null,
+                'program' => $user['program'] ?? null
             ];
 
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['teacher_subrole'] = $user['teacher_subrole'] ?? null;
+            $_SESSION['program'] = $user['program'] ?? null;
             
             // Check if user is using default password and set warning flag
             $_SESSION['has_default_password'] = userHasDefaultPassword($user['user_id']);

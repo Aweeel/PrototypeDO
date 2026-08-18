@@ -313,6 +313,7 @@ CREATE TABLE calendar_events (
     description NVARCHAR(MAX),
     location NVARCHAR(200),
     created_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+    target_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -591,6 +592,53 @@ VALUES
 ('02000000030', 45, 'Michael', 'Wang', 'Chen', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Wei Wang', '09181234015');
 
 PRINT 'Students inserted: 30';
+GO
+
+-- ============================================
+-- INSERT PROGRAM HEADS AND ADDITIONAL COLLEGE STUDENTS
+-- ============================================
+PRINT 'Inserting program heads and additional college students...';
+
+DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
+VALUES
+('it.head@sti.edu', @defaultPassword, 'it.head@sti.edu', 'Alicia Rivera', '01000000006', NULL, 'department_head', 'Information Technology', 'teacher', '09170000006', 1),
+('business.head@sti.edu', @defaultPassword, 'business.head@sti.edu', 'Benjamin Santos', '01000000007', NULL, 'department_head', 'Business & Management', 'teacher', '09170000007', 1),
+('hospitality.head@sti.edu', @defaultPassword, 'hospitality.head@sti.edu', 'Carla Mendoza', '01000000008', NULL, 'department_head', 'Hospitality Management', 'teacher', '09170000008', 1),
+('tourism.head@sti.edu', @defaultPassword, 'tourism.head@sti.edu', 'Daniel Reyes', '01000000009', NULL, 'department_head', 'Tourism Management', 'teacher', '09170000009', 1),
+('engineering.head@sti.edu', @defaultPassword, 'engineering.head@sti.edu', 'Elena Cruz', '01000000010', NULL, 'department_head', 'Engineering', 'teacher', '09170000010', 1),
+('arts.head@sti.edu', @defaultPassword, 'arts.head@sti.edu', 'Francis Lopez', '01000000011', NULL, 'department_head', 'Arts & Sciences', 'teacher', '09170000011', 1),
+('cj.head@sti.edu', @defaultPassword, 'cj.head@sti.edu', 'Grace Navarro', '01000000012', NULL, 'department_head', 'Criminal Justice Education', 'teacher', '09170000012', 1),
+('navarro.000031@sti.edu', @defaultPassword, 'navarro.000031@sti.edu', 'Luna Navarro', NULL, NULL, NULL, NULL, 'student', '09191234016', 1),
+('reyes.000032@sti.edu', @defaultPassword, 'reyes.000032@sti.edu', 'Marcus Reyes', NULL, NULL, NULL, NULL, 'student', '09191234017', 1),
+('bautista.000033@sti.edu', @defaultPassword, 'bautista.000033@sti.edu', 'Sofia Bautista', NULL, NULL, NULL, NULL, 'student', '09191234018', 1),
+('cruz.000034@sti.edu', @defaultPassword, 'cruz.000034@sti.edu', 'Noah Cruz', NULL, NULL, NULL, NULL, 'student', '09191234019', 1),
+('santos.000035@sti.edu', @defaultPassword, 'santos.000035@sti.edu', 'Ivy Santos', NULL, NULL, NULL, NULL, 'student', '09191234020', 1),
+('garcia.000036@sti.edu', @defaultPassword, 'garcia.000036@sti.edu', 'Mikaela Garcia', NULL, NULL, NULL, NULL, 'student', '09191234021', 1),
+('flores.000037@sti.edu', @defaultPassword, 'flores.000037@sti.edu', 'Adrian Flores', NULL, NULL, NULL, NULL, 'student', '09191234022', 1),
+('diaz.000038@sti.edu', @defaultPassword, 'diaz.000038@sti.edu', 'Paula Diaz', NULL, NULL, NULL, NULL, 'student', '09191234023', 1),
+('lim.000039@sti.edu', @defaultPassword, 'lim.000039@sti.edu', 'Jasper Lim', NULL, NULL, NULL, NULL, 'student', '09191234024', 1);
+
+PRINT 'Program heads inserted: 7';
+PRINT 'Additional student user accounts inserted: 9';
+GO
+
+PRINT 'Inserting sample students for new college programs...';
+
+INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
+VALUES
+('02000000031', 53, 'Luna', 'Navarro', 'Reyes', '1st Year', 'Bachelor of Science in Accountancy', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09191234016'),
+('02000000032', 54, 'Marcus', 'Reyes', 'Garcia', '2nd Year', 'Bachelor of Science in Management Accounting', 'MA-201', 'College', 'Good Standing', 'Francisco Reyes', '09191234017'),
+('02000000033', 55, 'Sofia', 'Bautista', 'Cruz', '1st Year', 'Bachelor of Science in Hospitality Management', 'HM-101', 'College', 'Good Standing', 'Ramon Bautista', '09191234018'),
+('02000000034', 56, 'Noah', 'Cruz', 'Santos', '2nd Year', 'Bachelor of Science in Tourism Management', 'TM-201', 'College', 'Good Standing', 'Luz Cruz', '09191234019'),
+('02000000035', 57, 'Ivy', 'Santos', 'Mendoza', '1st Year', 'Bachelor of Science in Computer Engineering', 'CPE-101', 'College', 'Good Standing', 'Carlo Santos', '09191234020'),
+('02000000036', 58, 'Mikaela', 'Garcia', 'Flores', '1st Year', 'Bachelor of Arts in Communication', 'COMM-101', 'College', 'Good Standing', 'Angela Garcia', '09191234021'),
+('02000000037', 59, 'Adrian', 'Flores', 'Lim', '2nd Year', 'Bachelor of Multimedia Arts', 'MMA-201', 'College', 'Good Standing', 'Eduardo Flores', '09191234022'),
+('02000000038', 60, 'Paula', 'Diaz', 'Morales', '1st Year', 'Bachelor of Arts in Psychology', 'PSY-101', 'College', 'Good Standing', 'Carmen Diaz', '09191234023'),
+('02000000039', 61, 'Jasper', 'Lim', 'Torres', '1st Year', 'Bachelor of Science in Criminology', 'CRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
+
+PRINT 'Additional students inserted: 9';
 GO
 -- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)

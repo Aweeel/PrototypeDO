@@ -35,11 +35,15 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                 'username' => $user['username'],
                 'email' => $user['email'],
                 'full_name' => $user['full_name'],
-                'role' => $user['role']
+                'role' => $user['role'],
+                'teacher_subrole' => $user['teacher_subrole'] ?? null,
+                'program' => $user['program'] ?? null
             ];
             
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['teacher_subrole'] = $user['teacher_subrole'] ?? null;
+            $_SESSION['program'] = $user['program'] ?? null;
             $_SESSION['last_activity'] = time();
             
             // Set display name - same logic as login handler

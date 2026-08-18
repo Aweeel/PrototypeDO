@@ -758,8 +758,10 @@ function openSchedulePopup() {
         date: document.getElementById('sanctionScheduleDate')?.value || '',
         time: document.getElementById('sanctionScheduleTime')?.value || '',
         endTime: document.getElementById('sanctionScheduleEndTime')?.value || '',
-        notes: document.getElementById('sanctionScheduleNotes')?.value || ''
+        notes: document.getElementById('sanctionScheduleNotes')?.value || '',
+        eventId: document.getElementById('sanctionScheduleEventId')?.value || ''
     };
+    const hasExistingHearing = Boolean(existingData.eventId);
     
     const modal = document.createElement('div');
     modal.id = 'schedulePopupModal';
@@ -776,6 +778,11 @@ function openSchedulePopup() {
             </div>
             
             <div class="p-5 space-y-4">
+                ${hasExistingHearing ? `
+                    <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-900 dark:text-amber-100">
+                        You already have a hearing saved for this case. Use <strong>Update Hearing</strong> to edit it or <strong>Schedule Another Hearing</strong> to add a separate one.
+                    </div>
+                ` : ''}
                 <div class="grid grid-cols-2 gap-3 items-end">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span class="text-red-500">*</span></label>
@@ -830,9 +837,14 @@ function openSchedulePopup() {
                 <button onclick="closeSchedulePopup()" class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700">
                     Cancel
                 </button>
-                <button onclick="saveSchedule()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Save Schedule
+                <button onclick="saveSchedule(false)" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${hasExistingHearing ? 'Update Hearing' : 'Save Schedule'}
                 </button>
+                ${hasExistingHearing ? `
+                    <button onclick="saveSchedule(true)" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+                        Schedule Another Hearing
+                    </button>
+                ` : ''}
             </div>
         </div>
     `;
@@ -861,7 +873,7 @@ function setScheduleDateToToday() {
 }
 
 // Save schedule from popup
-async function saveSchedule() {
+async function saveSchedule(forceNew = false) {
     const date = document.getElementById('popupScheduleDate').value;
     const time = document.getElementById('popupScheduleTime').value;
     const endTime = document.getElementById('popupScheduleEndTime').value;
@@ -900,7 +912,7 @@ async function saveSchedule() {
     document.getElementById('sanctionScheduleNotes').value = notes;
 
     const caseId = window.currentCaseId;
-    const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes);
+    const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes, forceNew);
     if (!saved) {
         showNotification('Unable to save schedule to calendar', 'error');
         return;
@@ -919,15 +931,16 @@ async function saveSchedule() {
 }
 
 // Save schedule to the shared calendar database
-async function saveScheduleToCalendar(caseId, date, time, endTime, notes) {
+async function saveScheduleToCalendar(caseId, date, time, endTime, notes, forceNew = false) {
     try {
         const eventIdInput = document.getElementById('sanctionScheduleEventId');
         const existingEventId = eventIdInput ? eventIdInput.value : '';
+        const useUpdate = existingEventId && !forceNew;
 
         const formData = new FormData();
         formData.append('ajax', '1');
-        formData.append('action', existingEventId ? 'updateEvent' : 'createEvent');
-        if (existingEventId) {
+        formData.append('action', useUpdate ? 'updateEvent' : 'createEvent');
+        if (useUpdate) {
             formData.append('eventId', existingEventId);
         }
         formData.append('eventName', `Hearing - Case ${caseId}`);
@@ -944,7 +957,7 @@ async function saveScheduleToCalendar(caseId, date, time, endTime, notes) {
         });
 
         const result = await response.json();
-        if (result.success && result.event_id && eventIdInput && !existingEventId) {
+        if (result.success && result.event_id && eventIdInput) {
             eventIdInput.value = result.event_id;
         }
         return !!result.success;
