@@ -233,6 +233,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
     }
 
     try {
+        if ($_POST['action'] === 'markMinorCaseOpened') {
+            ensureMinorEscalationSeenColumn();
+            $caseId = trim((string)($_POST['caseId'] ?? ''));
+            executeQuery("UPDATE cases SET minor_escalation_seen = 1 WHERE case_id = ? AND severity = 'Minor'", [$caseId]);
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        if ($_POST['action'] === 'escalateMinorCase') {
+            ensureMinorEscalationSeenColumn();
+            $caseId = trim((string)($_POST['caseId'] ?? ''));
+            $case = fetchOne("SELECT case_id, student_id, severity, status FROM cases WHERE case_id = ?", [$caseId]);
+            if (!$case || $case['severity'] !== 'Minor') {
+                echo json_encode(['success' => false, 'error' => 'Minor case not found']);
+                exit;
+            }
+
+            executeQuery("UPDATE cases SET severity = 'Major', status = 'Pending', minor_escalation_seen = 1, updated_at = GETDATE() WHERE case_id = ? AND severity = 'Minor'", [$caseId]);
+            logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Escalated', $case['severity'] . ' / ' . $case['status'], 'Minor case escalated to Major');
+            auditUpdate('cases', $caseId, ['severity' => 'Minor', 'status' => $case['status']], ['severity' => 'Major', 'status' => 'Pending']);
+            echo json_encode(['success' => true, 'caseId' => $caseId]);
+            exit;
+        }
+
         // Get all students for dropdown
         if ($_POST['action'] === 'getStudents') {
             $students = getAllStudents();
@@ -456,6 +480,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'studentId' => $case['student_id'],
                     'type' => $case['case_type'],
                     'offenseNumber' => intval($case['minor_offense_number'] ?? 0),
+                    'escalationSeen' => !empty($case['minor_escalation_seen']),
                     'date' => formatDate($case['date_reported']),
                     'status' => $case['status'],
                     'assignedTo' => $case['assigned_to_name'] ?? 'Unassigned',

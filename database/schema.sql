@@ -115,6 +115,7 @@ CREATE TABLE cases (
     attachments NVARCHAR(MAX),
     next_hearing_date DATETIME,
     resolved_date DATE NULL,
+    minor_escalation_seen BIT NOT NULL DEFAULT 0,
     is_archived BIT DEFAULT 0,
     manually_restored BIT DEFAULT 0,
     archived_at DATETIME,

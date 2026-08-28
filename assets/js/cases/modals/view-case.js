@@ -4,6 +4,15 @@ async function viewCase(caseId) {
   const caseData = allCases.find((c) => c.id === caseId);
   if (!caseData) return;
 
+  if (caseData.severity === 'Minor' && caseData.offenseNumber >= 4 && !caseData.escalationSeen) {
+    fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=markMinorCaseOpened&caseId=${encodeURIComponent(caseId)}`
+    }).catch((error) => console.error('Failed to mark minor case as opened:', error));
+    caseData.escalationSeen = true;
+  }
+
   const modalState = window.__casesModalState || (window.__casesModalState = {});
   const openToken = Symbol(`viewCase:${caseId}`);
   modalState.viewCase = openToken;
