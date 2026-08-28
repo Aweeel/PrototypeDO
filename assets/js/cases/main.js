@@ -294,6 +294,14 @@ function renderTableRows() {
                             Sanctions
                         </button>
                         ` : ''}
+                        ${caseItem.severity === 'Minor' && caseItem.status === 'Unrecorded' && caseItem.offenseNumber >= 4 && !caseItem.escalationSeen ? `
+                        <button onclick="openMinorEscalation('${caseItem.id}')" title="Escalate minor offense to Major"
+                            class="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 rounded transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8" />
+                            </svg>
+                        </button>
+                        ` : ''}
                         ${caseItem.severity !== 'Minor' && caseItem.status !== 'Resolved' ? `
                         <button onclick="markCaseResolved('${caseItem.id}')"
                             title="${getCaseResolutionBlockReason(caseItem) || 'Mark this case as resolved'}"
@@ -465,6 +473,14 @@ function formatOffenseNumber(number) {
     return `${offenseNumber}${suffix}`;
 }
 
+function formatOffenseCountInWords(number) {
+    const offenseNumber = Number(number);
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+    return Number.isInteger(offenseNumber) && offenseNumber >= 0 && offenseNumber <= 20
+        ? words[offenseNumber]
+        : String(offenseNumber);
+}
+
 // Update table header based on current tab
 function updateTableHeader() {
     const thead = document.querySelector('thead tr');
@@ -548,4 +564,55 @@ function toggleRowMenu(caseId) {
 
 function closeAllRowMenus() {
     document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.classList.add('hidden'));
+}
+
+function openMinorEscalation(caseId) {
+    const caseData = allCases.find((caseItem) => caseItem.id === caseId);
+    if (!caseData || caseData.severity !== 'Minor') return;
+
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[80] p-4';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <p class="text-base text-gray-900 dark:text-gray-100 mb-6">
+                This student has commited ${formatOffenseCountInWords(caseData.offenseNumber)} (${caseData.offenseNumber}) minor offenses.<br><br>
+                Escalate case to major?
+            </p>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="this.closest('.fixed').remove()"
+                    class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-slate-700">
+                    Cancel
+                </button>
+                <button type="button" onclick="escalateMinorCase('${caseData.id}')"
+                    class="px-4 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700">
+                    Escalate
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function escalateMinorCase(caseId) {
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) modal.remove();
+
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'escalateMinorCase');
+    formData.append('caseId', caseId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (!data.success) {
+            showNotification(data.error || 'Unable to escalate case.', 'error');
+            return;
+        }
+
+        window.location.href = '/PrototypeDO/modules/do/cases.php?severity=Major&caseId=' + encodeURIComponent(caseId);
+    } catch (error) {
+        console.error('Error escalating minor case:', error);
+        showNotification('Unable to escalate case.', 'error');
+    }
 }

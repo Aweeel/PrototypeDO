@@ -481,19 +481,21 @@ function checkAndArchiveOldCases() {
 function getAllCases($filters = []) {
     // Auto-archive old cases first (only once per session)
     checkAndArchiveOldCases();
+    ensureMinorEscalationSeenColumn();
     
         $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-            CONCAT(s.first_name, ' ', s.last_name) as student_name,
-            (SELECT COUNT(*) FROM cases c2
-             WHERE c2.student_id = c.student_id
-               AND c2.severity = 'Minor'
-               AND (c2.date_reported < c.date_reported
-                OR (c2.date_reported = c.date_reported AND c2.created_at <= c.created_at))) AS minor_offense_number,
-            u.full_name as assigned_to_name
-            FROM cases c
-            LEFT JOIN students s ON c.student_id = s.student_id
-            LEFT JOIN users u ON c.assigned_to = u.user_id
-            WHERE 1=1";
+        CONCAT(s.first_name, ' ', s.last_name) as student_name,
+        (SELECT COUNT(*) FROM cases c2
+         WHERE c2.student_id = c.student_id
+           AND c2.severity = 'Minor'
+           AND c2.is_archived = 0
+           AND (c2.status = 'Recorded'
+                OR (c2.case_id = c.case_id AND c.status = 'Unrecorded'))) AS minor_offense_number,
+        u.full_name as assigned_to_name
+        FROM cases c
+        LEFT JOIN students s ON c.student_id = s.student_id
+        LEFT JOIN users u ON c.assigned_to = u.user_id
+        WHERE 1=1";
     
     $params = [];
     
@@ -551,6 +553,29 @@ function getAllCases($filters = []) {
     $sql .= " ORDER BY c.date_reported DESC, c.created_at DESC";
     
     return fetchAll($sql, $params);
+}
+
+function ensureMinorEscalationSeenColumn() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $column = fetchOne("SELECT 1 AS column_exists FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'cases' AND COLUMN_NAME = 'minor_escalation_seen'");
+    if (!$column) {
+        executeQuery("ALTER TABLE cases ADD minor_escalation_seen BIT NOT NULL CONSTRAINT DF_cases_minor_escalation_seen DEFAULT 0");
+    }
+
+    executeQuery("UPDATE cases
+                  SET status = CASE
+                      WHEN status IN ('Resolved', 'On Going') THEN 'Recorded'
+                      WHEN status = 'Pending' THEN 'Unrecorded'
+                      ELSE status
+                  END
+                  WHERE severity = 'Minor'
+                    AND status IN ('Resolved', 'On Going', 'Pending')");
+
+    $initialized = true;
 }
 
 function getCaseById($caseId) {
