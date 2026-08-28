@@ -141,6 +141,10 @@ function getStatusBadgeClass($status) {
             return 'bg-green-500/10 text-green-500 border border-green-500/20';
         case 'Dismissed':
             return 'bg-gray-500/10 text-gray-500 border border-gray-500/20';
+        case 'Recorded':
+            return 'bg-green-500/10 text-green-500 border border-green-500/20';
+        case 'Unrecorded':
+            return 'bg-orange-500/10 text-orange-500 border border-orange-500/20';
         default:
             return 'bg-gray-500/10 text-gray-500 border border-gray-500/20';
     }
@@ -157,6 +161,10 @@ function getStatusText($status) {
             return 'Resolved';
         case 'Dismissed':
             return 'Dismissed';
+        case 'Recorded':
+            return 'Recorded';
+        case 'Unrecorded':
+            return 'Unrecorded';
         default:
             return ucfirst($status);
     }

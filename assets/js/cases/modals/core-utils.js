@@ -102,6 +102,10 @@ function getStatusColor(status) {
       return "blue";
     case "Resolved":
       return "green";
+    case "Recorded":
+      return "green";
+    case "Unrecorded":
+      return "yellow";
     default:
       return "gray";
   }

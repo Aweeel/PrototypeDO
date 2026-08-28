@@ -251,7 +251,7 @@ async function markCaseResolved(caseId) {
             </div>
             
             <p class="text-sm text-gray-700 dark:text-gray-300 mb-6">
-                This will update the case status to "Resolved". This action can be changed later if needed.
+                This will update the case status to "${caseData?.severity === "Minor" ? "Recorded" : "Resolved"}". This action can be changed later if needed.
             </p>
             
             <div class="flex justify-end gap-3">
@@ -309,13 +309,14 @@ async function confirmMarkResolved(caseId) {
       // Update case status to "Resolved" in real-time
       const caseIndex = allCases.findIndex(c => c.id === caseId);
       if (caseIndex !== -1) {
-        allCases[caseIndex].status = 'Resolved';
+        allCases[caseIndex].status = caseData?.severity === 'Minor' ? 'Recorded' : 'Resolved';
         allCases[caseIndex].statusColor = 'green';
       }
       
       // If we're in the current tab, remove resolved case from filtered list
       if (currentTab === 'current') {
-        filteredCases = allCases.filter(c => c.status !== 'Resolved');
+        const completedStatus = caseData?.severity === 'Minor' ? 'Recorded' : 'Resolved';
+        filteredCases = allCases.filter(c => c.status !== completedStatus);
         renderCases();
       } else {
         // Re-render the table to show updated status

@@ -59,6 +59,8 @@ async function openAdvancedFilters() {
                         <option value="Pending" ${activeFilters.status === 'Pending' ? 'selected' : ''}>Pending</option>
                         <option value="On Going" ${activeFilters.status === 'On Going' ? 'selected' : ''}>On Going</option>
                         <option value="Resolved" ${activeFilters.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                        <option value="Recorded" ${activeFilters.status === 'Recorded' ? 'selected' : ''}>Recorded</option>
+                        <option value="Unrecorded" ${activeFilters.status === 'Unrecorded' ? 'selected' : ''}>Unrecorded</option>
                     </select>
                 </div>
 

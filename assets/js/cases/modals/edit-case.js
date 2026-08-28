@@ -6,6 +6,9 @@ async function editCase(caseId) {
 
   // Load offense types for the current severity
   const offenses = await loadOffenseTypes(caseData.severity);
+  const statusOptions = caseData.severity === "Minor"
+    ? ["Recorded", "Unrecorded"]
+    : ["Pending", "On Going", "Resolved"];
 
   const modal = document.createElement("div");
   modal.className =
@@ -90,15 +93,7 @@ async function editCase(caseId) {
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Status <span class="text-red-500">*</span></label>
                     <select id="editStatus" required class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                        <option ${
-                          caseData.status === "Pending" ? "selected" : ""
-                        }>Pending</option>
-                        <option ${
-                          caseData.status === "On Going" ? "selected" : ""
-                        }>On Going</option>
-                        <option ${
-                          caseData.status === "Resolved" ? "selected" : ""
-                        }>Resolved</option>
+                        ${statusOptions.map((status) => `<option ${caseData.status === status ? "selected" : ""}>${status}</option>`).join("")}
                     </select>
                 </div>
 

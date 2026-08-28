@@ -482,8 +482,13 @@ function getAllCases($filters = []) {
     // Auto-archive old cases first (only once per session)
     checkAndArchiveOldCases();
     
-    $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
+        $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
             CONCAT(s.first_name, ' ', s.last_name) as student_name,
+            (SELECT COUNT(*) FROM cases c2
+             WHERE c2.student_id = c.student_id
+               AND c2.severity = 'Minor'
+               AND (c2.date_reported < c.date_reported
+                OR (c2.date_reported = c.date_reported AND c2.created_at <= c.created_at))) AS minor_offense_number,
             u.full_name as assigned_to_name
             FROM cases c
             LEFT JOIN students s ON c.student_id = s.student_id
@@ -635,7 +640,7 @@ function createCase($data) {
         $offenseId,
         $data['case_type'],
         $data['severity'],
-        $data['status'] ?? 'Pending',
+        $data['status'] ?? ($data['severity'] === 'Minor' ? 'Unrecorded' : 'Pending'),
         date('Y-m-d'),
         $data['reported_by'] ?? null,
         $data['assigned_to'] ?? null,
@@ -655,6 +660,11 @@ function updateCase($caseId, $data) {
     // 🧩 Fetch old record for audit before updating
     $oldData = getRecordForAudit('cases', 'case_id', $caseId);
     $oldData = sanitizeAuditData($oldData);
+
+    $severity = $data['severity'] ?? $oldData['severity'] ?? null;
+    if ($severity === 'Minor' && isset($data['status']) && !in_array($data['status'], ['Recorded', 'Unrecorded'], true)) {
+        throw new Exception('Minor cases can only have Recorded or Unrecorded status.');
+    }
 
     // Validate: If status is being changed to 'On Going' or 'Resolved', verify sanction exists
     if (isset($data['status']) && in_array($data['status'], ['On Going', 'Resolved'])) {
@@ -2274,7 +2284,9 @@ function getStatusColor($status) {
         'Pending' => 'yellow',
         'On Going' => 'blue',
         'Resolved' => 'green',
-        'Dismissed' => 'gray'
+        'Dismissed' => 'gray',
+        'Recorded' => 'green',
+        'Unrecorded' => 'yellow'
     ];
     
     return $colors[$status] ?? 'gray';
@@ -2301,12 +2313,12 @@ function get_sidebar_items($role) {
                 'icon' => 'dashboard-icon.png'
             ],
             [
-                'label' => 'Minor',
+                'label' => 'Minor Cases',
                 'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
                 'icon' => 'cases-icon.png'
             ],
             [
-                'label' => 'Cases',
+                'label' => 'Major Cases',
                 'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
                 'icon' => 'cases-icon.png'
             ],
@@ -2359,12 +2371,12 @@ function get_sidebar_items($role) {
                 'icon' => 'dashboard-icon.png'
             ],
             [
-                'label' => 'Minor',
+                'label' => 'Minor Cases',
                 'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
                 'icon' => 'cases-icon.png'
             ],
             [
-                'label' => 'Cases',
+                'label' => 'Major Cases',
                 'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
                 'icon' => 'cases-icon.png'
             ],
@@ -2984,16 +2996,19 @@ function getCaseSanctions($caseId) {
 // ==========================================
 
 function markCaseAsResolved($caseId) {
-    // Validate that case has at least one sanction before resolving
-    $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
-    if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
-        throw new Exception('Cannot resolve case without an applied sanction. Please apply a sanction first.');
+    $caseSeverity = fetchValue("SELECT severity FROM cases WHERE case_id = ?", [$caseId]);
+    if ($caseSeverity !== 'Minor') {
+        $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
+        if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
+            throw new Exception('Cannot resolve case without an applied sanction. Please apply a sanction first.');
+        }
     }
-    
-    $sql = "UPDATE cases SET status = 'Resolved', resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
-    executeQuery($sql, [$caseId]);
-    
-    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Resolved', 'Previous Status', 'Case marked as resolved');
+
+    $resolvedStatus = $caseSeverity === 'Minor' ? 'Recorded' : 'Resolved';
+    $sql = "UPDATE cases SET status = ?, resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$resolvedStatus, $caseId]);
+
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, $resolvedStatus, 'Previous Status', 'Case marked as resolved');
 }
 
 function getCaseResolutionEligibility($caseId) {

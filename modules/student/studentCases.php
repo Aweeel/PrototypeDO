@@ -92,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'On Going' => 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30',
                     'Resolved' => 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30',
                     'Dismissed' => 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30',
+                    'Recorded' => 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30',
+                    'Unrecorded' => 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30',
                     default => 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30',
                 },
                 'description' => $case['description'] ?? '',
@@ -936,6 +938,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30';
                 case 'Dismissed':
                     return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
+                case 'Recorded':
+                    return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30';
+                case 'Unrecorded':
+                    return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30';
                 default:
                     return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30';
             }
