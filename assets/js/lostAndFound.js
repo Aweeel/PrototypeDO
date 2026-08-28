@@ -185,12 +185,14 @@ window.onclick = function(event) {
     const editModal = document.getElementById('editModal');
     const claimModal = document.getElementById('claimModal');
     const unclaimedModal = document.getElementById('unclaimedModal');
+    const archiveModal = document.getElementById('archiveModal');
     
     if (event.target === addModal) closeAddModal();
     if (viewModal && event.target === viewModal) closeViewModal();
     if (editModal && event.target === editModal) closeEditModal();
     if (claimModal && event.target === claimModal) closeClaimModal();
     if (unclaimedModal && event.target === unclaimedModal) closeUnclaimedModal();
+    if (archiveModal && event.target === archiveModal) closeArchiveModal();
 }
 
 // Add new item
@@ -389,6 +391,18 @@ function showViewModal(item) {
                             <p class="text-gray-900 dark:text-gray-100">${dateClaimed}</p>
                         </div>
                     </div>
+                </div>
+            ` : ''}
+
+            ${item.is_archived ? `
+                <div class="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-slate-700 rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                        <i class="fas fa-box-archive text-gray-500 dark:text-gray-400 mr-2"></i>
+                        Archived
+                    </h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        ${item.archived_at ? new Date(item.archived_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                    </p>
                 </div>
             ` : ''}
         </div>
@@ -710,6 +724,100 @@ async function confirmMarkUnclaimed(itemId) {
     } catch (error) {
         console.error('Error:', error);
         showNotification('Error', 'Failed to mark item as unclaimed', 'error');
+    }
+}
+
+// Archive item (manual)
+function archiveItemPrompt(itemId) {
+    let modal = document.getElementById('archiveModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'archiveModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-box-archive mr-2 text-gray-600 dark:text-gray-400"></i>
+                    Archive Item
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300">
+                    This will move the item to the Archived tab. You can restore it later.
+                </p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="confirmArchiveItem('${itemId}')"
+                            class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
+                        <i class="fas fa-box-archive mr-2"></i>Archive
+                    </button>
+                    <button type="button" onclick="closeArchiveModal()"
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+function closeArchiveModal() {
+    document.getElementById('archiveModal')?.classList.add('hidden');
+}
+
+async function confirmArchiveItem(itemId) {
+    closeArchiveModal();
+
+    const formData = new FormData();
+    formData.append('action', 'archive');
+    formData.append('item_id', itemId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Success!', 'Item archived', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to archive item', 'error');
+    }
+}
+
+// Restore item from archive
+async function restoreItem(itemId) {
+    const formData = new FormData();
+    formData.append('action', 'restore');
+    formData.append('item_id', itemId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Success!', 'Item restored', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to restore item', 'error');
     }
 }
 

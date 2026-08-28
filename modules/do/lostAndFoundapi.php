@@ -119,6 +119,12 @@ try {
             $result = archiveItem($item_id);
             echo json_encode($result);
             break;
+
+        case 'restore':
+            $item_id = $_POST['item_id'];
+            $result = unarchiveItem($item_id);
+            echo json_encode($result);
+            break;
             
         case 'get_student':
             $student_id = $_GET['student_id'] ?? '';
