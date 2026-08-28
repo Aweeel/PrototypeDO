@@ -93,7 +93,7 @@ function addLostFoundItem($data) {
     $description = (isset($data['description']) && trim($data['description']) !== '') ? $data['description'] : null;
     $image_path = (isset($data['image_path']) && trim($data['image_path']) !== '') ? $data['image_path'] : null;
     
-    // Build SQL based on whether time is provided (like calendar.php)
+    // Build SQL based on whether time is provided
     if ($time_found !== null) {
         $sql = "INSERT INTO lost_found_items (
             item_id, item_name, category, description, found_location, 
@@ -163,8 +163,14 @@ function addLostFoundItem($data) {
 
 /**
  * Get all items with optional filters
+ * Pass $filters['archived'] = true to fetch archived items instead of active ones.
  */
 function getLostFoundItems($filters = []) {
+    // Run auto-archive check for unclaimed items older than 30 days
+    checkAndAutoArchiveLostFound();
+
+    $archivedFlag = !empty($filters['archived']) ? 1 : 0;
+
     $sql = "SELECT 
         lf.*,
         s1.first_name + ' ' + s1.last_name AS finder_full_name,
@@ -173,9 +179,9 @@ function getLostFoundItems($filters = []) {
     LEFT JOIN students s1 ON lf.finder_student_id = s1.student_id
     LEFT JOIN students s2 ON lf.claimer_student_id = s2.student_id
     LEFT JOIN users u2 ON lf.claimer_student_id = u2.teacher_id OR lf.claimer_student_id = u2.do_id
-    WHERE lf.is_archived = 0";
+    WHERE lf.is_archived = ?";
     
-    $params = [];
+    $params = [$archivedFlag];
     
     if (!empty($filters['status'])) {
         $sql .= " AND lf.status = ?";
@@ -205,7 +211,9 @@ function getLostFoundItems($filters = []) {
         $params[] = $filters['date_to'];
     }
     
-    $sql .= " ORDER BY lf.date_found DESC, lf.created_at DESC";
+    $sql .= $archivedFlag
+        ? " ORDER BY lf.archived_at DESC"
+        : " ORDER BY lf.date_found DESC, lf.created_at DESC";
     
     try {
         $items = fetchAll($sql, $params);
@@ -220,6 +228,9 @@ function getLostFoundItems($filters = []) {
             }
             if ($item['time_found'] instanceof DateTime) {
                 $item['time_found'] = $item['time_found']->format('H:i');
+            }
+            if (!empty($item['archived_at']) && $item['archived_at'] instanceof DateTime) {
+                $item['archived_at'] = $item['archived_at']->format('Y-m-d H:i:s');
             }
         }
         
@@ -258,6 +269,9 @@ function getItemById($item_id) {
             if ($item['time_found'] instanceof DateTime) {
                 $item['time_found'] = $item['time_found']->format('H:i');
             }
+            if (!empty($item['archived_at']) && $item['archived_at'] instanceof DateTime) {
+                $item['archived_at'] = $item['archived_at']->format('Y-m-d H:i:s');
+            }
             return $item;
         }
     } catch (Exception $e) {
@@ -277,7 +291,7 @@ function updateItem($item_id, $data) {
     $finder_student_id = (isset($data['finder_student_id']) && trim($data['finder_student_id']) !== '') ? $data['finder_student_id'] : null;
     $description = (isset($data['description']) && trim($data['description']) !== '') ? $data['description'] : null;
     
-    // Build SQL based on whether time is provided (like calendar.php)
+    // Build SQL based on whether time is provided
     if ($time_found !== null) {
         $sql = "UPDATE lost_found_items SET 
             item_name = ?,
@@ -485,7 +499,8 @@ function getLostFoundStats() {
         'total' => 0,
         'unclaimed' => 0,
         'claimed' => 0,
-        'recent' => 0
+        'recent' => 0,
+        'archived' => 0
     ];
     
     try {
@@ -517,6 +532,13 @@ function getLostFoundStats() {
         if ($result) {
             $stats['recent'] = $result['count'];
         }
+
+        // Archived
+        $sql = "SELECT COUNT(*) as count FROM lost_found_items WHERE is_archived = 1";
+        $result = fetchOne($sql);
+        if ($result) {
+            $stats['archived'] = $result['count'];
+        }
     } catch (Exception $e) {
         error_log("getLostFoundStats error: " . $e->getMessage());
     }
@@ -525,7 +547,7 @@ function getLostFoundStats() {
 }
 
 /**
- * Delete/Archive item
+ * Archive item
  */
 function archiveItem($item_id) {
     // Get item name for audit logging
@@ -547,6 +569,51 @@ function archiveItem($item_id) {
     } catch (Exception $e) {
         error_log("archiveItem error: " . $e->getMessage());
         return ['success' => false, 'message' => 'Failed to archive item: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Restore an archived item back to active
+ */
+function unarchiveItem($item_id) {
+    $item = getItemById($item_id);
+    $item_name = $item['item_name'] ?? 'Unknown Item';
+
+    $sql = "UPDATE lost_found_items SET 
+        is_archived = 0,
+        archived_at = NULL
+    WHERE item_id = ?";
+
+    try {
+        executeQuery($sql, [$item_id]);
+
+        // 🧾 Audit Log
+        auditLostItemUnarchived($item_id, $item_name);
+
+        return ['success' => true, 'message' => 'Item restored from archive'];
+    } catch (Exception $e) {
+        error_log("unarchiveItem error: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Failed to restore item: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Audit log for item restored from archive
+ */
+function auditLostItemUnarchived($item_id, $item_name) {
+    $userId = $_SESSION['user_id'] ?? null;
+
+    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
+            VALUES (?, 'Lost & Found', 'UNARCHIVE_ITEM', ?, ?)";
+
+    try {
+        executeQuery($sql, [
+            $userId,
+            'Archived',
+            'Item: ' . $item_name . ' (' . $item_id . ')'
+        ]);
+    } catch (Exception $e) {
+        error_log("auditLostItemUnarchived error: " . $e->getMessage());
     }
 }
 
@@ -1020,4 +1087,45 @@ function auditCategoryReactivated($categoryId) {
         error_log("auditCategoryReactivated error: " . $e->getMessage());
     }
 }
-?>
+
+/**
+ * Automatically archive lost & found items that have been unclaimed for 1 month (30+ days)
+ */
+function autoArchiveLostFoundItems() {
+    $sql = "UPDATE lost_found_items 
+            SET is_archived = 1, 
+                archived_at = GETDATE()
+            WHERE is_archived = 0 
+              AND status = 'Unclaimed'
+              AND date_found IS NOT NULL
+              AND DATEDIFF(day, date_found, GETDATE()) >= 30";
+    
+    try {
+        executeQuery($sql);
+        
+        $countSql = "SELECT @@ROWCOUNT as archived_count";
+        $count = fetchValue($countSql);
+        
+        if ($count > 0) {
+            error_log("Auto-archived $count lost & found items older than 30 days.");
+        }
+        
+        return $count;
+    } catch (Exception $e) {
+        error_log("Error in autoArchiveLostFoundItems: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Check and auto-archive items once per session/day
+ */
+function checkAndAutoArchiveLostFound() {
+    $today = date('Y-m-d');
+    if (!isset($_SESSION['auto_archive_lf_date']) || $_SESSION['auto_archive_lf_date'] !== $today) {
+        $archivedCount = autoArchiveLostFoundItems();
+        $_SESSION['auto_archive_lf_date'] = $today;
+        return $archivedCount;
+    }
+    return 0;
+}

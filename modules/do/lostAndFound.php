@@ -23,12 +23,14 @@ $filterStatus = $_GET['status'] ?? '';
 $filterCategory = $_GET['category'] ?? '';
 $searchTerm = $_GET['search'] ?? '';
 $highlightItemId = $_GET['highlightItemId'] ?? '';
+$view = ($_GET['view'] ?? 'active') === 'archived' ? 'archived' : 'active';
 
 // Server-side pagination setup
 $filters = [];
 if ($filterStatus) $filters['status'] = $filterStatus;
 if ($filterCategory) $filters['category'] = $filterCategory;
 if ($searchTerm) $filters['search'] = $searchTerm;
+if ($view === 'archived') $filters['archived'] = true;
 
 $items = getLostFoundItems($filters);
 $totalItems = is_array($items) ? count($items) : 0;
@@ -122,6 +124,8 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                         </div>
                     </div>
 
+                    
+
                     <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
@@ -135,7 +139,17 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                     </div>
                 </div>
 
-                
+                <!-- View Tabs -->
+                <div class="flex gap-2 mt-6">
+                    <a href="?view=active"
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition <?php echo $view === 'active' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-[#111827] border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'; ?>">
+                        <i class="fas fa-box-open mr-2"></i>Active Items
+                    </a>
+                    <a href="?view=archived"
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition <?php echo $view === 'archived' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-[#111827] border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'; ?>">
+                        <i class="fas fa-box-archive mr-2"></i>Archived (<?php echo $stats['archived'] ?? 0; ?>)
+                    </a>
+                </div>
 
                 <!-- Main Content -->
                 <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm mt-6">
@@ -144,16 +158,19 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                         <div class="flex items-center justify-between mb-6">
                             <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">
                                 <i class="fas fa-box-open mr-2 text-blue-600 dark:text-blue-400"></i>
-                                Lost & Found Items
+                                <?php echo $view === 'archived' ? 'Archived Items' : 'Lost & Found Items'; ?>
                             </h2>
-                            <button onclick="openAddModal()" 
-                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md">
-                                <i class="fas fa-plus mr-2"></i>Add Item
-                            </button>
+                            <?php if ($view === 'active'): ?>
+                                <button onclick="openAddModal()" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md">
+                                    <i class="fas fa-plus mr-2"></i>Add Item
+                                </button>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Filters -->
                         <form method="GET" action="" id="lostFoundFilterForm" class="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-end">
+                            <input type="hidden" name="view" value="<?php echo htmlspecialchars($view); ?>">
                             <div>
                                 <input type="text" 
                                        name="search" 
@@ -184,7 +201,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                 </select>
                             </div>
                             <div class="flex justify-end">
-                                <a href="?"
+                                <a href="?view=<?php echo htmlspecialchars($view); ?>"
                                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                                    title="Reload page">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +222,11 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location Found</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Found</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <?php if ($view === 'archived'): ?>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Archived On</th>
+                                    <?php else: ?>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <?php endif; ?>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -214,7 +235,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                     <tr>
                                         <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                             <i class="fas fa-inbox text-4xl mb-4"></i>
-                                            <p class="text-lg">No items found</p>
+                                            <p class="text-lg"><?php echo $view === 'archived' ? 'No archived items' : 'No items found'; ?></p>
                                         </td>
                                     </tr>
                                 <?php else: ?>
@@ -249,7 +270,11 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                                 <?php echo date('M d, Y', strtotime($item['date_found'])); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                <?php if ($item['status'] === 'Claimed'): ?>
+                                                <?php if ($view === 'archived'): ?>
+                                                    <span class="text-gray-700 dark:text-gray-300">
+                                                        <?php echo !empty($item['archived_at']) ? date('M d, Y', strtotime($item['archived_at'])) : '—'; ?>
+                                                    </span>
+                                                <?php elseif ($item['status'] === 'Claimed'): ?>
                                                     <span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
                                                         <i class="fas fa-check-circle mr-1"></i>Claimed
                                                     </span>
@@ -266,22 +291,35 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                                             title="View Details">
                                                         <i class="fas fa-eye"></i>
                                                     </button>
-                                                    <button onclick="editItem('<?php echo $item['item_id']; ?>')" 
-                                                            class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300" 
-                                                            title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <?php if ($item['status'] === 'Unclaimed'): ?>
-                                                        <button onclick="markClaimed('<?php echo $item['item_id']; ?>')" 
-                                                                class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300" 
-                                                                title="Mark as Claimed">
-                                                            <i class="fas fa-hand-holding"></i>
+                                                    <?php if ($view === 'archived'): ?>
+                                                        <button onclick="restoreItem('<?php echo $item['item_id']; ?>')" 
+                                                                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" 
+                                                                title="Restore">
+                                                            <i class="fas fa-box-open"></i>
                                                         </button>
                                                     <?php else: ?>
-                                                        <button onclick="markUnclaimed('<?php echo $item['item_id']; ?>')" 
-                                                                class="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300" 
-                                                                title="Mark as Unclaimed">
-                                                            <i class="fas fa-undo"></i>
+                                                        <button onclick="editItem('<?php echo $item['item_id']; ?>')" 
+                                                                class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300" 
+                                                                title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <?php if ($item['status'] === 'Unclaimed'): ?>
+                                                            <button onclick="markClaimed('<?php echo $item['item_id']; ?>')" 
+                                                                    class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300" 
+                                                                    title="Mark as Claimed">
+                                                                <i class="fas fa-hand-holding"></i>
+                                                            </button>
+                                                        <?php else: ?>
+                                                            <button onclick="markUnclaimed('<?php echo $item['item_id']; ?>')" 
+                                                                    class="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300" 
+                                                                    title="Mark as Unclaimed">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                        <?php endif; ?>
+                                                        <button onclick="archiveItemPrompt('<?php echo $item['item_id']; ?>')" 
+                                                                class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" 
+                                                                title="Archive">
+                                                            <i class="fas fa-box-archive"></i>
                                                         </button>
                                                     <?php endif; ?>
                                                 </div>
@@ -309,6 +347,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                 <?php
                                 $maxButtons = 7;
                                 $queryParams = $_GET;
+                                $queryParams['view'] = $view;
 
                                 $buildUrl = function($p) use ($queryParams) {
                                     $qp = $queryParams;
