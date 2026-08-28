@@ -371,6 +371,7 @@ GO
 -- ============================================
 CREATE INDEX idx_cases_student ON cases(student_id);
 CREATE INDEX idx_cases_status ON cases(status);
+CREATE INDEX idx_cases_severity ON cases(severity);
 CREATE INDEX idx_cases_date ON cases(date_reported);
 CREATE INDEX idx_cases_archived ON cases(is_archived);
 CREATE INDEX idx_students_status ON students(status);

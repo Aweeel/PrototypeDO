@@ -104,6 +104,9 @@ function applyClientSideFilters() {
         filteredCases = filteredCases.filter(c => c.status === 'Resolved');
     }
     // For archived tab, all cases should already be archived from the database query
+
+    // Keep each sidebar entry scoped to its own severity.
+    filteredCases = filteredCases.filter(c => c.severity === caseSeverity);
     
     // Apply offense type filter
     if (activeFilters.offenseType) {

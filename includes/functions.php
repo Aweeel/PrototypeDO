@@ -537,6 +537,11 @@ function getAllCases($filters = []) {
         $sql .= " AND c.status = ?";
         $params[] = $filters['status'];
     }
+
+    if (!empty($filters['severity']) && in_array($filters['severity'], ['Major', 'Minor'], true)) {
+        $sql .= " AND c.severity = ?";
+        $params[] = $filters['severity'];
+    }
     
     $sql .= " ORDER BY c.date_reported DESC, c.created_at DESC";
     
@@ -2296,8 +2301,13 @@ function get_sidebar_items($role) {
                 'icon' => 'dashboard-icon.png'
             ],
             [
+                'label' => 'Minor',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
+                'icon' => 'cases-icon.png'
+            ],
+            [
                 'label' => 'Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
                 'icon' => 'cases-icon.png'
             ],
             [
@@ -2349,8 +2359,13 @@ function get_sidebar_items($role) {
                 'icon' => 'dashboard-icon.png'
             ],
             [
+                'label' => 'Minor',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
+                'icon' => 'cases-icon.png'
+            ],
+            [
                 'label' => 'Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
                 'icon' => 'cases-icon.png'
             ],
             [

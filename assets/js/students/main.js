@@ -167,7 +167,7 @@ function formatDate(dateStr) {
     return date.toLocaleDateString('en-US', options);
 }
 
-function openCaseDetails(caseId, isArchived = false, caseStatus = '') {
+function openCaseDetails(caseId, isArchived = false, caseStatus = '', severity = 'Major') {
     const normalizedStatus = String(caseStatus || '').trim().toLowerCase();
     let targetTab = 'current';
 
@@ -177,7 +177,8 @@ function openCaseDetails(caseId, isArchived = false, caseStatus = '') {
         targetTab = 'resolved';
     }
 
-    window.location.href = `/PrototypeDO/modules/do/cases.php?highlightCase=1&highlightCaseId=${encodeURIComponent(caseId)}&tab=${encodeURIComponent(targetTab)}`;
+    const caseSeverity = severity === 'Minor' ? 'Minor' : 'Major';
+    window.location.href = `/PrototypeDO/modules/do/cases.php?severity=${encodeURIComponent(caseSeverity)}&highlightCase=1&highlightCaseId=${encodeURIComponent(caseId)}&tab=${encodeURIComponent(targetTab)}`;
 }
 
 // ====== Helper Functions ======
@@ -272,7 +273,7 @@ async function viewHistory(studentId) {
                     <h5 class="font-semibold text-gray-900 dark:text-gray-100 mb-4">Incident History</h5>
                     <div class="space-y-3">
                         ${cases.length > 0 ? cases.map(c => `
-                            <button type="button" onclick="openCaseDetails('${c.case_id}', ${c.is_archived == 1 ? 'true' : 'false'}, '${String(c.status || '').replace(/'/g, "\\'")}')" class="w-full text-left rounded-lg p-4 border transition-colors hover:bg-blue-50 dark:hover:bg-slate-700/70 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            <button type="button" onclick="openCaseDetails('${c.case_id}', ${c.is_archived == 1 ? 'true' : 'false'}, '${String(c.status || '').replace(/'/g, "\\'")}', '${String(c.severity || 'Major').replace(/'/g, "\\'")}')" class="w-full text-left rounded-lg p-4 border transition-colors hover:bg-blue-50 dark:hover:bg-slate-700/70 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                 c.is_archived == 1
                                     ? 'bg-gray-100 dark:bg-slate-800/30 border-gray-300 dark:border-slate-600 opacity-70'
                                     : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
