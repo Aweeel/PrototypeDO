@@ -422,7 +422,6 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
 // ==========================================
 /**
  * Automatically archive cases that are 1 year or older
-
  * based on date_reported
  */
 function autoArchiveOldCases() {
@@ -782,15 +781,20 @@ function getCaseStatistics() {
     return $stats;
 }
 
-function getCaseTypeDistribution() {
+function getCaseTypeDistribution($offenseType = null) {
     $sql = "SELECT case_type, COUNT(*) as count,
             CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM cases WHERE is_archived = 0) AS DECIMAL(5,2)) as percentage
             FROM cases
-            WHERE is_archived = 0
-            GROUP BY case_type
-            ORDER BY count DESC";
+            WHERE is_archived = 0";
+    $params = [];
     
-    return fetchAll($sql);
+    if (!empty($offenseType)) {
+        $sql .= " AND case_type = ?";
+        $params[] = $offenseType;
+    }
+    
+    $sql .= " GROUP BY case_type ORDER BY count DESC";
+    return fetchAll($sql, $params);
 }
 
 // ==========================================
@@ -1545,10 +1549,10 @@ function syncStudentCommunityServiceOverdueNotifications($studentId) {
              WHERE c.student_id = ?
                AND cs.deadline IS NOT NULL
                AND (
-                    LOWER(s.sanction_name) LIKE '%corrective%'
-                    OR LOWER(s.sanction_name) LIKE '%community service%'
-                    OR LOWER(s.sanction_name) LIKE '%suspension from class%'
-               )",
+                   LOWER(s.sanction_name) LIKE '%corrective%'
+                   OR LOWER(s.sanction_name) LIKE '%community service%'
+                   OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+                )",
             [$studentId]
         );
 
@@ -2889,8 +2893,8 @@ function extendSanctionDeadline($caseSanctionId, $daysToAdd = 7, $extensionNotes
         $newDeadline = $currentDeadline->modify("+{$daysToAdd} days");
         
         $updateSql = "UPDATE case_sanctions 
-                     SET deadline = ?
-                     WHERE case_sanction_id = ?";
+                      SET deadline = ?
+                      WHERE case_sanction_id = ?";
         
         $timestamp = date('Y-m-d H:i:s', $newDeadline->getTimestamp());
         $newNote = "Deadline extended by {$daysToAdd} day(s) on " . date('Y-m-d H:i:s');
@@ -2939,8 +2943,8 @@ function increaseSanctionDuration($caseSanctionId, $additionalHours = 8, $reason
         $newExtraHours = max(0, $newTotalHours - (($baseDays - 1) * 8));
 
         $updateSql = "UPDATE case_sanctions
-                     SET duration_extra_hours = ?
-                     WHERE case_sanction_id = ?";
+                      SET duration_extra_hours = ?
+                      WHERE case_sanction_id = ?";
 
         $note = "Duration increased by {$hoursToAdd} hour(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
 
@@ -3048,7 +3052,7 @@ function getCaseResolutionEligibility($caseId) {
                FROM community_service_submissions css
                WHERE css.case_id = cs.case_id
                  AND css.case_sanction_id = cs.case_sanction_id
-           )",
+            )",
         [$caseId]
     );
 

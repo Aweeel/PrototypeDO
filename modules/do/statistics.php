@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $offenseType = $_POST['offenseType'] ?? '';
             $dateRange = $_POST['dateRange'] ?? 'this_year';
             
             $joins = "FROM cases c JOIN students s ON c.student_id = s.student_id";
@@ -107,6 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $where .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
                 $params[] = $course;
             }
+            if ($offenseType) {
+                $where .= " AND c.case_type = ?";
+                $params[] = $offenseType;
+            }
             
             $sql = "SELECT c.case_type, COUNT(*) as count
                     $joins
@@ -125,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $offenseType = $_POST['offenseType'] ?? '';
             $groupBy = $_POST['groupBy'] ?? 'grade_year';
             
             $where = "WHERE c.is_archived = 0";
@@ -145,6 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             if ($course) {
                 $where .= " AND s.track_course = ? AND s.grade_year IN ('1st Year', '2nd Year', '3rd Year', '4th Year')";
                 $params[] = $course;
+            }
+            if ($offenseType) {
+                $where .= " AND c.case_type = ?";
+                $params[] = $offenseType;
             }
             
             // Determine which field to group by
@@ -170,6 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $offenseType = $_POST['offenseType'] ?? '';
             
             $joins = "FROM cases c";
             $where = "WHERE YEAR(c.date_reported) = ? AND c.is_archived = 0";
@@ -194,6 +205,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $params[] = $course;
                 }
             }
+            if ($offenseType) {
+                $where .= " AND c.case_type = ?";
+                $params[] = $offenseType;
+            }
             
             $sql = "SELECT 
                         MONTH(c.date_reported) as month,
@@ -215,6 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $yearLevel = $_POST['yearLevel'] ?? '';
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
+            $offenseType = $_POST['offenseType'] ?? '';
             
             // Build date filter
             $dateFilter = '';
@@ -253,6 +269,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
             }
             
+            if ($offenseType) {
+                $dateFilter .= " AND c.case_type = ?";
+                $params[] = $offenseType;
+            }
+            
             $stats = [
                 'totalCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.is_archived = 0 $dateFilter", $params),
                 'resolvedCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.status = 'Resolved' AND c.is_archived = 0 $dateFilter", $params),
@@ -273,6 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
 $pageTitle = "Statistics";
 $adminName = getFormattedUserName();
+$offenseTypes = getAllOffenseTypes();
 ?>
 
 <!DOCTYPE html>
@@ -333,6 +355,16 @@ $adminName = getFormattedUserName();
                         <select id="courseFilter" onchange="updateAllCharts()" 
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Courses</option>
+                        </select>
+
+                        <select id="offenseTypeFilter" onchange="updateAllCharts()" 
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="">All Offense Types</option>
+                            <?php foreach ($offenseTypes as $offense): ?>
+                                <option value="<?php echo htmlspecialchars($offense['offense_name']); ?>">
+                                    <?php echo htmlspecialchars($offense['offense_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
 
