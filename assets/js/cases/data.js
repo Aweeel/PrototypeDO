@@ -6,6 +6,7 @@ let filteredCases = [];
 let currentPage = 1;
 const casesPerPage = 8;
 let currentTab = 'current';
+const caseSeverity = window.caseSeverity || (new URLSearchParams(window.location.search).get('severity') === 'Minor' ? 'Minor' : 'Major');
 const tabPages = {
     current: 1,
     resolved: 1,

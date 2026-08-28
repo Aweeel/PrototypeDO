@@ -3,6 +3,18 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+$requestedCaseId = $_GET['caseId'] ?? $_GET['highlightCaseId'] ?? null;
+$caseSeverity = $_GET['severity'] ?? null;
+if (!in_array($caseSeverity, ['Major', 'Minor'], true)) {
+    $caseSeverity = 'Major';
+    if ($requestedCaseId) {
+        $requestedCase = fetchOne("SELECT severity FROM cases WHERE case_id = ?", [$requestedCaseId]);
+        if (($requestedCase['severity'] ?? null) === 'Minor') {
+            $caseSeverity = 'Minor';
+        }
+    }
+}
+
 // ============================================================
 //  CSV DOWNLOAD — Community Service Check-In Report
 // ============================================================
@@ -236,6 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 'search' => $_POST['search'] ?? '',
                 'type' => $_POST['type'] ?? '',
                 'status' => $_POST['status'] ?? '',
+                'severity' => $_POST['severity'] ?? 'Major',
                 'archived' => isset($_POST['archived']) && $_POST['archived'] === 'true' ? true : false
             ];
 
@@ -1809,7 +1822,7 @@ $adminName = getFormattedUserName() ?? 'User';
     <div class="flex h-screen">
         <div class="flex-1 overflow-y-auto ml-64">
             <?php
-            $pageTitle = "Cases Management";
+            $pageTitle = "Cases Management - " . $caseSeverity;
             include __DIR__ . '/../../includes/header.php';
             ?>
 
@@ -1935,6 +1948,7 @@ $adminName = getFormattedUserName() ?? 'User';
     </div>
 
     <!-- Load Scripts -->
+    <script>window.caseSeverity = <?= json_encode($caseSeverity) ?>;</script>
     <script src="/PrototypeDO/assets/js/notifications.js"></script>
     <script src="/PrototypeDO/assets/js/cases/data.js"></script>
     <script src="/PrototypeDO/assets/js/cases/filters.js"></script>

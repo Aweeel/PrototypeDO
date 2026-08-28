@@ -66,7 +66,10 @@ switch ($role) {
     <nav class="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
         <?php foreach ($sidebarItems as $item):
             $itemPath = parse_url($item['path'], PHP_URL_PATH) ?: $item['path'];
-            $isActive = basename($itemPath) === $currentPage;
+            $itemQuery = [];
+            parse_str(parse_url($item['path'], PHP_URL_QUERY) ?: '', $itemQuery);
+            $isActive = basename($itemPath) === $currentPage
+                && (!isset($itemQuery['severity']) || ($itemQuery['severity'] ?? '') === ($_GET['severity'] ?? 'Major'));
             ?>
             <a href="<?= htmlspecialchars($item['path']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
                       <?= $isActive

@@ -91,7 +91,7 @@ function getCalendarBadgeColor($category) {
     return $map[$category] ?? 'bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-gray-100';
 }
 
-function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false) {
+function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false, $severity = 'Major') {
     $tab = 'current';
 
     if ($isArchived) {
@@ -100,10 +100,10 @@ function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false) {
         $tab = 'resolved';
     }
 
-    return '/PrototypeDO/modules/do/cases.php?caseId=' . urlencode((string) $caseId) . '&viewCase=1&tab=' . urlencode($tab);
+    return '/PrototypeDO/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&caseId=' . urlencode((string) $caseId) . '&viewCase=1&tab=' . urlencode($tab);
 }
 
-function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false) {
+function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false, $severity = 'Major') {
     $tab = 'current';
 
     if ($isArchived) {
@@ -112,7 +112,7 @@ function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false) {
         $tab = 'resolved';
     }
 
-    return '/PrototypeDO/modules/do/cases.php?highlightCase=1&highlightCaseId=' . urlencode((string) $caseId) . '&tab=' . urlencode($tab);
+    return '/PrototypeDO/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&highlightCase=1&highlightCaseId=' . urlencode((string) $caseId) . '&tab=' . urlencode($tab);
 }
 
 function buildLostFoundHighlightUrl($itemId) {
@@ -251,7 +251,7 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                             <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases</h2>
-                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
+                                    <a href="../do/cases.php?severity=Major" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
 
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -265,7 +265,7 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                                                 'red' => 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100'
                                             ];
                                         ?>
-                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']))); ?>" class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block">
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block">
                                             <div class="flex items-center space-x-3 flex-1">
                                                 <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
                                                     <span class="text-xs font-bold text-white"><?php 
@@ -362,12 +362,12 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                             <div class="lg:col-span-3 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Pending Cases</h2>
-                                    <a href="../do/cases.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
+                                    <a href="../do/cases.php?severity=Major" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
                                     <?php if (!empty($pendingCases)): ?>
                                         <?php foreach ($pendingCases as $case): ?>
-                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'])); ?>" class="w-full text-left flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset block">
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="w-full text-left flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset block">
                                             <div class="flex items-center space-x-3 flex-1">
                                                 <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
                                                     <span class="text-xs font-bold text-white"><?php 

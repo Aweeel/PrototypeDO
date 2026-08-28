@@ -387,7 +387,7 @@ function loadCasesFromDB() {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `ajax=1&action=getCases&search=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(typeFilter)}&status=${encodeURIComponent(statusFilter)}&archived=${archived}`
+        body: `ajax=1&action=getCases&search=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(typeFilter)}&status=${encodeURIComponent(statusFilter)}&severity=${encodeURIComponent(caseSeverity)}&archived=${archived}`
     })
     .then(response => {
         console.log('Response status:', response.status);
