@@ -67,29 +67,35 @@ async function populateSelect(el) {
 
 // ── Dependent Filters (Grade > Courses) ──────────────────
 function setupDependentFilters() {
-    const gradeLevelSelect = document.getElementById('stat-gradeLevel');
-    const courseSelect = document.getElementById('stat-course');
-    
-    if (!gradeLevelSelect || !courseSelect) return;
-    
-    gradeLevelSelect.addEventListener('change', async () => {
-        await updateCoursesByGradeLevel();
-    });
+    // Statistics Tab Dependent Filter
+    const statGrade = document.getElementById('stat-gradeLevel');
+    const statCourse = document.getElementById('stat-course');
+    if (statGrade && statCourse) {
+        statGrade.addEventListener('change', async () => {
+            await updateCoursesByGradeLevel(statGrade, statCourse);
+        });
+    }
+
+    // Student Behavior Tab Dependent Filter
+    const stuGrade = document.getElementById('stu-gradeLevel');
+    const stuCourse = document.getElementById('stu-course');
+    if (stuGrade && stuCourse) {
+        stuGrade.addEventListener('change', async () => {
+            await updateCoursesByGradeLevel(stuGrade, stuCourse);
+        });
+    }
 }
 
-async function updateCoursesByGradeLevel() {
-    const gradeLevelSelect = document.getElementById('stat-gradeLevel');
-    const courseSelect = document.getElementById('stat-course');
+async function updateCoursesByGradeLevel(gradeSelectEl, courseSelectEl) {
+    if (!gradeSelectEl || !courseSelectEl) return;
     
-    if (!gradeLevelSelect || !courseSelect) return;
-    
-    const gradeLevel = gradeLevelSelect.value;
+    const gradeLevel = gradeSelectEl.value;
     
     // Remove all options except the first one ("All Courses")
-    while (courseSelect.options.length > 1) {
-        courseSelect.remove(1);
+    while (courseSelectEl.options.length > 1) {
+        courseSelectEl.remove(1);
     }
-    courseSelect.value = '';
+    courseSelectEl.value = '';
     
     // If no grade level selected, fetch all courses
     if (!gradeLevel) {
@@ -104,7 +110,7 @@ async function updateCoursesByGradeLevel() {
                     const o = document.createElement('option');
                     o.value = row.track_course;
                     o.textContent = row.track_course;
-                    courseSelect.appendChild(o);
+                    courseSelectEl.appendChild(o);
                 });
             }
         } catch(e) {
@@ -127,7 +133,7 @@ async function updateCoursesByGradeLevel() {
                 const o = document.createElement('option');
                 o.value = row.track_course;
                 o.textContent = row.track_course;
-                courseSelect.appendChild(o);
+                courseSelectEl.appendChild(o);
             });
         }
     } catch(e) {
@@ -139,10 +145,10 @@ async function updateCoursesByGradeLevel() {
 function getFilters(type) {
     const g = id => document.getElementById(id)?.value ?? '';
     const map = {
-        incident:   () => ({ reportType:g('inc-reportType'), caseId:g('inc-caseId'), dateFrom:g('inc-dateFrom'), dateTo:g('inc-dateTo'), severity:g('inc-severity'), status:g('inc-status') }),
-        statistics: () => ({ year:g('stat-year'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel'), course:g('stat-course') }),
+        incident:   () => ({ reportType:g('inc-reportType'), caseId:g('inc-caseId'), dateFrom:g('inc-dateFrom'), dateTo:g('inc-dateTo'), severity:g('inc-severity'), status:g('inc-status'), offenseType:g('inc-offenseType') }),
+        statistics: () => ({ year:g('stat-year'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel'), course:g('stat-course'), offenseType:g('stat-offenseType') }),
         lostfound:  () => ({ dateFrom:g('lf-dateFrom'), dateTo:g('lf-dateTo'), status:g('lf-status'), category:g('lf-category') }),
-        student:    () => ({ studentId:g('stu-studentId'), gradeLevel:g('stu-gradeLevel'), status:g('stu-status') }),
+        student:    () => ({ studentId:g('stu-studentId'), gradeLevel:g('stu-gradeLevel'), course:g('stu-course'), status:g('stu-status') }),
         audit:      () => ({ dateFrom:g('aud-dateFrom'), dateTo:g('aud-dateTo'), actionType:g('aud-actionType') }),
     };
     return (map[type] ?? (() => ({})))();
@@ -311,7 +317,7 @@ function incHTML(d) {
         detailed ? 'Detailed Incident Report' : 'Incident Report Summary',
         filters.caseId ? `Case: ${filters.caseId}` : 'All Active Cases',
         { 'Date Range':(filters.dateFrom||filters.dateTo)?`${filters.dateFrom||'—'} → ${filters.dateTo||'—'}`:'',
-          Severity:filters.severity, Status:filters.status }
+          Severity:filters.severity, Status:filters.status, 'Offense Type':filters.offenseType }
     );
     html += statCards([
         {label:'Total',    value:stats.total,    color:'#1d4ed8'},
@@ -372,7 +378,7 @@ function statHTML(d) {
     if (monthName) subtitle += ` • ${monthName}`;
     
     let html = banner('Case Statistics Report', subtitle,
-        { View: isMonthlyView?'Monthly Breakdown':'Yearly Overview', Severity:filters.severity, 'Grade Level':filters.gradeLevel });
+        { View: isMonthlyView?'Monthly Breakdown':'Yearly Overview', Severity:filters.severity, 'Grade Level':filters.gradeLevel, 'Offense Type':filters.offenseType });
     
     html += statCards([
         {label:'Total Cases',      value:totals.total??0,        color:'#1d4ed8'},
@@ -478,7 +484,7 @@ function stuHTML(d) {
     const get = s => (statusDist.find(x=>x.status===s)||{count:0}).count;
     let html = banner('Student Behavior Report',
         filters.studentId?`Student: ${filters.studentId}`:'All Students',
-        { 'Grade Level':filters.gradeLevel, 'Standing Status':filters.status });
+        { 'Grade Level':filters.gradeLevel, 'Track/Course':filters.course, 'Standing Status':filters.status });
     html += statCards([
         {label:'Total Students', value:students.length,        color:'#1d4ed8'},
         {label:'Good Standing',  value:get('Good Standing'),   color:'#16a34a'},

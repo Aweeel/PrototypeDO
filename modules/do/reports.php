@@ -79,11 +79,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 // ============================================================
 function fetchIncidentData($p) {
     $where = "WHERE c.is_archived = 0"; $params = [];
-    if (!empty($p['caseId']))   { $where .= " AND c.case_id = ?";        $params[] = $p['caseId']; }
-    if (!empty($p['dateFrom'])) { $where .= " AND c.date_reported >= ?"; $params[] = $p['dateFrom']; }
-    if (!empty($p['dateTo']))   { $where .= " AND c.date_reported <= ?"; $params[] = $p['dateTo']; }
-    if (!empty($p['severity'])) { $where .= " AND c.severity = ?";       $params[] = $p['severity']; }
-    if (!empty($p['status']))   { $where .= " AND c.status = ?";         $params[] = $p['status']; }
+    if (!empty($p['caseId']))      { $where .= " AND c.case_id LIKE ?";    $params[] = "%" . $p['caseId'] . "%"; }
+    if (!empty($p['offenseType'])) { $where .= " AND c.case_type = ?";      $params[] = $p['offenseType']; }
+    if (!empty($p['dateFrom']))    { $where .= " AND c.date_reported >= ?"; $params[] = $p['dateFrom']; }
+    if (!empty($p['dateTo']))      { $where .= " AND c.date_reported <= ?"; $params[] = $p['dateTo']; }
+    if (!empty($p['severity']))    { $where .= " AND c.severity = ?";       $params[] = $p['severity']; }
+    if (!empty($p['status']))      { $where .= " AND c.status = ?";         $params[] = $p['status']; }
 
     $cases = fetchAll("SELECT c.*,
         CONCAT(s.first_name,' ',s.last_name) AS student_name,
@@ -95,7 +96,7 @@ function fetchIncidentData($p) {
         LEFT JOIN users   ua  ON c.assigned_to  = ua.user_id
         $where ORDER BY c.date_reported DESC", $params);
 
-    if (($p['reportType'] ?? '') === 'detailed') {
+    if (($p['reportType'] ?? '') === 'detailed' && !empty($cases)) {
         foreach ($cases as &$case) {
             $case['sanctions'] = fetchAll(
                 "SELECT cs.*, s.sanction_name, s.severity_level
@@ -135,9 +136,10 @@ function fetchStatisticsData($p) {
         $params[] = $month;
     }
     
-    if (!empty($p['severity']))   { $where .= " AND c.severity = ?";   $params[] = $p['severity']; }
-    if (!empty($p['gradeLevel'])) { $where .= " AND s.grade_year = ?"; $params[] = $p['gradeLevel']; }
-    if (!empty($p['course']))     { $where .= " AND s.track_course = ?"; $params[] = $p['course']; }
+    if (!empty($p['severity']))    { $where .= " AND c.severity = ?";    $params[] = $p['severity']; }
+    if (!empty($p['offenseType'])) { $where .= " AND c.case_type = ?";   $params[] = $p['offenseType']; }
+    if (!empty($p['gradeLevel']))  { $where .= " AND s.grade_year = ?";  $params[] = $p['gradeLevel']; }
+    if (!empty($p['course']))      { $where .= " AND s.track_course = ?"; $params[] = $p['course']; }
     $joins = "FROM cases c LEFT JOIN students s ON c.student_id = s.student_id";
 
     // Build keyed monthly array so JS lookup is O(1) and correct
@@ -172,8 +174,9 @@ function fetchLostFoundData($p) {
 
 function fetchStudentData($p) {
     $where = "WHERE 1=1"; $params = [];
-    if (!empty($p['studentId']))  { $where .= " AND s.student_id = ?"; $params[] = $p['studentId']; }
+    if (!empty($p['studentId']))  { $where .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)"; $params[] = "%".$p['studentId']."%"; $params[] = "%".$p['studentId']."%"; $params[] = "%".$p['studentId']."%"; }
     if (!empty($p['gradeLevel'])) { $where .= " AND s.grade_year = ?"; $params[] = $p['gradeLevel']; }
+    if (!empty($p['course']))     { $where .= " AND s.track_course = ?"; $params[] = $p['course']; }
     if (!empty($p['status']))     { $where .= " AND s.status = ?";     $params[] = $p['status']; }
 
     return ['success' => true,
@@ -182,7 +185,7 @@ function fetchStudentData($p) {
             (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.severity='Major' AND c.is_archived=0) AS major_count,
             (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.severity='Minor' AND c.is_archived=0) AS minor_count
             FROM students s $where ORDER BY s.total_offenses DESC, s.last_name", $params),
-        'statusDist' => fetchAll("SELECT status, COUNT(*) AS count FROM students GROUP BY status"),
+        'statusDist' => fetchAll("SELECT s.status, COUNT(*) AS count FROM students s $where GROUP BY s.status", $params),
         'filters'    => $p];
 }
 
@@ -275,7 +278,6 @@ function buildCSVData($type, $params) {
             }
             break;
 
-
     }
     return $rows;
 }
@@ -301,7 +303,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             auditReportGenerated('Incident Report', [
                 'date_from' => $_POST['dateFrom'] ?? '',
                 'date_to' => $_POST['dateTo'] ?? '',
-                'severity' => $_POST['severity'] ?? ''
+                'severity' => $_POST['severity'] ?? '',
+                'offense_type' => $_POST['offenseType'] ?? ''
             ]);
             echo json_encode($data);
             exit;
@@ -337,6 +340,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        if ($action === 'getOffenseTypes') {
+            echo json_encode(['success'=>true, 'data'=>fetchAll("SELECT DISTINCT offense_name AS case_type FROM offense_types ORDER BY offense_name")]);
+            exit;
+        }
         if ($action === 'getGradeLevels') {
             echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT grade_year FROM students WHERE grade_year IS NOT NULL ORDER BY grade_year")]);
             exit;
@@ -479,13 +486,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'incident' => [
                         'type'   => 'incident',
                         'fields' => [
-                            ['id'=>'inc-reportType','label'=>'Report Type','type'=>'select',
+                            ['id'=>'inc-reportType', 'label'=>'Report Type', 'type'=>'select',
                              'opts'=>['summary'=>'Summary','detailed'=>'Detailed (with Sanctions)']],
-                            ['id'=>'inc-caseId',   'label'=>'Case ID (Optional)', 'type'=>'search','placeholder'=>'Search by Case ID (C-2026000)'],
-                            ['id'=>'inc-dateFrom', 'label'=>'Date From', 'type'=>'date'],
-                            ['id'=>'inc-dateTo',   'label'=>'Date To',   'type'=>'date'],
-                            ['id'=>'inc-severity', 'label'=>'Severity',  'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
-                            ['id'=>'inc-status',   'label'=>'Status',    'type'=>'select','opts'=>[''=>'All','Pending'=>'Pending','On Going'=>'On Going','Resolved'=>'Resolved','Recorded'=>'Recorded','Unrecorded'=>'Unrecorded']],
+                            ['id'=>'inc-caseId',     'label'=>'Case ID (Optional)', 'type'=>'search','placeholder'=>'Search by Case ID (C-2026000)'],
+                            ['id'=>'inc-offenseType','label'=>'Offense Type', 'type'=>'ajax','action'=>'getOffenseTypes','vk'=>'case_type','all'=>'All Offenses'],
+                            ['id'=>'inc-dateFrom',   'label'=>'Date From', 'type'=>'date'],
+                            ['id'=>'inc-dateTo',     'label'=>'Date To',   'type'=>'date'],
+                            ['id'=>'inc-severity',   'label'=>'Severity',  'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
+                            ['id'=>'inc-status',     'label'=>'Status',    'type'=>'select','opts'=>[''=>'All','Pending'=>'Pending','On Going'=>'On Going','Resolved'=>'Resolved','Recorded'=>'Recorded','Unrecorded'=>'Unrecorded']],
                         ],
                     ],
                     'statistics' => [
@@ -496,6 +504,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ['id'=>'stat-month',      'label'=>'Month (Optional)','type'=>'select','opts'=>
                                 [''=>'All Months','1'=>'January','2'=>'February','3'=>'March','4'=>'April','5'=>'May','6'=>'June',
                                 '7'=>'July','8'=>'August','9'=>'September','10'=>'October','11'=>'November','12'=>'December']],
+                            ['id'=>'stat-offenseType','label'=>'Offense Type','type'=>'ajax','action'=>'getOffenseTypes','vk'=>'case_type','all'=>'All Offenses'],
                             ['id'=>'stat-severity',   'label'=>'Severity',    'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
                             ['id'=>'stat-gradeLevel', 'label'=>'Grade Level', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
                             ['id'=>'stat-course',     'label'=>'Course',      'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses'],
@@ -515,6 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         'fields' => [
                             ['id'=>'stu-studentId', 'label'=>'Student Name/ID (Optional)', 'type'=>'search','placeholder'=>'Search by Student ID or Name'],
                             ['id'=>'stu-gradeLevel','label'=>'Grade / Year', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
+                            ['id'=>'stu-course',    'label'=>'Track / Course', 'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses'],
                             ['id'=>'stu-status',    'label'=>'Standing',     'type'=>'select','opts'=>[''=>'All','Good Standing'=>'Good Standing','On Watch'=>'On Watch','On Probation'=>'On Probation']],
                         ],
                     ],

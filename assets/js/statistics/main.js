@@ -120,6 +120,7 @@ async function updateStatistics() {
     const yearLevel = document.getElementById('yearLevelFilter').value;
     const strand = document.getElementById('strandFilter').value;
     const course = document.getElementById('courseFilter').value;
+    const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
     
     try {
         const formData = new FormData();
@@ -130,6 +131,7 @@ async function updateStatistics() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('offenseType', offenseType);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -156,6 +158,7 @@ async function initializeCasesByTypeChart() {
         const yearLevel = document.getElementById('yearLevelFilter').value;
         const strand = document.getElementById('strandFilter').value;
         const course = document.getElementById('courseFilter').value;
+        const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
         const dateRange = document.getElementById('casesByTypeDateRangeFilter').value;
         
         const formData = new FormData();
@@ -165,6 +168,7 @@ async function initializeCasesByTypeChart() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('offenseType', offenseType);
         formData.append('dateRange', dateRange);
         
         const response = await fetch(window.location.href, {
@@ -245,6 +249,7 @@ async function initializeCasesByGradeChart() {
         const yearLevel = document.getElementById('yearLevelFilter').value;
         const strand = document.getElementById('strandFilter').value;
         const course = document.getElementById('courseFilter').value;
+        const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
         const groupBy = document.getElementById('gradesGroupByFilter').value;
         
         const formData = new FormData();
@@ -254,6 +259,7 @@ async function initializeCasesByGradeChart() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('offenseType', offenseType);
         formData.append('groupBy', groupBy);
         
         const response = await fetch(window.location.href, {
@@ -329,6 +335,7 @@ async function updateMonthlyTrends() {
     const yearLevel = document.getElementById('yearLevelFilter').value;
     const strand = document.getElementById('strandFilter').value;
     const course = document.getElementById('courseFilter').value;
+    const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
     
     try {
         const formData = new FormData();
@@ -339,6 +346,7 @@ async function updateMonthlyTrends() {
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
         formData.append('course', course);
+        formData.append('offenseType', offenseType);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -422,6 +430,7 @@ function exportStatistics() {
     const yearLevel = document.getElementById('yearLevelFilter')?.value || '';
     const strand = document.getElementById('strandFilter')?.value || '';
     const course = document.getElementById('courseFilter')?.value || '';
+    const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
     
     // Build query string for reports.php
     const params = new URLSearchParams();
@@ -430,6 +439,7 @@ function exportStatistics() {
     if (yearLevel) params.append('yearLevel', yearLevel);
     if (strand) params.append('strand', strand);
     if (course) params.append('course', course);
+    if (offenseType) params.append('offenseType', offenseType);
     
     // Redirect to reports.php with current filters
     window.location.href = '/PrototypeDO/modules/do/reports.php?' + params.toString();
