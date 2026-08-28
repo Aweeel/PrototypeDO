@@ -15,7 +15,7 @@ function renderCases() {
         const message = currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.';
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="${caseSeverity === 'Minor' ? 9 : 8}" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     ${message}
                 </td>
             </tr>
@@ -37,6 +37,7 @@ function renderCases() {
                 </div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.type}</td>
+            ${caseSeverity === 'Minor' ? `<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${formatOffenseNumber(c.offenseNumber)}</td>` : ''}
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.date}</td>
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.assignedTo || 'Unassigned'}</td>
             <td class="px-6 py-4 text-sm">
@@ -47,8 +48,8 @@ function renderCases() {
                 ${currentTab === 'archived' 
                     ? `<button onclick="unarchiveCase('${c.id}')" class="text-green-600 dark:text-green-400 hover:underline mr-3">Restore</button>`
                     : `<button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
-                       ${String(c.status || '').toLowerCase() !== 'resolved' ? `<button onclick="manageSanctions('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">Sanctions</button>` : ''}
-                       ${c.status !== 'Resolved' ? `<span class="text-gray-300 dark:text-gray-600 mx-2">|</span><button onclick="markCaseResolved('${c.id}')" title="${getCaseResolutionBlockReason(c) || 'Mark this case as resolved'}" class="text-green-600 dark:text-green-400 hover:underline font-medium">Mark Resolved</button>` : ''}`
+                       ${(c.severity === 'Minor' ? c.status !== 'Recorded' : String(c.status || '').toLowerCase() !== 'resolved') ? `<button onclick="manageSanctions('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">Sanctions</button>` : ''}
+                       ${c.severity !== 'Minor' && c.status !== 'Resolved' ? `<span class="text-gray-300 dark:text-gray-600 mx-2">|</span><button onclick="markCaseResolved('${c.id}')" title="${getCaseResolutionBlockReason(c) || 'Mark this case as resolved'}" class="text-green-600 dark:text-green-400 hover:underline font-medium">Mark Resolved</button>` : ''}`
                 }
                 </div>
             </td>

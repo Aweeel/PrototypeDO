@@ -102,7 +102,7 @@ CREATE TABLE cases (
     case_type NVARCHAR(100) NOT NULL,
     severity NVARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
     offense_category NVARCHAR(50) NULL,
-    status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'On Going', 'Resolved', 'Dismissed')),
+    status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'On Going', 'Resolved', 'Dismissed', 'Recorded', 'Unrecorded')),
     date_reported DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     time_reported TIME,
     location NVARCHAR(200),
@@ -814,6 +814,11 @@ VALUES
  'Student posted derogatory and insulting comments about a classmate on social media group. Screenshots provided as evidence.', 'Victim student + 3 classmates who witnessed posts', 'Investigation completed. Mediation held. 5-day suspension applied', 'Serious case. Both students and parents called for mediation. Student completed suspension and apologized.', '2025-12-10');
 
 PRINT 'Cases inserted: 40';
+
+-- Minor cases use recording status instead of the major-case workflow statuses.
+UPDATE cases
+SET status = CASE WHEN status = 'Pending' THEN 'Unrecorded' ELSE 'Recorded' END
+WHERE severity = 'Minor';
 GO
 
 -- ============================================

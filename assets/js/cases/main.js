@@ -244,7 +244,8 @@ function renderTableRows() {
 
 
     if (casesToDisplay.length === 0) {
-        const colSpan = currentTab === 'archived' ? '8' : '7';
+            const hasOffenseColumn = caseSeverity === 'Minor';
+            const colSpan = (currentTab === 'archived' ? 8 : 7) + (hasOffenseColumn ? 1 : 0);
         tbody.innerHTML = `
             <tr>
                 <td colspan="${colSpan}" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -267,6 +268,7 @@ function renderTableRows() {
                 </div>
             </td>
             <td class="pl-5 pr-2 py-4 text-sm text-gray-700 dark:text-gray-300 w-48"><div class="truncate">${caseItem.type}</div></td>
+            ${caseSeverity === 'Minor' ? `<td class="pl-2 pr-2 py-4 text-sm text-gray-700 dark:text-gray-300 w-24"><div class="truncate">${formatOffenseNumber(caseItem.offenseNumber)}</div></td>` : ''}
             <td class="pl-2 pr-4 py-4 text-sm text-gray-700 dark:text-gray-300 w-28"><div class="truncate">${caseItem.date}</div></td>
             <td class="pl-4 pr-4 py-4 text-sm text-gray-700 dark:text-gray-300 w-36"><div class="truncate">${caseItem.assignedTo || 'Unassigned'}</div></td>
             <td class="pl-4 pr-1 py-4 w-32">
@@ -286,13 +288,13 @@ function renderTableRows() {
                             class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             View
                         </button>
-                        ${String(caseItem.status || '').toLowerCase() !== 'resolved' ? `
+                        ${(caseItem.severity === 'Minor' ? caseItem.status !== 'Recorded' : String(caseItem.status || '').toLowerCase() !== 'resolved') ? `
                         <button onclick="manageSanctions('${caseItem.id}')"
                             class="px-3 py-1.5 text-base text-[#60A5FA] hover:text-blue-700 transition-colors">
                             Sanctions
                         </button>
                         ` : ''}
-                        ${caseItem.status !== 'Resolved' ? `
+                        ${caseItem.severity !== 'Minor' && caseItem.status !== 'Resolved' ? `
                         <button onclick="markCaseResolved('${caseItem.id}')"
                             title="${getCaseResolutionBlockReason(caseItem) || 'Mark this case as resolved'}"
                             class="px-3 py-1.5 text-base text-green-600 hover:text-green-700 transition-colors font-medium">
@@ -350,7 +352,7 @@ function renderTableRows() {
     for (let i = 0; i < emptyRowsCount; i++) {
         tableHTML += `
             <tr class="h-[72px] border-b border-gray-100 dark:border-slate-700">
-                <td colspan="${currentTab === 'archived' ? 8 : 7}"></td>
+                <td colspan="${(currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0)}"></td>
             </tr>
         `;
     }
@@ -373,7 +375,7 @@ function loadCasesFromDB() {
             archived = 'true';
         } else if (currentTab === 'resolved') {
             // For resolved tab, filter by status=Resolved and not archived
-            statusFilter = 'Resolved';
+            statusFilter = caseSeverity === 'Minor' ? 'Recorded' : 'Resolved';
         } else if (currentTab === 'current') {
             // For current tab, exclude resolved cases
             // We'll handle this on the client side after fetching
@@ -416,7 +418,7 @@ function loadCasesFromDB() {
                     console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
                 } catch (renderError) {
                     console.error('Render error:', renderError);
-                    const colSpan = currentTab === 'archived' ? 8 : 7;
+                    const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
                     document.getElementById('casesTableBody').innerHTML = `
                         <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
                             Error rendering cases table: ${renderError.message}
@@ -425,7 +427,7 @@ function loadCasesFromDB() {
                 }
             } else {
                 console.error('Failed to load cases:', data.error);
-                const colSpan = currentTab === 'archived' ? 8 : 7;
+                const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
                 document.getElementById('casesTableBody').innerHTML = `
                     <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
                         Error loading cases: ${data.error || 'Unknown error'}
@@ -435,7 +437,7 @@ function loadCasesFromDB() {
         } catch (e) {
             console.error('JSON parse error:', e);
             console.error('Response was:', text);
-            const colSpan = currentTab === 'archived' ? 8 : 7;
+            const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
             document.getElementById('casesTableBody').innerHTML = `
                 <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
                     Error: Invalid response from server. Check console for details.
@@ -445,13 +447,22 @@ function loadCasesFromDB() {
     })
     .catch(error => {
         console.error('Fetch error:', error);
-        const colSpan = currentTab === 'archived' ? 8 : 7;
+        const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
         document.getElementById('casesTableBody').innerHTML = `
             <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
                 Error loading cases: ${error.message}. Please check console.
             </td></tr>
         `;
     });
+}
+
+function formatOffenseNumber(number) {
+    const offenseNumber = Number(number);
+    if (!Number.isInteger(offenseNumber) || offenseNumber < 1) return '-';
+    const suffix = offenseNumber % 100 >= 11 && offenseNumber % 100 <= 13
+        ? 'th'
+        : ({ 1: 'st', 2: 'nd', 3: 'rd' }[offenseNumber % 10] || 'th');
+    return `${offenseNumber}${suffix}`;
 }
 
 // Update table header based on current tab

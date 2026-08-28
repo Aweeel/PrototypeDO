@@ -455,6 +455,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'student' => $case['student_name'],
                     'studentId' => $case['student_id'],
                     'type' => $case['case_type'],
+                    'offenseNumber' => intval($case['minor_offense_number'] ?? 0),
                     'date' => formatDate($case['date_reported']),
                     'status' => $case['status'],
                     'assignedTo' => $case['assigned_to_name'] ?? 'Unassigned',
@@ -494,7 +495,7 @@ if ($_POST['action'] === 'createCase') {
         'student_name' => $_POST['studentName'],
         'case_type' => $_POST['type'],
         'severity' => $_POST['severity'] ?? 'Minor',
-        'status' => 'Pending', // All new cases start as Pending
+        'status' => ($_POST['severity'] ?? 'Minor') === 'Minor' ? 'Unrecorded' : 'Pending',
         'assigned_to' => $_SESSION['user_id'] ?? null,
         'reported_by' => $_SESSION['user_id'] ?? null,
         'description' => $_POST['description'],
@@ -767,14 +768,17 @@ if ($_POST['action'] === 'removeSanction') {
         $newStatus = null;
         // If no more sanctions, change case status to Pending
         if ($remainingCount == 0) {
-            $updateStatusSql = "UPDATE cases SET status = 'Pending' WHERE case_id = ?";
-            executeQuery($updateStatusSql, [$caseId]);
-            
-            // Log the status change
-            logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Status Changed', 'On Going', 'Pending - All sanctions removed');
-            
-            $newStatus = 'Pending';
-            error_log("Case {$caseId} status changed to Pending (all sanctions removed)");
+            $caseSeverity = fetchValue("SELECT severity FROM cases WHERE case_id = ?", [$caseId]);
+            if ($caseSeverity !== 'Minor') {
+                $updateStatusSql = "UPDATE cases SET status = 'Pending' WHERE case_id = ?";
+                executeQuery($updateStatusSql, [$caseId]);
+
+                // Log the status change
+                logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Status Changed', 'On Going', 'Pending - All sanctions removed');
+
+                $newStatus = 'Pending';
+                error_log("Case {$caseId} status changed to Pending (all sanctions removed)");
+            }
         }
 
         // 🧾 Audit Log - Use specialized sanction removal audit function
@@ -1563,7 +1567,7 @@ if ($_POST['action'] === 'markResolved') {
             }
 
         $eligibility = getCaseResolutionEligibility($caseId);
-        if (!$eligibility['can_resolve']) {
+        if (($existingCase['severity'] ?? null) !== 'Minor' && !$eligibility['can_resolve']) {
             echo json_encode(['success' => false, 'error' => $eligibility['error']]);
             exit;
         }
@@ -1607,7 +1611,7 @@ if ($_POST['action'] === 'applySanction') {
     }
     
     // Update case status to "On Going" when sanction is applied
-    $sqlUpdateStatus = "UPDATE cases SET status = 'On Going' WHERE case_id = ?";
+    $sqlUpdateStatus = "UPDATE cases SET status = CASE WHEN severity = 'Minor' THEN 'Recorded' ELSE 'On Going' END WHERE case_id = ?";
     executeQuery($sqlUpdateStatus, [$caseId]);
 
     // Notify student if schedule is set
@@ -1865,8 +1869,13 @@ $adminName = getFormattedUserName() ?? 'User';
                     <div class="flex gap-2 items-center">
                         <button id="currentTab" onclick="switchTab('current')"
                             class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Current</button>
+                        <?php if ($caseSeverity !== 'Minor'): ?>
                         <button id="resolvedTab" onclick="switchTab('resolved')"
                             class="px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">Resolved</button>
+                        <?php else: ?>
+                        <button id="resolvedTab" onclick="switchTab('resolved')"
+                            class="px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">Recorded</button>
+                        <?php endif; ?>
                         
                         <!-- Archived Icon Button -->
                         <button id="archivedTab" onclick="switchTab('archived')" title="View Archived Cases"
@@ -1878,21 +1887,6 @@ $adminName = getFormattedUserName() ?? 'User';
                     </div>
 
                     <div class="flex gap-3 items-center flex-wrap">
-                        <!-- Minor/Major Filter Buttons -->
-                        <div class="flex gap-2 border-r border-gray-300 dark:border-slate-600 pr-3">
-                            <button id="allOffensesBtn" onclick="filterByOffenseType('')"
-                                class="px-4 py-2.5 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
-                                All
-                            </button>
-                            <button id="minorBtn" onclick="filterByOffenseType('Minor')"
-                                class="px-4 py-2.5 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-500 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium text-sm hover:bg-yellow-200 dark:hover:bg-yellow-900/40 transition-colors">
-                                Minor
-                            </button>
-                            <button id="majorBtn" onclick="filterByOffenseType('Major')"
-                                class="px-4 py-2.5 bg-red-100 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-300 rounded-lg font-medium text-sm hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors">
-                                Major
-                            </button>
-                        </div>
 
                         <!-- Advanced Filters Button -->
                         <button onclick="openAdvancedFilters()"
@@ -1923,6 +1917,9 @@ $adminName = getFormattedUserName() ?? 'User';
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Case ID</th>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Student</th>
                                 <th class="pl-5 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Type</th>
+                                <?php if ($caseSeverity === 'Minor'): ?>
+                                <th class="pl-2 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Offense</th>
+                                <?php endif; ?>
                                 <th class="pl-2 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Date Reported</th>
                                 <th class="pl-4 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-36">Assigned to</th>
                                 <th class="pl-4 pr-1 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Status</th>

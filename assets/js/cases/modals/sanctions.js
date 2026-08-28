@@ -3,6 +3,7 @@
 async function manageSanctions(caseId) {
     const caseData = allCases.find(c => c.id === caseId);
     if (!caseData) return;
+    const isMinor = caseData.severity === 'Minor'; // Minor cases skip the hearing-schedule requirement
 
     const modalState = window.__casesModalState || (window.__casesModalState = {});
     const openToken = Symbol(`manageSanctions:${caseId}`);
@@ -166,7 +167,8 @@ async function manageSanctions(caseId) {
 
             <div class="overflow-y-auto flex-1 px-5">
             <form id="applySanctionForm" class="space-y-4">
-                <!-- Schedule Hearing Section - FIRST -->
+                <!-- Schedule Hearing Section - FIRST (Major cases only) -->
+                ${!isMinor ? `
                 <div id="scheduleSection" class="p-4 border-2 border-blue-300 dark:border-blue-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                     <div class="flex items-center gap-2 mb-3">
                         <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -187,12 +189,6 @@ async function manageSanctions(caseId) {
                         <span id="scheduleButtonText">Schedule Hearing</span>
                         <span id="scheduleRequiredBadge" class="hidden ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded">Required</span>
                     </button>
-                    <!-- Hidden inputs to store schedule data -->
-                    <input type="hidden" id="sanctionScheduleDate" value="">
-                    <input type="hidden" id="sanctionScheduleTime" value="">
-                    <input type="hidden" id="sanctionScheduleEndTime" value="">
-                    <input type="hidden" id="sanctionScheduleNotes" value="">
-                    <input type="hidden" id="sanctionScheduleEventId" value="">
                     <!-- Schedule display -->
                     <div id="scheduleDisplay" class="hidden mt-3 p-3 bg-white dark:bg-slate-700 rounded border border-green-300 dark:border-green-700">
                         <div class="flex items-center justify-between">
@@ -207,12 +203,20 @@ async function manageSanctions(caseId) {
                 </div>
 
                 <!-- Message sits OUTSIDE the opacity-50 wrapper so it stays fully readable while the section below is grayed out -->
-                    <p id="scheduleRequiredMessage" class="text-xs text-gray-600 dark:text-gray-400 text-center font-medium">Complete the hearing schedule first</p>
+                <p id="scheduleRequiredMessage" class="text-xs text-gray-600 dark:text-gray-400 text-center font-medium">Complete the hearing schedule first</p>
+                ` : ''}
 
-                <!-- All Other Sections - Grayed Out Until Schedule is Set -->
-                    <div id="remainingSectionsWrapper" class="opacity-50 pointer-events-none">
+                <!-- Hidden inputs to store schedule data - always present so other functions can reference them safely -->
+                <input type="hidden" id="sanctionScheduleDate" value="">
+                <input type="hidden" id="sanctionScheduleTime" value="">
+                <input type="hidden" id="sanctionScheduleEndTime" value="">
+                <input type="hidden" id="sanctionScheduleNotes" value="">
+                <input type="hidden" id="sanctionScheduleEventId" value="">
+
+                <!-- All Other Sections - Grayed Out Until Schedule is Set (Major cases only; always enabled for Minor cases) -->
+                    <div id="remainingSectionsWrapper" class="${isMinor ? '' : 'opacity-50 pointer-events-none'}">
                         <div class="relative">
-                        <div id="disablingOverlay" class="absolute inset-0 bg-gray-400 dark:bg-slate-600 opacity-30 rounded-lg z-10"></div>
+                        <div id="disablingOverlay" class="${isMinor ? 'hidden ' : ''}absolute inset-0 bg-gray-400 dark:bg-slate-600 opacity-30 rounded-lg z-10"></div>
                             <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600 space-y-4 relative z-0">
 
                             <div class="relative">
@@ -295,7 +299,7 @@ async function manageSanctions(caseId) {
                     </button>
                     <button type="submit" id="applySanctionBtn"
                         class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        Apply Sanction
+                        ${isMinor ? 'Mark Recorded' : 'Apply Sanction'}
                     </button>
                 </div>
             </form>
@@ -315,18 +319,23 @@ async function manageSanctions(caseId) {
 
     // Store case ID for use in other functions
     window.currentCaseId = caseId;
-    
-    // Initialize form sections as disabled (until schedule is set)
-    disableFormSections();
-    
-    // Load saved schedule from calendar
-    loadSavedSchedule(caseId).then(() => {
-        // Check if schedule already exists - if so, enable form sections
-        const existingScheduleDate = document.getElementById('sanctionScheduleDate').value;
-        if (existingScheduleDate) {
-            enableFormSectionsAfterSchedule();
-        }
-    });
+
+    if (isMinor) {
+        // Minor cases don't require a hearing before the sanction form is usable
+        enableFormSectionsAfterSchedule();
+    } else {
+        // Initialize form sections as disabled (until schedule is set)
+        disableFormSections();
+
+        // Load saved schedule from calendar
+        loadSavedSchedule(caseId).then(() => {
+            // Check if schedule already exists - if so, enable form sections
+            const existingScheduleDate = document.getElementById('sanctionScheduleDate').value;
+            if (existingScheduleDate) {
+                enableFormSectionsAfterSchedule();
+            }
+        });
+    }
 
     loadAppliedSanctions(caseId);
     window.sanctionsData = sanctions;
@@ -375,8 +384,8 @@ async function manageSanctions(caseId) {
             }
         }
         
-        // Validate schedule if required
-        if (requiresSchedule && !scheduleDate) {
+        // Validate schedule if required (Major cases only — Minor cases have no schedule UI to fill this in)
+        if (requiresSchedule && !isMinor && !scheduleDate) {
             showNotification('This sanction requires a scheduled date', "warning");
             return;
         }
@@ -428,7 +437,7 @@ async function manageSanctions(caseId) {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Apply Sanction?</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">${isMinor ? 'Mark Recorded?' : 'Apply Sanction?'}</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400">This action will be recorded</p>
                     </div>
                 </div>
@@ -449,7 +458,7 @@ async function manageSanctions(caseId) {
                     </button>
                     <button onclick="confirmApplySanction('${caseId}', '${sanctionId}', '${duration}', \`${notes.replace(/`/g, '\\`')}\`, '${scheduleDate}', '${scheduleTime}', '${scheduleEndTime}', \`${scheduleNotes.replace(/`/g, '\\`')}\`, '${deadlineDate}')" 
                         class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                        Confirm & Apply
+                        ${isMinor ? 'Mark Recorded' : 'Confirm & Apply'}
                     </button>
                 </div>
             </div>
@@ -463,7 +472,8 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
     const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
     if (confirmModal) confirmModal.remove();
 
-    showLoadingToast("Applying sanction...");
+    const caseData = allCases.find(c => c.id === caseId);
+    showLoadingToast(caseData?.severity === 'Minor' ? "Marking case as recorded..." : "Applying sanction...");
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -498,11 +508,11 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
             
             loadAppliedSanctions(caseId);
             
-            // Update case status to "On Going" in real-time
+            // Major cases move to On Going when a sanction is applied.
             const caseIndex = allCases.findIndex(c => c.id === caseId);
             if (caseIndex !== -1) {
-                allCases[caseIndex].status = 'On Going';
-                allCases[caseIndex].statusColor = 'blue';
+                allCases[caseIndex].status = allCases[caseIndex].severity === 'Minor' ? 'Recorded' : 'On Going';
+                allCases[caseIndex].statusColor = allCases[caseIndex].severity === 'Minor' ? 'green' : 'blue';
             }
             
             // Re-render the table to show updated status
@@ -512,7 +522,9 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
                 renderCases();
             }
             
-            showSuccessToast('Sanction applied and status updated to On Going!');
+            showSuccessToast(allCases[caseIndex]?.severity === 'Minor'
+                ? 'Case marked as recorded!'
+                : 'Sanction applied and status updated to On Going!');
             
             // Close the sanctions modal after successful apply
             setTimeout(() => {
@@ -1059,6 +1071,9 @@ function disableFormSections() {
 
 // Clear schedule data
 function clearSchedule() {
+    const dateEl = document.getElementById('sanctionScheduleDate');
+    if (!dateEl) return; // Minor-case forms have no schedule UI to clear
+
     document.getElementById('sanctionScheduleDate').value = '';
     document.getElementById('sanctionScheduleTime').value = '';
     document.getElementById('sanctionScheduleEndTime').value = '';
@@ -1071,8 +1086,12 @@ function clearSchedule() {
     const buttonText = document.getElementById('scheduleButtonText');
     if (buttonText) buttonText.textContent = 'Schedule Hearing';
     
-    // Re-disable form sections
-    disableFormSections();
+    // Re-disable form sections (only meaningful for Major cases; disableFormSections
+    // is a no-op-safe call here since Minor-case markup has no scheduleSection anyway)
+    const scheduleSection = document.getElementById('scheduleSection');
+    if (scheduleSection) {
+        disableFormSections();
+    }
 }
 
 // Update schedule display
@@ -1085,7 +1104,9 @@ function updateScheduleDisplay() {
     const display = document.getElementById('scheduleDisplay');
     const displayText = document.getElementById('scheduleDisplayText');
     const buttonText = document.getElementById('scheduleButtonText');
-    
+
+    if (!display || !displayText || !buttonText) return; // Minor-case forms have no schedule UI
+
     if (date) {
         const dateObj = new Date(date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1708,8 +1729,9 @@ function getStatusColor(status) {
         'Pending': 'yellow',
         'On Going': 'blue',
         'Resolved': 'green',
+        'Recorded': 'green',
+        'Unrecorded': 'yellow',
         'Closed': 'gray'
     };
     return colorMap[status] || 'gray';
 }
-

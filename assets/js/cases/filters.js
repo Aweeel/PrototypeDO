@@ -40,13 +40,13 @@ function switchTab(tabName) {
     
     // Reset all buttons to default styles
     currentBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
-    resolvedBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
+    if (resolvedBtn) resolvedBtn.className = 'px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors';
     archivedBtn.className = 'p-2 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors ml-2';
     
     // Highlight selected tab
     if (tabName === 'current') {
         currentBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
-    } else if (tabName === 'resolved') {
+    } else if (tabName === 'resolved' && resolvedBtn) {
         resolvedBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg font-medium';
     } else if (tabName === 'archived') {
         archivedBtn.className = 'p-2 bg-blue-600 text-white rounded-lg ml-2';
@@ -72,6 +72,8 @@ function filterByOffenseType(type) {
     const allBtn = document.getElementById('allOffensesBtn');
     const minorBtn = document.getElementById('minorBtn');
     const majorBtn = document.getElementById('majorBtn');
+
+    if (!allBtn || !minorBtn || !majorBtn) return;
     
     // Reset all buttons
     allBtn.className = 'px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors';
@@ -97,11 +99,11 @@ function applyClientSideFilters() {
     
     // First, filter by current tab status
     if (currentTab === 'current') {
-        // Exclude resolved cases from current tab
-        filteredCases = filteredCases.filter(c => c.status !== 'Resolved');
+        filteredCases = filteredCases.filter(c => caseSeverity === 'Minor'
+            ? c.status === 'Unrecorded'
+            : c.status !== 'Resolved');
     } else if (currentTab === 'resolved') {
-        // Show only resolved cases for resolved tab
-        filteredCases = filteredCases.filter(c => c.status === 'Resolved');
+        filteredCases = filteredCases.filter(c => c.status === (caseSeverity === 'Minor' ? 'Recorded' : 'Resolved'));
     }
     // For archived tab, all cases should already be archived from the database query
 

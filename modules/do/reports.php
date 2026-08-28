@@ -485,7 +485,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ['id'=>'inc-dateFrom', 'label'=>'Date From', 'type'=>'date'],
                             ['id'=>'inc-dateTo',   'label'=>'Date To',   'type'=>'date'],
                             ['id'=>'inc-severity', 'label'=>'Severity',  'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
-                            ['id'=>'inc-status',   'label'=>'Status',    'type'=>'select','opts'=>[''=>'All','Pending'=>'Pending','On Going'=>'On Going','Resolved'=>'Resolved']],
+                            ['id'=>'inc-status',   'label'=>'Status',    'type'=>'select','opts'=>[''=>'All','Pending'=>'Pending','On Going'=>'On Going','Resolved'=>'Resolved','Recorded'=>'Recorded','Unrecorded'=>'Unrecorded']],
                         ],
                     ],
                     'statistics' => [
