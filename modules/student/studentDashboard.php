@@ -196,33 +196,50 @@ function getStatusText($status) {
     </script>
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
+<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <!-- Mobile Overlay Backdrop -->
+    <div id="sidebarOverlay" 
+         onclick="toggleSidebar()" 
+         class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
+
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
+            <!-- Mobile Navigation Header Bar -->
+            <div class="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-4 z-20">
+                <button type="button" 
+                        onclick="toggleSidebar()" 
+                        class="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">STI Discipline Office</span>
+                <div class="w-6"></div>
+            </div>
+
             <!-- Fixed Header -->
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
             <!-- Page Content -->
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Dashboard Title -->
-                <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Student Dashboard</h1>
+                <div class="mb-6 md:mb-8">
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">Student Dashboard</h1>
                 </div>
 
-
                 <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
                     <!-- Active Cases -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[140px] flex items-center">
+                    <div class="bg-white dark:bg-[#111827] rounded-lg p-5 md:p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[120px] md:min-h-[140px] flex items-center">
                         <div class="flex items-center justify-between w-full">
-                            <div class="flex-1">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Active Cases</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo $activeCases; ?></p>
+                            <div class="flex-1 pr-3">
+                                <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">Active Cases</p>
+                                <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo $activeCases; ?></p>
                             </div>
-                            <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 md:w-12 md:h-12 bg-yellow-100 dark:bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 md:w-6 md:h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
@@ -230,29 +247,29 @@ function getStatusText($status) {
                     </div>
 
                     <!-- Scheduled Hearing -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[140px]">
-                        <div class="flex items-center justify-between">
-                            <div class="flex-1">
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Scheduled Hearing</p>
-                                <p class="text-3xl font-bold text-gray-900 dark:text-gray-100"><?php echo htmlspecialchars($nextHearingFormatted); ?></p>
+                    <div class="bg-white dark:bg-[#111827] rounded-lg p-5 md:p-6 shadow-sm border border-gray-200 dark:border-slate-700 min-h-[120px] md:min-h-[140px] flex items-center">
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex-1 pr-3">
+                                <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1">Scheduled Hearing</p>
+                                <p class="text-xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words"><?php echo htmlspecialchars($nextHearingFormatted); ?></p>
                                 <?php if ($nextHearingTimeFormatted): ?>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <p class="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center">
+                                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4 inline-block mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <?php echo htmlspecialchars($nextHearingTimeFormatted); ?>
+                                        <span class="truncate"><?php echo htmlspecialchars($nextHearingTimeFormatted); ?></span>
                                     </p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <p class="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-0.5 flex items-center">
+                                        <svg class="w-3.5 h-3.5 md:w-4 md:h-4 inline-block mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
-                                        <?php echo htmlspecialchars($nextHearingLocation); ?>
+                                        <span class="truncate"><?php echo htmlspecialchars($nextHearingLocation); ?></span>
                                     </p>
                                 <?php endif; ?>
                             </div>
-                            <div class="w-12 h-12 bg-green-100 dark:bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-10 h-10 md:w-12 md:h-12 bg-green-100 dark:bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 md:w-6 md:h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
@@ -261,44 +278,46 @@ function getStatusText($status) {
                 </div>
 
                 <!-- Recent Cases -->
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-                    <div class="p-6 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Cases</h2>
-                        <a href="/PrototypeDO/modules/student/studentCases.php" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all cases</a>
+                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                    <div class="p-4 md:p-6 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+                        <h2 class="text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Cases</h2>
+                        <a href="/PrototypeDO/modules/student/studentCases.php" class="text-xs md:text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all cases</a>
                     </div>
 
                     <div class="divide-y divide-gray-200 dark:divide-slate-700">
                         <?php if (empty($recentCases)): ?>
-                            <div class="p-8 text-center">
-                                <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="p-6 md:p-8 text-center">
+                                <svg class="w-12 h-12 md:w-16 md:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 md:mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <p class="text-gray-500 dark:text-gray-400">No cases found</p>
-                                <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Your case history will appear here</p>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm md:text-base">No cases found</p>
+                                <p class="text-xs md:text-sm text-gray-400 dark:text-gray-500 mt-1">Your case history will appear here</p>
                             </div>
                         <?php else: ?>
                             <?php foreach ($recentCases as $case): ?>
                                 <?php $isArchived = isset($case['is_archived']) && $case['is_archived'] == 1; ?>
-                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400 <?php echo $isArchived ? 'opacity-70' : ''; ?>">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex-1">
-                                            <h3 class="font-medium text-gray-900 dark:text-gray-100 mb-2 hover:text-blue-600 dark:hover:text-blue-400">
+                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-4 md:p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400 <?php echo $isArchived ? 'opacity-70' : ''; ?>">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 mb-1 hover:text-blue-600 dark:hover:text-blue-400 truncate">
                                                 Case #<?php echo htmlspecialchars($case['case_id']); ?> - <?php echo htmlspecialchars(str_replace('_', ' ', ucwords($case['case_type'], '_'))); ?>
                                             </h3>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                                 <?php echo date('M d, Y', strtotime($case['created_at'])); ?>
                                             </p>
                                         </div>
-                                        <div class="flex items-center gap-3">
-                                            <span class="px-3 py-1 rounded-full text-xs font-medium <?php echo getStatusBadgeClass($case['status']); ?>">
-                                                <?php echo getStatusText($case['status']); ?>
-                                            </span>
-                                            <?php if ($isArchived): ?>
-                                                <span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
-                                                    Archived
+                                        <div class="flex items-center justify-between sm:justify-end gap-2 md:gap-3 flex-shrink-0">
+                                            <div class="flex items-center gap-1.5 md:gap-2">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] md:text-xs font-medium <?php echo getStatusBadgeClass($case['status']); ?>">
+                                                    <?php echo getStatusText($case['status']); ?>
                                                 </span>
-                                            <?php endif; ?>
-                                            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <?php if ($isArchived): ?>
+                                                    <span class="px-2 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
+                                                        Archived
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <svg class="w-4 h-4 md:w-5 md:h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                             </svg>
                                         </div>
@@ -312,6 +331,18 @@ function getStatusText($status) {
         </div>
     </div>
 
+    <script>
+        // Sidebar Toggle Handler for Mobile Viewports
+        function toggleSidebar() {
+            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+        }
+    </script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
 </html>

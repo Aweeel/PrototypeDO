@@ -44,8 +44,10 @@ switch ($role) {
 }
 ?>
 
-<aside class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
-               bg-[#1E2B3B] dark:bg-[#030712] text-white transition-colors duration-300">
+<aside id="sidebar" 
+       class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
+              bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
+              -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">

@@ -39,10 +39,11 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     </style>
 </head>
 
-<body class="h-screen overflow-hidden">
-    <div class="flex h-full">
-        <!-- Left Side -->
-        <div class="w-1/2 relative flex flex-col items-center justify-center p-12 overflow-hidden bg-slate-800">
+<body class="min-h-screen lg:h-screen lg:overflow-hidden">
+    <div class="flex flex-col lg:flex-row h-full min-h-screen lg:min-h-0">
+        
+        <!-- Left Side (Hidden on screens below lg) -->
+        <div class="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center p-12 overflow-hidden bg-slate-800">
 
             <!-- Background Image -->
             <div class="absolute inset-0 z-0"
@@ -51,9 +52,11 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
             <div class="mb-8 relative z-10">
                 <div>
+                    <!-- Original logo size preserved -->
                     <img src="../../assets/images/logos/doms-logo.png" alt="DOMS Logo" class="w-50 h-auto">
                 </div>
             </div>
+
             <!-- Text and Buttons (z-10 to be on top) -->
             <div class="relative z-10 text-center">
                 <!-- Title -->
@@ -66,14 +69,13 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     STI community.
                 </p>
 
-                <!-- Buttons -->
                 <!-- Label Group -->
                 <div class="flex flex-col items-center gap-4 mb-6">
                     <!-- Top Two Labels -->
                     <div class="flex gap-4">
                         <!-- School Handbook -->
-                        <div class="bg-slate-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 text-sm">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="bg-slate-700/80 backdrop-blur-sm text-white px-6 py-3 rounded-lg flex items-center gap-2 text-sm">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
@@ -81,8 +83,8 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                         </div>
 
                         <!-- Student Records -->
-                        <div class="bg-slate-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 text-sm">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="bg-slate-700/80 backdrop-blur-sm text-white px-6 py-3 rounded-lg flex items-center gap-2 text-sm">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 14l9-5-9-5-9 5 9 5z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -93,8 +95,8 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     </div>
 
                     <!-- Secure Access Label -->
-                    <div class="flex items-center gap-2 bg-slate-700 text-white px-5 py-2 rounded-lg text-sm">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="flex items-center gap-2 bg-slate-700/80 backdrop-blur-sm text-white px-5 py-2 rounded-lg text-sm">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
@@ -105,9 +107,18 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             </div>
         </div>
 
-        <!-- Right Side - White Background with Login Form -->
-        <div class="w-1/2 bg-white flex items-center justify-center p-12">
-            <div class="w-full max-w-md">
+        <!-- Right Side - Styled Background on mobile, white on desktop -->
+        <div class="w-full lg:w-1/2 bg-gradient-to-b from-slate-100 via-slate-50 to-white lg:bg-none lg:bg-white flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 min-h-screen lg:min-h-0 overflow-y-auto">
+            
+            <!-- Mobile Header Logo & Styled Card Banner (Only visible on screens below lg) -->
+            <div class="lg:hidden mb-6 text-center w-full max-w-md bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <img src="../../assets/images/logos/doms-logo.png" alt="DOMS Logo" class="w-48 h-auto mx-auto mb-3">
+                <h1 class="text-gray-800 text-xl font-bold">STI Discipline Office</h1>
+                <p class="text-gray-500 text-xs">Management System</p>
+            </div>
+
+            <!-- Login Form Card Container -->
+            <div class="w-full max-w-md bg-white lg:bg-transparent p-6 sm:p-8 lg:p-0 rounded-2xl lg:rounded-none shadow-sm lg:shadow-none border border-slate-200/60 lg:border-none">
                 <h2 class="text-3xl font-bold text-gray-800 mb-2">Sign In</h2>
                 <p class="text-gray-500 mb-8">Please enter your credentials to continue</p>
 
@@ -149,7 +160,6 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     <div class="mb-4">
                         <div class="flex justify-between items-center mb-2">
                             <label class="block text-gray-700 text-sm font-medium">Password</label>
-                            
                         </div>
                         <input type="password" name="password" placeholder="••••••••" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -157,25 +167,24 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
                     <!-- Remember me & Need help -->
                     <div class="flex justify-between items-center mb-6">
-                        <label class="flex items-center">
+                        <label class="flex items-center cursor-pointer">
                             <input type="checkbox" name="remember_me"
                                 <?php echo isset($_GET['remember_me']) ? 'checked' : ''; ?>
                                 class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                             <span class="ml-2 text-sm text-gray-600">Remember me</span>
                         </label>
-                        <a href="forgotPasswordEmail.php" class="text-blue-500 text-sm hover:underline">Forgot
-                                password?</a>
+                        <a href="forgotPasswordEmail.php" class="text-blue-500 text-sm hover:underline">Forgot password?</a>
                     </div>
 
                     <!-- Sign In Button -->
                     <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition mb-6">
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition mb-6 shadow-sm hover:shadow">
                         Sign In
                     </button>
                 </form>
 
-                <!-- System Information -->
-                <div class="mt-12 pt-8 border-t border-gray-200">
+                <!-- System Information (Hidden on screens smaller than lg) -->
+                <div class="hidden lg:block mt-12 pt-8 border-t border-gray-200">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">System Information</h3>
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">
@@ -206,8 +215,9 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     </svg>
                     <div>
                         <h4 class="text-sm font-semibold text-gray-800 mb-1">Need assistance?</h4>
-                        <p class="text-xs text-gray-600">If you're having trouble accessing your account, please contact
-                            the IT Helpdesk at <span class="text-blue-600">support@sti.edu</span>
+                        <p class="text-xs text-gray-600 leading-relaxed">If you're having trouble accessing your account, please contact
+                            the IT Helpdesk at <span class="text-blue-600 font-medium">support@sti.edu</span>
+                        </p>
                     </div>
                 </div>
             </div>

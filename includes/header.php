@@ -40,22 +40,37 @@ if (!isset($adminName) || empty($adminName)) {
 ?>
 
 <header
-    class="fixed top-0 left-64 right-0 z-40
+    class="fixed top-0 left-0 md:left-64 right-0 z-30
            bg-white dark:bg-[#111827]
            border-b border-gray-200 dark:border-gray-700
-           px-8 py-4
+           px-4 sm:px-6 md:px-8 py-3 md:py-4
            transition-all duration-300">
     
     <!-- Global Notifications System -->
     <script src="/PrototypeDO/assets/js/notifications.js"></script>
     <script src="/PrototypeDO/assets/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
-        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">
-            <?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Dashboard'; ?>
-        </h1>
+        
+        <!-- Left Side: Mobile Hamburger & Page Title -->
+        <div class="flex items-center space-x-3">
+            <!-- Mobile Hamburger Menu Button -->
+            <button type="button" 
+                    onclick="toggleSidebar()" 
+                    class="md:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg focus:outline-none transition-colors"
+                    aria-label="Toggle Sidebar">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+
+            <!-- Dynamic Page Title -->
+            <h1 class="text-lg sm:text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100 truncate max-w-[180px] sm:max-w-xs md:max-w-none">
+                <?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Dashboard'; ?>
+            </h1>
+        </div>
 
         <!-- Right Controls -->
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2 sm:space-x-3">
             <!-- Theme Toggle -->
             <button onclick="toggleDarkMode()" id="theme-toggle"
                 class="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition transform hover:scale-105">
@@ -87,7 +102,7 @@ if (!isset($adminName) || empty($adminName)) {
                 </button>
 
                 <!-- Notification Panel -->
-                <div id="notificationPanel" class="hidden absolute right-0 mt-2 w-96 bg-white dark:bg-[#111827] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
+                <div id="notificationPanel" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-[#111827] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
                     <div class="sticky top-0 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-gray-700 p-4">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                     </div>
@@ -100,7 +115,7 @@ if (!isset($adminName) || empty($adminName)) {
                         <div class="divide-y divide-gray-200 dark:divide-gray-700">
                             <?php foreach ($unreadNotifications as $notification): ?>
                                   <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
-                                      onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
+                                       onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1">
                                             <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">
@@ -124,8 +139,8 @@ if (!isset($adminName) || empty($adminName)) {
 
             <!-- Admin Info - Profile Link -->
             <a href="/PrototypeDO/modules/shared/userProfile.php" 
-               class="flex items-center space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-                <span class="text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+               class="flex items-center space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                <span class="hidden sm:inline text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                     <?php echo isset($adminName) ? htmlspecialchars($adminName) : 'User'; ?>
                 </span>
                 <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center cursor-pointer">
@@ -155,9 +170,11 @@ if (!isset($adminName) || empty($adminName)) {
     // Close notification panel when clicking outside
     document.addEventListener('click', function(event) {
         const panel = document.getElementById('notificationPanel');
-        const notificationArea = panel?.closest('div');
-        if (!panel?.contains(event.target) && !event.target.closest('button')?.onclick?.toString().includes('toggleNotificationPanel')) {
-            panel?.classList.add('hidden');
+        if (panel && !panel.classList.contains('hidden')) {
+            const isClickInside = panel.contains(event.target) || event.target.closest('button')?.getAttribute('onclick')?.includes('toggleNotificationPanel');
+            if (!isClickInside) {
+                panel.classList.add('hidden');
+            }
         }
     });
 
@@ -176,9 +193,7 @@ if (!isset($adminName) || empty($adminName)) {
             const data = await response.json();
             
             if (data.success) {
-                // If there's a case ID, redirect to the case details based on user role
                 if (relatedId) {
-                    // Get the user role from the HTML data attribute or session
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
                     const isPortfolioNotification = relatedId.startsWith('community_service_submission:');
                     const isCommunityServiceEvent = relatedId.startsWith('community_service_deadline_extended:') || 
@@ -189,16 +204,11 @@ if (!isset($adminName) || empty($adminName)) {
                     let relatedCaseId = relatedId;
                     let relatedSanctionType = 'corrective';
                     if (isCommunityServiceEvent) {
-                        // Parse community service event notification
                         const relatedParts = relatedId.split(':');
                         if (relatedParts.length >= 4) {
-                            // New format: community_service_<event>:<caseId>:<caseSanctionId>:<otherData>
-                            relatedCaseId = relatedParts[1]; // caseId is at index 1
+                            relatedCaseId = relatedParts[1];
                         } else if (relatedParts.length >= 3) {
-                            // Old format: community_service_<event>:<caseSanctionId>:<otherData>
-                            // For backward compatibility with old notifications, use caseSanctionId as fallback
-                            // This will likely fail to find the case, but that's better than nothing
-                            relatedCaseId = relatedParts[1]; // This is caseSanctionId, not caseId
+                            relatedCaseId = relatedParts[1];
                         }
                     } else if (isPortfolioNotification) {
                         const relatedParts = relatedId.split(':');
@@ -206,19 +216,14 @@ if (!isset($adminName) || empty($adminName)) {
                             relatedSanctionType = (relatedParts[1] === 'suspension') ? 'suspension' : 'corrective';
                             relatedCaseId = relatedParts.slice(2).join(':');
                         } else {
-                            // Backward compatibility for older notifications: community_service_submission:<caseId>
                             relatedCaseId = relatedParts.slice(1).join(':');
                         }
                     }
                     
-                    // Small delay to allow notification to be stored
                     setTimeout(() => {
-                        // Check if it's a password reset notification
                         if (relatedId.startsWith('password_reset:')) {
-                            // Extract user_id from related_id (format: 'password_reset:user_id')
                             const userIdParts = relatedId.split(':');
                             const userId = userIdParts.length > 1 ? userIdParts[1] : null;
-                            // Navigate to admin users page and open reset password modal
                             const url = userId ? `/PrototypeDO/modules/super-admin/adminUsers.php?resetUser=${encodeURIComponent(userId)}` : `/PrototypeDO/modules/super-admin/adminUsers.php`;
                             window.location.href = url;
                         } else if (relatedId.startsWith('hearing:')) {
@@ -246,7 +251,6 @@ if (!isset($adminName) || empty($adminName)) {
                         }
                     }, 100);
                 } else {
-                    // Otherwise just reload the page
                     setTimeout(() => location.reload(), 300);
                 }
             }
