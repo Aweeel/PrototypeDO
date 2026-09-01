@@ -32,52 +32,19 @@ async function addCase() {
                 </div>
 
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Offense Type <span class="text-red-500">*</span></label>
-                    <select id="newOffenseType" required onchange="handleAddOffenseTypeChange()" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                        <option value="">Select offense type...</option>
-                        <option value="Minor">Minor</option>
-                        <option value="Major">Major</option>
-                    </select>
-                </div>
-
-                <div id="newCaseTypeDiv" style="display: none;">
                   <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Case Type <span class="text-red-500">*</span></label>
-                  <div class="flex items-center gap-2">
-                    <div class="flex-1">
-                      <input list="newCaseTypeList" id="newCaseType" required
-                        onchange="handleAddCaseTypeChange()"
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="Type to search or select...">
-                      <datalist id="newCaseTypeList">
-                        <!-- Populated dynamically -->
-                      </datalist>
-                    </div>
-                    <button type="button" onclick="clearAddCaseType()"
-                      class="inline-flex h-10 w-10 items-center justify-center rounded border border-gray-300 dark:border-slate-600 text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-slate-700 dark:hover:text-gray-200 transition-colors"
-                      aria-label="Clear case type">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Start typing to filter options</p>
-                </div>
-
-                <div id="newCustomOffenseDiv" style="display: none;">
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Specify Offense Type <span class="text-red-500">*</span></label>
-                    <input type="text" id="newCustomOffense" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="Enter custom offense type...">
+                  <select id="newCaseType" required onchange="handleAddCaseTypeChange()"
+                    class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <option value="">Select case type...</option>
+                  </select>
                 </div>
 
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
-                        Description <span id="newDescRequired" class="text-red-500" style="display: none;">*</span>
-                    </label>
-                    <textarea id="newDescription" rows="3" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none" 
-                        placeholder="Describe the incident..."></textarea>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Description</label>
+                    <div id="newDescription" data-description=""
+                        class="w-full min-h-[82px] rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/60 px-3 py-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                        Select a case type to view the offense description.
+                    </div>
                 </div>
 
                 <div>
@@ -148,6 +115,13 @@ async function addCase() {
     }, 500);
   });
 
+  const modalSeverity = window.caseSeverity || "Major";
+  const caseTypeSelect = document.getElementById("newCaseType");
+  const offenses = await loadOffenseTypes(modalSeverity);
+  caseTypeSelect.innerHTML = '<option value="">Select case type...</option>' + offenses.map((offense) => `
+      <option value="${offense.offense_name}" data-description="${(offense.description || '').replace(/"/g, '&quot;')}">${offense.offense_name}</option>
+  `).join('');
+
   // Form submission handler
   document
     .getElementById("addCaseForm")
@@ -155,9 +129,8 @@ async function addCase() {
       e.preventDefault();
 
       const studentName = document.getElementById("newStudentName").value;
-      const offenseType = document.getElementById("newOffenseType").value;
       const caseType = document.getElementById("newCaseType").value;
-      const description = document.getElementById("newDescription").value;
+      const description = document.getElementById("newDescription").dataset.description || "";
 
       // Validate student exists
       if (!studentName) {
@@ -168,26 +141,9 @@ async function addCase() {
         return;
       }
 
-      if (!offenseType) {
-        showNotification("Please select an Offense Type (Minor or Major)", "warning");
-        return;
-      }
-
       if (!caseType) {
         showNotification("Please select a Case Type", "warning");
         return;
-      }
-
-      if (caseType === "Others") {
-        if (!description.trim()) {
-          showNotification('Description is required when Case Type is "Others"', "warning");
-          return;
-        }
-        const customOffense = document.getElementById("newCustomOffense").value;
-        if (!customOffense.trim()) {
-          showNotification("Please specify the offense type", "warning");
-          return;
-        }
       }
 
       const formData = new FormData();
@@ -201,13 +157,8 @@ async function addCase() {
         "studentName",
         document.getElementById("newStudentName").value
       );
-      formData.append(
-        "type",
-        caseType === "Others"
-          ? document.getElementById("newCustomOffense").value
-          : caseType
-      );
-      formData.append("severity", offenseType);
+      formData.append("type", caseType);
+      formData.append("severity", window.caseSeverity || "Major");
       formData.append("description", description);
       formData.append("notes", document.getElementById("newNotes").value);
 
@@ -233,54 +184,22 @@ async function addCase() {
     });
 }
 
-// Handle offense type change in add modal
-async function handleAddOffenseTypeChange() {
-    const offenseType = document.getElementById('newOffenseType').value;
-    const caseTypeDiv = document.getElementById('newCaseTypeDiv');
-    const caseTypeInput = document.getElementById('newCaseType');
-    const datalist = document.getElementById('newCaseTypeList');
-    
-    if (!offenseType) {
-        caseTypeDiv.style.display = 'none';
-        return;
-    }
-    
-    caseTypeDiv.style.display = 'block';
-    const offenses = await loadOffenseTypes(offenseType);
-    
-    datalist.innerHTML = offenses.map(o => `<option value="${o.offense_name}">${o.offense_name}</option>`).join('') +
-        '<option value="Others">Others (Specify in description)</option>';
-    
-    caseTypeInput.value = '';
-}
-
 // Handle case type change in add modal
 function handleAddCaseTypeChange() {
-    const caseType = document.getElementById('newCaseType').value;
-    const description = document.getElementById('newDescription');
-    const descRequired = document.getElementById('newDescRequired');
-    const customOffenseDiv = document.getElementById('newCustomOffenseDiv');
-    const customOffenseInput = document.getElementById('newCustomOffense');
-    
-    if (caseType === 'Others') {
-        description.required = true;
-        descRequired.style.display = 'inline';
-        customOffenseDiv.style.display = 'block';
-        customOffenseInput.required = true;
-    } else {
-        description.required = false;
-        descRequired.style.display = 'none';
-        customOffenseDiv.style.display = 'none';
-        customOffenseInput.required = false;
-    }
+    const caseTypeSelect = document.getElementById('newCaseType');
+    const descriptionBox = document.getElementById('newDescription');
+    const selectedOption = caseTypeSelect.selectedOptions[0];
+
+    const selectedDescription = selectedOption ? (selectedOption.dataset.description || '') : '';
+    descriptionBox.dataset.description = selectedDescription;
+    descriptionBox.textContent = selectedDescription || 'No description available for this case type.';
 }
 
-    function clearAddCaseType() {
-      const caseTypeInput = document.getElementById('newCaseType');
-      const customOffenseInput = document.getElementById('newCustomOffense');
-
-      caseTypeInput.value = '';
-      customOffenseInput.value = '';
-      handleAddCaseTypeChange();
-    }
+function clearAddCaseType() {
+  const caseTypeSelect = document.getElementById('newCaseType');
+  caseTypeSelect.value = '';
+  const descriptionBox = document.getElementById('newDescription');
+  descriptionBox.dataset.description = '';
+  descriptionBox.textContent = 'Select a case type to view the offense description.';
+}
 

@@ -4,7 +4,7 @@ async function viewCase(caseId) {
   const caseData = allCases.find((c) => c.id === caseId);
   if (!caseData) return;
 
-  if (caseData.severity === 'Minor' && caseData.offenseNumber >= 4 && !caseData.escalationSeen) {
+  if (caseData.severity === 'Minor' && caseData.offenseNumber >= 3 && !caseData.escalationSeen) {
     fetch('/PrototypeDO/modules/do/cases.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -6,13 +6,24 @@ async function openAdvancedFilters() {
     modalState.advancedFilters = openToken;
     document.querySelectorAll('[data-advanced-filters-modal="true"]').forEach(existingModal => existingModal.remove());
 
-    // Load all offense types for dropdown
-    const allOffenses = await loadOffenseTypes('');
+    // Load offense types for the currently active case severity to keep the filter aligned with the separated major/minor views.
+    const allOffenses = await loadOffenseTypes(caseSeverity || '');
     if (modalState.advancedFilters !== openToken) return;
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
     modal.setAttribute('data-advanced-filters-modal', 'true');
+    const statusOptions = caseSeverity === 'Minor'
+        ? [
+            { value: 'Unrecorded', label: 'Unrecorded' },
+            { value: 'Recorded', label: 'Recorded' }
+        ]
+        : [
+            { value: 'Pending', label: 'Pending' },
+            { value: 'On Going', label: 'On Going' },
+            { value: 'Resolved', label: 'Resolved' }
+        ];
+
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-5">
@@ -25,15 +36,6 @@ async function openAdvancedFilters() {
             </div>
 
             <form id="advancedFilterForm" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Case ID
-                    </label>
-                    <input type="text" id="filterCaseId" value="${activeFilters.caseId}"
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                        placeholder="e.g., C-1092">
-                </div>
-
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Case Type
@@ -56,11 +58,9 @@ async function openAdvancedFilters() {
                     <select id="filterStatus"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         <option value="">All Status</option>
-                        <option value="Pending" ${activeFilters.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="On Going" ${activeFilters.status === 'On Going' ? 'selected' : ''}>On Going</option>
-                        <option value="Resolved" ${activeFilters.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-                        <option value="Recorded" ${activeFilters.status === 'Recorded' ? 'selected' : ''}>Recorded</option>
-                        <option value="Unrecorded" ${activeFilters.status === 'Unrecorded' ? 'selected' : ''}>Unrecorded</option>
+                        ${statusOptions.map(option => `
+                            <option value="${option.value}" ${activeFilters.status === option.value ? 'selected' : ''}>${option.label}</option>
+                        `).join('')}
                     </select>
                 </div>
 
@@ -113,7 +113,6 @@ async function openAdvancedFilters() {
     document.getElementById('advancedFilterForm').addEventListener('submit', (e) => {
         e.preventDefault();
 
-        activeFilters.caseId = document.getElementById('filterCaseId').value;
         activeFilters.caseType = document.getElementById('filterCaseType').value;
         activeFilters.status = document.getElementById('filterStatus').value;
         activeFilters.dateFrom = document.getElementById('filterDateFrom').value;
@@ -134,11 +133,6 @@ function updateFilterSummary() {
     if (activeFilters.offenseType) {
         hasFilters = true;
         tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Offense: ${activeFilters.offenseType}</span>`;
-    }
-
-    if (activeFilters.caseId) {
-        hasFilters = true;
-        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Case ID: ${activeFilters.caseId}</span>`;
     }
 
     if (activeFilters.caseType) {
@@ -172,8 +166,7 @@ function clearAllFilters() {
         caseType: '',
         status: '',
         dateFrom: '',
-        dateTo: '',
-        caseId: ''
+        dateTo: ''
     };
 
     filterByOffenseType('');

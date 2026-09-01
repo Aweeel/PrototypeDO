@@ -1000,11 +1000,12 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity, $exc
     $archivedSameTypeCount = (int) fetchValue($archivedCountSql, [$studentId, $currentOffenseType, $severity]);
 
     // Count active (non-archived) minor offenses across all types.
-    // Exclude the current case to avoid double-counting.
+    // Minor cases are tracked as Recorded/Unrecorded instead of On Going/Resolved,
+    // so we include Recorded in the historical count and add the current case separately.
     $totalMinorCountSql = "SELECT COUNT(*) FROM cases
                            WHERE student_id = ?
                              AND severity = 'Minor'
-                             AND status IN ('On Going', 'Resolved')
+                             AND status IN ('Recorded', 'On Going', 'Resolved')
                              AND is_archived = 0";
     $totalMinorCountParams = [$studentId];
     if ($excludeCaseId) {
@@ -2604,6 +2605,15 @@ function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEn
 function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null, $deadlineDate = null) {
     ensureCaseSanctionsDeadlineColumns();
 
+    $case = getCaseById($caseId);
+    if (($case['severity'] ?? '') === 'Minor') {
+        $sanctionName = fetchValue("SELECT sanction_name FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
+        $sanctionLevel = fetchValue("SELECT severity_level FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
+        if (stripos((string) $sanctionName, 'corrective reinforcement') !== false || intval($sanctionLevel) >= 3) {
+            throw new Exception('Minor cases must be escalated to Major before recording this sanction.');
+        }
+    }
+
     // Prevent duplicate sanction assignment for the same case.
     $duplicateSql = "SELECT TOP 1 case_sanction_id
                      FROM case_sanctions
@@ -2755,6 +2765,10 @@ function ensureCommunityServiceSubmissionTable() {
             file_size_bytes BIGINT NULL,
             mime_type NVARCHAR(120) NULL,
             remarks NVARCHAR(1000) NULL,
+            review_status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+            review_notes NVARCHAR(1000) NULL,
+            reviewed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+            reviewed_at DATETIME NULL,
             is_seen_by_do BIT NOT NULL DEFAULT 0,
             seen_by_do_at DATETIME NULL,
             seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
@@ -2770,6 +2784,10 @@ function ensureCommunityServiceSubmissionTable() {
 
     $columns = [
         'remarks' => "ALTER TABLE community_service_submissions ADD remarks NVARCHAR(1000) NULL",
+        'review_status' => "ALTER TABLE community_service_submissions ADD review_status NVARCHAR(20) NOT NULL CONSTRAINT DF_css_review_status DEFAULT 'pending' WITH VALUES",
+        'review_notes' => "ALTER TABLE community_service_submissions ADD review_notes NVARCHAR(1000) NULL",
+        'reviewed_by' => "ALTER TABLE community_service_submissions ADD reviewed_by INT NULL",
+        'reviewed_at' => "ALTER TABLE community_service_submissions ADD reviewed_at DATETIME NULL",
         'is_seen_by_do' => "ALTER TABLE community_service_submissions ADD is_seen_by_do BIT NOT NULL CONSTRAINT DF_css_is_seen_by_do DEFAULT 0 WITH VALUES",
         'seen_by_do_at' => "ALTER TABLE community_service_submissions ADD seen_by_do_at DATETIME NULL",
         'seen_by_do_user_id' => "ALTER TABLE community_service_submissions ADD seen_by_do_user_id INT NULL",

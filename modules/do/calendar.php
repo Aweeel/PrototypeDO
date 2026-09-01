@@ -16,12 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         exit;
     }
 
+    if (isset($_POST['action']) && $_POST['action'] === 'getUsers') {
+        $users = fetchAll("SELECT user_id, full_name FROM users WHERE is_active = 1 AND role = 'discipline_office' ORDER BY full_name");
+        echo json_encode(['success' => true, 'users' => $users]);
+        exit;
+    }
+
     try {
         // Get events
 if ($_POST['action'] === 'getEvents') {
     $startDate = $_POST['startDate'] ?? null;
     $endDate = $_POST['endDate'] ?? null;
     $calendarView = $_POST['calendarView'] ?? 'shared';
+    $selectedUserId = $_POST['selectedUserId'] ?? null;
     $currentUserId = $_SESSION['user_id'] ?? null;
     $isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher') && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
 
@@ -33,9 +40,14 @@ if ($_POST['action'] === 'getEvents') {
                        u.full_name as created_by_name
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
-                WHERE ce.event_date >= ? AND ce.event_date <= ?
-                ORDER BY ce.event_date, ce.event_time";
-        $events = fetchAll($sql, [$startDate, $endDate]);
+                WHERE ce.event_date >= ? AND ce.event_date <= ?";
+        $params = [$startDate, $endDate];
+        if (!empty($selectedUserId)) {
+            $sql .= " AND ce.created_by = ?";
+            $params[] = $selectedUserId;
+        }
+        $sql .= " ORDER BY ce.event_date, ce.event_time";
+        $events = fetchAll($sql, $params);
     } else {
         // Backward-compatible fallback if startDate/endDate aren't sent
         $month = $_POST['month'] ?? date('n');
@@ -46,9 +58,14 @@ if ($_POST['action'] === 'getEvents') {
                        u.full_name as created_by_name
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
-                WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?
-                ORDER BY ce.event_date, ce.event_time";
-        $events = fetchAll($sql, [$month, $year]);
+                WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?";
+        $params = [$month, $year];
+        if (!empty($selectedUserId)) {
+            $sql .= " AND ce.created_by = ?";
+            $params[] = $selectedUserId;
+        }
+        $sql .= " ORDER BY ce.event_date, ce.event_time";
+        $events = fetchAll($sql, $params);
     }
 
     if ($calendarView === 'personal' && $isDepartmentHead && $currentUserId) {
@@ -76,6 +93,7 @@ if ($_POST['action'] === 'getEvents') {
             'description' => $event['description'],
             'location' => $event['location'],
             'createdBy' => $event['created_by_name'],
+            'createdById' => $event['created_by'],
             'color' => getCategoryColor($event['category'])
         ];
     }, $events);
@@ -391,6 +409,7 @@ function getCategoryColor($category) {
 
 $pageTitle = "Calendar";
 $adminName = getFormattedUserName();
+$calendarView = $_GET['calendar_view'] ?? 'shared';
 ?>
 
 <!DOCTYPE html>
@@ -485,6 +504,15 @@ $adminName = getFormattedUserName();
                                 <!-- Populated by JavaScript -->
                             </div>
                         </div>
+
+                        <?php if ($calendarView !== 'personal') : ?>
+                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Scheduled By</h3>
+                            <select id="userFilter" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-200">
+                                <option value="">All users</option>
+                            </select>
+                        </div>
+                        <?php endif; ?>
 
                         <!-- Upcoming Events -->
                         <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">

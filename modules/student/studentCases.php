@@ -78,6 +78,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     ? getSuspensionCompletionSnapshot($portfolioSanction['case_sanction_id'])
                     : getCommunityServiceCompletionSnapshot($portfolioSanction['case_sanction_id']))
                 : null;
+            $hasRejectedPortfolio = false;
+            if ($portfolioSanction && !$isSuspensionSanction) {
+                $rejectedSubmission = fetchOne(
+                    "SELECT 1
+                     FROM community_service_submissions
+                     WHERE case_id = ? AND case_sanction_id = ? AND LOWER(COALESCE(review_status, '')) = 'rejected'",
+                    [$case['case_id'], $portfolioSanction['case_sanction_id']]
+                );
+                $hasRejectedPortfolio = !empty($rejectedSubmission);
+            }
 
             return [
                 'id' => $case['case_id'],
@@ -103,7 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'portfolioSanctionId' => $portfolioSanction['case_sanction_id'] ?? null,
                 'hasProgressModal' => !empty($portfolioSanction['case_sanction_id']),
                 'checkInCompleted' => !empty($portfolioCompletion['is_complete']),
-                'isSuspension' => $isSuspensionSanction
+                'isSuspension' => $isSuspensionSanction,
+                'hasRejectedPortfolio' => $hasRejectedPortfolio
             ];
         }, $cases);
 
@@ -174,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $submissions = [];
         if ($portfolioSanction) {
             $submissions = fetchAll(
-                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, created_at
+                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, review_status, review_notes, reviewed_by, reviewed_at, created_at
                  FROM community_service_submissions
                  WHERE case_id = ? AND student_id = ?
                  ORDER BY created_at DESC, submission_id DESC",
@@ -324,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             : ($totalHours > 0 ? min(100, round(((float)($sanction['completed_hours'] ?? 0) / $totalHours) * 100)) : 0);
 
         $portfolioSubmissions = fetchAll(
-            "SELECT submission_id, case_sanction_id, original_file_name, file_size_bytes, file_path, remarks, created_at
+            "SELECT submission_id, case_sanction_id, original_file_name, file_size_bytes, file_path, remarks, review_status, review_notes, reviewed_at, created_at
              FROM community_service_submissions
              WHERE case_id = ? AND case_sanction_id = ?
              ORDER BY created_at DESC, submission_id DESC",
@@ -626,6 +637,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     <script>
         let allCases = [];
         let showArchived = false;
+        let viewedRejectedPortfolioCaseIds = new Set();
 
         // Load cases on page load
         document.addEventListener('DOMContentLoaded', function () {
@@ -687,7 +699,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             emptyState.classList.add('hidden');
-            tbody.innerHTML = filteredCases.map(caseItem => `
+            tbody.innerHTML = filteredCases.map(caseItem => {
+                const hasViewedRejectedPortfolio = viewedRejectedPortfolioCaseIds.has(String(caseItem.id));
+                const showRejectedPortfolioAlert = !!caseItem.hasRejectedPortfolio && !hasViewedRejectedPortfolio;
+
+                return `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
                     <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100 w-32 align-middle">
                         <div class="truncate">${escapeHtml(caseItem.id)}</div>
@@ -719,12 +735,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ${caseItem.hasProgressModal ? `
                                 <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="${caseItem.isSuspension ? 'suspension' : 'corrective'}" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-sm" title="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}" aria-label="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}">
                                     ${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}
+                                    ${showRejectedPortfolioAlert ? '<span class="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none align-middle">!</span>' : ''}
                                 </button>
                             ` : ''}
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function viewCaseDetails(caseId) {
@@ -960,18 +978,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 return '<div class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No submissions yet.</div>';
             }
 
+            const getStatusClass = (status) => {
+                switch ((status || 'pending').toLowerCase()) {
+                    case 'approved':
+                        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700';
+                    case 'rejected':
+                        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700';
+                    default:
+                        return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700';
+                }
+            };
+
             return submissions.map((submission) => {
                 const createdAt = submission.created_at ? formatDisplayDate(submission.created_at) : 'Unknown date';
                 const filePath = submission.file_path ? escapeHtml(submission.file_path) : '#';
                 const fileName = escapeHtml(submission.original_file_name || 'Submitted file');
                 const remarks = submission.remarks ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(submission.remarks)}</p>` : '';
+                const reviewStatus = (submission.review_status || 'pending').toLowerCase();
+                const reviewLabel = reviewStatus === 'approved' ? 'Approved' : reviewStatus === 'rejected' ? 'Rejected' : 'Pending';
+                const reviewNote = submission.review_notes ? `<p class="text-xs mt-1 ${reviewStatus === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}">DO note: ${escapeHtml(submission.review_notes)}</p>` : '';
 
                 return `
                     <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${fileName}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatFileSize(submission.file_size_bytes)}</p>
+                            <div class="mt-2">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusClass(reviewStatus)}">${reviewLabel}</span>
+                            </div>
                             ${remarks}
+                            ${reviewNote}
                         </div>
                         <a href="${filePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
                     </div>
@@ -1043,6 +1079,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         async function openCheckInProgressModal(caseId, caseSanctionId) {
+            if (caseId) {
+                viewedRejectedPortfolioCaseIds.add(String(caseId));
+                renderCases();
+            }
+
             document.querySelectorAll('[data-checkin-progress-modal="true"]').forEach((el) => el.remove());
 
             const overlay = document.createElement('div');
@@ -1127,6 +1168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const dayMap = new Map(dayCards.map((item) => [Number(item.day), item]));
             const canUploadPortfolio = !!progress.is_completed;
             const portfolioSubmissions = Array.isArray(progress.portfolio_submissions) ? progress.portfolio_submissions : [];
+            const hasRejectedPortfolio = portfolioSubmissions.some((submission) => String(submission?.review_status || '').toLowerCase() === 'rejected');
 
             let dayCardsHtml = '';
 

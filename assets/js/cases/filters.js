@@ -6,8 +6,7 @@ let activeFilters = {
     caseType: '',
     status: '',
     dateFrom: '',
-    dateTo: '',
-    caseId: ''
+    dateTo: ''
 };
 
 function filterCases() {
@@ -123,11 +122,6 @@ function applyClientSideFilters() {
     // Apply status filter
     if (activeFilters.status) {
         filteredCases = filteredCases.filter(c => c.status === activeFilters.status);
-    }
-    
-    // Apply case ID filter
-    if (activeFilters.caseId) {
-        filteredCases = filteredCases.filter(c => c.id.toLowerCase().includes(activeFilters.caseId.toLowerCase()));
     }
     
     // Apply date range filter

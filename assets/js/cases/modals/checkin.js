@@ -606,21 +606,18 @@ function getDeadlineStatusSectionHTML(activeSanction, {
 
 function getCommunityServiceSubmissionsButtonHTML(caseId, caseSanctionId, submissions = [], newCount = 0) {
   const totalSubmissions = Array.isArray(submissions) ? submissions.length : 0;
-  if (totalSubmissions <= 0) {
-    return ''; 
-  }
 
   return `
     <button
       type="button"
       onclick="openCommunityServiceSubmissionsModal('${caseId}', ${caseSanctionId})"
       class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium relative prevent-double"
-      title="View student-submitted community service files">
+      title="View or upload community service portfolio files">
       <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
       </svg>
       <span>Portfolio</span>
-      ${newCount > 0 ? `<span data-portfolio-new-count="true" class="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold">${newCount}</span>` : ''}
+      ${newCount > 0 ? `<span data-portfolio-new-count="true" class="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold">${newCount}</span>` : (totalSubmissions > 0 ? `<span class="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gray-200 text-gray-700 text-[10px] font-bold">${totalSubmissions}</span>` : '')}
     </button>
   `;
 }
@@ -664,7 +661,13 @@ function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submission
   overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[80] p-4';
   overlay.setAttribute('data-portfolio-modal', 'true');
 
-  const listHtml = submissions.length > 0
+const reviewStatusClasses = {
+      pending: 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+      approved: 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+      rejected: 'bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30'
+    };
+
+    const listHtml = submissions.length > 0
     ? submissions.map((item) => {
         const createdAt = item?.created_at
           ? new Date(item.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -672,16 +675,34 @@ function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submission
         const remarksHtml = item?.remarks
           ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeSubmissionText(item.remarks)}</p>`
           : '';
+        const reviewStatus = String(item?.review_status || 'pending').toLowerCase();
+        const reviewLabel = reviewStatus === 'approved' ? 'Approved' : reviewStatus === 'rejected' ? 'Rejected' : 'Pending';
+        const reviewNotesHtml = item?.review_notes
+          ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">DO note: ${escapeSubmissionText(item.review_notes)}</p>`
+          : '';
         const escapedFileName = escapeSubmissionText(item.original_file_name || 'Submitted file');
         const safePath = escapeSubmissionText(item.file_path || '#');
+        const isPendingReview = reviewStatus === 'pending';
+        const actionButtons = isPendingReview ? `
+          <div class="flex items-center gap-2 mt-2">
+            <button type="button" onclick="approveCommunityServiceSubmission(${Number(item.submission_id || 0)}, '${caseId}')" class="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Approve</button>
+            <button type="button" onclick="openRejectCommunityServiceModal(${Number(item.submission_id || 0)}, '${caseId}')" class="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700">Reject</button>
+          </div>` : '';
         return `
-          <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">${escapedFileName}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatSubmissionFileSize(item.file_size_bytes)}</p>
-              ${remarksHtml}
+          <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">${escapedFileName}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatSubmissionFileSize(item.file_size_bytes)}</p>
+                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${reviewStatusClasses[reviewStatus] || reviewStatusClasses.pending}">${reviewLabel}</span>
+                </div>
+                ${remarksHtml}
+                ${reviewNotesHtml}
+                ${actionButtons}
+              </div>
+              <a href="${safePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
             </div>
-            <a href="${safePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
           </div>
         `;
       }).join('')
@@ -700,9 +721,75 @@ function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submission
           </svg>
         </button>
       </div>
+      <div class="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40 p-4">
+        <form data-do-portfolio-upload-form class="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div class="flex-1">
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Upload portfolio</label>
+            <input type="file" name="portfolioFile" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" class="block w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white file:bg-blue-600 hover:file:bg-blue-700" />
+          </div>
+          <button type="submit" class="px-3 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700">Upload</button>
+        </form>
+        <p data-do-portfolio-upload-status class="mt-2 text-xs text-gray-500 dark:text-gray-400">Upload a file here if the student needs a DO-submitted portfolio record.</p>
+      </div>
       <div class="overflow-y-auto">${listHtml}</div>
     </div>
   `;
+
+  const uploadForm = overlay.querySelector('[data-do-portfolio-upload-form]');
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = uploadForm.querySelector('input[type="file"]');
+      const statusEl = overlay.querySelector('[data-do-portfolio-upload-status]');
+      if (!input || !input.files || input.files.length === 0) {
+        if (statusEl) {
+          statusEl.textContent = 'Please choose a file before uploading.';
+          statusEl.className = 'mt-2 text-xs text-red-600 dark:text-red-400';
+        }
+        return;
+      }
+
+      const payload = new FormData();
+      payload.append('ajax', '1');
+      payload.append('action', 'uploadCommunityServicePortfolio');
+      payload.append('caseId', caseId);
+      payload.append('caseSanctionId', caseSanctionId);
+      payload.append('portfolioFile', input.files[0]);
+
+      if (statusEl) {
+        statusEl.textContent = 'Uploading...';
+        statusEl.className = 'mt-2 text-xs text-blue-600 dark:text-blue-400';
+      }
+
+      try {
+        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+          method: 'POST',
+          body: payload
+        });
+        const result = await response.json();
+        if (!result.success) {
+          if (statusEl) {
+            statusEl.textContent = result.error || 'Upload failed.';
+            statusEl.className = 'mt-2 text-xs text-red-600 dark:text-red-400';
+          }
+          return;
+        }
+
+        if (statusEl) {
+          statusEl.textContent = result.message || 'Portfolio uploaded successfully.';
+          statusEl.className = 'mt-2 text-xs text-green-600 dark:text-green-400';
+        }
+        input.value = '';
+        openCommunityServiceSubmissionsModal(caseId, caseSanctionId, await fetchPortfolioSubmissionList(caseId, caseSanctionId));
+      } catch (error) {
+        console.error('DO portfolio upload error:', error);
+        if (statusEl) {
+          statusEl.textContent = 'Upload failed due to a network error.';
+          statusEl.className = 'mt-2 text-xs text-red-600 dark:text-red-400';
+        }
+      }
+    });
+  }
 
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) {
@@ -721,6 +808,146 @@ function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submission
 
 function closePortfolioSubmissionsModal() {
   document.querySelectorAll('[data-portfolio-modal="true"]').forEach((el) => el.remove());
+}
+
+async function fetchPortfolioSubmissionList(caseId, caseSanctionId) {
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=getCheckInHistory&caseId=${encodeURIComponent(caseId)}`
+    });
+    const result = await response.json();
+    if (!result.success || !Array.isArray(result.sanctions)) {
+      return [];
+    }
+
+    const matchingSanction = result.sanctions.find((sanction) => Number(sanction.case_sanction_id) === Number(caseSanctionId));
+    if (matchingSanction && Array.isArray(matchingSanction.portfolio_submissions)) {
+      return matchingSanction.portfolio_submissions;
+    }
+
+    if (Array.isArray(result.case_portfolio_submissions)) {
+      return result.case_portfolio_submissions.filter((submission) => Number(submission.case_sanction_id || 0) === Number(caseSanctionId));
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Failed to fetch portfolio submissions:', error);
+    return [];
+  }
+}
+
+function openRejectCommunityServiceModal(submissionId, caseId) {
+  document.querySelectorAll('[data-portfolio-reject-modal="true"]').forEach((el) => el.remove());
+
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[90] p-4';
+  modal.setAttribute('data-portfolio-reject-modal', 'true');
+
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Reject Portfolio</h3>
+        <button type="button" onclick="closeRejectCommunityServiceModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    
+      <label for="rejectCommunityServiceNote" class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Rejection reason</label>
+      <textarea id="rejectCommunityServiceNote" rows="4" required class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Enter why the portfolio was rejected..."></textarea>
+      <p id="rejectCommunityServiceError" class="mt-2 hidden text-xs text-red-600 dark:text-red-400">A rejection note is required before the submission can be rejected.</p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" onclick="closeRejectCommunityServiceModal()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600">Cancel</button>
+        <button type="button" onclick="submitRejectCommunityServiceReview(${Number(submissionId || 0)}, '${caseId}')" class="px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+function closeRejectCommunityServiceModal() {
+  document.querySelectorAll('[data-portfolio-reject-modal="true"]').forEach((el) => el.remove());
+}
+
+async function submitRejectCommunityServiceReview(submissionId, caseId) {
+  const modal = document.querySelector('[data-portfolio-reject-modal="true"]');
+  const noteInput = modal?.querySelector('#rejectCommunityServiceNote');
+  const errorEl = modal?.querySelector('#rejectCommunityServiceError');
+  const notes = (noteInput?.value || '').trim();
+
+  if (!notes) {
+    if (errorEl) {
+      errorEl.classList.remove('hidden');
+    }
+    if (noteInput) {
+      noteInput.focus();
+    }
+    return;
+  }
+
+  closeRejectCommunityServiceModal();
+  await reviewCommunityServiceSubmission(submissionId, caseId, 'rejected', notes);
+}
+
+async function approveCommunityServiceSubmission(submissionId, caseId, reviewNotes = '') {
+  await reviewCommunityServiceSubmission(submissionId, caseId, 'approved', reviewNotes);
+}
+
+async function rejectCommunityServiceSubmission(submissionId, caseId, reviewNotes = '') {
+  if (typeof reviewNotes === 'string' && reviewNotes.trim() !== '') {
+    await reviewCommunityServiceSubmission(submissionId, caseId, 'rejected', reviewNotes);
+    return;
+  }
+  openRejectCommunityServiceModal(submissionId, caseId);
+}
+
+async function reviewCommunityServiceSubmission(submissionId, caseId, decision, reviewNotes = '') {
+  if (!submissionId || !caseId) {
+    return;
+  }
+
+  const notes = typeof reviewNotes === 'string' ? reviewNotes.trim() : '';
+
+  if (decision === 'rejected' && notes === '') {
+    openRejectCommunityServiceModal(submissionId, caseId);
+    return;
+  }
+
+  try {
+    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ajax=1&action=reviewCommunityServiceSubmission&caseId=${encodeURIComponent(caseId)}&submissionId=${encodeURIComponent(submissionId)}&decision=${encodeURIComponent(decision)}&reviewNotes=${encodeURIComponent(notes)}`
+    });
+    const result = await response.json();
+    if (!result.success) {
+      console.error('Portfolio review failed:', result.error || 'Unknown error');
+      return;
+    }
+
+    const modal = document.querySelector('[data-checkin-modal="true"]');
+    const activeSanctionId = modal ? Number(modal.getAttribute('data-case-sanction-id') || modal.getAttribute('data-sanction-id') || 0) : 0;
+    const refreshedSubmissions = activeSanctionId > 0
+      ? await fetchPortfolioSubmissionList(caseId, activeSanctionId)
+      : await fetchPortfolioSubmissionList(caseId, null);
+
+    openCommunityServiceSubmissionsModal(caseId, activeSanctionId || null, refreshedSubmissions);
+
+    if (typeof showNotification === 'function') {
+      showNotification(result.message || 'Portfolio review updated.', result.status === 'approved' ? 'success' : 'warning');
+    }
+  } catch (error) {
+    console.error('Failed to review portfolio submission:', error);
+  }
+}
+
+function sanitizeCaseSanctionId(value) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 // Refresh modal content without closing/reopening (prevents flashing)

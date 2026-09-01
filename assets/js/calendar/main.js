@@ -2,6 +2,7 @@
 let allEvents = [];
 let currentDate = new Date();
 let selectedCategoryFilter = '';
+let selectedUserFilter = '';
 let pendingEventId = null;
 let pendingEventOpened = false;
 let currentCalendarView = 'shared';
@@ -30,6 +31,9 @@ const categoryColors = {
 document.addEventListener('DOMContentLoaded', () => {
     initializeCalendarFromUrl();
     renderCalendar();
+    if (currentCalendarView !== 'personal') {
+        loadUsers();
+    }
     loadEvents();
     loadCategories();
 });
@@ -161,7 +165,9 @@ function createDayCell(day, isOtherMonth, date) {
     const dayStr = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${dayStr}`;
 
-    const dayEvents = allEvents.filter(e => e.date === dateStr && (!selectedCategoryFilter || e.category === selectedCategoryFilter));
+    const dayEvents = allEvents.filter(e => e.date === dateStr
+        && (!selectedCategoryFilter || e.category === selectedCategoryFilter)
+        && (!selectedUserFilter || String(e.createdById || e.created_by || '') === String(selectedUserFilter)));
 
     const eventsContainer = document.createElement('div');
     eventsContainer.className = 'space-y-1';
@@ -232,6 +238,46 @@ function getVisibleGridRange(date) {
 }
 
 // Load events
+async function loadUsers() {
+    try {
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'getUsers');
+
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            renderUserFilter(data.users || []);
+        }
+    } catch (error) {
+        console.error('Error loading calendar users:', error);
+    }
+}
+
+function renderUserFilter(users) {
+    const select = document.getElementById('userFilter');
+    if (!select) return;
+
+    const options = ['<option value="">All users</option>']
+        .concat((users || []).map(user => `<option value="${user.user_id}">${user.full_name}</option>`))
+        .join('');
+
+    select.innerHTML = options;
+    select.value = selectedUserFilter;
+
+    select.onchange = function () {
+        selectedUserFilter = this.value;
+        loadEvents();
+        renderCalendar();
+        renderUpcomingEvents();
+    };
+}
+
 async function loadEvents() {
     try {
         const { startDate, endDate } = getVisibleGridRange(currentDate);
@@ -242,6 +288,7 @@ async function loadEvents() {
         formData.append('startDate', startDate);
         formData.append('endDate', endDate);
         formData.append('calendarView', currentCalendarView);
+        formData.append('selectedUserId', selectedUserFilter || '');
 
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -337,7 +384,8 @@ function renderUpcomingEvents() {
         .filter(e => {
             const eventDate = new Date(e.date + 'T00:00:00');
             const matchesCategory = !selectedCategoryFilter || e.category === selectedCategoryFilter;
-            return eventDate >= today && matchesCategory;
+            const matchesUser = !selectedUserFilter || String(e.createdById || e.created_by || '') === String(selectedUserFilter);
+            return eventDate >= today && matchesCategory && matchesUser;
         })
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, 3);
@@ -379,7 +427,8 @@ function openUpcomingEventsModal() {
     const upcoming = allEvents
         .filter(e => {
             const eventDate = new Date(e.date + 'T00:00:00');
-            return eventDate >= today;
+            const matchesUser = !selectedUserFilter || String(e.createdById || e.created_by || '') === String(selectedUserFilter);
+            return eventDate >= today && matchesUser;
         })
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
