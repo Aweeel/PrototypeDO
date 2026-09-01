@@ -294,7 +294,7 @@ function renderTableRows() {
                             Sanctions
                         </button>
                         ` : ''}
-                        ${caseItem.severity === 'Minor' && caseItem.status === 'Unrecorded' && caseItem.offenseNumber >= 4 && !caseItem.escalationSeen ? `
+                        ${caseItem.severity === 'Minor' && caseItem.status === 'Unrecorded' && caseItem.offenseNumber >= 3 && !caseItem.escalationSeen ? `
                         <button onclick="openMinorEscalation('${caseItem.id}')" title="Escalate minor offense to Major"
                             class="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 rounded transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">

@@ -1028,7 +1028,7 @@ if ($_POST['action'] === 'getCheckInHistory') {
         $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
         if (strpos($sanctionNameLower, 'corrective') !== false || strpos($sanctionNameLower, 'community service') !== false || strpos($sanctionNameLower, 'suspension from class') !== false) {
             $portfolioSubmissions = fetchAll(
-                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, created_at, is_seen_by_do
+                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, review_status, review_notes, reviewed_by, reviewed_at, created_at, is_seen_by_do
                  FROM community_service_submissions
                  WHERE case_id = ? AND case_sanction_id = ?
                  ORDER BY created_at DESC, submission_id DESC",
@@ -1093,6 +1093,205 @@ if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
     }
 
     echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
+    $submissionId = intval($_POST['submissionId'] ?? 0);
+    $caseId = trim($_POST['caseId'] ?? '');
+    $decision = strtolower(trim((string)($_POST['decision'] ?? '')));
+    $reviewNotes = trim((string)($_POST['reviewNotes'] ?? ''));
+
+    if ($submissionId <= 0 || $caseId === '') {
+        echo json_encode(['success' => false, 'error' => 'Submission and case are required']);
+        exit;
+    }
+
+    if (!in_array($decision, ['approved', 'rejected'], true)) {
+        echo json_encode(['success' => false, 'error' => 'Invalid portfolio decision']);
+        exit;
+    }
+
+    if ($decision === 'rejected' && trim($reviewNotes) === '') {
+        echo json_encode(['success' => false, 'error' => 'A rejection note is required']);
+        exit;
+    }
+
+    $currentUserRole = $_SESSION['user_role'] ?? '';
+    if (!in_array($currentUserRole, ['do', 'discipline_office', 'super_admin'], true)) {
+        echo json_encode(['success' => false, 'error' => 'You do not have permission to review submissions']);
+        exit;
+    }
+
+    $submission = fetchOne(
+        "SELECT submission_id, case_id, review_status
+         FROM community_service_submissions
+         WHERE submission_id = ? AND case_id = ?",
+        [$submissionId, $caseId]
+    );
+
+    if (!$submission) {
+        echo json_encode(['success' => false, 'error' => 'Submission not found']);
+        exit;
+    }
+
+    executeQuery(
+        "UPDATE community_service_submissions
+         SET review_status = ?,
+             review_notes = ?,
+             reviewed_by = ?,
+             reviewed_at = GETDATE(),
+             is_seen_by_do = 1
+         WHERE submission_id = ?",
+        [$decision, $reviewNotes !== '' ? $reviewNotes : null, $_SESSION['user_id'] ?? null, $submissionId]
+    );
+
+    $studentSubmission = fetchOne(
+        "SELECT student_id, case_id, original_file_name, review_notes
+         FROM community_service_submissions
+         WHERE submission_id = ?",
+        [$submissionId]
+    );
+
+    if ($studentSubmission && !empty($studentSubmission['student_id'])) {
+        $studentUserId = fetchValue(
+            "SELECT user_id FROM students WHERE student_id = ?",
+            [$studentSubmission['student_id']]
+        );
+
+        if ($studentUserId) {
+            $notificationTitle = $decision === 'approved' ? 'Portfolio Approved' : 'Portfolio Rejected';
+            $notificationMessage = $decision === 'approved'
+                ? 'Your community service portfolio for Case ' . $caseId . ' has been approved.'
+                : 'Your community service portfolio for Case ' . $caseId . ' has been rejected.';
+
+            if ($decision === 'rejected' && !empty($reviewNotes)) {
+                $notificationMessage .= ' DO note: ' . $reviewNotes;
+            }
+
+            createNotification(
+                $studentUserId,
+                $notificationTitle,
+                $notificationMessage,
+                'community_service_portfolio_status',
+                'community_service_submission:corrective:' . $caseId
+            );
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Portfolio ' . $decision . ' successfully',
+        'status' => $decision
+    ]);
+    exit;
+}
+
+if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
+    $currentUserRole = $_SESSION['user_role'] ?? '';
+    if (!in_array($currentUserRole, ['do', 'discipline_office', 'super_admin'], true)) {
+        echo json_encode(['success' => false, 'error' => 'Only DO users can upload community service portfolios']);
+        exit;
+    }
+
+    $caseId = trim((string)($_POST['caseId'] ?? ''));
+    $caseSanctionId = intval($_POST['caseSanctionId'] ?? 0);
+    if ($caseId === '' || $caseSanctionId <= 0) {
+        echo json_encode(['success' => false, 'error' => 'Invalid case or sanction']);
+        exit;
+    }
+
+    $sanction = fetchOne(
+        "SELECT cs.case_sanction_id, s.sanction_name
+         FROM case_sanctions cs
+         JOIN sanctions s ON s.sanction_id = cs.sanction_id
+         WHERE cs.case_sanction_id = ? AND cs.case_id = ?
+           AND (
+               LOWER(s.sanction_name) LIKE '%corrective%'
+               OR LOWER(s.sanction_name) LIKE '%community service%'
+               OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+           )",
+        [$caseSanctionId, $caseId]
+    );
+
+    if (!$sanction) {
+        echo json_encode(['success' => false, 'error' => 'Portfolio-enabled sanction not found for this case']);
+        exit;
+    }
+
+    if (!isset($_FILES['portfolioFile']) || !is_array($_FILES['portfolioFile'])) {
+        echo json_encode(['success' => false, 'error' => 'Please select a file to upload']);
+        exit;
+    }
+
+    $file = $_FILES['portfolioFile'];
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        echo json_encode(['success' => false, 'error' => 'File upload failed']);
+        exit;
+    }
+
+    $maxSize = 10 * 1024 * 1024;
+    if (($file['size'] ?? 0) > $maxSize) {
+        echo json_encode(['success' => false, 'error' => 'File is too large. Max size is 10MB']);
+        exit;
+    }
+
+    $originalName = trim((string)($file['name'] ?? ''));
+    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowedExtensions = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'];
+    if (!in_array($extension, $allowedExtensions, true)) {
+        echo json_encode(['success' => false, 'error' => 'Invalid file type. Allowed: PDF, DOC, DOCX, PNG, JPG']);
+        exit;
+    }
+
+    $uploadBaseDir = __DIR__ . '/../../assets/community_service_submissions';
+    $caseDir = $uploadBaseDir . '/' . preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId);
+    if (!is_dir($caseDir) && !mkdir($caseDir, 0755, true) && !is_dir($caseDir)) {
+        echo json_encode(['success' => false, 'error' => 'Unable to prepare upload directory']);
+        exit;
+    }
+
+    $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+    $generatedFileName = date('Ymd_His') . '_' . uniqid('', true) . '_' . $safeBase . '.' . $extension;
+    $absolutePath = $caseDir . '/' . $generatedFileName;
+
+    if (!move_uploaded_file($file['tmp_name'], $absolutePath)) {
+        echo json_encode(['success' => false, 'error' => 'Failed to save uploaded file']);
+        exit;
+    }
+
+    $publicPath = '/PrototypeDO/assets/community_service_submissions/'
+        . rawurlencode(preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId))
+        . '/' . rawurlencode($generatedFileName);
+
+    $studentId = fetchValue(
+        "SELECT student_id FROM cases WHERE case_id = ?",
+        [$caseId]
+    );
+
+    executeQuery(
+        "INSERT INTO community_service_submissions
+         (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, review_status, reviewed_by, reviewed_at, is_seen_by_do)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, GETDATE(), 1)",
+        [
+            $caseId,
+            $caseSanctionId,
+            $studentId,
+            $_SESSION['user_id'] ?? null,
+            $generatedFileName,
+            $originalName,
+            $publicPath,
+            intval($file['size'] ?? 0),
+            (string)($file['type'] ?? ''),
+            'DO uploaded this portfolio on behalf of the student',
+            $_SESSION['user_id'] ?? null,
+        ]
+    );
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Portfolio uploaded successfully'
+    ]);
     exit;
 }
 

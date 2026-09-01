@@ -367,6 +367,12 @@ async function manageSanctions(caseId) {
         const selectedOption = document.getElementById('sanctionSelect').options[document.getElementById('sanctionSelect').selectedIndex];
         const requiresSchedule = selectedOption.dataset.requiresSchedule === '1';
         const sanctionNameLower = selectedOption.text.toLowerCase();
+        const sanctionLevel = Number(selectedOption.dataset.severity || 0);
+
+        if (isMinor && (sanctionNameLower.includes('corrective reinforcement') || sanctionLevel >= 3)) {
+            showNotification('Escalate to Major first', 'error');
+            return;
+        }
         
         // Validate duration against sanction limits
         if (duration) {
