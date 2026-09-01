@@ -132,53 +132,60 @@ if ($user) {
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/PrototypeDO/assets/js/globals.js"></script>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased min-h-screen">
     <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
     <?php require_once __DIR__ . '/../../includes/header.php'; ?>
 
-    <!-- Message Alert Toast -->
-    <?php if ($message): ?>
-        <div id="messageAlert" class="fixed top-20 right-6 z-50 p-4 rounded-lg shadow-lg max-w-sm animation-slide-in <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-red-100 text-red-700 border border-red-400'; ?>">
-            <?php echo htmlspecialchars($message); ?>
-        </div>
-    <?php endif; ?>
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="sidebarBackdrop" class="fixed inset-0 z-30 bg-gray-900/50 backdrop-blur-sm hidden lg:hidden transition-opacity"></div>
 
-    <!-- Password Change Alert Toast -->
-    <?php if ($passwordMessage): ?>
-        <div id="passwordAlert" class="fixed top-32 right-6 z-50 p-4 rounded-lg shadow-lg max-w-sm animation-slide-in <?php echo $passwordMessageType === 'success' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-red-100 text-red-700 border border-red-400'; ?>">
-            <?php echo htmlspecialchars($passwordMessage); ?>
-        </div>
-        <?php if ($passwordMessageType === 'success'): ?>
-        <script>
-            // Close the password warning modal if it exists
-            const modal = document.getElementById('passwordWarningModal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-        </script>
+    <!-- Container for Alert Toasts -->
+    <div class="fixed top-16 sm:top-20 right-4 sm:right-6 z-50 flex flex-col space-y-3 max-w-[calc(100vw-2rem)] sm:max-w-sm pointer-events-none">
+        <!-- Message Alert Toast -->
+        <?php if ($message): ?>
+            <div id="messageAlert" class="pointer-events-auto p-4 rounded-lg shadow-lg border animation-slide-in <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/80 dark:text-green-200 dark:border-green-600' : 'bg-red-100 text-red-700 border-red-400 dark:bg-red-900/80 dark:text-red-200 dark:border-red-600'; ?>">
+                <?php echo htmlspecialchars($message); ?>
+            </div>
         <?php endif; ?>
-    <?php endif; ?>
 
-    <main class="ml-64 pt-20 pb-6 px-8">
-        <div class="max-w-4xl mx-auto">
+        <!-- Password Change Alert Toast -->
+        <?php if ($passwordMessage): ?>
+            <div id="passwordAlert" class="pointer-events-auto p-4 rounded-lg shadow-lg border animation-slide-in <?php echo $passwordMessageType === 'success' ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/80 dark:text-green-200 dark:border-green-600' : 'bg-red-100 text-red-700 border-red-400 dark:bg-red-900/80 dark:text-red-200 dark:border-red-600'; ?>">
+                <?php echo htmlspecialchars($passwordMessage); ?>
+            </div>
+            <?php if ($passwordMessageType === 'success'): ?>
+            <script>
+                // Close the password warning modal if it exists
+                const modal = document.getElementById('passwordWarningModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            </script>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+
+    <!-- Main Content Wrapper -->
+    <main class="lg:ml-64 pt-20 pb-8 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+        <div class="max-w-4xl mx-auto space-y-6">
 
             <!-- Profile Header Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-                <div class="flex items-center space-x-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left space-y-4 sm:space-y-0 sm:space-x-6">
                     <!-- Avatar -->
-                    <div class="w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
-                        <span class="text-3xl font-bold text-white"><?php echo htmlspecialchars($initials); ?></span>
+                    <div class="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <span class="text-2xl sm:text-3xl font-bold text-white"><?php echo htmlspecialchars($initials); ?></span>
                     </div>
 
                     <!-- Basic Info -->
-                    <div class="flex-1">
-                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                    <div class="flex-1 min-w-0 w-full">
+                        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 truncate">
                             <?php echo htmlspecialchars($user['full_name'] ?? 'User'); ?>
                         </h1>
-                        <p class="text-gray-600 dark:text-gray-400 mb-1">
+                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-1">
                             <span class="font-semibold">Role:</span> <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $userRole))); ?>
                         </p>
-                        <p class="text-gray-600 dark:text-gray-400">
+                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 truncate">
                             <span class="font-semibold">Username:</span> <?php echo htmlspecialchars($user['username'] ?? ''); ?>
                         </p>
                     </div>
@@ -186,15 +193,15 @@ if ($user) {
             </div>
 
             <!-- Edit Profile Form -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h2>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h2>
                 
                 <form method="POST" class="space-y-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Full Name
                         </label>
-                        <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                        <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                             <?php echo htmlspecialchars($user['full_name'] ?? ''); ?>
                         </p>
                     </div>
@@ -203,7 +210,7 @@ if ($user) {
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Email Address
                         </label>
-                        <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                        <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-all text-sm sm:text-base">
                             <?php echo htmlspecialchars($user['email'] ?? ''); ?>
                         </p>
                     </div>
@@ -214,20 +221,20 @@ if ($user) {
                         </label>
                         <input type="tel" name="contact_number" 
                                value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
                     </div>
 
                     <!-- Student-specific fields -->
                     <?php if ($userRole === 'student' && $studentInfo): ?>
                         <div class="pt-4 border-t border-gray-300 dark:border-gray-600">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Student Information</h3>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">Student Information</h3>
                             
-                            <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         First Name
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['first_name'] ?? ''); ?>
                                     </p>
                                 </div>
@@ -236,7 +243,7 @@ if ($user) {
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Last Name
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['last_name'] ?? ''); ?>
                                     </p>
                                 </div>
@@ -245,7 +252,7 @@ if ($user) {
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Student ID
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-all text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['student_id'] ?? ''); ?>
                                     </p>
                                 </div>
@@ -254,7 +261,7 @@ if ($user) {
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Grade/Year
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['grade_year'] ?? ''); ?>
                                     </p>
                                 </div>
@@ -263,7 +270,7 @@ if ($user) {
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Section
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['section'] ?? ''); ?>
                                     </p>
                                 </div>
@@ -272,21 +279,21 @@ if ($user) {
                                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Status
                                     </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['status'] ?? 'Good Standing'); ?>
                                     </p>
                                 </div>
                             </div>
 
-                            <?php if ($studentInfo['guardian_name']): ?>
+                            <?php if (!empty($studentInfo['guardian_name'])): ?>
                                 <div class="pt-4 border-t border-gray-300 dark:border-gray-600 mt-4">
-                                    <h4 class="font-semibold text-gray-900 dark:text-white mb-3">Guardian Information</h4>
-                                    <div class="space-y-4">
+                                    <h4 class="font-semibold text-gray-900 dark:text-white mb-3 text-sm sm:text-base">Guardian Information</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                                 Guardian Name
                                             </label>
-                                            <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                            <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                                 <?php echo htmlspecialchars($studentInfo['guardian_name'] ?? ''); ?>
                                             </p>
                                         </div>
@@ -294,7 +301,7 @@ if ($user) {
                                             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                                 Guardian Contact
                                             </label>
-                                            <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+                                            <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                                 <?php echo htmlspecialchars($studentInfo['guardian_contact'] ?? ''); ?>
                                             </p>
                                         </div>
@@ -304,13 +311,13 @@ if ($user) {
                         </div>
                     <?php endif; ?>
 
-                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex space-x-4">
+                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
                         <button type="submit" 
-                                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition">
+                                class="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
                             Save Changes
                         </button>
                         <a href="javascript:history.back()" 
-                           class="px-6 py-2 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition">
+                           class="w-full sm:w-auto px-6 py-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
                             Cancel
                         </a>
                     </div>
@@ -318,8 +325,8 @@ if ($user) {
             </div>
 
             <!-- Change Password Section -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Change Password</h2>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Change Password</h2>
                 
                 <form method="POST" class="space-y-4" id="changePasswordForm">
                     <input type="hidden" name="action" value="change_password">
@@ -330,7 +337,7 @@ if ($user) {
                         </label>
                         <input type="password" id="currentPassword" name="current_password" 
                                required
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" />
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 text-sm sm:text-base" />
                         <p id="currentPasswordMsg" class="text-xs mt-1"></p>
                     </div>
 
@@ -341,7 +348,7 @@ if ($user) {
                         <input type="password" id="newPassword" name="new_password" 
                                required
                                minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" />
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 text-sm sm:text-base" />
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 8 characters required</p>
                         <p id="newPasswordMsg" class="text-xs mt-1"></p>
                     </div>
@@ -353,54 +360,99 @@ if ($user) {
                         <input type="password" id="confirmPassword" name="confirm_password" 
                                required
                                minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" />
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 text-sm sm:text-base" />
                         <p id="confirmPasswordMsg" class="text-xs mt-1"></p>
                     </div>
 
-                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex space-x-4">
+                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
                         <button type="submit" id="submitBtn"
-                                class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="w-full sm:w-auto px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed text-center text-sm sm:text-base">
                             Change Password
                         </button>
                         <button type="reset" 
-                                class="px-6 py-2 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition">
+                                class="w-full sm:w-auto px-6 py-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
                             Clear
                         </button>
                     </div>
                 </form>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Account Information</h2>
+
+            <!-- Account Information -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Account Information</h2>
                 
                 <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400 font-semibold">Account Status</span>
-                        <span class="px-3 py-1 <?php echo $user['is_active'] ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'; ?> rounded-full text-sm font-bold">
-                            <?php echo $user['is_active'] ? 'Active' : 'Inactive'; ?>
-                        </span>
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 gap-1">
+                        <span class="text-gray-600 dark:text-gray-400 font-semibold text-sm sm:text-base">Account Status</span>
+                        <div>
+                            <span class="inline-block px-3 py-1 <?php echo $user['is_active'] ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'; ?> rounded-full text-xs sm:text-sm font-bold">
+                                <?php echo $user['is_active'] ? 'Active' : 'Inactive'; ?>
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-600 dark:text-gray-400 font-semibold">Member Since</span>
-                        <span class="text-gray-900 dark:text-white">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 gap-1">
+                        <span class="text-gray-600 dark:text-gray-400 font-semibold text-sm sm:text-base">Member Since</span>
+                        <span class="text-gray-900 dark:text-white text-sm sm:text-base">
                             <?php echo date('F j, Y', strtotime($user['created_at'] ?? '')); ?>
                         </span>
                     </div>
 
-                    <?php if ($user['last_login']): ?>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600 dark:text-gray-400 font-semibold">Last Login</span>
-                            <span class="text-gray-900 dark:text-white">
+                    <?php if (!empty($user['last_login'])): ?>
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 gap-1">
+                            <span class="text-gray-600 dark:text-gray-400 font-semibold text-sm sm:text-base">Last Login</span>
+                            <span class="text-gray-900 dark:text-white text-sm sm:text-base">
                                 <?php echo date('F j, Y H:i', strtotime($user['last_login'])); ?>
                             </span>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
+
         </div>
     </main>
 
     <script>
+        // Hamburger / Mobile Sidebar Toggle Handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar') || document.querySelector('aside');
+            const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+            
+            // Query for common toggle button selectors across headers
+            const sidebarToggle = document.getElementById('sidebarToggle') || 
+                                  document.querySelector('[data-drawer-toggle="sidebar"]') ||
+                                  document.querySelector('header button');
+
+            function toggleSidebar() {
+                if (sidebar) {
+                    sidebar.classList.toggle('-translate-x-full');
+                }
+                if (sidebarBackdrop) {
+                    sidebarBackdrop.classList.toggle('hidden');
+                }
+            }
+
+            function closeSidebar() {
+                if (sidebar) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+                if (sidebarBackdrop) {
+                    sidebarBackdrop.classList.add('hidden');
+                }
+            }
+
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleSidebar();
+                });
+            }
+
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', closeSidebar);
+            }
+        });
+
         // Ensure tailwind uses class-based dark mode
         tailwind.config = {
             darkMode: 'class'
@@ -417,7 +469,7 @@ if ($user) {
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
 
-        // Password validation
+        // Password validation logic
         const currentPasswordInput = document.getElementById('currentPassword');
         const newPasswordInput = document.getElementById('newPassword');
         const confirmPasswordInput = document.getElementById('confirmPassword');
@@ -435,8 +487,7 @@ if ($user) {
                     document.getElementById('currentPasswordMsg').textContent = '';
                     currentPasswordValid = false;
                 } else {
-                    // Show loading state
-                    this.style.borderColor = '#eab308';
+                    this.style.borderColor = '#eab308'; // Loading state
                     
                     try {
                         const response = await fetch('/PrototypeDO/includes/validate_password.php', {
@@ -492,8 +543,7 @@ if ($user) {
                     document.getElementById('newPasswordMsg').className = 'text-xs text-green-600 dark:text-green-400 mt-1';
                     newPasswordValid = true;
                 }
-                // Re-check confirm password when new password changes
-                if (confirmPasswordInput.value) {
+                if (confirmPasswordInput && confirmPasswordInput.value) {
                     confirmPasswordInput.dispatchEvent(new Event('input'));
                 }
                 updateSubmitButton();
@@ -568,7 +618,7 @@ if ($user) {
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateX(400px);
+                transform: translateX(100%);
             }
             to {
                 opacity: 1;
