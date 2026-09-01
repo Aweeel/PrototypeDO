@@ -381,7 +381,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-                $sanction = fetchOne(
+        $sanction = fetchOne(
             "SELECT cs.case_sanction_id, s.sanction_name, cs.is_completed
              FROM case_sanctions cs
              JOIN sanctions s ON s.sanction_id = cs.sanction_id
@@ -529,23 +529,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     </script>
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
+<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <!-- Mobile Overlay Backdrop -->
+    <div id="sidebarOverlay" 
+         onclick="toggleSidebar()" 
+         class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
+
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
+            <!-- Mobile Navigation Header Bar -->
+            <div class="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-4 z-20">
+                <button type="button" 
+                        onclick="toggleSidebar()" 
+                        class="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">STI Discipline Office</span>
+                <div class="w-6"></div>
+            </div>
+
             <!-- Fixed Header -->
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
             <!-- Page Content -->
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Page Title -->
-                <div class="mb-8 flex items-center justify-between">
+                <div class="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">My Cases</h1>
-                        <p class="text-gray-600 dark:text-gray-400 mt-2">View all the discipline cases you are involved in</p>
+                        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">My Cases</h1>
+                        <p class="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-2">View all the discipline cases you are involved in</p>
                     </div>
-                    <button id="toggleArchivedBtn" onclick="toggleArchivedCases()" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium flex items-center gap-2">
+                    <button id="toggleArchivedBtn" onclick="toggleArchivedCases()" class="w-full sm:w-auto px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                         </svg>
@@ -556,16 +574,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 <!-- Cases Table -->
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full table-auto">
+                        <table class="w-full table-auto min-w-[640px]">
                             <thead>
                                 <tr class="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Case ID</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Type</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Date Reported</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Severity</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Status</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Assigned To</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-36">Action</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Case ID</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Type</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-32">Date Reported</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Severity</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-28">Status</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-44">Assigned To</th>
+                                    <th class="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase w-36">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="casesTableBody" class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -582,12 +600,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     </div>
 
                     <!-- Empty State -->
-                    <div id="emptyState" class="hidden p-12 text-center">
-                        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div id="emptyState" class="hidden p-8 md:p-12 text-center">
+                        <svg class="w-12 h-12 md:w-16 md:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <p class="text-gray-500 dark:text-gray-400 text-lg">No cases found</p>
-                        <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">You are not involved in any discipline cases at this time</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-base md:text-lg">No cases found</p>
+                        <p class="text-xs md:text-sm text-gray-400 dark:text-gray-500 mt-2">You are not involved in any discipline cases at this time</p>
                     </div>
                 </div>
             </main>
@@ -595,11 +613,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     </div>
 
     <!-- Case Details Modal -->
-    <div id="caseModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div id="caseModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-[#111827] rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-slate-700">
             <!-- Modal Header -->
-            <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between border-b border-blue-800 dark:border-blue-900">
-                <h2 id="modalTitle" class="text-xl font-bold text-white">Case Details</h2>
+            <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-4 md:px-6 py-4 flex items-center justify-between border-b border-blue-800 dark:border-blue-900">
+                <h2 id="modalTitle" class="text-lg md:text-xl font-bold text-white">Case Details</h2>
                 <button onclick="closeCaseModal()" class="text-white hover:bg-blue-800 rounded p-1 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -608,15 +626,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             </div>
 
             <!-- Modal Content -->
-            <div id="modalContent" class="p-6 space-y-6">
+            <div id="modalContent" class="p-4 md:p-6 space-y-4 md:space-y-6">
                 <div class="inline-block">
                     <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
                 </div>
             </div>
 
             <!-- Modal Footer -->
-            <div class="border-t border-gray-200 dark:border-slate-700 px-6 py-4 flex justify-end gap-3">
-                <button onclick="closeCaseModal()" class="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium">
+            <div class="border-t border-gray-200 dark:border-slate-700 px-4 md:px-6 py-4 flex justify-end gap-3">
+                <button onclick="closeCaseModal()" class="w-full sm:w-auto px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium text-sm">
                     Close
                 </button>
             </div>
@@ -624,6 +642,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     </div>
 
     <script>
+        // Sidebar Toggle Handler for Mobile Viewports
+        function toggleSidebar() {
+            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+        }
+
         let allCases = [];
         let showArchived = false;
 
@@ -689,35 +718,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             emptyState.classList.add('hidden');
             tbody.innerHTML = filteredCases.map(caseItem => `
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
-                    <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100 w-32 align-middle">
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100 w-32 align-middle">
                         <div class="truncate">${escapeHtml(caseItem.id)}</div>
-                        ${caseItem.isArchived ? '<span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : ''}
+                        ${caseItem.isArchived ? '<span class="ml-1 md:ml-2 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : ''}
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.type)}</div></td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-32"><div class="truncate">${escapeHtml(caseItem.date)}</div></td>
-                    <td class="px-6 py-4 text-sm w-28 align-middle">
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.type)}</div></td>
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 w-32"><div class="truncate">${escapeHtml(caseItem.date)}</div></td>
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm w-28 align-middle">
                         <div class="inline-flex items-center justify-center">
                             <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold leading-none px-2.5 py-1 ${getSeverityClass(caseItem.severity)}">
                                 ${escapeHtml(caseItem.severity)}
                             </span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm w-28 align-middle">
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm w-28 align-middle">
                         <div class="inline-flex items-center justify-center">
                             <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold leading-none px-2.5 py-1 ${caseItem.statusColor}">
                                 ${escapeHtml(caseItem.status)}
                             </span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.assignedTo)}</div></td>
-                    <td class="px-6 py-4 text-sm w-36 whitespace-nowrap align-middle">
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 w-44"><div class="truncate">${escapeHtml(caseItem.assignedTo)}</div></td>
+                    <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm w-36 whitespace-nowrap align-middle">
                         <div class="flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
-                            <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors whitespace-nowrap text-sm">
+                            <button onclick="viewCaseDetails('${escapeHtml(caseItem.id)}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors whitespace-nowrap text-xs md:text-sm">
                                 View Details
                             </button>
-                            ${caseItem.hasProgressModal ? '<span class="text-gray-400 dark:text-gray-500 text-sm font-medium select-none">|</span>' : ''}
+                            ${caseItem.hasProgressModal ? '<span class="text-gray-400 dark:text-gray-500 text-xs md:text-sm font-medium select-none">|</span>' : ''}
                             ${caseItem.hasProgressModal ? `
-                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="${caseItem.isSuspension ? 'suspension' : 'corrective'}" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-sm" title="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}" aria-label="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}">
+                                <button type="button" onclick="openCheckInProgressModal('${escapeHtml(caseItem.id)}', '${escapeHtml(caseItem.portfolioSanctionId)}')" data-case-checkin-icon="true" data-case-checkin-type="${caseItem.isSuspension ? 'suspension' : 'corrective'}" data-case-id="${escapeHtml(caseItem.id)}" class="${caseItem.checkInCompleted ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300' : 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300'} font-medium transition-colors whitespace-nowrap text-xs md:text-sm" title="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}" aria-label="${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}">
                                     ${caseItem.isSuspension ? 'Suspension Progress' : 'Check-In Progress'}
                                 </button>
                             ` : ''}
@@ -753,19 +782,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 if (data.success) {
                     const caseData = data.case;
                     const isArchived = caseData.is_archived == 1;
-                    modalTitle.innerHTML = `Case ${escapeHtml(caseData.case_id)} Details ${isArchived ? '<span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-200 border border-gray-400">Archived</span>' : ''}`;
+                    modalTitle.innerHTML = `Case ${escapeHtml(caseData.case_id)} Details ${isArchived ? '<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-200 border border-gray-400">Archived</span>' : ''}`;
                     
                     modalContent.innerHTML = `
                         <div class="space-y-4">
                             <!-- Basic Info -->
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Case ID</label>
-                                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.case_id)}</p>
+                                    <p class="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.case_id)}</p>
                                 </div>
                                 <div>
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</label>
-                                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
+                                    <p class="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
                                         <span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusColorClass(caseData.status)}">
                                             ${escapeHtml(caseData.status)}
                                         </span>
@@ -774,14 +803,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             </div>
 
                             <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Case Type</label>
-                                        <p class="text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.case_type)}</p>
+                                        <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.case_type)}</p>
                                     </div>
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Severity</label>
-                                        <p class="text-gray-900 dark:text-gray-100 mt-1">
+                                        <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-1">
                                             <span class="px-2 py-1 rounded-full text-xs font-semibold ${getSeverityColorClass(caseData.severity)}">
                                                 ${escapeHtml(caseData.severity)}
                                             </span>
@@ -791,14 +820,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             </div>
 
                             <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Date Reported</label>
-                                        <p class="text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(formatDisplayDate(caseData.date_reported))}</p>
+                                        <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(formatDisplayDate(caseData.date_reported))}</p>
                                     </div>
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Assigned To</label>
-                                        <p class="text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.assigned_to_name || 'Unassigned')}</p>
+                                        <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.assigned_to_name || 'Unassigned')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -806,14 +835,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ${caseData.description ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Description</label>
-                                    <p class="text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.description)}</p>
+                                    <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.description)}</p>
                                 </div>
                             ` : ''}
 
                             ${caseData.notes ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Notes</label>
-                                    <p class="text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.notes)}</p>
+                                    <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.notes)}</p>
                                 </div>
                             ` : ''}
 
@@ -837,15 +866,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                             const isCompleted = !!sanction.is_completed;
 
                                             return `
-                                                <div class="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/40 p-4">
+                                                <div class="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/40 p-3 md:p-4">
                                                     <div class="flex items-start justify-between gap-3">
                                                         <div>
-                                                            <p class="text-base font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(sanction.sanction_name || 'Sanction')}</p>
-                                                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(durationLabel)}</p>
+                                                            <p class="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(sanction.sanction_name || 'Sanction')}</p>
+                                                            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(durationLabel)}</p>
                                                         </div>
                                                         <span class="px-2 py-1 rounded-full text-xs font-semibold ${isCompleted ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30'}">${isCompleted ? 'Completed' : 'Active'}</span>
                                                     </div>
-                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-xs md:text-sm">
                                                         <div>
                                                             <span class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Applied Date</span>
                                                             <span class="text-gray-900 dark:text-gray-100">${escapeHtml(appliedDate)}</span>
@@ -867,24 +896,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ${caseData.location ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Location</label>
-                                    <p class="text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.location)}</p>
+                                    <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-1">${escapeHtml(caseData.location)}</p>
                                 </div>
                             ` : ''}
 
                             ${caseData.action_taken ? `
                                 <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                                     <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Action Taken</label>
-                                    <p class="text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.action_taken)}</p>
+                                    <p class="text-sm md:text-base text-gray-900 dark:text-gray-100 mt-2 whitespace-pre-wrap">${escapeHtml(caseData.action_taken)}</p>
                                 </div>
                             ` : ''}
                         </div>
                     `;
                 } else {
-                    modalContent.innerHTML = `<p class="text-red-600 dark:text-red-400">${escapeHtml(data.error || 'Error loading case details')}</p>`;
+                    modalContent.innerHTML = `<p class="text-red-600 dark:text-red-400 text-sm">${escapeHtml(data.error || 'Error loading case details')}</p>`;
                 }
             } catch (error) {
                 console.error('Error loading case details:', error);
-                modalContent.innerHTML = '<p class="text-red-600 dark:text-red-400">Error loading case details</p>';
+                modalContent.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Error loading case details</p>';
             }
         }
 
@@ -967,13 +996,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 const remarks = submission.remarks ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(submission.remarks)}</p>` : '';
 
                 return `
-                    <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
+                    <div class="px-3 md:px-4 py-3 border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center justify-between gap-3">
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${fileName}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatFileSize(submission.file_size_bytes)}</p>
+                            <p class="text-xs md:text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${fileName}</p>
+                            <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-0.5">${createdAt} • ${formatFileSize(submission.file_size_bytes)}</p>
                             ${remarks}
                         </div>
-                        <a href="${filePath}" target="_blank" rel="noopener" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
+                        <a href="${filePath}" target="_blank" rel="noopener" class="px-2.5 py-1 md:px-3 md:py-1.5 text-xs font-semibold rounded-md border border-blue-200 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">View</a>
                     </div>
                 `;
             }).join('');
@@ -1046,13 +1075,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             document.querySelectorAll('[data-checkin-progress-modal="true"]').forEach((el) => el.remove());
 
             const overlay = document.createElement('div');
-            overlay.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+            overlay.className = 'fixed inset-0 flex items-center justify-center bg-black/50 z-[70] p-4';
             overlay.setAttribute('data-checkin-progress-modal', 'true');
             overlay.innerHTML = `
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-slate-700">
-                    <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between border-b border-blue-800 dark:border-blue-900">
+                    <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 px-4 md:px-6 py-4 flex items-center justify-between border-b border-blue-800 dark:border-blue-900">
                         <div>
-                            <h2 class="text-xl font-bold text-white">${caseId && caseSanctionId ? 'Loading...' : 'Check-In Progress'}</h2>
+                            <h2 class="text-lg md:text-xl font-bold text-white">${caseId && caseSanctionId ? 'Loading...' : 'Check-In Progress'}</h2>
                         </div>
                         <button type="button" class="text-white hover:bg-blue-800 rounded p-1 transition-colors" onclick="closeCheckInProgressModal()">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1061,7 +1090,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         </button>
                     </div>
 
-                    <div class="p-6" data-checkin-progress-content>
+                    <div class="p-4 md:p-6" data-checkin-progress-content>
                         <div class="flex items-center justify-center py-10">
                             <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
                         </div>
@@ -1093,7 +1122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 const content = overlay.querySelector('[data-checkin-progress-content]');
 
                 if (!data.success || !data.progress) {
-                    content.innerHTML = `<p class="text-red-600 dark:text-red-400">${escapeHtml(data.error || 'Unable to load check-in progress')}</p>`;
+                    content.innerHTML = `<p class="text-red-600 dark:text-red-400 text-sm">${escapeHtml(data.error || 'Unable to load check-in progress')}</p>`;
                     return;
                 }
 
@@ -1108,7 +1137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 console.error('Error loading check-in progress:', error);
                 const content = overlay.querySelector('[data-checkin-progress-content]');
                 if (content) {
-                    content.innerHTML = '<p class="text-red-600 dark:text-red-400">Error loading check-in progress</p>';
+                    content.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Error loading check-in progress</p>';
                 }
             }
         }
@@ -1233,15 +1262,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             container.innerHTML = `
                 <div class="space-y-4">
-                    <div class="bg-gray-50 dark:bg-slate-700/60 rounded-lg p-4">
+                    <div class="bg-gray-50 dark:bg-slate-700/60 rounded-lg p-3 md:p-4">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Case</p>
-                                <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(progress.case_id)}</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(progress.sanction_name || (isSuspension ? 'Suspension' : 'Community Service'))}</p>
+                                <p class="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(progress.case_id)}</p>
+                                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-1">${escapeHtml(progress.sanction_name || (isSuspension ? 'Suspension' : 'Community Service'))}</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${escapeHtml(formatProgressValue(totalValue, isSuspension))}</p>
+                                <p class="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">${escapeHtml(formatProgressValue(totalValue, isSuspension))}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">${isSuspension ? 'days total' : 'hours total'}</p>
                             </div>
                         </div>
@@ -1259,7 +1288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     </div>
 
                     ${progress.deadline ? `
-                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-3 text-sm text-gray-700 dark:text-gray-300">
+                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-3 text-xs md:text-sm text-gray-700 dark:text-gray-300">
                             <span class="font-semibold text-gray-900 dark:text-gray-100">Deadline:</span> ${escapeHtml(formatDisplayDate(progress.deadline))}
                         </div>
                     ` : ''}
@@ -1271,23 +1300,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
                         ${isSuspension ? '' : `
                             <div>
-                                <div class="flex items-center justify-between gap-3 mb-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Completion Report</label>
-                                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Submit documented accomplishments, reflections, and lessons learned.</p>
+                                        <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-0.5">Submit documented accomplishments, reflections, and lessons learned.</p>
                                     </div>
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
+                                    <span class="self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30">Required</span>
                                 </div>
 
                                 <div class="grid grid-cols-1 gap-3">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
-                                        <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
+                                        <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-xs md:text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
+                                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
                                     </div>
-                                    <div class="flex items-center justify-between gap-3">
+                                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                                         <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
-                                        <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
+                                        <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs md:text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
                                             Submit Completion Report
                                         </button>
                                     </div>
@@ -1346,6 +1375,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             });
         }
     </script>
+    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
 
 </html>

@@ -67,56 +67,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     </script>
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
+<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <!-- Mobile Overlay Backdrop -->
+    <div id="sidebarOverlay" 
+         onclick="toggleSidebar()" 
+         class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Main Content Container with Responsive Margins -->
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <!-- Fixed Header -->
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-            <!-- Page Content -->
-            <main class="p-8 pt-20 min-h-screen transition-colors duration-300">
+            <!-- Page Content with Responsive Padding -->
+            <main class="p-4 pt-20 sm:p-6 sm:pt-24 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 
                 <?php if ($errorMessage): ?>
                     <!-- Error Message -->
-                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-6 mb-8">
+                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 sm:p-6 mb-6 sm:mb-8 rounded-r-lg">
                         <div class="flex items-start">
-                            <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-2xl mr-4 mt-1"></i>
+                            <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-xl sm:text-2xl mr-3 sm:mr-4 mt-0.5"></i>
                             <div>
-                                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Error</h4>
-                                <p class="text-gray-700 dark:text-gray-300"><?php echo htmlspecialchars($errorMessage); ?></p>
+                                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2 text-sm sm:text-base">Error</h4>
+                                <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300"><?php echo htmlspecialchars($errorMessage); ?></p>
                             </div>
                         </div>
                     </div>
                 <?php endif; ?>
                 
                 <!-- Search Section -->
-                <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-8 mb-8">
-                    <div class="text-center mb-8">
-                        <i class="fas fa-search text-6xl text-blue-600 dark:text-blue-400 mb-4"></i>
-                        <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Lost Something?</h2>
-                        <p class="text-gray-600 dark:text-gray-400">Search our database to see if your item has been found</p>
+                <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 sm:p-6 md:p-8 mb-6 sm:mb-8">
+                    <div class="text-center mb-6 sm:mb-8">
+                        <i class="fas fa-search text-4xl sm:text-5xl md:text-6xl text-blue-600 dark:text-blue-400 mb-3 sm:mb-4"></i>
+                        <h2 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2">Lost Something?</h2>
+                        <p class="text-xs sm:text-sm md:text-base text-gray-600 dark:text-gray-400">Search our database to see if your item has been found</p>
                     </div>
 
                     <form method="GET" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                                     <i class="fas fa-search mr-2"></i>Search for your item
                                 </label>
                                 <input type="text" 
                                        name="search" 
                                        placeholder="e.g., backpack, calculator, water bottle..."
-                                        value="<?php echo htmlspecialchars($searchTerm); ?>"
-                                       class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-lg">
+                                       value="<?php echo htmlspecialchars($searchTerm); ?>"
+                                       class="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base outline-none">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                                     <i class="fas fa-filter mr-2"></i>Category
                                 </label>
                                 <select name="category" 
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-lg">
+                                        class="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 text-sm sm:text-base outline-none">
                                     <option value="">All Categories</option>
                                     <?php foreach ($categories as $cat): ?>
                                         <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo (isset($_GET['category']) && $_GET['category'] === $cat) ? 'selected' : ''; ?>>
@@ -127,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                             </div>
                         </div>
                         <button type="submit" 
-                                class="w-full px-6 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md transform hover:-translate-y-0.5">
+                                class="w-full px-6 py-2.5 sm:py-3 bg-blue-600 text-white text-base sm:text-lg font-semibold rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md active:scale-[0.99]">
                             <i class="fas fa-search mr-2"></i>Search Now
                         </button>
                     </form>
@@ -135,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
                 <!-- Search Results -->
                 <?php if ($hasSearched && !$errorMessage): ?>
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-8">
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 sm:p-6 md:p-8">
                         <?php
                             $searchSummaryParts = [];
                             if ($searchTerm !== '') {
@@ -148,18 +154,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         ?>
                         <?php if (empty($searchResults)): ?>
                             <!-- No Results -->
-                            <div class="text-center py-12">
-                                <i class="fas fa-inbox text-6xl text-gray-400 dark:text-gray-600 mb-4"></i>
-                                <h3 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Matching Items Found</h3>
-                                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                            <div class="text-center py-8 sm:py-12">
+                                <i class="fas fa-inbox text-4xl sm:text-5xl md:text-6xl text-gray-400 dark:text-gray-600 mb-3 sm:mb-4"></i>
+                                <h3 class="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Matching Items Found</h3>
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-6">
                                     We couldn't find any items matching <?php echo $searchSummary; ?>
                                 </p>
-                                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-2xl mx-auto">
-                                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 sm:p-6 max-w-2xl mx-auto">
+                                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-xs sm:text-sm">
                                         <i class="fas fa-lightbulb text-blue-600 dark:text-blue-400 mr-2"></i>
                                         What to do next:
                                     </h4>
-                                    <ul class="text-left text-gray-700 dark:text-gray-300 space-y-2">
+                                    <ul class="text-left text-xs sm:text-sm text-gray-700 dark:text-gray-300 space-y-2">
                                         <li><i class="fas fa-check text-green-600 dark:text-green-400 mr-2"></i>Try different keywords or descriptions</li>
                                         <li><i class="fas fa-check text-green-600 dark:text-green-400 mr-2"></i>Check back later - new items are added regularly</li>
                                         <li><i class="fas fa-check text-green-600 dark:text-green-400 mr-2"></i>Visit the Discipline Office during office hours</li>
@@ -169,23 +175,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                             </div>
                         <?php else: ?>
                             <!-- Results Found -->
-                            <div class="mb-6">
-                                <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                            <div class="mb-4 sm:mb-6">
+                                <h3 class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2">
                                     <i class="fas fa-check-circle text-green-600 dark:text-green-400 mr-2"></i>
                                     Found <?php echo count($searchResults); ?> Matching Item<?php echo count($searchResults) !== 1 ? 's' : ''; ?>!
                                 </h3>
-                                <p class="text-gray-600 dark:text-gray-400">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                     Items matching <?php echo $searchSummary; ?>
                                 </p>
                             </div>
 
                             <!-- Important Notice -->
-                            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-6 mb-6">
+                            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 sm:p-6 mb-6 rounded-r-lg">
                                 <div class="flex items-start">
-                                    <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400 text-2xl mr-4 mt-1"></i>
+                                    <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400 text-xl sm:text-2xl mr-3 sm:mr-4 mt-0.5"></i>
                                     <div>
-                                        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Important:</h4>
-                                        <p class="text-gray-700 dark:text-gray-300">
+                                        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-xs sm:text-sm">Important:</h4>
+                                        <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                                             If you found your item below, please visit the <strong>Discipline Office</strong> with valid <strong>proof of ownership</strong> 
                                             (receipt, photos, unique identifiers) to claim your item.
                                         </p>
@@ -194,29 +200,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                             </div>
 
                             <!-- Results Grid -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 <?php foreach ($searchResults as $item): ?>
-                                    <div class="bg-gray-50 dark:bg-[#0F1623] border border-gray-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition">
-                                        <div class="flex items-start justify-between mb-3">
-                                            <div class="flex-1">
-                                                <h4 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">
-                                                    <?php echo htmlspecialchars($item['item_name']); ?>
-                                                </h4>
-                                                <span class="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                                                    <?php echo htmlspecialchars($item['category']); ?>
-                                                </span>
+                                    <div class="bg-gray-50 dark:bg-[#0F1623] border border-gray-200 dark:border-slate-700 rounded-lg p-4 sm:p-6 hover:shadow-lg transition flex flex-col justify-between">
+                                        <div>
+                                            <div class="flex items-start justify-between mb-3 gap-2">
+                                                <div class="flex-1">
+                                                    <h4 class="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1 leading-snug">
+                                                        <?php echo htmlspecialchars($item['item_name']); ?>
+                                                    </h4>
+                                                    <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                                                        <?php echo htmlspecialchars($item['category']); ?>
+                                                    </span>
+                                                </div>
+                                                <i class="fas fa-box-open text-2xl sm:text-3xl text-blue-600 dark:text-blue-400 flex-shrink-0"></i>
                                             </div>
-                                            <i class="fas fa-box-open text-3xl text-blue-600 dark:text-blue-400"></i>
-                                        </div>
-                                        
-                                        <div class="space-y-2 text-sm mb-4">
-                                            <div class="flex items-center text-gray-700 dark:text-gray-300">
-                                                <i class="fas fa-calendar w-5 text-gray-500 dark:text-gray-400"></i>
-                                                <span>Date found: <strong><?php echo date('M d, Y', strtotime($item['date_found'])); ?></strong></span>
-                                            </div>
-                                            <div class="flex items-center text-gray-700 dark:text-gray-300">
-                                                <i class="fas fa-info-circle w-5 text-gray-500 dark:text-gray-400"></i>
-                                                <span>ID: <strong><?php echo htmlspecialchars($item['item_id']); ?></strong></span>
+                                            
+                                            <div class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm my-4">
+                                                <div class="flex items-center text-gray-700 dark:text-gray-300">
+                                                    <i class="fas fa-calendar w-5 text-gray-500 dark:text-gray-400"></i>
+                                                    <span>Date found: <strong><?php echo date('M d, Y', strtotime($item['date_found'])); ?></strong></span>
+                                                </div>
+                                                <div class="flex items-center text-gray-700 dark:text-gray-300">
+                                                    <i class="fas fa-info-circle w-5 text-gray-500 dark:text-gray-400"></i>
+                                                    <span>ID: <strong><?php echo htmlspecialchars($item['item_id']); ?></strong></span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -224,12 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                             </div>
 
                             <!-- Footer Instructions -->
-                            <div class="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-                                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                            <div class="mt-6 sm:mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 sm:p-6">
+                                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-xs sm:text-sm">
                                     <i class="fas fa-hand-holding text-blue-600 dark:text-blue-400 mr-2"></i>
                                     How to Claim Your Item:
                                 </h4>
-                                <ol class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                                <ol class="list-decimal list-inside space-y-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                                     <li>Note the <strong>Item ID</strong> shown above</li>
                                     <li>Prepare <strong>proof of ownership</strong> (receipt, photos, serial number, etc.)</li>
                                     <li>Visit the <strong>Discipline Office</strong> during office hours (Mon-Fri, 8:00 AM - 5:00 PM)</li>
@@ -244,6 +252,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         </div>
     </div>
 
+    <script>
+        // Toggle Sidebar Handler for Mobile
+        function toggleSidebar() {
+            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+        }
+    </script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
 </html>
