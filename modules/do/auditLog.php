@@ -146,6 +146,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        if ($_POST['action'] === 'getSystemMetrics') {
+            if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+                echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+                exit;
+            }
+            $databaseSize = fetchValue("SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(12,2)) FROM sys.database_files");
+            $activeSessions = fetchValue("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATEADD(minute, -30, GETDATE())");
+            $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CAST(GETDATE() AS date)");
+            $failedLogins = fetchAll("SELECT TOP 10 ip_address, timestamp, JSON_VALUE(new_values, '$.username') AS attempted_username, JSON_VALUE(new_values, '$.reason') AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC");
+            $peakHours = fetchAll("SELECT TOP 5 DATEPART(hour, timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATEADD(day, -30, GETDATE()) GROUP BY DATEPART(hour, timestamp) ORDER BY activity_count DESC");
+            echo json_encode(['success' => true, 'metrics' => compact('databaseSize', 'activeSessions', 'auditEventsToday', 'failedLogins', 'peakHours')]);
+            exit;
+        }
+
         // Export audit logs to CSV
         if ($_POST['action'] === 'exportLogs') {
             $filters = [
@@ -450,13 +464,16 @@ table.w-full th, table.w-full td {
                             oninput="filterLogs()">
                     </div>
 
+                    <div class="ml-4 flex items-center gap-3">
+                    <?php if (($_SESSION['user_role'] ?? '') === 'super_admin'): ?><button onclick="openSystemMetrics()" class="px-4 py-2.5 bg-slate-700 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">System Metrics</button><?php endif; ?>
                     <button onclick="exportLogs()"
-                        class="ml-4 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                        class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         Export
                     </button>
+                    </div>
                 </div>
 
                 <!-- Filters -->
@@ -534,6 +551,13 @@ table.w-full th, table.w-full td {
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <div id="systemMetricsModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div class="flex items-center justify-between mb-6"><h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">System Metrics</h2><button onclick="closeSystemMetrics()" class="text-2xl text-gray-400">&times;</button></div>
+            <div id="systemMetricsContent" class="grid gap-4 md:grid-cols-3"><p class="text-gray-500">Loading metrics...</p></div>
         </div>
     </div>
 
@@ -727,6 +751,7 @@ table.w-full th, table.w-full td {
     <script src="/PrototypeDO/assets/js/audit_log/main.js"></script>
     <script src="/PrototypeDO/assets/js/audit_log/filters.js"></script>
     <script src="/PrototypeDO/assets/js/audit_log/modals.js"></script>
+    <script src="/PrototypeDO/assets/js/audit_log/metrics.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
 </html>

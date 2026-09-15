@@ -2338,42 +2338,28 @@ function get_sidebar_items($role) {
     if ($role === 'super_admin') {
         $items = [
             [
-                'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/do/doDashboard.php',
+                'label' => 'System Settings',
+                'path' => '/PrototypeDO/modules/super-admin/systemControl.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
-                'label' => 'Minor Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
-                'icon' => 'cases-icon.png'
+                'label' => 'Case Rules',
+                'path' => '/PrototypeDO/modules/super-admin/violationMatrix.php',
+                'icon' => 'Cases-icon.png',
+                'tooltip' => 'Configure violation types, categories, and escalation rules'
             ],
             [
-                'label' => 'Major Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
-                'icon' => 'cases-icon.png'
+                'label' => 'User Management',
+                'path' => '/PrototypeDO/modules/super-admin/adminUsers.php',
+                'icon' => 'users-icon.png'
             ],
             [
-                'label' => 'Statistics & Reports',
-                'path' => '/PrototypeDO/modules/do/statistics.php',
-                'icon' => 'statistics-icon.png'
+                'label' => 'Data Recovery',
+                'path' => '/PrototypeDO/modules/super-admin/dataRecovery.php',
+                'icon' => 'Audit-log-icon.png'
             ],
             [
-                'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
-                'icon' => 'Lost-and-found-icon.png'
-            ],
-            [
-                'label' => 'Student List',
-                'path' => '/PrototypeDO/modules/do/studentHistory.php',
-                'icon' => 'student-history-icon.png'
-            ],
-            [
-                'label' => 'Calendar',
-                'path' => '/PrototypeDO/modules/do/calendar.php',
-                'icon' => 'calendar-icon.png'
-            ],
-            [
-                'label' => 'Handbook',
+                'label' => 'Student Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
@@ -2381,11 +2367,6 @@ function get_sidebar_items($role) {
                 'label' => 'Terms & Conditions',
                 'path' => '/PrototypeDO/modules/super-admin/adminTerms.php',
                 'icon' => 'Terms-icon.png'
-            ],
-            [
-                'label' => 'Users',
-                'path' => '/PrototypeDO/modules/super-admin/adminUsers.php',
-                'icon' => 'users-icon.png'
             ],
             [
                 'label' => 'Audit Log',
@@ -2506,6 +2487,31 @@ function get_sidebar_items($role) {
     }
     
     return $items;
+}
+
+function getSystemSetting($key, $default = null) {
+    try {
+        $value = fetchValue("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$key]);
+        return $value === null ? $default : $value;
+    } catch (Throwable $e) {
+        error_log('System setting read failed: ' . $e->getMessage());
+        return $default;
+    }
+}
+
+function setSystemSetting($key, $value) {
+    executeQuery(
+        "MERGE system_settings AS target
+         USING (SELECT ? AS setting_key, ? AS setting_value) AS source
+         ON target.setting_key = source.setting_key
+         WHEN MATCHED THEN UPDATE SET setting_value = source.setting_value, updated_at = GETDATE()
+         WHEN NOT MATCHED THEN INSERT (setting_key, setting_value) VALUES (source.setting_key, source.setting_value);",
+        [$key, (string)$value]
+    );
+}
+
+function isMaintenanceModeEnabled() {
+    return getSystemSetting('maintenance_mode', 'disabled') === 'enabled';
 }
 // ==========================================
 // OFFENSE TYPES FUNCTIONS
@@ -3052,8 +3058,8 @@ function markCaseAsResolved($caseId) {
     }
 
     $resolvedStatus = $caseSeverity === 'Minor' ? 'Recorded' : 'Resolved';
-    $sql = "UPDATE cases SET status = ?, resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
-    executeQuery($sql, [$resolvedStatus, $caseId]);
+    $sql = "UPDATE cases SET status = ?, assigned_to = ?, resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$resolvedStatus, $_SESSION['user_id'] ?? null, $caseId]);
 
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, $resolvedStatus, 'Previous Status', 'Case marked as resolved');
 }

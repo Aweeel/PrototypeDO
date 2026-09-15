@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 // Handle CSV Import
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv']) && !in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)) {
     header('Content-Type: application/json');
 
     try {
@@ -463,6 +463,8 @@ $adminName = getFormattedUserName();
                     </div>
 
                     <div class="ml-4 flex gap-3 items-center">
+                        <?php if (!in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)): ?>
+                        <?php if (!in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)): ?>
                         <!-- Import CSV Button -->
                         <button onclick="openImportModal()"
                             class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
@@ -472,6 +474,9 @@ $adminName = getFormattedUserName();
                             </svg>
                             Import CSV
                         </button>
+                        <?php endif; ?>
+
+                        <?php endif; ?>
 
                         <!-- Grade Filter -->
                         <select id="gradeFilter" onchange="filterStudents()"

@@ -73,7 +73,7 @@ switch ($role) {
             $isActive = basename($itemPath) === $currentPage
                 && (!isset($itemQuery['severity']) || ($itemQuery['severity'] ?? '') === ($_GET['severity'] ?? 'Major'));
             ?>
-            <a href="<?= htmlspecialchars($item['path']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
+            <a href="<?= htmlspecialchars($item['path']) ?>" title="<?= htmlspecialchars($item['tooltip'] ?? $item['label']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
                       <?= $isActive
                           ? 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white'
                           : 'text-gray-300 hover:bg-[#33475F] dark:hover:bg-slate-700' ?>">

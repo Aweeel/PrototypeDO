@@ -177,6 +177,7 @@ if ($_POST['action'] === 'getEvents') {
                 if ($caseId !== '') {
                     $case = getCaseById($caseId);
                     if ($case) {
+                        executeQuery("UPDATE cases SET assigned_to = ?, updated_at = GETDATE() WHERE case_id = ?", [$_SESSION['user_id'] ?? null, $caseId]);
                         $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
                         $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
                         if ($program) {

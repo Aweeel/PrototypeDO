@@ -251,7 +251,6 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                             <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases</h2>
-                                    <a href="../do/cases.php?severity=Major" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
 
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -362,7 +361,6 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                             <div class="lg:col-span-3 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Pending Cases</h2>
-                                    <a href="../do/cases.php?severity=Major" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
                                 </div>
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
                                     <?php if (!empty($pendingCases)): ?>

@@ -1,6 +1,20 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+if (!function_exists('initializeGlobalTheme')) {
+    function initializeGlobalTheme() {
+        echo '<script>
+            (function () {
+                if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+                window.toggleDarkMode = window.toggleDarkMode || function () {
+                    const isDark = document.documentElement.classList.toggle("dark");
+                    localStorage.setItem("theme", isDark ? "dark" : "light");
+                };
+            })();
+        </script>';
+    }
+}
+
 // Include Terms of Service (shows once per session)
 require_once __DIR__ . '/terms.php';
 
@@ -32,12 +46,16 @@ if (isset($_SESSION['user_id'])) {
     $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
 }
 $unreadCount = count($unreadNotifications);
+$globalBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled') === 'enabled';
+$globalBannerText = getSystemSetting('global_banner_text', '');
 
 // Get consistent user name for header - use database value to ensure consistency
 if (!isset($adminName) || empty($adminName)) {
     $adminName = getFormattedUserName();
 }
 ?>
+
+<?php initializeGlobalTheme(); ?>
 
 <header
     class="fixed top-0 left-0 md:left-64 right-0 z-30
@@ -160,6 +178,11 @@ if (!isset($adminName) || empty($adminName)) {
         </div>
     </div>
 </header>
+<?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?>
+<div class="fixed top-[4.5rem] left-0 md:left-64 right-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+    <?= htmlspecialchars($globalBannerText) ?>
+</div>
+<?php endif; ?>
 
 <script>
     function toggleNotificationPanel() {

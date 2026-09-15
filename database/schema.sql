@@ -26,6 +26,27 @@ GO
 USE PrototypeDO_DB;
 GO
 
+IF OBJECT_ID('system_settings', 'U') IS NULL
+CREATE TABLE system_settings (
+    setting_id INT IDENTITY(1,1) PRIMARY KEY,
+    setting_key NVARCHAR(100) UNIQUE NOT NULL,
+    setting_value NVARCHAR(MAX) NULL,
+    updated_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM system_settings WHERE setting_key = 'maintenance_mode')
+INSERT INTO system_settings (setting_key, setting_value) VALUES
+('maintenance_mode', 'disabled'),
+('global_banner_enabled', 'disabled'),
+('global_banner_text', ''),
+('archive_after_days', '30'),
+('archived_case_retention_days', '365'),
+('lost_found_retention_days', '365'),
+('audit_log_retention_days', '730'),
+('escalation_minor_count', '3');
+GO
+
 CREATE TABLE users (
     user_id INT IDENTITY(1,1) PRIMARY KEY,
     username NVARCHAR(50) UNIQUE NOT NULL,

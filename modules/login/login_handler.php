@@ -92,7 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logLogin($user['user_id']);
 
             // Redirect based on role
-            if ($user['role'] === 'super_admin' || $user['role'] === 'discipline_office') {
+            if ($user['role'] === 'super_admin') {
+                header('Location: /PrototypeDO/modules/super-admin/systemControl.php');
+            } elseif ($user['role'] === 'discipline_office') {
                 header('Location: /PrototypeDO/modules/do/doDashboard.php');
             } elseif ($user['role'] === 'student') {
                 header('Location: /PrototypeDO/modules/student/studentDashboard.php');
