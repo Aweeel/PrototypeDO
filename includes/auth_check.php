@@ -91,6 +91,37 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     exit;
 }
 
+$currentRole = $_SESSION['user_role'] ?? ($_SESSION['user']['role'] ?? '');
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+$operationalPrefixes = [
+    '/modules/do/',
+    '/modules/teacher-guard/',
+    '/modules/student/'
+];
+$isOperationalPage = false;
+foreach ($operationalPrefixes as $prefix) {
+    if (strpos($currentPath, $prefix) === 0) {
+        $isOperationalPage = true;
+        break;
+    }
+}
+
+if ($currentRole === 'super_admin' && $isOperationalPage && basename($currentPath) !== 'auditLog.php') {
+    header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
+    exit;
+}
+
+if ($currentRole !== 'super_admin' && strpos($currentPath, '/modules/super-admin/') === 0) {
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
+
+if ($currentRole !== 'super_admin' && isMaintenanceModeEnabled()
+    && basename($currentPath) !== 'maintenance.php') {
+    header('Location: ' . BASE_URL . '/modules/shared/maintenance.php');
+    exit;
+}
+
 // ===== Handle Terms of Service AJAX acceptance =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['ajax'])

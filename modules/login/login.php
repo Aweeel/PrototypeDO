@@ -5,12 +5,16 @@ require_once __DIR__ . '/../../includes/functions.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+$globalBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled') === 'enabled';
+$globalBannerText = getSystemSetting('global_banner_text', '');
 
 // Redirect if already logged in
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $role = $_SESSION['user_role'] ?? 'do';
     
-    if ($role === 'super_admin' || $role === 'discipline_office' || $role === 'do') {
+    if ($role === 'super_admin') {
+        header('Location: /PrototypeDO/modules/super-admin/systemControl.php');
+    } elseif ($role === 'discipline_office' || $role === 'do') {
         header('Location: /PrototypeDO/modules/do/doDashboard.php');
     } elseif ($role === 'student') {
         header('Location: /PrototypeDO/modules/student/studentDashboard.php');
@@ -40,6 +44,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 </head>
 
 <body class="min-h-screen lg:h-screen lg:overflow-hidden">
+    <?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?><div class="fixed top-0 left-0 right-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-slate-950"><?= htmlspecialchars($globalBannerText) ?></div><?php endif; ?>
     <div class="flex flex-col lg:flex-row h-full min-h-screen lg:min-h-0">
         
         <!-- Left Side (Hidden on screens below lg) -->

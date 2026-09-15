@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 exit;
             }
 
-            executeQuery("UPDATE cases SET severity = 'Major', status = 'Pending', minor_escalation_seen = 1, updated_at = GETDATE() WHERE case_id = ? AND severity = 'Minor'", [$caseId]);
+            executeQuery("UPDATE cases SET severity = 'Major', status = 'Pending', assigned_to = ?, minor_escalation_seen = 1, updated_at = GETDATE() WHERE case_id = ? AND severity = 'Minor'", [$_SESSION['user_id'] ?? null, $caseId]);
             logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Escalated', $case['severity'] . ' / ' . $case['status'], 'Minor case escalated to Major');
             auditUpdate('cases', $caseId, ['severity' => 'Minor', 'status' => $case['status']], ['severity' => 'Major', 'status' => 'Pending']);
             echo json_encode(['success' => true, 'caseId' => $caseId]);
@@ -1835,8 +1835,8 @@ if ($_POST['action'] === 'applySanction') {
     }
     
     // Update case status to "On Going" when sanction is applied
-    $sqlUpdateStatus = "UPDATE cases SET status = CASE WHEN severity = 'Minor' THEN 'Recorded' ELSE 'On Going' END WHERE case_id = ?";
-    executeQuery($sqlUpdateStatus, [$caseId]);
+    $sqlUpdateStatus = "UPDATE cases SET status = CASE WHEN severity = 'Minor' THEN 'Recorded' ELSE 'On Going' END, assigned_to = ? WHERE case_id = ?";
+    executeQuery($sqlUpdateStatus, [$_SESSION['user_id'] ?? null, $caseId]);
 
     // Notify student if schedule is set
     if (!empty($scheduleDate)) {
