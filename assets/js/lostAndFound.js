@@ -770,6 +770,77 @@ function closeArchiveModal() {
     document.getElementById('archiveModal')?.classList.add('hidden');
 }
 
+function openArchiveRangeModal() {
+    const modal = document.getElementById('archiveRangeModal');
+    const form = document.getElementById('archiveRangeForm');
+    const status = document.getElementById('archiveRangeStatus');
+
+    if (!modal || !form || !status) return;
+
+    form.reset();
+    status.textContent = '';
+    status.className = 'text-xs hidden';
+    modal.classList.remove('hidden');
+}
+
+function closeArchiveRangeModal() {
+    document.getElementById('archiveRangeModal')?.classList.add('hidden');
+}
+
+function setupArchiveRangeForm() {
+    const form = document.getElementById('archiveRangeForm');
+    if (!form || form.dataset.bound === 'true') return;
+
+    form.dataset.bound = 'true';
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const startDate = document.getElementById('archiveStartDate')?.value || '';
+        const endDate = document.getElementById('archiveEndDate')?.value || '';
+        const status = document.getElementById('archiveRangeStatus');
+
+        if (!status) return;
+
+        if (!startDate || !endDate || startDate > endDate) {
+            status.textContent = 'Start date cannot be after end date, and both dates are required.';
+            status.className = 'text-xs text-red-600 dark:text-red-400 block';
+            return;
+        }
+
+        status.textContent = 'Processing archive request...';
+        status.className = 'text-xs text-blue-600 dark:text-blue-400 block';
+
+        const formData = new FormData();
+        formData.append('action', 'archiveLostAndFoundRange');
+        formData.append('start_date', startDate);
+        formData.append('end_date', endDate);
+
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundapi.php', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                status.textContent = result.message;
+                status.className = 'text-xs text-green-600 dark:text-green-400 block';
+                setTimeout(() => {
+                    closeArchiveRangeModal();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                status.textContent = result.error || result.message || 'Failed to archive items.';
+                status.className = 'text-xs text-red-600 dark:text-red-400 block';
+            }
+        } catch (error) {
+            console.error('Archive range error:', error);
+            status.textContent = 'A network error occurred while submitting.';
+            status.className = 'text-xs text-red-600 dark:text-red-400 block';
+        }
+    });
+}
+
 async function confirmArchiveItem(itemId) {
     closeArchiveModal();
 
@@ -862,6 +933,7 @@ function showNotification(title, message, type = 'info') {
 document.addEventListener('DOMContentLoaded', () => {
     setupImageUpload();
     setupLostFoundFilters();
+    setupArchiveRangeForm();
     setupCategoryHandling();
     openItemFromUrl();
 });

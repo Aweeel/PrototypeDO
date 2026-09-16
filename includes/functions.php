@@ -3351,4 +3351,31 @@ function auditTermsViewed($adminId) {
     ]);
 }
 
+/**
+ * Maps full course names or variations to their official code abbreviation.
+ */
+function normalizeProgramAbbreviation($input) {
+    if (empty($input)) {
+        return null;
+    }
+
+    $trimmed = trim($input);
+
+    $map = [
+        'Bachelor of Science in Computer Science'      => 'BSCS',
+        'Bachelor of Science in Information Technology'=> 'BSIT',
+        'Bachelor of Science in Computer Engineering'  => 'BSCpE',
+        'Bachelor of Science in Management Accounting'  => 'BSMA',
+        'Bachelor of Science in Accountancy'            => 'BSA',
+        'Bachelor of Science in Hospitality Management' => 'BSHM',
+        'Bachelor of Multimedia Arts'                   => 'BMMA',
+        'Bachelor of Arts in Communication'             => 'BACOMM',
+        'Bachelor of Arts in Psychology'                => 'BAPsych',
+        'Bachelor of Science in Tourism Management'     => 'BSTM',
+        'Bachelor of Science in Criminology'            => 'BSCRIM'
+    ];
+
+    // Return mapped abbreviation if matched, otherwise return trimmed input
+    return $map[$trimmed] ?? $trimmed;
+}
 ?>

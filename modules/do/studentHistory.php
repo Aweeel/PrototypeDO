@@ -88,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv']) && !in_
             $firstName = trim($data['first_name'] ?? '');
             $lastName = trim($data['last_name'] ?? '');
             $gradeYear = trim($data['grade_year'] ?? '');
+            $trackCourse = normalizeProgramAbbreviation($data['track_course'] ?? '');
 
             // Validate required fields including student_id.
             if ($studentId === '' || $firstName === '' || $lastName === '' || $gradeYear === '') {
@@ -151,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv']) && !in_
                     $lastName,
                     $data['middle_name'] ?? null,
                     $gradeYear,
-                    $data['track_course'] ?? null,
+                    $trackCourse,
                     $data['section'] ?? null,
                     $data['student_type'] ?? null,
                     $data['guardian_name'] ?? null,

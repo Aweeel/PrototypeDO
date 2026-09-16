@@ -44,24 +44,26 @@ function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
 
 function validateTeacherProgram($teacherSubrole, $program) {
     $allowedPrograms = [
-        'Information Technology',
-        'Tourism Management',
-        'Criminal Justice Education',
-        'Hospitality Management',
-        'Business & Management',
-        'Arts & Sciences',
-        'Engineering'
+        'BSCS',
+        'BSIT',
+        'BSCpE',
+        'BSMA',
+        'BSA',
+        'BSHM',
+        'BMMA',
+        'BACOMM',
+        'BAPsych',
+        'BSTM',
+        'BSCRIM'
     ];
-
+    
     if ($teacherSubrole === 'department_head') {
-        if ($program === '') {
+        if ($program === null || $program === '') {
             return 'Program is required for department head teachers';
         }
-
         if (!in_array($program, $allowedPrograms, true)) {
-            return 'Invalid program';
+            return 'Invalid program selection';
         }
-
         return null;
     }
 
@@ -77,14 +79,13 @@ function getPendingResetExistsSql() {
                 SELECT 1 FROM notifications n
                 WHERE n.type = 'password_reset_request'
                   AND n.is_read = 0
-                                    AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                  AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
             )";
 }
 
 // Handle CSV Import for Users
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
     header('Content-Type: application/json');
-
     try {
         if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
             echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error occurred']);
@@ -116,7 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Expected columns: student_id, teacher_id, do_id, teacher_subrole, first_name, last_name, middle_name, contact_number, role
+        // Clean headers (remove BOM or extra spaces)
+        $header = array_map(function($h) {
+            return trim(preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $h));
+        }, $header);
+
         $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'super_admin'];
         $allowedTeacherSubroles = ['department_head'];
         $imported = 0;
@@ -146,49 +151,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 continue;
             }
 
-            $studentId = trim($data['student_id'] ?? '');
-            $teacherId = trim($data['teacher_id'] ?? '');
-            $doId = trim($data['do_id'] ?? '');
+            // Consolidated ID logic
+            $roleId = trim($data['role_id'] ?? '');
+            $studentId = ($role === 'student') ? $roleId : '';
+            $teacherId = ($role === 'teacher') ? $roleId : '';
+            $doId = ($role === 'discipline_office') ? $roleId : '';
+
             $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
+            $program = normalizeProgramAbbreviation($data['program'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = '';
+                $program = '';
             } elseif ($teacherSubrole !== '' && !in_array($teacherSubrole, $allowedTeacherSubroles, true)) {
                 $errors[] = "Row skipped: Invalid teacher_subrole '{$data['teacher_subrole']}'. Valid values are department_head.";
                 $skipped++;
                 continue;
             }
 
+            if ($role === 'teacher') {
+                $programError = validateTeacherProgram($teacherSubrole, $program);
+                if ($programError) {
+                    $errors[] = "Row skipped for teacher '{$data['first_name']} {$data['last_name']}': " . $programError;
+                    $skipped++;
+                    continue;
+                }
+            }
+
+            // Validate mandatory role_id by role type
             if ($role === 'student' && $studentId === '') {
-                $errors[] = "Row skipped: student_id is required for student rows";
+                $errors[] = "Row skipped: role_id is required for student rows";
                 $skipped++;
                 continue;
             }
-
             if ($role === 'teacher' && $teacherId === '') {
-                $errors[] = "Row skipped: teacher_id is required for teacher rows";
+                $errors[] = "Row skipped: role_id is required for teacher rows";
                 $skipped++;
                 continue;
             }
-
             if ($role === 'discipline_office' && $doId === '') {
-                $errors[] = "Row skipped: do_id is required for discipline_office rows";
+                $errors[] = "Row skipped: role_id is required for discipline_office rows";
                 $skipped++;
                 continue;
             }
 
+            // Check for existing IDs
             if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS NVARCHAR(50)) = ?", [$studentId])) {
                 $errors[] = "Row skipped: student_id '{$studentId}' already exists";
                 $skipped++;
                 continue;
             }
-
             if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(teacher_id AS NVARCHAR(50)) = ?", [$teacherId])) {
                 $errors[] = "Row skipped: teacher_id '{$teacherId}' already exists";
                 $skipped++;
                 continue;
             }
-
             if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(do_id AS NVARCHAR(50)) = ?", [$doId])) {
                 $errors[] = "Row skipped: do_id '{$doId}' already exists";
                 $skipped++;
@@ -201,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $lastName = strtolower(str_replace(' ', '', $data['last_name']));
                 $emailBase = $firstName . '.' . $lastName . '@sti.edu';
                 $email = $emailBase;
-                
+
                 // Check if email already exists, if so add a number
                 $counter = 1;
                 while (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
@@ -209,15 +226,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                     $counter++;
                 }
 
-                // Create user account for the user
+                // Create user account
                 $fullName = trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']);
-                $username = $email; // Use email as username
-                $defaultPassword = 'password'; // Default password for all users
+                $username = $email;
+                $defaultPassword = 'password';
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
 
-                // Insert user account
-                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, CAST(? AS NVARCHAR(20)), CAST(? AS NVARCHAR(20)), CAST(? AS NVARCHAR(30)), ?, ?, 1, GETDATE())";
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), NULLIF(CAST(? AS NVARCHAR(50)), ''), ?, ?, 1, GETDATE())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,
@@ -226,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                     $teacherId !== '' ? $teacherId : null,
                     $doId !== '' ? $doId : null,
                     $teacherSubrole !== '' ? $teacherSubrole : null,
+                    $program !== '' ? $program : null,
                     $role,
                     $data['contact_number'] ?? null
                 ]);
@@ -247,9 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $skipped++;
             }
         }
-
         fclose($handle);
-
         echo json_encode([
             'success' => true,
             'imported' => $imported,
@@ -257,7 +272,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             'errors' => $errors
         ]);
         exit;
-
     } catch (Exception $e) {
         error_log("CSV Import Error: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -336,7 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $params = [$search];
                 } else {
                     $idColumn = $matchedIdSearch['column'];
-                            $castColumn = "CAST(u.{$idColumn} AS NVARCHAR(50))";
+                    $castColumn = "CAST(u.{$idColumn} AS NVARCHAR(50))";
                     $sql = "SELECT 
                                 u.user_id,
                                 u.email,
@@ -472,7 +486,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
-            $program = trim($_POST['program'] ?? '');
+            $program = normalizeProgramAbbreviation($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
@@ -534,9 +548,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
             // Insert new user record
-                $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
+            $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
                     VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), NULLIF(CAST(? AS NVARCHAR(50)), ''), ?, ?, 1, GETDATE())";
-                executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
+            executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
             $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
@@ -604,7 +618,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
-            $program = trim($_POST['program'] ?? '');
+            $program = normalizeProgramAbbreviation($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
 
@@ -656,22 +670,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             // Update user
-                $sql = "UPDATE users 
+            $sql = "UPDATE users 
                     SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), do_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), teacher_subrole = NULLIF(CAST(? AS NVARCHAR(30)), ''), program = NULLIF(CAST(? AS NVARCHAR(50)), ''), is_active = ?, updated_at = GETDATE()
                     WHERE user_id = CAST(? AS INT)";
             
-                executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
+            executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
 
             // if becoming a student and no corresponding student record exists, create one
-            if ($role === 'student' && $studentId !== '') {
+            if ($role === 'student') {
+                $studentId = trim($_POST['student_id'] ?? '');
                 $existingStudent = fetchOne("SELECT student_id FROM students WHERE user_id = ?", [$user_id]);
-                if (!$existingStudent) {
-                    $studentId = trim($_POST['student_id'] ?? '');
-                    if ($studentId === '') {
-                        echo json_encode(['success' => false, 'error' => 'student_id is required for student role updates']);
-                        exit;
-                    }
-
+                if (!$existingStudent && $studentId !== '') {
                     $nameParts = preg_split('/\s+/', $full_name);
                     $firstName = $nameParts[0];
                     $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
@@ -1134,63 +1143,58 @@ $adminName = getFormattedUserName();
         </div>
     </div>
 
-    <!-- Import Users Modal -->
-    <div id="importUsersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Users from CSV</h3>
-                <button onclick="closeImportUsersModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+<!-- Import Users Modal -->
+<div id="importUsersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Users from CSV</h3>
+            <button onclick="closeImportUsersModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
+            <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
+            <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
+                role_id, teacher_subrole, program, first_name, last_name, middle_name, contact_number, role
+            </code>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: <strong>first_name, last_name, role, role_id</strong>.</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>).</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM</strong></p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is auto-generated as <code>firstname.lastname@sti.edu</code>. Default password: <code>password</code>.</p>
+        </div>
+        <form id="importUsersForm" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select CSV File
+                </label>
+                <input type="file" id="usersCsvFile" name="csv_file" accept=".csv" required
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400">
+            </div>
+            <div id="importUsersProgress" class="hidden mb-4">
+                <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
+                    <span>Importing users...</span>
+                </div>
+            </div>
+            <div id="importUsersResult" class="hidden mb-4"></div>
+            <div class="flex gap-3">
+                <button type="submit" id="importUsersBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                    Upload and Import
+                </button>
+                <button type="button" onclick="closeImportUsersModal()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                    Cancel
                 </button>
             </div>
-
-            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
-                <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
-                <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                    student_id, teacher_id, do_id, teacher_subrole, first_name, last_name, middle_name, contact_number, role
-                </code>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: first_name, last_name, role, and the matching ID for each role row.</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher rows use teacher_id, discipline office rows use do_id, and student rows use student_id.</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
-                <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is auto-generated as firstname.lastname@sti.edu. Default password: password.</p>
-            </div>
-
-            <form id="importUsersForm" enctype="multipart/form-data">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Select CSV File
-                    </label>
-                    <input type="file" id="usersCsvFile" name="csv_file" accept=".csv" required
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400">
-                </div>
-
-                <div id="importUsersProgress" class="hidden mb-4">
-                    <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Importing users...</span>
-                    </div>
-                </div>
-
-                <div id="importUsersResult" class="hidden mb-4"></div>
-
-                <div class="flex gap-3">
-                    <button type="submit" id="importUsersBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                        Upload and Import
-                    </button>
-                    <button type="button" onclick="closeImportUsersModal()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
+        </form>
     </div>
-
+</div>
     <script src="/PrototypeDO/assets/js/users/main.js"></script>
     <script src="/PrototypeDO/assets/js/users/modals.js"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>

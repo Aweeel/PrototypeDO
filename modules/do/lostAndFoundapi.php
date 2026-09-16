@@ -120,6 +120,47 @@ try {
             echo json_encode($result);
             break;
 
+        case 'archiveLostAndFoundRange':
+            $startDate = trim($_POST['start_date'] ?? '');
+            $endDate = trim($_POST['end_date'] ?? '');
+
+            $startDateValue = DateTime::createFromFormat('!Y-m-d', $startDate);
+            $endDateValue = DateTime::createFromFormat('!Y-m-d', $endDate);
+            $validStartDate = $startDateValue && $startDateValue->format('Y-m-d') === $startDate;
+            $validEndDate = $endDateValue && $endDateValue->format('Y-m-d') === $endDate;
+
+            if (!$validStartDate || !$validEndDate) {
+                echo json_encode(['success' => false, 'error' => 'Valid start and end dates are required.']);
+                break;
+            }
+
+            if ($startDateValue > $endDateValue) {
+                echo json_encode(['success' => false, 'error' => 'Start date cannot be after end date.']);
+                break;
+            }
+
+            $sql = "UPDATE lost_found_items
+                    SET is_archived = 1,
+                        archived_at = GETDATE()
+                    WHERE is_archived = 0
+                      AND CAST(date_found AS DATE) >= CAST(? AS DATE)
+                      AND CAST(date_found AS DATE) <= CAST(? AS DATE)";
+
+            $stmt = executeQuery($sql, [$startDate, $endDate]);
+            $archivedCount = $stmt->rowCount();
+
+            logAudit($_SESSION['user_id'] ?? null, 'Manual Archive Lost & Found', 'lost_found_items', 0, null, [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'items_archived' => $archivedCount
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Successfully archived {$archivedCount} item(s) from {$startDate} to {$endDate}."
+            ]);
+            break;
+
         case 'restore':
             $item_id = $_POST['item_id'];
             $result = unarchiveItem($item_id);

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
 $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
-$isSuperAdmin = $_SESSION['user_role'] === 'super_admin';
+$isSuperAdmin = ($_SESSION['user_role'] ?? '') === 'super_admin';
 
 // Load saved handbook content from JSON file
 $handbookContent = [];
@@ -54,17 +54,9 @@ function getHandbookSection($sectionId, $defaultContent) {
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
 
-        let lastHighlights = [];
         let quillEditors = {};
         let editMode = false;
         let handbookUnsavedChanges = {};
-
-        function clearHighlights() {
-            lastHighlights.forEach(el => {
-               el.outerHTML = el.innerText;
-          });
-            lastHighlights = [];
-        }
 
         function createPencilIcon() {
           const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -304,7 +296,7 @@ function getHandbookSection($sectionId, $defaultContent) {
           });
 
           function toggleSidebar() {
-            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
+            const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             
             if (sidebar) {
@@ -350,7 +342,8 @@ function getHandbookSection($sectionId, $defaultContent) {
 
 <style>
   html, body {
-    overflow-x: hidden;
+    height: 100%;
+    overflow: hidden;
   }
 
   html { scroll-behavior: smooth; }
@@ -438,7 +431,7 @@ function getHandbookSection($sectionId, $defaultContent) {
 
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1E293B] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable] overflow-x-hidden">
+<body class="bg-gray-50 dark:bg-[#1E293B] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable] overflow-hidden">
   <div id="sidebarWrapper">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
   </div>
@@ -447,16 +440,14 @@ function getHandbookSection($sectionId, $defaultContent) {
        onclick="toggleSidebar()"
        class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
 
-
-
       <header class="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm md:left-64">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
       </header>
 
-      <main class="flex-1 overflow-hidden custom-scrollbar max-w-full">
-        <div class="p-4 pt-20 md:p-8 md:pt-28 flex flex-col gap-6 lg:flex-row lg:gap-10 max-w-full">
-          <div class="flex-1 min-w-0 overflow-visible max-w-full">
-            <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 pt-6 md:pl-20 md:pb-20 md:pr-20 md:pt-[3.5rem] overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar max-w-full overflow-x-hidden">
+      <main class="flex-1 h-screen overflow-y-auto max-w-full">
+        <div class="pt-20 md:pt-28 p-4 md:p-8 md:ml-64">
+          <div class="flex flex-col gap-6 lg:flex-row lg:gap-10 max-w-full items-start">
+          <div class="flex-1 min-w-0 max-w-full bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 pt-6 md:p-12 overflow-x-hidden">
 
               <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
                 <h2 class="text-3xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
@@ -540,33 +531,33 @@ function getHandbookSection($sectionId, $defaultContent) {
   <div id="sti-seal">
     <h4 class="font-semibold text-2xl">STI Academic Seal</h4>
     <div class="handbook-content">
-      <p>
+      <div>
         <br>The STI Academic Seal is designed to signify the institution’s commitment to its vision and mission.<br><br>
-    <div class="flex justify-center my-6">
-        <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm max-w-full">
-            <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" class="w-40 h-40 max-w-full h-auto object-contain"/>
+        <div class="flex justify-center my-6">
+            <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm max-w-full">
+                <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" class="w-40 h-40 max-w-full object-contain"/>
+            </div>
         </div>
-    </div>
         The seal embodies the academic character of the institution through the following four (4) elements: <br><br>
         • The <strong>laurel leaves</strong>, symbolizing academic excellence, emphasize STI’s commitment
             to provide every student with holistic development through technology-enhanced,
             student-centered active learning.
-<br><br>            
+        <br><br>            
         • The <strong>flame</strong>, symbolizing enlightenment, represents STI’s undying commitment and
             passion to transform its students to become lifelong learners.
-<br><br>
-            • The <strong>flame bearers</strong>, represented by the academic institution on one side and its
+        <br><br>
+        • The <strong>flame bearers</strong>, represented by the academic institution on one side and its
             student body on the other, exemplify the entire STI community united by a shared
             purpose of using their knowledge, skills, values, experience, and abilities for the
             benefit of society.
-<br><br>
-            • The Latin inscription <strong>"Vita Educationem"</strong> translates to "Life Education," which
+        <br><br>
+        • The Latin inscription <strong>"Vita Educationem"</strong> translates to "Life Education," which
             captures the overall thrust of the institution to provide Education for Real Life.
-      </p>
+      </div>
     </div>
   </div>
 
-  <div id="sti-philosophy">
+  <div id="sti-way">
     <h4 class="font-semibold text-2xl">STI Way of Educating</h4>
     <p>
         <br>Having embraced the student-centered approach as its paradigm for teaching and learning, STI seeks to provide every student with a holistic development through technology-enhanced, student-centered active learning. <br><br>
@@ -581,7 +572,6 @@ function getHandbookSection($sectionId, $defaultContent) {
         <br>An STIer is a person of character. An STIer takes responsibility for their actions, treats people with respect, and lives with integrity. 
     </p>
   </div>
-
 
   <div id="critical-thinker">
     <h4 class="font-semibold text-2xl">Critical Thinker</h4>
@@ -620,7 +610,6 @@ function getHandbookSection($sectionId, $defaultContent) {
         • use what was learned — the acquired knowledge and skills may stick to the learner if they are given the chance to recall, teach, and perform them;<br><br>
         • recall the lessons learned — the student must reflect on the things they learned and go back to the process of how they learned; and <br><br>
         • move forward, stretching himself/herself further by planning on their next steps 
-
     </p>
   </div>
 
@@ -724,7 +713,6 @@ to any academic program:</p>
       <li>Medical certificate of chest X-ray results</li>
       <li>Medical certificate of Hepatitis A & B screening for BSHM, BSCM, HRA, DHRT, HRS, and HOP applicants</li>
       <li>Accomplished and signed Health Status and Acknowledgement of Disability Form</li>
-
     </ol>
   </div>
 
@@ -812,7 +800,6 @@ educational program at STI.
       <br>Since a graduate shall carry the name of STI, a minimum residency is prescribed to ensure
 the quality of learning and immersion into the STI culture. A minimum residence for
 graduation from the school is one (1) school year with a minimum total load of 30 units.
-
     </p>
   </div>
 
@@ -1320,7 +1307,6 @@ a passing grade.
   </div>
 </div>
 
-
   <div id="release-of-grades">
     <h4 class="font-semibold text-2xl">Release of Grades</h4> <br>
      <ol class="list-decimal pl-6 space-y-2">
@@ -1474,7 +1460,6 @@ maximum allowable absences will be given a grade of 5.00 with AWOL status.
     The student is expected to be responsible for keeping a record of their attendance in their enrolled courses.
     However, this may be verified with the concerned faculty member.
   </p>
-    </p>
   </div>
 
   <div id="waiting-period">
@@ -1619,7 +1604,6 @@ requirements of the particular program.
     </li>
     <li>Graduation fees</li>
   </ul>
-    </p>
   </div>
 
   <div id="payment-schemes">
@@ -1693,7 +1677,7 @@ requirements of the particular program.
 
   <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg">
-      <thead >
+      <thead>
         <tr>
           <th class="border border-gray-400 px-4 py-2 font-semibold">Date of filing for Dropping/Withdrawal</th>
           <th class="border border-gray-400 px-4 py-2 font-semibold">Penalty Charge</th>
@@ -1704,7 +1688,7 @@ requirements of the particular program.
           <td class="border border-gray-400 px-4 py-2">Before the start of classes</td>
           <td class="border border-gray-400 px-4 py-2">Registration fee for the term</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2">Within seven (7) calendar days from the start of classes</td>
           <td class="border border-gray-400 px-4 py-2">10% of the total amount due for the term</td>
         </tr>
@@ -1784,7 +1768,7 @@ students will not be allowed to join the graduation rites until the dues are set
           </td>
         </tr>
 
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold align-top">Specific conditions for inclusion in the list</td>
           <td class="border border-gray-400 px-4 py-2 align-top">
             <ol class="list-decimal pl-6 space-y-2" start="3">
@@ -1834,7 +1818,7 @@ students will not be allowed to join the graduation rites until the dues are set
 
   <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg">
-      <thead >
+      <thead>
         <tr>
           <th class="border border-gray-400 px-4 py-2 font-semibold">GWA</th>
           <th class="border border-gray-400 px-4 py-2 font-semibold">% discount on Tuition Fee</th>
@@ -1845,7 +1829,7 @@ students will not be allowed to join the graduation rites until the dues are set
           <td class="border border-gray-400 px-4 py-2">1.00 to 1.10</td>
           <td class="border border-gray-400 px-4 py-2">100%</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2">1.11 to 1.30</td>
           <td class="border border-gray-400 px-4 py-2">50%</td>
         </tr>
@@ -2059,7 +2043,7 @@ enrolled in the succeeding term.
           <td class="border border-gray-400 px-4 py-2 text-center">1st Probationary</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Final Probationary</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold text-center">Warning</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Good</td>
           <td class="border border-gray-400 px-4 py-2 text-center">1st Probationary</td>
@@ -2073,7 +2057,7 @@ enrolled in the succeeding term.
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold text-center">Final Probationary</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Good</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
@@ -2148,7 +2132,7 @@ the Faculty Member concerned.
     <li>Complete admission requirements</li>
     <li>
       Official registrant of the STI Interactive Career Assistance and Recruitment System
-      (<a href="http://www.i-cares.com">www.i-cares.com</a>)
+      (<a href="http://www.i-cares.com" class="text-blue-500 hover:underline">www.i-cares.com</a>)
     </li>
   </ul>
   </div>
@@ -2581,9 +2565,9 @@ oneself, others, and to STI as an academic institution.
 
   <div id="school-id">
     <h4 class="font-semibold text-2xl">School Identification Card</h4>
-    <p>
-<ol type="1" class="list-decimal list-inside space-y-2">
-  <br><li>An official school identification (ID) card shall be issued to bona fide STI students.</li>
+    <div>
+<ol type="1" class="list-decimal list-inside space-y-2"><br>
+  <li>An official school identification (ID) card shall be issued to bona fide STI students.</li>
   <li>The ID (including the official strap) shall be part of the uniform and must be worn properly and visibly displayed at all times while inside the campus.</li>
   <li>The ID shall be free from any alteration or modification.</li>
   <li>The ID is non-transferable. It must not be tampered with or misused.</li>
@@ -2594,20 +2578,20 @@ oneself, others, and to STI as an academic institution.
   <li>Students found guilty of giving false information regarding their ID shall be charged with a major offense.</li>
   <li>Only the STI official or endorsed school uniform is the acceptable attire for the ID picture taking of students.</li>
 </ol>
-</p>
+</div>
   </div>
 
     <div id="school-id-replacement">
     <h4 class="font-semibold text-2xl">Procedure for ID Card Replacement</h4>
-    <p>
-<ol type="1" class="list-decimal list-inside space-y-2">
-  <br><li>For lost IDs, secure a temporary gate pass from the school guard.</li>
+    <div>
+<ol type="1" class="list-decimal list-inside space-y-2"><br>
+  <li>For lost IDs, secure a temporary gate pass from the school guard.</li>
   <li>Secure and fill out an Application for ID Replacement Form from the Registrar’s Office.</li>
   <li>Submit the accomplished form to the Registrar’s Office together with the notarized affidavit of loss or the damaged ID.</li>
   <li>Pay the corresponding replacement fee to the Cashier.</li>
   <li>Obtain your temporary ID by presenting the official receipt to the Registrar’s Office.</li>
 </ol>
-    </p>
+    </div>
   </div>
 
   <div id="student-uniform">
@@ -2645,7 +2629,7 @@ be higher than three (3) inches from the knee and slits should not reach the upp
 
   <div id="grooming-haircut">
     <h4 class="font-semibold text-2xl">Grooming and Haircut</h4>
-    <p><br>
+    <div><br>
       <ul class="list-disc list-inside space-y-2">
   <li>Hair must be kept neat, clean, and well-groomed.</li>
   <li>Colored hair is allowed.</li>
@@ -2659,7 +2643,7 @@ be higher than three (3) inches from the knee and slits should not reach the upp
   Specific programs, courses, or activities may require additional mandates for student appearance. For such cases, notices shall be provided by STI accordingly.
 </p>
 
-    </p>
+    </div>
   </div>
 
   <div id="student-decorum">
@@ -2781,7 +2765,7 @@ of women and men
   <div id="prohibited-items">
     <h4 class="font-semibold text-2xl">Smoking, Vaping, Prohibited Drugs, Paraphernalia
 or Illegal Substances, and Dangerous Weapons</h4>
-  <br>STI is committed to maintaining and sustaining a safe, healthy, and conducive learning environment for its students that should be entirely free from smoking, prohibited drugs, paraphernalia, and illegal substances, as well as deadly weapons or dangerous materials or instruments. <br><br>
+  <p><br>STI is committed to maintaining and sustaining a safe, healthy, and conducive learning environment for its students that should be entirely free from smoking, prohibited drugs, paraphernalia, and illegal substances, as well as deadly weapons or dangerous materials or instruments. <br><br>
 
   To ensure that this is achieved, the following measures shall be observed:
 </p>
@@ -2797,7 +2781,7 @@ or Illegal Substances, and Dangerous Weapons</h4>
 
    <div id="random-drug-testing">
     <h4 class="font-semibold text-2xl">Random Drug Testing</h4>
-    <p>
+    <div>
 
     <br>With its commitment to provide optimum value to its stakeholders and to ensure that the
 students are free from the use of dangerous drugs, STI complies with the provisions in
@@ -2829,7 +2813,7 @@ practitioners, or social worker, in consultation with parents/guardians.<br><br>
 However, a student who has undergone an intervention program but was found to be
 “confirmed positive” for the second time shall be sanctioned with either non-readmission or
 expulsion in accordance with the STI Drug Testing Policy.
-    </p>
+    </div>
   </div>  
 
    <div id="electronic-gadget-rule">
@@ -2851,7 +2835,7 @@ or repair.</p>
     <h4 class="font-semibold text-2xl">Social Media Policy</h4>
     <p><br>STI is dedicated to nurturing an environment of mutual respect wherein members of its community are engaged in positive and responsible online behavior. Students and other members of the STI community are expected to be cautious when engaging in any action on social media that may impact the privacy, dignity, or rights of the school, groups, or individuals, including themselves. This shall be accomplished by:</p>
 <br>
-<ol type= "1" class="list-decimal list-inside space-y-2 ml-6">
+<ol type="1" class="list-decimal list-inside space-y-2 ml-6">
     <li>Reflecting on the potential impact of the content to be shared or posted to themselves or to others<br></li>
     <li>Maintaining appropriate boundaries when interacting with school personnel on social media<br></li>
     <li>Adhering to intellectual property rights<br></li>
@@ -2867,7 +2851,7 @@ or repair.</p>
     <p><br>
     In accordance with the Data Privacy Act of 2012 (RA 10173), STI is committed to ensuring the confidentiality and security of information provided to the schools.<br>
     General provisions on how the institutions use, store, and retain collected information can be accessed via
-    <a href="https://www.sti.edu/dataprivacy.asp">https://www.sti.edu/dataprivacy.asp</a>.
+    <a href="https://www.sti.edu/dataprivacy.asp" class="text-blue-500 hover:underline">https://www.sti.edu/dataprivacy.asp</a>.
     To help keep confidential details secure, students and other members of the STI community should observe the following:<br><br>
   </p>
   <ol type="1" class="list-decimal list-inside space-y-2 ml-6">
@@ -3142,11 +3126,11 @@ are considered criminal pursuant to existing penal laws.<br><br>
 The institution shall forward a complete record of the proceedings to the CHED
 Regional Office concerned within 10 days from the termination of the investigation
 of each case.</p>
-  </div>
- 
+
   <!-- Info under Expulsion -->
-    <p>________________________________________________________________________________</p>
-      <br>Imposition of sanctions cited in this handbook shall not in any way prejudice the filing
+  <hr class="my-6 border-gray-300 dark:border-slate-700">
+  <p>
+      Imposition of sanctions cited in this handbook shall not in any way prejudice the filing
 of cases in and the implementation of penalties prescribed by a court of law.<br><br>
 
 Also, in cases that involve significant damage or destruction of property, the Discipline
@@ -3156,6 +3140,7 @@ activities, a failing grade shall be given in the particular examination or acti
 
 All sanctions shall go along with a one-on-one session with the School’s Guidance
 Counselor or Associate.</p>
+  </div>
   
   <div id="offenses">
     <h4 class="font-semibold text-2xl">Offenses</h4>
@@ -3538,15 +3523,11 @@ learning environment and of the STI Community.</p>
   </div>
 </section>
 
-
-
-
-    </div>
-    </div>
+          </div>
     
         <!-- Table of Contents Sidebar (Sticky) -->
-        <aside class="hidden md:block w-96 flex-shrink-0">
-          <div class="sticky top-[7rem] max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
+        <aside class="hidden lg:block w-80 flex-shrink-0 sticky top-[7rem]">
+          <div class="max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
             
             <!-- Search Container -->
             <div class="sticky top-0 z-10 bg-gray-200 dark:bg-[#111827] border-b-2 border-gray-400 dark:border-slate-700 shadow-md px-3 pb-2 pt-4 rounded-t-lg">
@@ -3563,11 +3544,11 @@ learning environment and of the STI Community.</p>
             </div>
 
     <!-- TOC Content -->
-    <h3 class="text-gray-700 dark:text-gray-300 font-bold pt-4 pl-4 mb-5 uppercase tracking-wide text-2xl">
+    <h3 class="text-gray-700 dark:text-gray-300 font-bold pt-4 pl-4 mb-5 uppercase tracking-wide text-xl">
       On this page
     </h3>
 
-    <ul class="space-y-5">
+    <ul class="space-y-4 pb-4">
       <!-- GENERAL INFORMATION -->
       <li>
         <a href="#general-info" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl pl-4">
@@ -3578,7 +3559,7 @@ learning environment and of the STI Community.</p>
           <li><a href="#sti-vision" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Vision</a></li>
           <li><a href="#sti-mission" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Mission</a></li>
           <li><a href="#sti-seal" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Academic Seal</a></li>
-          <li><a href="#sti-philosophy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
+          <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
           <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Way of Educating</a></li>
           <li><a href="#character" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Character</a></li>
           <li><a href="#critical-thinker" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Critical Thinker</a></li>
@@ -3686,7 +3667,6 @@ learning environment and of the STI Community.</p>
   </ul>
 </li>
 
-
       <!-- STUDENT SERVICES -->
       <li>
         <a href="#student-services" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl mt-3 pl-4">
@@ -3771,7 +3751,6 @@ learning environment and of the STI Community.</p>
   </ul>
 </li>
 
-
       <!-- APPENDICES -->
       <li>
         <a href="#appendices" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl mt-3 pl-4">
@@ -3787,6 +3766,7 @@ learning environment and of the STI Community.</p>
   </div>
 </aside>
       </div>
+  </div>
     </main>
   </div>
 
@@ -3832,7 +3812,7 @@ function loadSavedHandbookContent() {
 }
 
 function createContentWrappers() {
-  const innerContent = document.querySelector('main .flex-1.overflow-visible .bg-white');
+  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
   if (!innerContent) return;
   
   const allSectionDivs = innerContent.querySelectorAll('div[id]');
@@ -3861,8 +3841,7 @@ function createContentWrappers() {
 }
 
 function initializeHandbookSections() {
-  <?php if ($isSuperAdmin): ?>
-  const innerContent = document.querySelector('main .flex-1.overflow-visible .bg-white');
+  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
   if (!innerContent) return;
   
   const allSectionDivs = innerContent.querySelectorAll('div[id]');
@@ -3882,12 +3861,9 @@ function initializeHandbookSections() {
   console.log(`Handbook initialized: ${editableSectionsCount} sections ready for editing`);
   
   initializeEditIcons();
-  <?php endif; ?>
 }
 
 function initializeEditIcons() {
-  if (!<?php echo ($isSuperAdmin ? 'true' : 'false'); ?>) return;
-  
   const editableSections = document.querySelectorAll('.editable-handbook-section');
   console.log('Editable sections found:', editableSections.length);
   
@@ -4016,8 +3992,6 @@ async function cancelEditSection(sectionId, skipConfirm = false) {
 
   stopHandbookEditing(sectionId, true);
 }
-
-
 
 async function saveSectionEdit(sectionId) {
   if (!quillEditors[sectionId]) return;
