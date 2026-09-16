@@ -145,14 +145,18 @@ function createAddModal() {
                     <label for="add_program" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program *</label>
                     <select id="add_program" name="program"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
-                      <option value="">-- Select Program --</option>
-                            <option value="Information Technology">Information Technology</option>
-                            <option value="Tourism Management">Tourism Management</option>
-                            <option value="Criminal Justice Education">Criminal Justice Education</option>
-                            <option value="Hospitality Management">Hospitality Management</option>
-                            <option value="Business & Management">Business & Management</option>
-                            <option value="Arts & Sciences">Arts & Sciences</option>
-                            <option value="Engineering">Engineering</option>
+                      <option value="">Select Program...</option>
+                        <option value="BSCS">BSCS</option>
+                        <option value="BSIT">BSIT</option>
+                        <option value="BSCpE">BSCpE</option>
+                        <option value="BSMA">BSMA</option>
+                        <option value="BSA">BSA</option>
+                        <option value="BSHM">BSHM</option>
+                        <option value="BMMA">BMMA</option>
+                        <option value="BACOMM">BACOMM</option>
+                        <option value="BAPsych">BAPsych</option>
+                        <option value="BSTM">BSTM</option>
+                        <option value="BSCRIM">BSCRIM</option>
                     </select>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for department head teachers.</p>
                 </div>

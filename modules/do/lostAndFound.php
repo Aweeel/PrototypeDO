@@ -161,10 +161,16 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                 <?php echo $view === 'archived' ? 'Archived Items' : 'Lost & Found Items'; ?>
                             </h2>
                             <?php if ($view === 'active'): ?>
-                                <button onclick="openAddModal()" 
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md">
-                                    <i class="fas fa-plus mr-2"></i>Add Item
-                                </button>
+                                <div class="flex items-center gap-3">
+                                    <button type="button" onclick="openArchiveRangeModal()"
+                                            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        <i class="fas fa-box-archive"></i>Archive Items by Date
+                                    </button>
+                                    <button type="button" onclick="openAddModal()"
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md">
+                                        <i class="fas fa-plus mr-2"></i>Add Item
+                                    </button>
+                                </div>
                             <?php endif; ?>
                         </div>
 
@@ -407,6 +413,35 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                             </div>
                         </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Date Range Archive Modal -->
+    <div id="archiveRangeModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Archive Items Range</h3>
+                <button type="button" onclick="closeArchiveRangeModal()" aria-label="Close archive range modal"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold">&times;</button>
+            </div>
+            <form id="archiveRangeForm" class="p-6 space-y-4">
+                <div>
+                    <label for="archiveStartDate" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Archive Date From</label>
+                    <input type="date" id="archiveStartDate" required
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label for="archiveEndDate" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Archive Date To</label>
+                    <input type="date" id="archiveEndDate" required
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div id="archiveRangeStatus" class="text-xs hidden" role="status"></div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+                    <button type="button" onclick="closeArchiveRangeModal()"
+                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors">Archive Range</button>
+                </div>
+            </form>
         </div>
     </div>
 

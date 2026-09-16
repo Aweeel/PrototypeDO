@@ -606,10 +606,10 @@ VALUES
 ('02000000017', 32, 'Angela', 'Castillo', 'Reyes', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
 ('02000000018', 33, 'Rafael', 'Herrera', 'Cruz', '3rd Year', 'BSIT', 'IT-301', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
 ('02000000019', 34, 'Gabriela', 'Jimenez', 'Torres', '4th Year', 'BSIT', 'IT-401', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
-('02000000020', 35, 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSBA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
-('02000000021', 36, 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSBA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
-('02000000022', 37, 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSBA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
-('02000000023', 38, 'Camila', 'Flores', 'Diaz', '4th Year', 'BSBA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
+('02000000020', 35, 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
+('02000000021', 36, 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
+('02000000022', 37, 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
+('02000000023', 38, 'Camila', 'Flores', 'Diaz', '4th Year', 'BSA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
 ('02000000024', 39, 'Sebastian', 'Martinez', 'Ramos', '1st Year', 'BSCS', 'CS-101', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
 ('02000000025', 40, 'Nicole', 'Gonzalez', 'Morales', '2nd Year', 'BSCS', 'CS-201', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
 ('02000000026', 41, 'Adrian', 'Lopez', 'Fernandez', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
@@ -655,15 +655,15 @@ PRINT 'Inserting sample students for new college programs...';
 
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
 VALUES
-('02000000031', 53, 'Luna', 'Navarro', 'Reyes', '1st Year', 'Bachelor of Science in Accountancy', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09191234016'),
-('02000000032', 54, 'Marcus', 'Reyes', 'Garcia', '2nd Year', 'Bachelor of Science in Management Accounting', 'MA-201', 'College', 'Good Standing', 'Francisco Reyes', '09191234017'),
-('02000000033', 55, 'Sofia', 'Bautista', 'Cruz', '1st Year', 'Bachelor of Science in Hospitality Management', 'HM-101', 'College', 'Good Standing', 'Ramon Bautista', '09191234018'),
-('02000000034', 56, 'Noah', 'Cruz', 'Santos', '2nd Year', 'Bachelor of Science in Tourism Management', 'TM-201', 'College', 'Good Standing', 'Luz Cruz', '09191234019'),
-('02000000035', 57, 'Ivy', 'Santos', 'Mendoza', '1st Year', 'Bachelor of Science in Computer Engineering', 'CPE-101', 'College', 'Good Standing', 'Carlo Santos', '09191234020'),
-('02000000036', 58, 'Mikaela', 'Garcia', 'Flores', '1st Year', 'Bachelor of Arts in Communication', 'COMM-101', 'College', 'Good Standing', 'Angela Garcia', '09191234021'),
-('02000000037', 59, 'Adrian', 'Flores', 'Lim', '2nd Year', 'Bachelor of Multimedia Arts', 'MMA-201', 'College', 'Good Standing', 'Eduardo Flores', '09191234022'),
-('02000000038', 60, 'Paula', 'Diaz', 'Morales', '1st Year', 'Bachelor of Arts in Psychology', 'PSY-101', 'College', 'Good Standing', 'Carmen Diaz', '09191234023'),
-('02000000039', 61, 'Jasper', 'Lim', 'Torres', '1st Year', 'Bachelor of Science in Criminology', 'CRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
+('02000000031', 53, 'Luna', 'Navarro', 'Reyes', '1st Year', 'BSA', 'BSA-101', 'College', 'Good Standing', 'Teresa Navarro', '09191234016'),
+('02000000032', 54, 'Marcus', 'Reyes', 'Garcia', '2nd Year', 'BSMA', 'BSMA-201', 'College', 'Good Standing', 'Francisco Reyes', '09191234017'),
+('02000000033', 55, 'Sofia', 'Bautista', 'Cruz', '1st Year', 'BSHM', 'BSHM-101', 'College', 'Good Standing', 'Ramon Bautista', '09191234018'),
+('02000000034', 56, 'Noah', 'Cruz', 'Santos', '2nd Year', 'BSTM', 'BSTM-201', 'College', 'Good Standing', 'Luz Cruz', '09191234019'),
+('02000000035', 57, 'Ivy', 'Santos', 'Mendoza', '1st Year', 'BSCpE', 'BSCPE-101', 'College', 'Good Standing', 'Carlo Santos', '09191234020'),
+('02000000036', 58, 'Mikaela', 'Garcia', 'Flores', '1st Year', 'BACOMM', 'BACOMM-101', 'College', 'Good Standing', 'Angela Garcia', '09191234021'),
+('02000000037', 59, 'Adrian', 'Flores', 'Lim', '2nd Year', 'BMMA', 'BMMA-201', 'College', 'Good Standing', 'Eduardo Flores', '09191234022'),
+('02000000038', 60, 'Paula', 'Diaz', 'Morales', '1st Year', 'BAPsych', 'BAPSYCH-101', 'College', 'Good Standing', 'Carmen Diaz', '09191234023'),
+('02000000039', 61, 'Jasper', 'Lim', 'Torres', '1st Year', 'BSCRIM', 'BSCRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
 
 PRINT 'Additional students inserted: 9';
 GO
