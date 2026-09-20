@@ -1,11 +1,13 @@
 <?php
 // includes/db_connect.php
-// SQL Server Connection using PDO
+// SQL Server Connection using PDO (Compatible with Railway & LocalDB)
 
-// Database configuration
-define('DB_SERVER', '(localdb)\\MSSQLLocalDB');
-define('DB_NAME', 'PrototypeDO_DB');
-define('DB_DRIVER', '{ODBC Driver 17 for SQL Server}');
+// Pull credentials from Railway environment variables (or default to local fallback)
+define('DB_HOST', getenv('MSSQL_HOST') ?: '(localdb)\\MSSQLLocalDB');
+define('DB_PORT', getenv('MSSQL_PORT') ?: '1433');
+define('DB_USER', getenv('MSSQL_USER') ?: 'sa');
+define('DB_PASS', getenv('MSSQL_PASSWORD') ?: '');
+define('DB_NAME', getenv('MSSQL_DATABASE') ?: 'PrototypeDO_DB');
 
 // Global connection variable
 $conn = null;
@@ -19,11 +21,16 @@ function getDBConnection() {
     }
     
     try {
-        // Connection string for Windows Authentication with LocalDB
-        $connectionString = "odbc:Driver=" . DB_DRIVER . ";Server=" . DB_SERVER . ";Database=" . DB_NAME . ";Trusted_Connection=yes;";
-        
-        // Create PDO connection
-        $conn = new PDO($connectionString);
+        // Detect environment: Use sqlsrv DSN on Railway / Linux servers, or fall back to ODBC for LocalDB
+        if (getenv('MSSQL_HOST')) {
+            // Railway / Production Server (pdo_sqlsrv driver)
+            $dsn = "sqlsrv:Server=" . DB_HOST . "," . DB_PORT . ";Database=" . DB_NAME . ";TrustServerCertificate=true";
+            $conn = new PDO($dsn, DB_USER, DB_PASS);
+        } else {
+            // Local Development fallback (Windows LocalDB via ODBC)
+            $connectionString = "odbc:Driver={ODBC Driver 17 for SQL Server};Server=" . DB_HOST . ";Database=" . DB_NAME . ";Trusted_Connection=yes;";
+            $conn = new PDO($connectionString);
+        }
         
         // Set error mode to exceptions
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -34,9 +41,9 @@ function getDBConnection() {
         return $conn;
         
     } catch(PDOException $e) {
-        // Log error (in production, log to file instead of displaying)
+        // Log error
         error_log("Database Connection Error: " . $e->getMessage());
-        die("Database connection failed. Please contact system administrator.");
+        die("Database connection failed. Details: " . $e->getMessage());
     }
 }
 
@@ -51,9 +58,6 @@ function executeQuery($sql, $params = []) {
     try {
         $conn = getDBConnection();
         $stmt = $conn->prepare($sql);
-        
-        // For SQL Server ODBC, let PDO handle parameter binding automatically
-        // This avoids "Invalid character value for cast specification" errors
         $stmt->execute($params);
         return $stmt;
     } catch(PDOException $e) {
