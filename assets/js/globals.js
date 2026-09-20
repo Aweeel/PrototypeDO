@@ -19,3 +19,4 @@ const statusColors = {
     'blue': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     'gray': 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
 };
+

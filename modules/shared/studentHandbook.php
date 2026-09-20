@@ -1,9 +1,25 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
-$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
+$isSuperAdmin = ($_SESSION['user_role'] ?? '') === 'super_admin';
+
+// Load saved handbook content from JSON file
+$handbookContent = [];
+$contentFile = __DIR__ . '/../../assets/json/handbook_content.json';
+if (file_exists($contentFile)) {
+    $jsonContent = file_get_contents($contentFile);
+    $handbookContent = json_decode($jsonContent, true) ?? [];
+}
+
+// Helper function to get section content
+function getHandbookSection($sectionId, $defaultContent) {
+    global $handbookContent;
+    return isset($handbookContent[$sectionId]) ? $handbookContent[$sectionId] : $defaultContent;
+}
 ?>
 
 <!DOCTYPE html>
@@ -14,6 +30,13 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
   <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Quill WYSIWYG Editor -->
+  <?php if ($isSuperAdmin): ?>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <?php endif; ?>
+  
     <script>
         // Ensure tailwind uses class-based dark mode
         tailwind.config = {
@@ -31,13 +54,122 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
 
-        let lastHighlights = [];
+        let quillEditors = {};
+        let editMode = false;
+        let handbookUnsavedChanges = {};
 
-        function clearHighlights() {
-            lastHighlights.forEach(el => {
-               el.outerHTML = el.innerText;
+        function createPencilIcon() {
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', '18');
+          svg.setAttribute('height', '18');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'currentColor');
+          svg.setAttribute('stroke', 'none');
+          svg.setAttribute('style', 'vertical-align: middle; display: inline;');
+          
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7m-13-3l9.5-9.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z');
+          
+          svg.appendChild(path);
+          return svg;
+        }
+
+        function getHandbookSectionElements(sectionId) {
+          const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+          return {
+            section,
+            contentDiv: section ? section.querySelector('.handbook-content') : null,
+            editorWrapper: section ? section.querySelector('.ql-editor-wrapper') : null,
+            iconContainer: document.getElementById(`icon-${sectionId}`),
+            buttonsContainer: document.getElementById(`buttons-${sectionId}`),
+            headerWrapper: section ? section.querySelector('.handbook-header-wrapper') : null
+          };
+        }
+
+        function resetHandbookEditorHost(sectionId, contentHtml) {
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (!contentDiv) return null;
+
+          const editorId = `editor-${sectionId}`;
+          const editorWrapper = document.createElement('div');
+          editorWrapper.id = editorId;
+          editorWrapper.className = 'ql-editor-wrapper mb-8 p-4 border border-blue-300 rounded-lg bg-gray-50 dark:bg-slate-700';
+          editorWrapper.innerHTML = contentHtml;
+
+          contentDiv.innerHTML = '';
+          contentDiv.appendChild(editorWrapper);
+          return editorWrapper;
+        }
+
+        function destroyHandbookEditor(sectionId) {
+          if (quillEditors[sectionId]) {
+            delete quillEditors[sectionId];
+          }
+        }
+
+        function syncHandbookEditControls(sectionId, isEditing) {
+          const { contentDiv, editorWrapper, iconContainer, buttonsContainer, headerWrapper } = getHandbookSectionElements(sectionId);
+
+          if (contentDiv) contentDiv.style.display = 'block';
+          if (editorWrapper) editorWrapper.style.display = isEditing ? 'block' : 'none';
+          if (iconContainer) iconContainer.style.display = isEditing ? 'none' : 'inline-flex';
+          if (buttonsContainer) {
+            buttonsContainer.style.display = isEditing ? 'flex' : 'none';
+            if (isEditing) {
+              const cancelBtn = buttonsContainer.querySelector('button:first-child');
+              const saveBtn = buttonsContainer.querySelector('button:last-child');
+              if (cancelBtn) cancelBtn.disabled = false;
+              if (saveBtn) saveBtn.disabled = false;
+            }
+          }
+          if (headerWrapper) headerWrapper.style.marginBottom = isEditing ? '1.5rem' : '';
+        }
+
+        function startHandbookEditing(sectionId) {
+          if (quillEditors[sectionId]) return;
+
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (!contentDiv) return;
+
+          contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
+          const editorWrapper = resetHandbookEditorHost(sectionId, contentDiv.innerHTML);
+          if (!editorWrapper) return;
+
+          const quill = new Quill(`#editor-${sectionId}`, {
+            theme: 'snow',
+            placeholder: 'Edit section content...',
+            modules: {
+              toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'header': [1, 2, 3, false] }],
+                ['link', 'image'],
+                ['clean']
+              ]
+            }
           });
-            lastHighlights = [];
+
+          quillEditors[sectionId] = quill;
+          const initialEditorHtml = quill.root.innerHTML;
+          handbookUnsavedChanges[sectionId] = false;
+
+          quill.on('text-change', () => {
+            handbookUnsavedChanges[sectionId] = quill.root.innerHTML !== initialEditorHtml;
+          });
+
+          syncHandbookEditControls(sectionId, true);
+        }
+
+        function stopHandbookEditing(sectionId, restoreSavedContent = false) {
+          const { contentDiv } = getHandbookSectionElements(sectionId);
+          if (restoreSavedContent && contentDiv?.hasAttribute('data-original-html')) {
+            contentDiv.innerHTML = contentDiv.getAttribute('data-original-html');
+          }
+
+          destroyHandbookEditor(sectionId);
+          handbookUnsavedChanges[sectionId] = false;
+          syncHandbookEditControls(sectionId, false);
         }
     </script>
     
@@ -48,10 +180,14 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
             let currentIndex = 0;
 
             function clearHighlights() {
-              searchHighlights.forEach(span => {
-                const parent = span.parentNode;
-                parent.replaceChild(document.createTextNode(span.textContent), span);
-                parent.normalize();
+              const marks = document.querySelectorAll("mark");
+              marks.forEach(mark => {
+                const parent = mark.parentNode;
+                if (parent) {
+                  const textNode = document.createTextNode(mark.textContent);
+                  parent.replaceChild(textNode, mark);
+                  parent.normalize();
+                }
               });
               searchHighlights = [];
               currentIndex = 0;
@@ -70,18 +206,16 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
               const content = document.querySelector("main");
               const countDisplay = document.getElementById("searchCount");
 
-              // Handle Enter key press - scroll to next match
               if (event && event.key === "Enter") {
                 event.preventDefault();
                 if (searchHighlights.length > 0) {
-                  currentIndex = (currentIndex + 1) % searchHighlights.length;
                   scrollToCurrent();
                   countDisplay.textContent = `Match ${currentIndex + 1} of ${searchHighlights.length}`;
+                  currentIndex = (currentIndex + 1) % searchHighlights.length;
                 }
                 return;
               }
 
-              // Clear previous highlights if query changed
               if (currentQuery !== query) clearHighlights();
               currentQuery = query;
 
@@ -90,7 +224,8 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 return;
               }
 
-              const regex = new RegExp(query, "gi");
+              const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const regex = new RegExp(escapedQuery, "gi");
               let count = 0;
 
               const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null, false);
@@ -108,6 +243,7 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 let lastIndex = 0;
                 let match;
 
+                regex.lastIndex = 0;
                 while ((match = regex.exec(text)) !== null) {
                   const before = text.slice(lastIndex, match.index);
                   if (before) frag.appendChild(document.createTextNode(before));
@@ -128,18 +264,15 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                 parent.replaceChild(frag, node);
               }
 
-              // Show count but don't scroll until Enter is pressed
               countDisplay.textContent = count
                 ? `${count} result${count > 1 ? "s" : ""} found. Press Enter to jump.`
                 : "No matches found.";
 
-              // Set currentIndex to 0 but don't scroll yet
               if (count) {
                 currentIndex = 0;
               }
             };
 
-            // Smooth scroll for TOC links
             document.querySelectorAll('aside a[href^="#"]').forEach(anchor => {
               anchor.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -152,7 +285,6 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
                     block: 'start'
                   });
                   
-                  // Optional: Add a highlight effect to the target
                   targetElement.style.transition = 'background-color 0.5s ease';
                   targetElement.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
                   setTimeout(() => {
@@ -162,9 +294,58 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
               });
             });
           });
+
+          function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar) {
+                sidebar.classList.toggle('-translate-x-full');
+                if (overlay) {
+                    overlay.classList.toggle('hidden');
+                }
+            }
+          }
+
+          async function loadHandbookContent() {
+            try {
+              const formData = new FormData();
+              formData.append('action', 'getAllContent');
+              
+              const response = await fetch('handbookHandler.php', {
+                method: 'POST',
+                body: formData
+              });
+              
+              const data = await response.json();
+              if (data.success && data.content) {
+                Object.entries(data.content).forEach(([sectionId, content]) => {
+                  const section = document.getElementById(sectionId);
+                  if (section) {
+                    const contentDiv = section.querySelector('.handbook-content');
+                    if (contentDiv) {
+                      if (!contentDiv.hasAttribute('data-original-html')) {
+                        contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
+                      }
+                      contentDiv.innerHTML = content;
+                    }
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Error loading handbook content:', error);
+            }
+          }
+
+          loadHandbookContent();
     </script>
 
 <style>
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   html { scroll-behavior: smooth; }
 
   [id] {
@@ -189,49 +370,118 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
   .dark .active-toc-link {
     color: #60a5fa !important;
   }
+
+  .ql-container.ql-snow {
+    border-color: #d1d5db;
+  }
+
+  .ql-editor {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  .ql-toolbar.ql-snow {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+  }
+
+  .ql-toolbar.ql-snow button,
+  .ql-toolbar.ql-snow .ql-picker-label,
+  .ql-toolbar.ql-snow .ql-picker-item {
+    color: #374151;
+  }
+
+  .ql-toolbar.ql-snow button svg,
+  .ql-toolbar.ql-snow .ql-picker-label svg {
+    fill: currentColor;
+  }
+
+  .dark .ql-container.ql-snow {
+    border-color: #374151;
+  }
+
+  .dark .ql-toolbar.ql-snow {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .dark .ql-toolbar.ql-snow button,
+  .dark .ql-toolbar.ql-snow .ql-picker-label,
+  .dark .ql-toolbar.ql-snow .ql-picker-item {
+    color: #e5e7eb;
+  }
+
+  .dark .ql-toolbar.ql-snow .ql-stroke {
+    stroke: #e5e7eb;
+  }
+
+  .dark .ql-toolbar.ql-snow .ql-fill {
+    fill: #e5e7eb;
+  }
+
+  .dark .ql-editor {
+    background-color: #111827;
+    color: #e5e7eb;
+  }
+
+  .dark .ql-editor.ql-blank::before {
+    color: #6b7280;
+  }
 </style>
 
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1E293B] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
-  <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
+<body class="bg-gray-50 dark:bg-[#1E293B] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable] overflow-hidden">
+  <div id="sidebarWrapper">
+    <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
+  </div>
 
-  <!-- Fixed Header -->
-  <header class="fixed top-0 left-64 right-0 z-50 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm">
-    <?php include __DIR__ . '/../../includes/header.php'; ?>
-  </header>
+  <div id="sidebarOverlay"
+       onclick="toggleSidebar()"
+       class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
 
-  <!-- Main Container -->
-  <div class="ml-64 h-screen flex">
-    <!-- Main Content Area (Scrollable) -->
-<main class="flex-1 overflow-hidden custom-scrollbar">
-  <div class="p-8 flex gap-10">
-    <!-- Content Column -->
-    <div class="flex-1 overflow-visible max-w-8xl pt-20">
-      <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 
-            rounded-lg shadow-sm pl-20 pb-20 pr-20 pt-[3.5rem] 
-            overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar">
+      <header class="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm md:left-64">
+        <?php include __DIR__ . '/../../includes/header.php'; ?>
+      </header>
 
-        <!-- Header title + PDF download -->
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-5xl font-bold text-gray-800 dark:text-gray-100">
-            <?php echo htmlspecialchars($pageTitle); ?>
-          </h2>
-          <a
-            href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
-            download
-            class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
-          >
-            Download PDF
-          </a>
+      <main class="flex-1 h-screen overflow-y-auto max-w-full">
+        <div class="pt-20 md:pt-28 p-4 md:p-8 md:ml-64">
+          <div class="flex flex-col gap-6 lg:flex-row lg:gap-10 max-w-full items-start">
+          <div class="flex-1 min-w-0 max-w-full bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 pt-6 md:p-12 overflow-x-hidden">
+
+              <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+                <h2 class="text-3xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
+                  <?php echo htmlspecialchars($pageTitle); ?>
+                </h2>
+          <div class="flex gap-3">
+            <a
+              href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
+              download
+              class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
+            >
+              Download PDF
+            </a>
+            <?php if ($isSuperAdmin): ?>
+              <button
+                onclick="openUploadPDFModal()"
+                class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
+              >
+                Upload PDF
+              </button>
+            <?php endif; ?>
+          </div>
         </div>
 
            <!-- ================= GENERAL INFORMATION ================= -->
-<section id="general-info" class="space-y-6 text-justify text-lg">
+<section id="general-info" class="space-y-6 text-justify text-lg max-w-full">
   <h3 class="text-3xl font-semibold mb-4">GENERAL INFORMATION</h3>
 
   <div id="sti-history">
     <h4 class="font-semibold text-2xl">STI History</h4>
+    <div class="handbook-content">
+    <?php if (isset($handbookContent['sti-history'])) {
+        echo $handbookContent['sti-history'];
+    } else { ?>
     <p>
       <br>It all started when four visionaries conceptualized setting up a training center to fill very specific workforce needs.<br><br>
       It was in the early ‘80s when Augusto C. Lagman, Herman T. Gamboa, Benjamin A. Santos, and Edgar H. Sarte — four entrepreneurs and friends — came together to set up Systems Technology Institute, a training center that delivers basic programming education to professionals and students who want to learn this new skill.<br><br>
@@ -246,53 +496,65 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
       Moreover, after years of positioning itself as an IT school focused on providing high-quality education to the Filipino youth, STI slowly integrated itself into the education industry as a school that provides boundless career opportunities in non-IT programs such as Business and Management, Hospitality Management, Tourism Management, Engineering, Arts and Sciences, Maritime, and Criminal Justice Education.<br><br>
       With its wealth of experience in launching education programs needed by the market, STI also responded to the shift in the education landscape in 2013 by taking the lead in the country as the largest pioneer school to offer the Senior High School Program.
     </p>
+    <?php } ?>
+    </div>
   </div>
 
   <div id="sti-vision">
     <h4 class="font-semibold text-2xl">STI Vision</h4>
-    <p><br>
-      To be the leader in innovative and relevant education that nurtures individuals to become competent and responsible members of society.
-    </p>
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['sti-vision'])) {
+        echo $handbookContent['sti-vision'];
+      } else { ?>
+      <p><br>
+        To be the leader in innovative and relevant education that nurtures individuals to become competent and responsible members of society.
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="sti-mission">
     <h4 class="font-semibold text-2xl">STI Mission</h4>
-    <p><br>
-      We are an institution committed to provide knowledge through the development and delivery of superior learning systems.<br><br>
-      We strive to provide optimum value to all our stakeholders — our students, our faculty members, our employees, our partners, our shareholders, and our community.<br><br>
-      We will pursue this mission with utmost integrity, dedication, transparency, and creativity.
-    </p>
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['sti-mission'])) {
+        echo $handbookContent['sti-mission'];
+      } else { ?>
+      <p><br>
+        We are an institution committed to provide knowledge through the development and delivery of superior learning systems.<br><br>
+        We strive to provide optimum value to all our stakeholders — our students, our faculty members, our employees, our partners, our shareholders, and our community.<br><br>
+        We will pursue this mission with utmost integrity, dedication, transparency, and creativity.
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="sti-seal">
     <h4 class="font-semibold text-2xl">STI Academic Seal</h4>
-    <p>
+    <div class="handbook-content">
+      <div>
         <br>The STI Academic Seal is designed to signify the institution’s commitment to its vision and mission.<br><br>
-    <div class="flex justify-center my-6">
-        <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm">
-            <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" class="w-40 h-40 object-contain"/>
+        <div class="flex justify-center my-6">
+            <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm max-w-full">
+                <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" class="w-40 h-40 max-w-full object-contain"/>
+            </div>
         </div>
-    </div>
         The seal embodies the academic character of the institution through the following four (4) elements: <br><br>
         • The <strong>laurel leaves</strong>, symbolizing academic excellence, emphasize STI’s commitment
             to provide every student with holistic development through technology-enhanced,
             student-centered active learning.
-<br><br>            
+        <br><br>            
         • The <strong>flame</strong>, symbolizing enlightenment, represents STI’s undying commitment and
             passion to transform its students to become lifelong learners.
-<br><br>
-            • The <strong>flame bearers</strong>, represented by the academic institution on one side and its
+        <br><br>
+        • The <strong>flame bearers</strong>, represented by the academic institution on one side and its
             student body on the other, exemplify the entire STI community united by a shared
             purpose of using their knowledge, skills, values, experience, and abilities for the
             benefit of society.
-<br><br>
-            • The Latin inscription <strong>“Vita Educationem”</strong> translates to “Life Education,” which
+        <br><br>
+        • The Latin inscription <strong>"Vita Educationem"</strong> translates to "Life Education," which
             captures the overall thrust of the institution to provide Education for Real Life.
-    </p>
-  </div>
-
-  <div id="sti-philosophy">
-    <h4 class="font-semibold text-3xl">STI Educational Philosophy</h4>
+      </div>
+    </div>
   </div>
 
   <div id="sti-way">
@@ -310,7 +572,6 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
         <br>An STIer is a person of character. An STIer takes responsibility for their actions, treats people with respect, and lives with integrity. 
     </p>
   </div>
-
 
   <div id="critical-thinker">
     <h4 class="font-semibold text-2xl">Critical Thinker</h4>
@@ -349,7 +610,6 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
         • use what was learned — the acquired knowledge and skills may stick to the learner if they are given the chance to recall, teach, and perform them;<br><br>
         • recall the lessons learned — the student must reflect on the things they learned and go back to the process of how they learned; and <br><br>
         • move forward, stretching himself/herself further by planning on their next steps 
-
     </p>
   </div>
 
@@ -411,19 +671,25 @@ Department of Education’s requirements.
 </section>
 
 <!-- ================= ACADEMIC POLICIES & PROCEDURES ================= -->
-<section id="academic-policies" class="space-y-6 text-justify text-lg mt-16">
+<section id="academic-policies" class="space-y-6 text-justify text-lg mt-16 max-w-full">
   <h3 class="text-3xl font-semibold mb-4">ACADEMIC POLICIES & PROCEDURES</h3>
 
   <div id="school-student-relationship">
     <h4 class="font-semibold text-2xl">School-Student Relationship</h4>
-    <p>
-      <br>A student who submitted the admission requirements and is fully admitted to the school
+    <div class="handbook-content">
+      <?php if (isset($handbookContent['school-student-relationship'])) {
+        echo $handbookContent['school-student-relationship'];
+      } else { ?>
+      <p>
+        <br>A student who submitted the admission requirements and is fully admitted to the school
 has already entered into a legal contract with the school. The enrollment form is the first
 contract that binds the student and the school. Both parties are expected to promote and
 protect their mutual interests and fulfill their responsibilities and obligations as stated in
 this handbook. Parents/guardians must also acquaint themselves with the content and
 provisions in this handbook.
-    </p>
+      </p>
+      <?php } ?>
+    </div>
   </div>
 
   <div id="admission-policy">
@@ -447,7 +713,6 @@ to any academic program:</p>
       <li>Medical certificate of chest X-ray results</li>
       <li>Medical certificate of Hepatitis A & B screening for BSHM, BSCM, HRA, DHRT, HRS, and HOP applicants</li>
       <li>Accomplished and signed Health Status and Acknowledgement of Disability Form</li>
-
     </ol>
   </div>
 
@@ -535,7 +800,6 @@ educational program at STI.
       <br>Since a graduate shall carry the name of STI, a minimum residency is prescribed to ensure
 the quality of learning and immersion into the STI culture. A minimum residence for
 graduation from the school is one (1) school year with a minimum total load of 30 units.
-
     </p>
   </div>
 
@@ -705,7 +969,7 @@ of activities to be observed unless otherwise changed by the school officials.
 
   <p><b>4. According to Year Level</b>, students are classified according to the percentage of credited units successfully completed:</p>
 
-  <div class="overflow-x-auto mt-4">
+  <div class="overflow-x-auto max-w-full mt-4">
     <table class="min-w-full border border-gray-400 text-center">
       <thead>
         <tr>
@@ -808,7 +1072,7 @@ provided they meet the following conditions:
 
     <div id="conditions-overload">
     <h4 class="font-semibold text-2xl">Conditions for Student Overload Units</h4>
-    <div class="overflow-x-auto mt-4">
+    <div class="overflow-x-auto max-w-full mt-4">
     <table class="min-w-full border border-gray-400 text-left text-base">
       <thead>
         <tr>
@@ -924,7 +1188,7 @@ a passing grade.
     The school adopts the following grading system with the corresponding equivalence:
   </p>
 
-  <div class="overflow-x-auto mb-6">
+  <div class="overflow-x-auto max-w-full mb-6">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -963,7 +1227,7 @@ a passing grade.
     The Course Grade is the measure of the student’s level of achievement in a course. It is given upon completion of all course requirements and is based on the weighted average of the periodical scores.
   </p>
 
-  <div class="overflow-x-auto mb-4">
+  <div class="overflow-x-auto max-w-full mb-4">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -985,7 +1249,7 @@ a passing grade.
   </p>
 
   <h5 class="font-semibold mb-2">Example:</h5>
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -1020,7 +1284,7 @@ a passing grade.
     Below is a sample breakdown of periodical score components:
   </p>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -1042,7 +1306,6 @@ a passing grade.
     </table>
   </div>
 </div>
-
 
   <div id="release-of-grades">
     <h4 class="font-semibold text-2xl">Release of Grades</h4> <br>
@@ -1089,7 +1352,7 @@ a passing grade.
     <p class="text-center">GWA = TCP / TUn</p>
   </div>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -1157,7 +1420,7 @@ maximum allowable absences will be given a grade of 5.00 with AWOL status.
     This maximum number of absences depends on the required class meetings per course that is equivalent to the following:
   </p>
 
-  <div class="overflow-x-auto mb-6">
+  <div class="overflow-x-auto max-w-full mb-6">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -1197,7 +1460,6 @@ maximum allowable absences will be given a grade of 5.00 with AWOL status.
     The student is expected to be responsible for keeping a record of their attendance in their enrolled courses.
     However, this may be verified with the concerned faculty member.
   </p>
-    </p>
   </div>
 
   <div id="waiting-period">
@@ -1342,7 +1604,6 @@ requirements of the particular program.
     </li>
     <li>Graduation fees</li>
   </ul>
-    </p>
   </div>
 
   <div id="payment-schemes">
@@ -1358,7 +1619,7 @@ requirements of the particular program.
     <br>Installment payments are broken down as follows:
   </p>
 
-  <div class="overflow-x-auto mb-6">
+  <div class="overflow-x-auto max-w-full mb-6">
     <table class="min-w-full border border-gray-400 text-sm">
       <thead>
         <tr>
@@ -1414,9 +1675,9 @@ requirements of the particular program.
 
   <h5 class="font-semibold text-xl mb-3">The schedule is as follows:</h5>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg">
-      <thead >
+      <thead>
         <tr>
           <th class="border border-gray-400 px-4 py-2 font-semibold">Date of filing for Dropping/Withdrawal</th>
           <th class="border border-gray-400 px-4 py-2 font-semibold">Penalty Charge</th>
@@ -1427,7 +1688,7 @@ requirements of the particular program.
           <td class="border border-gray-400 px-4 py-2">Before the start of classes</td>
           <td class="border border-gray-400 px-4 py-2">Registration fee for the term</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2">Within seven (7) calendar days from the start of classes</td>
           <td class="border border-gray-400 px-4 py-2">10% of the total amount due for the term</td>
         </tr>
@@ -1475,7 +1736,7 @@ students will not be allowed to join the graduation rites until the dues are set
     at the end of every regular term of each school year through the Dean’s and President’s Honors List. <br><br>
   </p>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg mb-6">
       <thead>
         <tr>
@@ -1507,7 +1768,7 @@ students will not be allowed to join the graduation rites until the dues are set
           </td>
         </tr>
 
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold align-top">Specific conditions for inclusion in the list</td>
           <td class="border border-gray-400 px-4 py-2 align-top">
             <ol class="list-decimal pl-6 space-y-2" start="3">
@@ -1555,9 +1816,9 @@ students will not be allowed to join the graduation rites until the dues are set
     In addition, the student eligible for the President’s Honors List (PHL) is qualified to apply for a discount on tuition fees for the succeeding regular term depending on the GWA of the term for which the honor was earned. The application for a scholarship must be made before the start of the regular term. The discount on tuition fees is only applicable to the school that awarded the PHL scholarship and cannot be used in another STI campus. <br><br>
   </p>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg">
-      <thead >
+      <thead>
         <tr>
           <th class="border border-gray-400 px-4 py-2 font-semibold">GWA</th>
           <th class="border border-gray-400 px-4 py-2 font-semibold">% discount on Tuition Fee</th>
@@ -1568,7 +1829,7 @@ students will not be allowed to join the graduation rites until the dues are set
           <td class="border border-gray-400 px-4 py-2">1.00 to 1.10</td>
           <td class="border border-gray-400 px-4 py-2">100%</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2">1.11 to 1.30</td>
           <td class="border border-gray-400 px-4 py-2">50%</td>
         </tr>
@@ -1760,7 +2021,7 @@ enrolled in the succeeding term.
 
   <div id="matrix-academic-delinquency">
     <h4 class="font-semibold text-2xl">Matrix of Academic Delinquency Status</h4>
-     <div class="overflow-x-auto">
+     <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-left text-lg">
       <thead>
         <tr>
@@ -1782,7 +2043,7 @@ enrolled in the succeeding term.
           <td class="border border-gray-400 px-4 py-2 text-center">1st Probationary</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Final Probationary</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold text-center">Warning</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Good</td>
           <td class="border border-gray-400 px-4 py-2 text-center">1st Probationary</td>
@@ -1796,7 +2057,7 @@ enrolled in the succeeding term.
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
         </tr>
-        <tr >
+        <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold text-center">Final Probationary</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Good</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
@@ -1871,7 +2132,7 @@ the Faculty Member concerned.
     <li>Complete admission requirements</li>
     <li>
       Official registrant of the STI Interactive Career Assistance and Recruitment System
-      (<a href="http://www.i-cares.com">www.i-cares.com</a>)
+      (<a href="http://www.i-cares.com" class="text-blue-500 hover:underline">www.i-cares.com</a>)
     </li>
   </ul>
   </div>
@@ -1909,7 +2170,7 @@ academics but also non-academics.
     Awarded honors are based on the earned cumulative GWA of a student as follows:
   </p>
 
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="min-w-full border border-gray-400 text-lg">
       <thead>
         <tr>
@@ -1942,7 +2203,7 @@ academics but also non-academics.
   <div id="eligibility-honors">
     <h4 class="font-semibold text-2xl">Eligibility for Honors</h4>
     <br>
-      <ul class="list-decimal list-inside text-lg space-y-2">
+     <ul class="list-decimal list-inside text-lg space-y-2">
     <li>Must have no grade lower than 2.25 in any course credited to the program they are graduating from.</li>
     <li>At least 75% of the total units earned towards the degree must have been taken in any STI school.</li>
     <li>Must have no record of a major offense throughout their stay in STI.</li>
@@ -2038,7 +2299,7 @@ projects in the entire STI network.
 </section>
 
 <!-- ================= STUDENT SERVICES ================= -->
-<section id="student-services" class="space-y-6 text-justify text-lg mt-16">
+<section id="student-services" class="space-y-6 text-justify text-lg mt-16 max-w-full">
   <h3 class="text-3xl font-semibold mb-4">STUDENT SERVICES</h3>
             In its commitment to supporting and helping students reach their highest
 potential, STI offers various programs and services, which include:<br>
@@ -2265,16 +2526,14 @@ and sports activities.
   <div id="security-safety">
     <h4 class="font-semibold text-2xl">Security and Safety Services</h4>
     <p>
-          <p>
-  Security and Safety Services are provided by the school, your second home. The following measures are implemented to ensure a safe and sound learning environment for all students: <br><br>
-</p>
+      Security and Safety Services are provided by the school, your second home. The following measures are implemented to ensure a safe and sound learning environment for all students: <br><br>
+    </p>
 
 <ol class="pl-6 space-y-3">
   <li>a.  Installation of CCTV cameras in the campus</li>
   <li>b.  Deployment of licensed and competent security personnel to do periodic rounds and random bag inspection and frisking</li>
   <li>c.  Safe, accessible (for persons with disabilities), and secure environment, buildings, and facilities that comply with government standards</li>
 </ol>
-    </p>
   </div>
 
   <div id="maintenance">
@@ -2289,7 +2548,7 @@ and prevent communicable diseases.
 </section>
 
 <!-- ================= STUDENT BEHAVIOR & DISCIPLINE ================= -->
-<section id="student-behavior" class="space-y-6 text-justify text-lg mt-16">
+<section id="student-behavior" class="space-y-6 text-justify text-lg mt-16 max-w-full">
   <h3 class="text-3xl font-semibold mb-4">STUDENT BEHAVIOR & DISCIPLINE</h3>
             <br>As part of the STI community, you are expected to act with maturity,
 integrity, and respect for people in authority, for your fellow students and
@@ -2306,9 +2565,9 @@ oneself, others, and to STI as an academic institution.
 
   <div id="school-id">
     <h4 class="font-semibold text-2xl">School Identification Card</h4>
-    <p>
-<ol type="1" class="list-decimal list-inside space-y-2">
-  <br><li>An official school identification (ID) card shall be issued to bona fide STI students.</li>
+    <div>
+<ol type="1" class="list-decimal list-inside space-y-2"><br>
+  <li>An official school identification (ID) card shall be issued to bona fide STI students.</li>
   <li>The ID (including the official strap) shall be part of the uniform and must be worn properly and visibly displayed at all times while inside the campus.</li>
   <li>The ID shall be free from any alteration or modification.</li>
   <li>The ID is non-transferable. It must not be tampered with or misused.</li>
@@ -2319,20 +2578,20 @@ oneself, others, and to STI as an academic institution.
   <li>Students found guilty of giving false information regarding their ID shall be charged with a major offense.</li>
   <li>Only the STI official or endorsed school uniform is the acceptable attire for the ID picture taking of students.</li>
 </ol>
-</p>
+</div>
   </div>
 
     <div id="school-id-replacement">
     <h4 class="font-semibold text-2xl">Procedure for ID Card Replacement</h4>
-    <p>
-<ol type="1" class="list-decimal list-inside space-y-2">
-  <br><li>For lost IDs, secure a temporary gate pass from the school guard.</li>
+    <div>
+<ol type="1" class="list-decimal list-inside space-y-2"><br>
+  <li>For lost IDs, secure a temporary gate pass from the school guard.</li>
   <li>Secure and fill out an Application for ID Replacement Form from the Registrar’s Office.</li>
   <li>Submit the accomplished form to the Registrar’s Office together with the notarized affidavit of loss or the damaged ID.</li>
   <li>Pay the corresponding replacement fee to the Cashier.</li>
   <li>Obtain your temporary ID by presenting the official receipt to the Registrar’s Office.</li>
 </ol>
-    </p>
+    </div>
   </div>
 
   <div id="student-uniform">
@@ -2370,7 +2629,7 @@ be higher than three (3) inches from the knee and slits should not reach the upp
 
   <div id="grooming-haircut">
     <h4 class="font-semibold text-2xl">Grooming and Haircut</h4>
-    <p><br>
+    <div><br>
       <ul class="list-disc list-inside space-y-2">
   <li>Hair must be kept neat, clean, and well-groomed.</li>
   <li>Colored hair is allowed.</li>
@@ -2384,7 +2643,7 @@ be higher than three (3) inches from the knee and slits should not reach the upp
   Specific programs, courses, or activities may require additional mandates for student appearance. For such cases, notices shall be provided by STI accordingly.
 </p>
 
-    </p>
+    </div>
   </div>
 
   <div id="student-decorum">
@@ -2506,7 +2765,7 @@ of women and men
   <div id="prohibited-items">
     <h4 class="font-semibold text-2xl">Smoking, Vaping, Prohibited Drugs, Paraphernalia
 or Illegal Substances, and Dangerous Weapons</h4>
-  <br>STI is committed to maintaining and sustaining a safe, healthy, and conducive learning environment for its students that should be entirely free from smoking, prohibited drugs, paraphernalia, and illegal substances, as well as deadly weapons or dangerous materials or instruments. <br><br>
+  <p><br>STI is committed to maintaining and sustaining a safe, healthy, and conducive learning environment for its students that should be entirely free from smoking, prohibited drugs, paraphernalia, and illegal substances, as well as deadly weapons or dangerous materials or instruments. <br><br>
 
   To ensure that this is achieved, the following measures shall be observed:
 </p>
@@ -2522,7 +2781,7 @@ or Illegal Substances, and Dangerous Weapons</h4>
 
    <div id="random-drug-testing">
     <h4 class="font-semibold text-2xl">Random Drug Testing</h4>
-    <p>
+    <div>
 
     <br>With its commitment to provide optimum value to its stakeholders and to ensure that the
 students are free from the use of dangerous drugs, STI complies with the provisions in
@@ -2554,7 +2813,7 @@ practitioners, or social worker, in consultation with parents/guardians.<br><br>
 However, a student who has undergone an intervention program but was found to be
 “confirmed positive” for the second time shall be sanctioned with either non-readmission or
 expulsion in accordance with the STI Drug Testing Policy.
-    </p>
+    </div>
   </div>  
 
    <div id="electronic-gadget-rule">
@@ -2576,7 +2835,7 @@ or repair.</p>
     <h4 class="font-semibold text-2xl">Social Media Policy</h4>
     <p><br>STI is dedicated to nurturing an environment of mutual respect wherein members of its community are engaged in positive and responsible online behavior. Students and other members of the STI community are expected to be cautious when engaging in any action on social media that may impact the privacy, dignity, or rights of the school, groups, or individuals, including themselves. This shall be accomplished by:</p>
 <br>
-<ol type= "1" class="list-decimal list-inside space-y-2 ml-6">
+<ol type="1" class="list-decimal list-inside space-y-2 ml-6">
     <li>Reflecting on the potential impact of the content to be shared or posted to themselves or to others<br></li>
     <li>Maintaining appropriate boundaries when interacting with school personnel on social media<br></li>
     <li>Adhering to intellectual property rights<br></li>
@@ -2592,7 +2851,7 @@ or repair.</p>
     <p><br>
     In accordance with the Data Privacy Act of 2012 (RA 10173), STI is committed to ensuring the confidentiality and security of information provided to the schools.<br>
     General provisions on how the institutions use, store, and retain collected information can be accessed via
-    <a href="https://www.sti.edu/dataprivacy.asp">https://www.sti.edu/dataprivacy.asp</a>.
+    <a href="https://www.sti.edu/dataprivacy.asp" class="text-blue-500 hover:underline">https://www.sti.edu/dataprivacy.asp</a>.
     To help keep confidential details secure, students and other members of the STI community should observe the following:<br><br>
   </p>
   <ol type="1" class="list-decimal list-inside space-y-2 ml-6">
@@ -2729,7 +2988,7 @@ of justice to help them achieve self-discipline, as well as to enjoin them in de
 and sustaining an atmosphere conducive to learning.
     </p>
   </div>
-     
+      
     <div id="corrective-actions">
     <h4 class="font-semibold text-2xl">Corrective Actions to Minor and Major Offenses</h4>
     <p>
@@ -2737,7 +2996,7 @@ and sustaining an atmosphere conducive to learning.
 severity of the offense/s done by an erring student.
     </p>
   </div>
-       
+        
     <div id="verbal-oral-warning">
     <h4 class="font-semibold text-2xl">Verbal/Oral Warning</h4>
     <p>
@@ -2867,11 +3126,11 @@ are considered criminal pursuant to existing penal laws.<br><br>
 The institution shall forward a complete record of the proceedings to the CHED
 Regional Office concerned within 10 days from the termination of the investigation
 of each case.</p>
-  </div>
- 
+
   <!-- Info under Expulsion -->
-    <p>________________________________________________________________________________</p>
-      <br>Imposition of sanctions cited in this handbook shall not in any way prejudice the filing
+  <hr class="my-6 border-gray-300 dark:border-slate-700">
+  <p>
+      Imposition of sanctions cited in this handbook shall not in any way prejudice the filing
 of cases in and the implementation of penalties prescribed by a court of law.<br><br>
 
 Also, in cases that involve significant damage or destruction of property, the Discipline
@@ -2881,6 +3140,7 @@ activities, a failing grade shall be given in the particular examination or acti
 
 All sanctions shall go along with a one-on-one session with the School’s Guidance
 Counselor or Associate.</p>
+  </div>
   
   <div id="offenses">
     <h4 class="font-semibold text-2xl">Offenses</h4>
@@ -2897,26 +3157,28 @@ and institutional rules and regulations.
     The sanctions imposed for the commission of these offenses are:
   </p>
 
-  <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
-    <thead>
-      <tr>
-        <th class="border border-gray-400 px-3 py-2 font-semibold">First offense</th>
-        <th class="border border-gray-400 px-3 py-2 font-semibold">Verbal Warning</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="border border-gray-400 px-3 py-2">Second offense</td>
-        <td class="border border-gray-400 px-3 py-2">Written Reprimand</td>
-      </tr>
-      <tr>
-        <td class="border border-gray-400 px-3 py-2">Third offense</td>
-        <td class="border border-gray-400 px-3 py-2">
-          Written Reprimand &amp; Corrective Reinforcement (minimum of three (3) school days, maximum of seven (7) school days)
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="overflow-x-auto max-w-full">
+    <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
+      <thead>
+        <tr>
+          <th class="border border-gray-400 px-3 py-2 font-semibold">First offense</th>
+          <th class="border border-gray-400 px-3 py-2 font-semibold">Verbal Warning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="border border-gray-400 px-3 py-2">Second offense</td>
+          <td class="border border-gray-400 px-3 py-2">Written Reprimand</td>
+        </tr>
+        <tr>
+          <td class="border border-gray-400 px-3 py-2">Third offense</td>
+          <td class="border border-gray-400 px-3 py-2">
+            Written Reprimand &amp; Corrective Reinforcement (minimum of three (3) school days, maximum of seven (7) school days)
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
   <p>
     Offenses under this category include but are not limited to the following:
@@ -2954,32 +3216,34 @@ and institutional rules and regulations.
       The sanctions imposed for the commission of these offenses are:
     </p>
 
-    <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
-      <thead>
-        <tr>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">First offense</td>
-          <td class="border border-gray-400 px-3 py-2">
-            Written Reprimand &amp; Corrective Reinforcement (minimum of three (3) school days, maximum of seven (7) school days)
-          </td>
-        </tr>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">Second offense</td>
-          <td class="border border-gray-400 px-3 py-2">
-            Suspension (minimum of three (3) school days, maximum of seven (7) school days)
-          </td>
-        </tr>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">Third offense</td>
-          <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="overflow-x-auto max-w-full">
+      <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
+        <thead>
+          <tr>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">First offense</td>
+            <td class="border border-gray-400 px-3 py-2">
+              Written Reprimand &amp; Corrective Reinforcement (minimum of three (3) school days, maximum of seven (7) school days)
+            </td>
+          </tr>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">Second offense</td>
+            <td class="border border-gray-400 px-3 py-2">
+              Suspension (minimum of three (3) school days, maximum of seven (7) school days)
+            </td>
+          </tr>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">Third offense</td>
+            <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <p>
       Offenses under this category include but are not limited to the following:
@@ -3012,26 +3276,28 @@ and institutional rules and regulations.
       The sanctions imposed for the commission of these offenses are:
     </p>
 
-    <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
-      <thead>
-        <tr>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">First offense</td>
-          <td class="border border-gray-400 px-3 py-2">
-            Suspension (minimum of three (3) school days, maximum of seven (7) school days)
-          </td>
-        </tr>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">Second offense</td>
-          <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="overflow-x-auto max-w-full">
+      <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
+        <thead>
+          <tr>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">First offense</td>
+            <td class="border border-gray-400 px-3 py-2">
+              Suspension (minimum of three (3) school days, maximum of seven (7) school days)
+            </td>
+          </tr>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">Second offense</td>
+            <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <p>
       Offenses under this category include but are not limited to the following:
@@ -3061,26 +3327,28 @@ and institutional rules and regulations.
 
     <p><br>The sanctions imposed for the commission of these offenses are:</p>
 
-    <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
-      <thead>
-        <tr>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
-          <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">First offense</td>
-          <td class="border border-gray-400 px-3 py-2">
-            Suspension (minimum of seven (7) school days, maximum of ten (10) school days)
-          </td>
-        </tr>
-        <tr>
-          <td class="border border-gray-400 px-3 py-2">Second offense</td>
-          <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="overflow-x-auto max-w-full">
+      <table class="table-auto border-collapse border border-gray-400 my-4 w-full text-left">
+        <thead>
+          <tr>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Offense</th>
+            <th class="border border-gray-400 px-3 py-2 font-semibold">Sanction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">First offense</td>
+            <td class="border border-gray-400 px-3 py-2">
+              Suspension (minimum of seven (7) school days, maximum of ten (10) school days)
+            </td>
+          </tr>
+          <tr>
+            <td class="border border-gray-400 px-3 py-2">Second offense</td>
+            <td class="border border-gray-400 px-3 py-2">Non-readmission</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <p>
       Offenses under this category include but are not limited to the following: <br><br>
@@ -3152,7 +3420,7 @@ and institutional rules and regulations.
     </ol>
   </div>
     
-  <div id="offenses">
+  <div id="unlisted-offenses">
     <h4 class="font-semibold text-2xl">Disciplinary Cases or Offenses Not Written in the Student Handbook</h4>
     <p><br>Disciplinary cases or offenses not written in the Student Handbook are subject to the review
 of the Discipline Committee and school administration in the interest of upholding the ideal
@@ -3162,7 +3430,7 @@ learning environment and of the STI Community.</p>
 </section>
 
 <!-- ================= APPENDICES ================= -->
-<section id="appendices" class="space-y-12 text-justify text-lg mt-16">
+<section id="appendices" class="space-y-12 text-justify text-lg mt-16 max-w-full">
   <h3 class="text-3xl font-semibold mb-6">APPENDICES</h3>
 
   <!-- Appendix A -->
@@ -3255,15 +3523,11 @@ learning environment and of the STI Community.</p>
   </div>
 </section>
 
-
-
-
-    </div>
-    </div>
+          </div>
     
         <!-- Table of Contents Sidebar (Sticky) -->
-        <aside class=" hidden xl:block w-96  flex-shrink-0">
-          <div class=" sticky top-[7rem] max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
+        <aside class="hidden lg:block w-80 flex-shrink-0 sticky top-[7rem]">
+          <div class="max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
             
             <!-- Search Container -->
             <div class="sticky top-0 z-10 bg-gray-200 dark:bg-[#111827] border-b-2 border-gray-400 dark:border-slate-700 shadow-md px-3 pb-2 pt-4 rounded-t-lg">
@@ -3280,11 +3544,11 @@ learning environment and of the STI Community.</p>
             </div>
 
     <!-- TOC Content -->
-    <h3 class="text-gray-700 dark:text-gray-300 font-bold pt-4 pl-4 mb-5 uppercase tracking-wide text-2xl">
+    <h3 class="text-gray-700 dark:text-gray-300 font-bold pt-4 pl-4 mb-5 uppercase tracking-wide text-xl">
       On this page
     </h3>
 
-    <ul class="space-y-5">
+    <ul class="space-y-4 pb-4">
       <!-- GENERAL INFORMATION -->
       <li>
         <a href="#general-info" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl pl-4">
@@ -3295,7 +3559,7 @@ learning environment and of the STI Community.</p>
           <li><a href="#sti-vision" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Vision</a></li>
           <li><a href="#sti-mission" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Mission</a></li>
           <li><a href="#sti-seal" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Academic Seal</a></li>
-          <li><a href="#sti-philosophy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
+          <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
           <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Way of Educating</a></li>
           <li><a href="#character" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Character</a></li>
           <li><a href="#critical-thinker" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Critical Thinker</a></li>
@@ -3403,7 +3667,6 @@ learning environment and of the STI Community.</p>
   </ul>
 </li>
 
-
       <!-- STUDENT SERVICES -->
       <li>
         <a href="#student-services" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl mt-3 pl-4">
@@ -3484,10 +3747,9 @@ learning environment and of the STI Community.</p>
     <li><a href="#major-offenses-category-b" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category B</a></li>
     <li><a href="#major-offenses-category-c" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category C</a></li>
     <li><a href="#major-offenses-category-d" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Major Offenses - Category D</a></li>
-    <li><a href="#offenses" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Unlisted Disciplinary Cases</a></li>
+    <li><a href="#unlisted-offenses" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Unlisted Disciplinary Cases</a></li>
   </ul>
 </li>
-
 
       <!-- APPENDICES -->
       <li>
@@ -3503,13 +3765,393 @@ learning environment and of the STI Community.</p>
     </ul>
   </div>
 </aside>
+      </div>
+  </div>
+    </main>
   </div>
 
+<!-- Handbook Edit Modal -->
+<?php if ($isSuperAdmin): ?>
+<script>
+function loadSavedHandbookContent() {
+  const formData = new FormData();
+  formData.append('action', 'getAllContent');
+  
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.content) {
+      Object.keys(data.content).forEach(sectionId => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          let contentWrapper = section.querySelector(':scope > .handbook-content');
+          
+          if (!contentWrapper) {
+            contentWrapper = document.createElement('div');
+            contentWrapper.className = 'handbook-content';
+            
+            const children = Array.from(section.children);
+            for (let i = 1; i < children.length; i++) {
+              contentWrapper.appendChild(children[i]);
+            }
+            section.appendChild(contentWrapper);
+          }
+          
+          contentWrapper.innerHTML = data.content[sectionId];
+        }
+      });
+      console.log('Handbook content loaded from database');
+    }
+  })
+  .catch(error => {
+    console.log('No saved content found or error loading:', error.message);
+  });
+}
 
+function createContentWrappers() {
+  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
+  if (!innerContent) return;
+  
+  const allSectionDivs = innerContent.querySelectorAll('div[id]');
+  
+  allSectionDivs.forEach(div => {
+    const sectionId = div.getAttribute('id');
+    
+    if (['general-info', 'academic-policies', 'student-services', 'student-behavior', 'appendices'].includes(sectionId)) {
+      return;
+    }
+    
+    let contentWrapper = div.querySelector(':scope > .handbook-content');
+    
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'handbook-content';
+      
+      const children = Array.from(div.children);
+      for (let i = 1; i < children.length; i++) {
+        contentWrapper.appendChild(children[i]);
+      }
+      
+      div.appendChild(contentWrapper);
+    }
+  });
+}
 
+function initializeHandbookSections() {
+  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
+  if (!innerContent) return;
+  
+  const allSectionDivs = innerContent.querySelectorAll('div[id]');
+  
+  allSectionDivs.forEach(div => {
+    const sectionId = div.getAttribute('id');
+    
+    if (['general-info', 'academic-policies', 'student-services', 'student-behavior', 'appendices'].includes(sectionId)) {
+      return;
+    }
+    
+    div.classList.add('editable-handbook-section');
+    div.setAttribute('data-section-id', sectionId);
+  });
+  
+  const editableSectionsCount = document.querySelectorAll('.editable-handbook-section').length;
+  console.log(`Handbook initialized: ${editableSectionsCount} sections ready for editing`);
+  
+  initializeEditIcons();
+}
 
-        </main>
+function initializeEditIcons() {
+  const editableSections = document.querySelectorAll('.editable-handbook-section');
+  console.log('Editable sections found:', editableSections.length);
+  
+  editableSections.forEach(section => {
+    const sectionId = section.getAttribute('data-section-id');
+    const heading = section.querySelector('h4');
+    
+    if (!heading) {
+      console.log('No h4 found in section:', sectionId);
+      return;
+    }
+    
+    if (heading.parentElement.classList.contains('handbook-header-wrapper')) return;
+    
+    const headerWrapper = document.createElement('div');
+    headerWrapper.className = 'handbook-header-wrapper flex items-center justify-between';
+    
+    const titleWrapper = document.createElement('div');
+    titleWrapper.className = 'flex items-center';
+    
+    const headingClone = heading.cloneNode(true);
+    titleWrapper.appendChild(headingClone);
+    
+    const iconContainer = document.createElement('span');
+    iconContainer.className = 'ml-2 cursor-pointer text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition';
+    iconContainer.id = `icon-${sectionId}`;
+    
+    const icon = createPencilIcon();
+    iconContainer.appendChild(icon);
+    iconContainer.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startEditingSection(sectionId);
+    };
+    titleWrapper.appendChild(iconContainer);
+    
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'edit-buttons-container flex items-center gap-2 mt-3';
+    buttonsContainer.id = `buttons-${sectionId}`;
+    buttonsContainer.style.display = 'none';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'bg-gray-600 hover:bg-gray-700 text-white font-medium px-3 py-1 rounded-lg shadow transition';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => cancelEditSection(sectionId);
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1 rounded-lg shadow transition';
+    saveBtn.textContent = 'Save';
+    saveBtn.onclick = () => saveSectionEdit(sectionId);
+    
+    buttonsContainer.appendChild(cancelBtn);
+    buttonsContainer.appendChild(saveBtn);
+    
+    headerWrapper.appendChild(titleWrapper);
+    headerWrapper.appendChild(buttonsContainer);
+    
+    heading.replaceWith(headerWrapper);
+    console.log('Added header wrapper to section:', sectionId);
+  });
+}
+
+function startEditingSection(sectionId) {
+  startHandbookEditing(sectionId);
+}
+
+function isSectionDirty(sectionId) {
+  const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+  const contentDiv = section ? section.querySelector('.handbook-content') : null;
+  const originalHtml = contentDiv?.getAttribute('data-original-html') ?? '';
+  const currentHtml = quillEditors[sectionId] ? quillEditors[sectionId].root.innerHTML : (contentDiv?.innerHTML ?? '');
+  return currentHtml !== originalHtml;
+}
+
+function showHandbookConfirmDialog(title, message, confirmText = 'Confirm', confirmClass = 'bg-blue-600 hover:bg-blue-700') {
+  const existing = document.getElementById('handbookConfirmDialog');
+  if (existing) {
+    existing.remove();
+  }
+
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.id = 'handbookConfirmDialog';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
+        </div>
+        <div class="p-6">
+          <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
+        </div>
+        <div class="flex gap-3 p-6 pt-0 justify-end">
+          <button type="button" data-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+          <button type="button" data-confirm class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">${confirmText}</button>
+        </div>
+      </div>
+    `;
+
+    const finish = (value) => {
+      modal.remove();
+      resolve(value);
+    };
+
+    modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
+    modal.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        finish(false);
+      }
+    });
+
+    document.body.appendChild(modal);
+  });
+}
+
+async function cancelEditSection(sectionId, skipConfirm = false) {
+  if (!skipConfirm && handbookUnsavedChanges[sectionId]) {
+    const confirmed = await showHandbookConfirmDialog('Discard Changes', 'You have unsaved changes. Are you sure you want to cancel?', 'Discard', 'bg-red-600 hover:bg-red-700');
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  stopHandbookEditing(sectionId, true);
+}
+
+async function saveSectionEdit(sectionId) {
+  if (!quillEditors[sectionId]) return;
+  
+  const buttonsContainer = document.getElementById(`buttons-${sectionId}`);
+  const saveBtn = buttonsContainer ? buttonsContainer.querySelector('button:last-child') : null;
+
+  if (handbookUnsavedChanges[sectionId]) {
+    const confirmed = await showHandbookConfirmDialog('Save Changes', 'Save the changes you made to this section?', 'Save', 'bg-green-600 hover:bg-green-700');
+    if (!confirmed) {
+      return;
+    }
+  }
+  
+  if (saveBtn) saveBtn.disabled = true;
+  
+  const quill = quillEditors[sectionId];
+  const content = quill.root.innerHTML;
+  
+  const formData = new FormData();
+  formData.append('action', 'updateContent');
+  formData.append('sections', JSON.stringify({ [sectionId]: content }));
+  
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const { contentDiv } = getHandbookSectionElements(sectionId);
+      if (contentDiv) {
+        contentDiv.innerHTML = content;
+        contentDiv.setAttribute('data-original-html', content);
+      }
+      handbookUnsavedChanges[sectionId] = false;
+      stopHandbookEditing(sectionId, false);
+    } else {
+      if (saveBtn) saveBtn.disabled = false;
+      alert('Error saving section: ' + (data.message || 'Unknown error'));
+    }
+  })
+  .catch(error => {
+    if (saveBtn) saveBtn.disabled = false;
+    alert('Error saving section: ' + error.message);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  createContentWrappers();
+  loadSavedHandbookContent();
+  initializeHandbookSections();
+});
+</script>
+<?php endif; ?>
+
+<!-- Upload PDF Modal -->
+<div id="uploadPDFModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+  <div class="bg-white dark:bg-[#111827] rounded-lg shadow-lg max-w-md w-full mx-4">
+    <div class="p-6">
+      <h3 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Upload Student Handbook PDF</h3>
+      
+      <div class="mb-4">
+        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">
+          Select PDF File
+        </label>
+        <input 
+          type="file" 
+          id="pdfFileInput" 
+          accept=".pdf" 
+          class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white"
+        />
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Maximum file size: 50MB</p>
+      </div>
+
+      <div id="uploadStatus" class="mb-4 text-sm"></div>
+
+      <div class="flex gap-3 justify-end">
+        <button
+          onclick="closeUploadPDFModal()"
+          class="px-4 py-2 bg-gray-300 dark:bg-slate-600 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 dark:hover:bg-slate-500 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onclick="uploadPDF()"
+          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+        >
+          Upload
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
 
+<?php if ($isSuperAdmin): ?>
+<script>
+function openUploadPDFModal() {
+  document.getElementById('uploadPDFModal').classList.remove('hidden');
+  document.getElementById('uploadStatus').innerHTML = '';
+  document.getElementById('pdfFileInput').value = '';
+}
 
+function closeUploadPDFModal() {
+  document.getElementById('uploadPDFModal').classList.add('hidden');
+}
+
+function uploadPDF() {
+  const fileInput = document.getElementById('pdfFileInput');
+  const file = fileInput.files[0];
+  const statusDiv = document.getElementById('uploadStatus');
+
+  if (!file) {
+    statusDiv.innerHTML = '<div class="text-red-600">Please select a file</div>';
+    return;
+  }
+
+  if (!file.name.endsWith('.pdf')) {
+    statusDiv.innerHTML = '<div class="text-red-600">Only PDF files are allowed</div>';
+    return;
+  }
+
+  if (file.size > 50 * 1024 * 1024) {
+    statusDiv.innerHTML = '<div class="text-red-600">File size exceeds 50MB limit</div>';
+    return;
+  }
+
+  statusDiv.innerHTML = '<div class="text-blue-600">Uploading...</div>';
+
+  const formData = new FormData();
+  formData.append('action', 'uploadPDF');
+  formData.append('pdf_file', file);
+
+  fetch('handbookHandler.php', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      statusDiv.innerHTML = '<div class="text-green-600 font-medium">PDF uploaded successfully!</div>';
+      setTimeout(() => {
+        closeUploadPDFModal();
+        location.reload();
+      }, 1500);
+    } else {
+      statusDiv.innerHTML = '<div class="text-red-600">' + (data.error || 'Upload failed') + '</div>';
+    }
+  })
+  .catch(error => {
+    statusDiv.innerHTML = '<div class="text-red-600">Error: ' + error.message + '</div>';
+  });
+}
+
+document.getElementById('uploadPDFModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeUploadPDFModal();
+  }
+});
+</script>
+<?php endif; ?>
+  </body>
+</html>

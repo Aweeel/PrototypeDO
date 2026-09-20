@@ -4,7 +4,8 @@
 require_once __DIR__ . '/functions.php';
 
 // Get current page for highlighting
-$currentPage = basename($_SERVER['PHP_SELF']);
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ($_SERVER['PHP_SELF'] ?? '');
+$currentPage = basename($currentPath);
 
 // Default to Dashboard if nothing else is set
 if (empty($currentPage) || $currentPage === 'index.php') {
@@ -43,8 +44,10 @@ switch ($role) {
 }
 ?>
 
-<aside class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
-               bg-[#1E2B3B] dark:bg-[#030712] text-white transition-colors duration-300">
+<aside id="sidebar" 
+       class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
+              bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
+              -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">
@@ -64,9 +67,13 @@ switch ($role) {
     <!-- Navigation -->
     <nav class="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
         <?php foreach ($sidebarItems as $item):
-            $isActive = basename($item['path']) === $currentPage;
+            $itemPath = parse_url($item['path'], PHP_URL_PATH) ?: $item['path'];
+            $itemQuery = [];
+            parse_str(parse_url($item['path'], PHP_URL_QUERY) ?: '', $itemQuery);
+            $isActive = basename($itemPath) === $currentPage
+                && (!isset($itemQuery['severity']) || ($itemQuery['severity'] ?? '') === ($_GET['severity'] ?? 'Major'));
             ?>
-            <a href="<?= htmlspecialchars($item['path']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
+            <a href="<?= htmlspecialchars($item['path']) ?>" title="<?= htmlspecialchars($item['tooltip'] ?? $item['label']) ?>" class="flex items-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 hover:shadow-sm
                       <?= $isActive
                           ? 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white'
                           : 'text-gray-300 hover:bg-[#33475F] dark:hover:bg-slate-700' ?>">

@@ -21,13 +21,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'username' => $user['username'],
                 'email' => $user['email'],
                 'full_name' => $user['full_name'],
-                'role' => $user['role']
+                'role' => $user['role'],
+                'teacher_subrole' => $user['teacher_subrole'] ?? null,
+                'program' => $user['program'] ?? null
             ];
 
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_role'] = $user['role'];
-            $_SESSION['admin_name'] = $user['full_name'];
+            $_SESSION['teacher_subrole'] = $user['teacher_subrole'] ?? null;
+            $_SESSION['program'] = $user['program'] ?? null;
+            
+            // Check if user is using default password and set warning flag
+            $_SESSION['has_default_password'] = userHasDefaultPassword($user['user_id']);
+
+            // Set display name - always use First Name Last Name format (without middle names)
+            if ($user['role'] === 'student') {
+                $pdo = getDBConnection();
+                if ($pdo) {
+                    $stmt = $pdo->prepare("SELECT first_name, last_name FROM students WHERE user_id = ?");
+                    $stmt->execute([$user['user_id']]);
+                    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($student) {
+                        $_SESSION['admin_name'] = $student['first_name'] . ' ' . $student['last_name'];
+                    } else {
+                        $_SESSION['admin_name'] = $user['full_name'];
+                    }
+                } else {
+                    $_SESSION['admin_name'] = $user['full_name'];
+                }
+            } else {
+                // Extract first and last name from full_name (skip middle names)
+                $nameParts = explode(' ', trim($user['full_name']));
+                if (count($nameParts) === 1) {
+                    $_SESSION['admin_name'] = $nameParts[0];
+                } elseif (count($nameParts) === 2) {
+                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . $nameParts[1];
+                } else {
+                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . end($nameParts);
+                }
+            }
+            
             $_SESSION['last_activity'] = time();
+
+            // Handle "Remember Me" checkbox
+            if (isset($_POST['remember_me'])) {
+                // Create a secure token for "remember me" functionality
+                $rememberToken = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $rememberToken);
+                $expiryDate = date('Y-m-d H:i:s', strtotime('+30 days'));
+                
+                // Store token in database
+                $pdo = getDBConnection();
+                if ($pdo) {
+                    try {
+                        $stmt = $pdo->prepare("UPDATE users SET remember_token = ?, remember_token_expiry = ? WHERE user_id = ?");
+                        $stmt->execute([$tokenHash, $expiryDate, $user['user_id']]);
+                    } catch (Exception $e) {
+                        write_log("Remember Me Error: " . $e->getMessage(), 'error');
+                    }
+                }
+                
+                // Set the cookie with the actual token (expires in 30 days)
+                setcookie('remember_me_token', $rememberToken, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+            }
 
             // Log successful login to file
             write_log("LOGIN SUCCESS: {$user['username']} ({$user['role']})", 'login');
@@ -36,7 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logLogin($user['user_id']);
 
             // Redirect based on role
-            if ($user['role'] === 'super_admin' || $user['role'] === 'discipline_office') {
+            if ($user['role'] === 'super_admin') {
+                header('Location: /PrototypeDO/modules/super-admin/systemControl.php');
+            } elseif ($user['role'] === 'discipline_office') {
                 header('Location: /PrototypeDO/modules/do/doDashboard.php');
             } elseif ($user['role'] === 'student') {
                 header('Location: /PrototypeDO/modules/student/studentDashboard.php');

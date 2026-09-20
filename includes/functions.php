@@ -18,6 +18,213 @@ function getUserByUsername($username) {
     return fetchOne($sql, [$username]);
 }
 
+function ensureUsersTeacherSubroleColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT 1 AS column_exists
+                ,DATA_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'teacher_subrole'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE users ADD teacher_subrole NVARCHAR(30) NULL");
+    } else {
+        $dataType = strtolower((string)($columnInfo['DATA_TYPE'] ?? ''));
+        if (!in_array($dataType, ['nvarchar', 'varchar', 'nchar', 'char'], true)) {
+            executeQuery("ALTER TABLE users ALTER COLUMN teacher_subrole NVARCHAR(30) NULL");
+        }
+    }
+
+    $constraintExists = fetchOne(
+        "SELECT 1 AS constraint_exists
+         FROM sys.check_constraints
+         WHERE name = 'CK_users_teacher_subrole'"
+    );
+
+    if (!$constraintExists) {
+        executeQuery("ALTER TABLE users ADD CONSTRAINT CK_users_teacher_subrole CHECK (teacher_subrole IS NULL OR CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head')");
+    }
+
+    $initialized = true;
+}
+
+function ensureCalendarTargetUserColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT 1 AS column_exists
+                ,DATA_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'calendar_events'
+           AND COLUMN_NAME = 'target_user_id'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE calendar_events ADD target_user_id INT NULL");
+    }
+
+    $constraintExists = fetchOne(
+        "SELECT 1 AS constraint_exists
+         FROM sys.foreign_keys
+         WHERE name = 'FK_calendar_events_target_user_id'"
+    );
+
+    if (!$constraintExists) {
+        executeQuery("ALTER TABLE calendar_events ADD CONSTRAINT FK_calendar_events_target_user_id FOREIGN KEY (target_user_id) REFERENCES users(user_id)");
+    }
+
+    $initialized = true;
+}
+
+function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
+    $normalized = strtolower(trim((string)$trackCourse));
+
+    $mapping = [
+        'bsit' => 'Information Technology',
+        'bscs' => 'Information Technology',
+        'bsba' => 'Business & Management',
+        'bsa' => 'Business & Management',
+        'bsma' => 'Business & Management',
+        'bachelor of science in accountancy' => 'Business & Management',
+        'bachelor of science in management accounting' => 'Business & Management',
+        'bshm' => 'Hospitality Management',
+        'bachelor of science in hospitality management' => 'Hospitality Management',
+        'bstm' => 'Tourism Management',
+        'bachelor of science in tourism management' => 'Tourism Management',
+        'bscpe' => 'Engineering',
+        'bachelor of science in computer engineering' => 'Engineering',
+        'bacomm' => 'Arts & Sciences',
+        'bmma' => 'Arts & Sciences',
+        'ba in communication' => 'Arts & Sciences',
+        'bachelor of arts in communication' => 'Arts & Sciences',
+        'bachelor of multimedia arts' => 'Arts & Sciences',
+        'bachelor of arts in psychology' => 'Arts & Sciences',
+        'bs criminology' => 'Criminal Justice Education',
+        'bachelor of science in criminology' => 'Criminal Justice Education'
+    ];
+
+    return $mapping[$normalized] ?? null;
+}
+
+function getDepartmentHeadTeachers($program = null) {
+    ensureUsersTeacherSubroleColumn();
+
+    $sql = "SELECT user_id, full_name, email, program
+            FROM users
+            WHERE role = 'teacher'
+              AND is_active = 1
+              AND CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head'";
+    $params = [];
+
+    if (!empty($program)) {
+        $sql .= " AND program = ?";
+        $params[] = $program;
+    }
+
+    $sql .= " ORDER BY full_name";
+
+    return fetchAll($sql, $params);
+}
+
+function getDepartmentHeadTeacherForProgram($program) {
+    $teachers = getDepartmentHeadTeachers($program);
+    return !empty($teachers) ? $teachers[0] : null;
+}
+
+function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime = null, $eventEndTime = null, $description = null, $location = null) {
+    if (empty($eventName)) {
+        return 0;
+    }
+
+    if (!preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+        return 0;
+    }
+
+    $caseId = trim((string)($matches[1] ?? ''));
+    if ($caseId === '') {
+        return 0;
+    }
+
+    $case = getCaseById($caseId);
+    if (!$case || strcasecmp((string)($case['severity'] ?? ''), 'Major') !== 0) {
+        return 0;
+    }
+
+    $student = fetchOne(
+        "SELECT student_id, first_name, last_name, track_course
+         FROM students
+         WHERE student_id = ?",
+        [$case['student_id']]
+    );
+
+    if (!$student) {
+        return 0;
+    }
+
+    $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+    if (empty($program)) {
+        return 0;
+    }
+
+    $teachers = getDepartmentHeadTeachers($program);
+
+    if (empty($teachers)) {
+        return 0;
+    }
+
+    $dateText = date('F j, Y', strtotime($eventDate));
+    $timeText = '';
+    if (!empty($eventTime)) {
+        $timeText = ' at ' . date('g:i A', strtotime($eventTime));
+        if (!empty($eventEndTime)) {
+            $timeText .= ' - ' . date('g:i A', strtotime($eventEndTime));
+        }
+    }
+
+    $title = 'Hearing Invitation';
+    $studentName = trim(($student['first_name'] ?? '') . ' ' . ($student['last_name'] ?? ''));
+    $courseName = trim((string)($student['track_course'] ?? $program));
+    $message = 'You are invited to the scheduled hearing for Major Case ' . $caseId . ' involving ' . $studentName;
+    if ($courseName !== '') {
+        $message .= ' (' . $courseName . ')';
+    }
+    $message .= ' on ' . $dateText . $timeText . '.';
+
+    if (!empty($eventName)) {
+        $message = $eventName . ': ' . $message;
+    }
+
+    if (!empty($location)) {
+        $message .= ' Location: ' . $location . '.';
+    }
+
+    if (!empty($description)) {
+        $message .= ' Notes: ' . $description;
+    }
+
+    $relatedId = 'hearing:' . $caseId . ':' . ($eventId ?: 'new') . ':' . $eventDate . ':' . ($eventTime ?: 'all-day') . ':' . ($eventEndTime ?: 'none');
+    $count = 0;
+
+    foreach ($teachers as $teacher) {
+        if (createUniqueNotification($teacher['user_id'], $title, $message, 'hearing_invitation', $relatedId)) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
 function authenticateUser($username, $password) {
     $user = getUserByUsername($username);
     
@@ -32,10 +239,187 @@ function authenticateUser($username, $password) {
     return false;
 }
 
+/**
+ * Check if a user is using the default password
+ */
+function userHasDefaultPassword($userId) {
+    $user = getUserById($userId);
+    if ($user) {
+        // Check if password hash matches the hash of "password"
+        return password_verify('password', $user['password_hash']);
+    }
+    return false;
+}
+
+
+/**
+ * Get the full name of a user for consistent display
+ * Format: First Name Last Name (without middle name)
+ * For students: Uses first_name last_name from students table
+ * For others: Extracts first and last from full_name in users table
+ */
+function getFormattedUserName($userId = null) {
+    if ($userId === null && isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+    }
+    
+    if (!$userId) {
+        return 'User';
+    }
+    
+    // Check if user is a student and get their name from students table
+    $role = $_SESSION['user_role'] ?? null;
+    if ($role === 'student') {
+        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
+        $student = fetchOne($sql, [$userId]);
+        if ($student) {
+            return $student['first_name'] . ' ' . $student['last_name'];
+        }
+    }
+    
+    // For non-students, extract first and last name from full_name field
+    $user = getUserById($userId);
+    if ($user && !empty($user['full_name'])) {
+        $nameParts = explode(' ', trim($user['full_name']));
+        
+        if (count($nameParts) === 1) {
+            // Single name, return as-is
+            return $nameParts[0];
+        } elseif (count($nameParts) === 2) {
+            // First and Last name
+            return $nameParts[0] . ' ' . $nameParts[1];
+        } else {
+            // Multiple names - take first and last, skip middle names
+            return $nameParts[0] . ' ' . end($nameParts);
+        }
+    }
+    
+    return 'User';
+}
+
+function getStudentRecordForUser($userId = null, $linkIfFound = true) {
+    if ($userId === null && isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+    }
+
+    if (!$userId) {
+        return null;
+    }
+
+    $user = getUserById($userId);
+    if (!$user) {
+        return null;
+    }
+
+    $sessionUser = $_SESSION['user'] ?? [];
+    $fullName = trim((string)($sessionUser['full_name'] ?? $user['full_name'] ?? ''));
+    $username = trim((string)($sessionUser['username'] ?? $user['username'] ?? ''));
+    $email = trim((string)($sessionUser['email'] ?? $user['email'] ?? ''));
+    $nameParts = $fullName !== '' ? preg_split('/\s+/', $fullName) : [];
+    $firstName = trim((string)($nameParts[0] ?? ''));
+    $lastName = trim((string)($nameParts[count($nameParts) - 1] ?? ''));
+
+    $linkedStudent = fetchOne("SELECT TOP 1 * FROM students WHERE user_id = ?", [$userId]);
+    $linkedStudentLooksCorrect = false;
+    if ($linkedStudent) {
+        $linkedFirst = strtolower(trim((string)($linkedStudent['first_name'] ?? '')));
+        $linkedLast = strtolower(trim((string)($linkedStudent['last_name'] ?? '')));
+        $sessionFirst = strtolower($firstName);
+        $sessionLast = strtolower($lastName);
+        $linkedStudentLooksCorrect = ($sessionFirst !== '' && $sessionLast !== '' && $linkedFirst === $sessionFirst && $linkedLast === $sessionLast);
+    }
+
+    if ($linkedStudent && $linkedStudentLooksCorrect) {
+        return $linkedStudent;
+    }
+
+    $tokens = [];
+    foreach ([$fullName, $username, $email] as $value) {
+        if ($value === '') {
+            continue;
+        }
+        $tokens[] = strtolower($value);
+        $tokens[] = strtolower(preg_replace('/[^0-9A-Za-z]/', '', $value));
+    }
+
+    $studentIdFragments = [];
+    foreach ([$username, $email] as $value) {
+        if ($value === '') {
+            continue;
+        }
+        if (preg_match('/(\d{4,})/', $value, $match)) {
+            $studentIdFragments[] = $match[1];
+        }
+    }
+
+    $candidate = null;
+    if ($firstName !== '' && $lastName !== '') {
+        $candidate = fetchOne(
+            "SELECT TOP 1 * FROM students
+             WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)",
+            [$firstName, $lastName]
+        );
+    }
+
+    if (!$candidate && $firstName !== '') {
+        $candidate = fetchOne(
+            "SELECT TOP 1 * FROM students
+             WHERE LOWER(first_name) = LOWER(?) OR LOWER(first_name + ' ' + last_name) = LOWER(?)",
+            [$firstName, $fullName]
+        );
+    }
+
+    if (!$candidate && !empty($studentIdFragments)) {
+        foreach ($studentIdFragments as $fragment) {
+            $candidate = fetchOne(
+                "SELECT TOP 1 * FROM students WHERE student_id LIKE ? ORDER BY student_id DESC",
+                ['%' . $fragment . '%']
+            );
+            if ($candidate) {
+                break;
+            }
+        }
+    }
+
+    if (!$candidate && !empty($tokens)) {
+        foreach ($tokens as $token) {
+            if ($token === '') {
+                continue;
+            }
+            $candidate = fetchOne(
+                "SELECT TOP 1 * FROM students
+                 WHERE LOWER(first_name) LIKE ?
+                    OR LOWER(last_name) LIKE ?
+                    OR LOWER(first_name + ' ' + last_name) LIKE ?
+                    OR student_id LIKE ?
+                 ORDER BY student_id DESC",
+                ['%' . $token . '%', '%' . $token . '%', '%' . $token . '%', '%' . $token . '%']
+            );
+            if ($candidate) {
+                break;
+            }
+        }
+    }
+
+    if (!$candidate && $linkedStudent) {
+        $candidate = $linkedStudent;
+    }
+
+    if ($candidate && $linkIfFound) {
+        try {
+            executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $candidate['student_id']]);
+            $candidate['user_id'] = $userId;
+        } catch (Exception $e) {
+            error_log('getStudentRecordForUser: Failed to link student to user: ' . $e->getMessage());
+        }
+    }
+
+    return $candidate ?: null;
+}
+
 // ==========================================
 // AUTO-ARCHIVE FUNCTIONS
 // ==========================================
-
 /**
  * Automatically archive cases that are 1 year or older
  * based on date_reported
@@ -96,14 +480,21 @@ function checkAndArchiveOldCases() {
 function getAllCases($filters = []) {
     // Auto-archive old cases first (only once per session)
     checkAndArchiveOldCases();
+    ensureMinorEscalationSeenColumn();
     
-    $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-            CONCAT(s.first_name, ' ', s.last_name) as student_name,
-            u.full_name as assigned_to_name
-            FROM cases c
-            LEFT JOIN students s ON c.student_id = s.student_id
-            LEFT JOIN users u ON c.assigned_to = u.user_id
-            WHERE 1=1";
+        $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
+        CONCAT(s.first_name, ' ', s.last_name) as student_name,
+        (SELECT COUNT(*) FROM cases c2
+         WHERE c2.student_id = c.student_id
+           AND c2.severity = 'Minor'
+           AND c2.is_archived = 0
+           AND (c2.status = 'Recorded'
+                OR (c2.case_id = c.case_id AND c.status = 'Unrecorded'))) AS minor_offense_number,
+        u.full_name as assigned_to_name
+        FROM cases c
+        LEFT JOIN students s ON c.student_id = s.student_id
+        LEFT JOIN users u ON c.assigned_to = u.user_id
+        WHERE 1=1";
     
     $params = [];
     
@@ -116,11 +507,31 @@ function getAllCases($filters = []) {
     
     // Apply other filters
     if (!empty($filters['search'])) {
-        $sql .= " AND (s.first_name LIKE ? OR s.last_name LIKE ? OR c.case_id LIKE ?)";
-        $searchTerm = '%' . $filters['search'] . '%';
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
+        // Check if search contains space (full name search)
+        if (strpos($filters['search'], ' ') !== false) {
+            // Split the search term
+            $parts = explode(' ', trim($filters['search']));
+            $firstName = $parts[0];
+            $lastName = isset($parts[1]) ? $parts[1] : '';
+            
+            // Search for first name + last name combination
+            $sql .= " AND (c.case_id LIKE ? OR (s.first_name LIKE ? AND s.last_name LIKE ?) OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $firstNameTerm = '%' . $firstName . '%';
+            $lastNameTerm = '%' . $lastName . '%';
+            $params[] = $searchTerm;
+            $params[] = $firstNameTerm;
+            $params[] = $lastNameTerm;
+            $params[] = $searchTerm; // Also search for full term in first_name
+            $params[] = $searchTerm; // Also search for full term in last_name
+        } else {
+            // Single word search (matching original behavior)
+            $sql .= " AND (s.first_name LIKE ? OR s.last_name LIKE ? OR c.case_id LIKE ?)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
     }
     
     if (!empty($filters['type'])) {
@@ -132,10 +543,38 @@ function getAllCases($filters = []) {
         $sql .= " AND c.status = ?";
         $params[] = $filters['status'];
     }
+
+    if (!empty($filters['severity']) && in_array($filters['severity'], ['Major', 'Minor'], true)) {
+        $sql .= " AND c.severity = ?";
+        $params[] = $filters['severity'];
+    }
     
     $sql .= " ORDER BY c.date_reported DESC, c.created_at DESC";
     
     return fetchAll($sql, $params);
+}
+
+function ensureMinorEscalationSeenColumn() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $column = fetchOne("SELECT 1 AS column_exists FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'cases' AND COLUMN_NAME = 'minor_escalation_seen'");
+    if (!$column) {
+        executeQuery("ALTER TABLE cases ADD minor_escalation_seen BIT NOT NULL CONSTRAINT DF_cases_minor_escalation_seen DEFAULT 0");
+    }
+
+    executeQuery("UPDATE cases
+                  SET status = CASE
+                      WHEN status IN ('Resolved', 'On Going') THEN 'Recorded'
+                      WHEN status = 'Pending' THEN 'Unrecorded'
+                      ELSE status
+                  END
+                  WHERE severity = 'Minor'
+                    AND status IN ('Resolved', 'On Going', 'Pending')");
+
+    $initialized = true;
 }
 
 function getCaseById($caseId) {
@@ -171,6 +610,18 @@ function createCase($data) {
 
     // Check if student exists
     $studentId = $data['student_number'];
+    
+    // Check for duplicate violation on the same day
+    $today = date('Y-m-d');
+    $duplicateCheck = fetchOne(
+        "SELECT case_id FROM cases WHERE student_id = ? AND case_type = ? AND CAST(date_reported AS DATE) = ?",
+        [$studentId, $data['case_type'], $today]
+    );
+    
+    if ($duplicateCheck) {
+        error_log("Duplicate violation prevented: Student $studentId, Type: " . $data['case_type'] . ", Date: $today");
+        return false; // Return false to indicate duplicate prevention
+    }
     $existingStudent = getStudentById($studentId);
 
     if (!$existingStudent) {
@@ -213,7 +664,7 @@ function createCase($data) {
         $offenseId,
         $data['case_type'],
         $data['severity'],
-        $data['status'] ?? 'Pending',
+        $data['status'] ?? ($data['severity'] === 'Minor' ? 'Unrecorded' : 'Pending'),
         date('Y-m-d'),
         $data['reported_by'] ?? null,
         $data['assigned_to'] ?? null,
@@ -233,6 +684,19 @@ function updateCase($caseId, $data) {
     // 🧩 Fetch old record for audit before updating
     $oldData = getRecordForAudit('cases', 'case_id', $caseId);
     $oldData = sanitizeAuditData($oldData);
+
+    $severity = $data['severity'] ?? $oldData['severity'] ?? null;
+    if ($severity === 'Minor' && isset($data['status']) && !in_array($data['status'], ['Recorded', 'Unrecorded'], true)) {
+        throw new Exception('Minor cases can only have Recorded or Unrecorded status.');
+    }
+
+    // Validate: If status is being changed to 'On Going' or 'Resolved', verify sanction exists
+    if (isset($data['status']) && in_array($data['status'], ['On Going', 'Resolved'])) {
+        $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
+        if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
+            throw new Exception('Cannot transition case to ' . $data['status'] . ' without an applied sanction. Please apply a sanction first.');
+        }
+    }
 
     // Build SQL update query
     $sql = "UPDATE cases SET 
@@ -329,9 +793,9 @@ function getCaseStatistics() {
         "SELECT COUNT(*) FROM cases WHERE status = 'Pending' AND is_archived = 0"
     );
     
-    // Urgent cases (Escalated or Major offenses)
+    // Urgent cases (Major offenses that are not resolved)
     $stats['urgent_cases'] = fetchValue(
-        "SELECT COUNT(*) FROM cases WHERE (status = 'Escalated' OR severity = 'Major') AND is_archived = 0"
+        "SELECT COUNT(*) FROM cases WHERE severity = 'Major' AND status != 'Resolved' AND is_archived = 0"
     );
     
     // Resolved cases
@@ -342,15 +806,20 @@ function getCaseStatistics() {
     return $stats;
 }
 
-function getCaseTypeDistribution() {
+function getCaseTypeDistribution($offenseType = null) {
     $sql = "SELECT case_type, COUNT(*) as count,
             CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM cases WHERE is_archived = 0) AS DECIMAL(5,2)) as percentage
             FROM cases
-            WHERE is_archived = 0
-            GROUP BY case_type
-            ORDER BY count DESC";
+            WHERE is_archived = 0";
+    $params = [];
     
-    return fetchAll($sql);
+    if (!empty($offenseType)) {
+        $sql .= " AND case_type = ?";
+        $params[] = $offenseType;
+    }
+    
+    $sql .= " GROUP BY case_type ORDER BY count DESC";
+    return fetchAll($sql, $params);
 }
 
 // ==========================================
@@ -427,6 +896,302 @@ function updateStudentOffenseCount($studentId) {
     executeQuery($sql, [$studentId, $studentId, $studentId, $studentId, $studentId]);
 }
 
+/**
+ * Categorize a major offense into Category A, B, C, or D based on STI Handbook
+ * @param string $offenseName The name of the offense
+ * @return string Category A, B, C, or D
+ */
+function categorizeMajorOffense($offenseName) {
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('A'), true)) return 'A';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('B'), true)) return 'B';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('C'), true)) return 'C';
+    if (in_array($offenseName, getMajorOffenseNamesByCategory('D'), true)) return 'D';
+    
+    // Default to Category A if not found
+    return 'A';
+}
+
+/**
+ * Get the list of offense names that belong to a major offense category.
+ *
+ * @param string $category Category code: A, B, C, or D
+ * @return array
+ */
+function getMajorOffenseNamesByCategory($category) {
+    $categoryMap = [
+        'A' => [
+            'Repeated Minor Offenses',
+            'Lending/Borrowing ID',
+            'Smoking/Vaping on Campus',
+            'Intoxication',
+            'Allowing Non-STI Entry',
+            'Cheating',
+            'Plagiarism'
+        ],
+        'B' => [
+            'Vandalism',
+            'Cyberbullying/Defamation',
+            'Privacy Violation',
+            'Wearing Uniform in Ill Repute Places',
+            'False Testimony',
+            'Use of Profane Language'
+        ],
+        'C' => [
+            'Hacking',
+            'Forgery',
+            'Theft',
+            'Unauthorized Material Distribution',
+            'Embezzlement',
+            'Illegal Assembly',
+            'Immorality',
+            'Bullying',
+            'Physical Assault',
+            'Drug Use',
+            'False Alarms',
+            'Misuse of Fire Equipment'
+        ],
+        'D' => [
+            'Drug Possession/Sale',
+            'Repeated Drug Use',
+            'Weapons Possession',
+            'Fraternity/Sorority Membership',
+            'Hazing',
+            'Moral Turpitude',
+            'Sexual Harassment',
+            'Subversion/Sedition'
+        ]
+    ];
+
+    return $categoryMap[$category] ?? $categoryMap['A'];
+}
+
+/**
+ * Get recommended sanction based on student's offense history
+ * Following STI Student Handbook escalation rules:
+ * - Major offense escalation is based on total major offenses within the same category
+ * - Minor offense escalation to major triggers at 3 total minor offenses (any type)
+ *
+ * @param string $studentId The student ID
+ * @param string $currentOffenseType The current offense type (matches cases.case_type)
+ * @param string $severity Either "Minor" or "Major"
+ * @param int|null $excludeCaseId Optional case ID to exclude from count (to avoid double-counting the current case)
+ * @return array Recommended sanction information
+ */
+function getRecommendedSanction($studentId, $currentOffenseType, $severity, $excludeCaseId = null) {
+    $student = getStudentById($studentId);
+
+    if (!$student) {
+        return [
+            'sanction_name' => 'Verbal/Oral Warning',
+            'reason' => 'New student - first offense',
+            'offense_count' => 1,
+            'category' => $severity,
+            'subcategory' => null,
+            'duration_days' => null
+        ];
+    }
+
+    // Count archived cases of the same offense type (for informational note only)
+    $archivedCountSql = "SELECT COUNT(*) FROM cases 
+                         WHERE student_id = ? 
+                           AND case_type = ? 
+                           AND severity = ?
+                           AND is_archived = 1";
+    $archivedSameTypeCount = (int) fetchValue($archivedCountSql, [$studentId, $currentOffenseType, $severity]);
+
+    // Count active (non-archived) minor offenses across all types.
+    // Minor cases are tracked as Recorded/Unrecorded instead of On Going/Resolved,
+    // so we include Recorded in the historical count and add the current case separately.
+    $totalMinorCountSql = "SELECT COUNT(*) FROM cases
+                           WHERE student_id = ?
+                             AND severity = 'Minor'
+                             AND status IN ('Recorded', 'On Going', 'Resolved')
+                             AND is_archived = 0";
+    $totalMinorCountParams = [$studentId];
+    if ($excludeCaseId) {
+        $totalMinorCountSql .= " AND case_id != ?";
+        $totalMinorCountParams[] = $excludeCaseId;
+    }
+    $totalMinorCount = (int) fetchValue($totalMinorCountSql, $totalMinorCountParams);
+    // Add 1 for the current case.
+    $totalMinorCount = $totalMinorCount + 1;
+
+    // For Minor Offenses — escalate based on total minor count across offense types.
+    if ($severity === 'Minor') {
+        if ($totalMinorCount === 1) {
+            return [
+                'sanction_name' => 'Verbal/Oral Warning',
+                'reason' => 'First minor offense',
+                'offense_count' => 1,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => null,
+                'archived_same_type_count' => $archivedSameTypeCount
+            ];
+        } elseif ($totalMinorCount === 2) {
+            return [
+                'sanction_name' => 'Written Reprimand',
+                'reason' => 'Second minor offense',
+                'offense_count' => 2,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => null,
+                'archived_same_type_count' => $archivedSameTypeCount
+            ];
+        } else {
+            // 3rd or more minor offense (any type) escalates to Major (Repeated Minor Offenses).
+            return [
+                'sanction_name' => 'Corrective Reinforcement (3-7 days)',
+                'reason' => 'Third or more minor offense — escalates to Major (Repeated Minor Offenses)',
+                'offense_count' => $totalMinorCount,
+                'category' => 'Major',
+                'subcategory' => 'A',
+                'duration_days' => 3,
+                'duration_range' => '3-7 days',
+                'escalated_to_major' => true,
+                'archived_same_type_count' => $archivedSameTypeCount
+            ];
+        }
+    }
+
+    // For Major Offenses — escalate by total major count within the same category.
+    if ($severity === 'Major') {
+        $category = categorizeMajorOffense($currentOffenseType);
+        $categoryOffenses = getMajorOffenseNamesByCategory($category);
+        $categoryPlaceholders = implode(',', array_fill(0, count($categoryOffenses), '?'));
+
+        $majorCategoryCountSql = "SELECT COUNT(*) FROM cases
+                                  WHERE student_id = ?
+                                    AND severity = 'Major'
+                                    AND case_type IN ($categoryPlaceholders)
+                                    AND is_archived = 0";
+        $majorCategoryCountParams = array_merge([$studentId], $categoryOffenses);
+
+        if ($excludeCaseId) {
+            $majorCategoryCountSql .= " AND case_id != ?";
+            $majorCategoryCountParams[] = $excludeCaseId;
+        }
+
+        $majorCategoryCount = (int) fetchValue($majorCategoryCountSql, $majorCategoryCountParams);
+        // Add 1 for the current case.
+        $offenseNumber = $majorCategoryCount + 1;
+
+        // Category A: Lighter major offenses
+        if ($category === 'A') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Corrective Reinforcement (3-7 days)',
+                    'reason' => 'First major offense (Category A)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            } elseif ($offenseNumber === 2) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'Second major offense (Category A)',
+                    'offense_count' => 2,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Third or more major offense (Category A)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'A',
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            }
+        }
+
+        // Category B: Property/image damage
+        if ($category === 'B') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'First major offense (Category B)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'B',
+                    'duration_days' => 3,
+                    'duration_range' => '3-7 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Second or more major offense (Category B)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'B',
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            }
+        }
+
+        // Category C: Serious offenses
+        if ($category === 'C') {
+            if ($offenseNumber === 1) {
+                return [
+                    'sanction_name' => 'Suspension from Class',
+                    'reason' => 'First major offense (Category C)',
+                    'offense_count' => 1,
+                    'category' => 'Major',
+                    'subcategory' => 'C',
+                    'duration_days' => 8,
+                    'duration_range' => '7-10 days',
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            } else {
+                return [
+                    'sanction_name' => 'Non-readmission',
+                    'reason' => 'Second or more major offense (Category C)',
+                    'offense_count' => $offenseNumber,
+                    'category' => 'Major',
+                    'subcategory' => 'C',
+                    'duration_days' => null,
+                    'archived_same_type_count' => $archivedSameTypeCount
+                ];
+            }
+        }
+
+        // Category D: Criminal offenses — immediate exclusion regardless of count
+        if ($category === 'D') {
+            return [
+                'sanction_name' => 'Exclusion',
+                'reason' => 'Criminal offense of this type (Category D) — immediate exclusion/expulsion',
+                'offense_count' => $offenseNumber,
+                'category' => 'Major',
+                'subcategory' => 'D',
+                'duration_days' => null,
+                'requires_ched_approval' => true,
+                'archived_same_type_count' => $archivedSameTypeCount
+            ];
+        }
+    }
+
+    // Fallback
+    return [
+        'sanction_name' => 'Verbal/Oral Warning',
+        'reason' => 'Unable to determine appropriate sanction',
+        'offense_count' => 1,
+        'category' => $severity,
+        'subcategory' => null,
+        'duration_days' => null,
+        'archived_same_type_count' => $archivedSameTypeCount ?? 0
+    ];
+}
+
 // ==========================================
 // NOTIFICATION FUNCTIONS
 // ==========================================
@@ -447,8 +1212,537 @@ function getUnreadNotifications($userId) {
 }
 
 function markNotificationAsRead($notificationId) {
+    // Get notification details for audit logging
+    $notifSql = "SELECT title, is_read FROM notifications WHERE notification_id = ?";
+    $notification = fetchOne($notifSql, [$notificationId]);
+    
     $sql = "UPDATE notifications SET is_read = 1, read_at = GETDATE() WHERE notification_id = ?";
     executeQuery($sql, [$notificationId]);
+    
+    // 🧾 Audit Log - Log only if notification was previously unread
+    if ($notification && !$notification['is_read']) {
+        auditNotificationRead($notificationId, $notification['title'] ?? 'Notification');
+    }
+}
+
+function createUniqueNotification($userId, $title, $message, $type = 'system', $relatedId = null) {
+    if (!$userId) {
+        return false;
+    }
+
+    $relatedKey = trim((string)($relatedId ?? ''));
+    if ($relatedKey !== '') {
+        $existing = fetchOne(
+            "SELECT TOP 1 notification_id
+             FROM notifications
+             WHERE user_id = ?
+               AND CAST(related_id AS NVARCHAR(255)) = CAST(? AS NVARCHAR(255))",
+            [$userId, $relatedKey]
+        );
+
+        if ($existing) {
+            return false;
+        }
+    }
+
+    createNotification($userId, $title, $message, $type, $relatedKey !== '' ? $relatedKey : null);
+    return true;
+}
+
+function inferCommunityServiceDurationDays($durationValue, $sanctionName) {
+    $stored = intval($durationValue);
+    if ($stored > 0) {
+        return $stored;
+    }
+
+    $name = strtolower((string)$sanctionName);
+
+    if (preg_match('/(\d+)\s*-\s*(\d+)\s*days?/i', $name, $rangeMatch)) {
+        $minDays = intval($rangeMatch[1]);
+        if ($minDays > 0) {
+            return $minDays;
+        }
+    }
+
+    if (preg_match('/(\d+)\s*days?/i', $name, $singleMatch)) {
+        $explicitDays = intval($singleMatch[1]);
+        if ($explicitDays > 0) {
+            return $explicitDays;
+        }
+    }
+
+    if (strpos($name, 'corrective reinforcement') !== false || strpos($name, 'suspension from class') !== false) {
+        return 3;
+    }
+
+    return 0;
+}
+
+function resolveStudentRecordForNotification($studentId) {
+    if (!$studentId) {
+        return null;
+    }
+
+    $student = fetchOne("SELECT user_id, first_name, last_name, student_id FROM students WHERE student_id = ?", [$studentId]);
+    if (!$student) {
+        return null;
+    }
+
+    $userId = $student['user_id'] ?? null;
+
+    if (!$userId) {
+        $searchUsername = '%' . substr($studentId, -4) . '%';
+        $searchNamePattern = strtolower($student['first_name']) . '%';
+
+        $foundUser = fetchOne(
+            "SELECT TOP 1 user_id, role FROM users WHERE (
+                        username LIKE ? 
+                        OR username LIKE ?
+                        OR email LIKE ?
+                    )",
+            [$searchUsername, $searchNamePattern, $searchUsername]
+        );
+
+        if ($foundUser) {
+            error_log(
+                'resolveStudentRecordForNotification: Possible existing user match found for student_id ' .
+                $studentId .
+                ' (user_id ' . $foundUser['user_id'] . '), but automatic linking and role changes are disabled. ' .
+                'Manual admin verification is required before linking this student to an existing user.'
+            );
+        } else {
+            try {
+                $tempPassword = password_hash('TempPassword123!', PASSWORD_BCRYPT);
+                $username = strtolower(str_replace(' ', '.', $student['first_name'] . '.' . $student['last_name'] . '.' . substr($studentId, -4)));
+                $email = 'student.' . $studentId . '@sti.edu.ph';
+
+                executeQuery(
+                    "INSERT INTO users (username, password_hash, email, full_name, role, is_active)
+                            VALUES (?, ?, ?, ?, ?, 1)",
+                    [
+                        $username,
+                        $tempPassword,
+                        $email,
+                        $student['first_name'] . ' ' . $student['last_name'],
+                        'student'
+                    ]
+                );
+
+                $newUser = fetchOne("SELECT TOP 1 user_id FROM users WHERE username = ?", [$username]);
+                if ($newUser) {
+                    $userId = $newUser['user_id'];
+                    executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $studentId]);
+                }
+            } catch (Exception $createUserEx) {
+                error_log('resolveStudentRecordForNotification: Failed to create user account - ' . $createUserEx->getMessage());
+                return null;
+            }
+        }
+    }
+
+    if (!$userId) {
+        return null;
+    }
+
+    $student['user_id'] = $userId;
+    return $student;
+}
+
+function getCommunityServiceSanctionSnapshot($caseSanctionId) {
+    $sql = "SELECT cs.case_sanction_id,
+                   cs.case_id,
+                   cs.duration_days,
+                   cs.duration_extra_hours,
+                   cs.deadline,
+                   cs.applied_date,
+                   s.sanction_name,
+                   st.student_id,
+                   st.first_name,
+                   st.last_name,
+                   st.user_id
+            FROM case_sanctions cs
+            JOIN cases c ON c.case_id = cs.case_id
+            JOIN students st ON st.student_id = c.student_id
+            JOIN sanctions s ON s.sanction_id = cs.sanction_id
+            WHERE cs.case_sanction_id = ?";
+
+    $sanction = fetchOne($sql, [$caseSanctionId]);
+    if (!$sanction) {
+        return null;
+    }
+
+    $sanction['required_days'] = inferCommunityServiceDurationDays($sanction['duration_days'] ?? null, $sanction['sanction_name'] ?? '');
+    $extraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+    $sanction['required_hours'] = max(0, $sanction['required_days'] > 0 ? ($extraHours > 0 ? (($sanction['required_days'] - 1) * 8) + $extraHours : ($sanction['required_days'] * 8)) : 0);
+
+    return $sanction;
+}
+
+function getCommunityServiceCompletionSnapshot($caseSanctionId) {
+    $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+    if (!$sanction) {
+        return null;
+    }
+
+    $completedHoursSql = "SELECT COALESCE(SUM(
+                            CASE
+                                WHEN cci.check_in_time IS NOT NULL
+                                 AND cci.check_out_time IS NOT NULL
+                                 AND DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                THEN CASE
+                                    WHEN DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
+                                    ELSE CAST(DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS FLOAT) / 60.0
+                                END
+                                ELSE 0
+                            END
+                        ), 0) AS completed_hours
+                        FROM (
+                            SELECT check_in_time, check_out_time,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY day_number
+                                       ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC
+                                   ) AS rn
+                            FROM case_checkins
+                            WHERE case_sanction_id = ?
+                        ) cci
+                        WHERE cci.rn = 1";
+    $completedDaysSql = "SELECT COUNT(DISTINCT day_number) AS completed_days
+                         FROM case_checkins
+                         WHERE case_sanction_id = ?
+                           AND check_in_time IS NOT NULL
+                           AND check_out_time IS NOT NULL";
+
+    $completedHoursRow = fetchOne($completedHoursSql, [$caseSanctionId]);
+    $completedDaysRow = fetchOne($completedDaysSql, [$caseSanctionId]);
+
+    $sanction['completed_hours'] = floatval($completedHoursRow['completed_hours'] ?? 0);
+    $sanction['completed_days'] = intval($completedDaysRow['completed_days'] ?? 0);
+    $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+    $isSuspension = strpos($sanctionNameLower, 'suspension from class') !== false;
+
+    $sanction['is_complete'] = $isSuspension
+        ? ($sanction['completed_days'] >= intval($sanction['required_days'] ?? 0))
+        : ($sanction['completed_hours'] >= floatval($sanction['required_hours'] ?? 0));
+
+    return $sanction;
+}
+
+function getSuspensionCompletionSnapshot($caseSanctionId) {
+    $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+    if (!$sanction) {
+        return null;
+    }
+
+    $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
+    if (strpos($sanctionNameLower, 'suspension from class') === false) {
+        return null;
+    }
+
+    $requiredDays = intval($sanction['required_days'] ?? 0);
+    if ($requiredDays <= 0) {
+        return null;
+    }
+
+    $countSchoolDaysInclusive = function ($startDateStr, $endDateStr) {
+        if (empty($startDateStr) || empty($endDateStr)) {
+            return 0;
+        }
+
+        $start = strtotime(date('Y-m-d', strtotime($startDateStr)));
+        $end = strtotime(date('Y-m-d', strtotime($endDateStr)));
+
+        if ($start === false || $end === false || $start > $end) {
+            return 0;
+        }
+
+        $days = 0;
+        for ($ts = $start; $ts <= $end; $ts += 86400) {
+            $isoDay = intval(date('N', $ts));
+            if ($isoDay >= 1 && $isoDay <= 6) {
+                $days++;
+            }
+        }
+
+        return $days;
+    };
+
+    $elapsedDays = $countSchoolDaysInclusive(
+        $sanction['applied_date'] ?? null,
+        date('Y-m-d', strtotime('-1 day'))
+    );
+
+    $sanction['completed_days'] = min($requiredDays, $elapsedDays);
+    $sanction['completed_hours'] = 0;
+    $sanction['progress_percent'] = $requiredDays > 0
+        ? min(100, round(($sanction['completed_days'] / $requiredDays) * 100))
+        : 0;
+    $sanction['is_complete'] = $sanction['completed_days'] >= $requiredDays;
+
+    return $sanction;
+}
+
+function notifyStudentOnCommunityServiceEvent($caseSanctionId, $eventType, array $context = []) {
+    try {
+        $sanction = getCommunityServiceSanctionSnapshot($caseSanctionId);
+        if (!$sanction) {
+            return false;
+        }
+
+        $student = resolveStudentRecordForNotification($sanction['student_id'] ?? null);
+        if (!$student || empty($student['user_id'])) {
+            error_log('notifyStudentOnCommunityServiceEvent: Student user account could not be resolved for case sanction ' . $caseSanctionId);
+            return false;
+        }
+
+        $caseId = $sanction['case_id'] ?? '';
+        $sanctionName = trim((string)($sanction['sanction_name'] ?? 'Community Service'));
+        $sanctionLabel = (strpos(strtolower($sanctionName), 'suspension from class') !== false) ? 'Suspension from Class' : 'Community Service';
+        $sanctionLabelLower = strtolower($sanctionLabel);
+        $title = '';
+        $message = '';
+        $relatedId = '';
+
+        switch ($eventType) {
+            case 'deadline_extended':
+                $daysToAdd = max(1, intval($context['daysToAdd'] ?? 0));
+                $newDeadline = (string)($sanction['deadline'] ?? date('Y-m-d H:i:s'));
+                $title = $sanctionLabel . ' Deadline Extended';
+                $message = "Your {$sanctionLabelLower} deadline for Case {$caseId} was extended by {$daysToAdd} day(s).";
+                $relatedId = 'community_service_deadline_extended:' . $caseId . ':' . $caseSanctionId . ':' . $newDeadline;
+                break;
+            case 'hours_added':
+                $additionalHours = max(1, intval($context['additionalHours'] ?? 0));
+                $newExtraHours = intval($sanction['duration_extra_hours'] ?? 0);
+                $title = $sanctionLabel . ' Requirements Increased';
+                $message = "Your {$sanctionLabelLower} requirement for Case {$caseId} was increased by {$additionalHours} hour(s).";
+                $relatedId = 'community_service_hours_added:' . $caseId . ':' . $caseSanctionId . ':' . $newExtraHours;
+                break;
+            case 'checked_in':
+                $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
+                $timeLabel = trim((string)($context['time'] ?? ''));
+                $title = $sanctionLabel . ' Check-In Recorded';
+                $message = "Day {$dayNumber} check-in for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
+                $relatedId = 'community_service_checkin:' . $caseId . ':' . $caseSanctionId . ':day' . $dayNumber;
+                break;
+            case 'checked_out':
+                $dayNumber = max(1, intval($context['dayNumber'] ?? 0));
+                $timeLabel = trim((string)($context['time'] ?? ''));
+                $title = $sanctionLabel . ' Check-Out Recorded';
+                $message = "Day {$dayNumber} check-out for Case {$caseId} was recorded" . ($timeLabel !== '' ? " at {$timeLabel}" : '') . '.';
+                $relatedId = 'community_service_checkout:' . $caseId . ':' . $caseSanctionId . ':day' . $dayNumber;
+                break;
+            case 'overdue':
+                $completion = getCommunityServiceCompletionSnapshot($caseSanctionId);
+                if (!empty($completion['is_complete'])) {
+                    return false;
+                }
+
+                if (empty($sanction['deadline'])) {
+                    return false;
+                }
+
+                $deadline = new DateTime($sanction['deadline']);
+                if ($deadline >= new DateTime()) {
+                    return false;
+                }
+
+                $title = $sanctionLabel . ' Overdue';
+                $message = "Your {$sanctionLabelLower} for Case {$caseId} is overdue. Please complete the remaining requirement as soon as possible.";
+                $relatedId = 'community_service_overdue:' . $caseId . ':' . $caseSanctionId;
+                break;
+            default:
+                return false;
+        }
+
+        return createUniqueNotification($student['user_id'], $title, $message, 'community_service_update', $relatedId);
+    } catch (Exception $e) {
+        error_log('notifyStudentOnCommunityServiceEvent: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function syncStudentCommunityServiceOverdueNotifications($studentId) {
+    try {
+        if (!$studentId) {
+            return 0;
+        }
+
+        $sanctions = fetchAll(
+            "SELECT cs.case_sanction_id
+             FROM case_sanctions cs
+             JOIN cases c ON c.case_id = cs.case_id
+             JOIN sanctions s ON s.sanction_id = cs.sanction_id
+             WHERE c.student_id = ?
+               AND cs.deadline IS NOT NULL
+               AND (
+                   LOWER(s.sanction_name) LIKE '%corrective%'
+                   OR LOWER(s.sanction_name) LIKE '%community service%'
+                   OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+                )",
+            [$studentId]
+        );
+
+        $count = 0;
+        foreach ($sanctions as $sanction) {
+            if (notifyStudentOnCommunityServiceEvent($sanction['case_sanction_id'], 'overdue')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    } catch (Exception $e) {
+        error_log('syncStudentCommunityServiceOverdueNotifications: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Notify all DO (Discipline Office) users of a new report submission
+ * 
+ * @param string $caseId The case ID of the new report
+ * @param string $studentName The student's name
+ * @param string $caseType The type of case
+ * @param string $severity The severity level (Major/Minor)
+ * @return int Number of notifications sent
+ */
+function notifyDOOnNewReport($caseId, $studentName, $caseType, $severity) {
+    try {
+        // Get all DO and super_admin users
+        $sql = "SELECT user_id, full_name FROM users WHERE (role = 'discipline_office' OR role = 'do' OR role = 'super_admin') AND is_active = 1";
+        $doUsers = fetchAll($sql);
+        
+        if (empty($doUsers)) {
+            return 0;
+        }
+        
+        $count = 0;
+        $title = "New Report Submitted - " . $severity;
+        
+        foreach ($doUsers as $doUser) {
+            $message = "New incident report submitted for $studentName. Case Type: $caseType. Severity: $severity. Case ID: $caseId";
+            createNotification($doUser['user_id'], $title, $message, 'report_submitted', $caseId);
+            $count++;
+        }
+        
+        return $count;
+    } catch (Exception $e) {
+        error_log("Error in notifyDOOnNewReport: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Notify a student when a case is created/reported against them
+ * 
+ * @param string $studentId The student ID
+ * @param string $caseId The case ID
+ * @param string $caseType The type of case
+ * @param string $severity The severity level (Major/Minor)
+ * @return bool True if notification was sent
+ */
+function notifyStudentOnNewCase($studentId, $caseId, $caseType, $severity) {
+    try {
+        // Get student info
+        $sql = "SELECT user_id, first_name, last_name, student_id FROM students WHERE student_id = ?";
+        $student = fetchOne($sql, [$studentId]);
+        
+        if (!$student) {
+            error_log("notifyStudentOnNewCase: Student not found - $studentId");
+            return false;
+        }
+        
+        $userId = $student['user_id'];
+        
+        // If user_id is not linked, try to find it by matching username patterns
+        if (!$userId) {
+            error_log("notifyStudentOnNewCase: Student user_id is NULL, searching for matching user account");
+            
+            // Try to find user by searching for username containing student_id or matching name pattern
+            $searchUsername = '%' . substr($studentId, -4) . '%'; // Last 4 digits of student ID
+            $searchNamePattern = strtolower($student['first_name']) . '%';
+            
+            $sql = "SELECT user_id, role FROM users WHERE (
+                        username LIKE ? 
+                        OR username LIKE ?
+                        OR email LIKE ?
+                    ) LIMIT 1";
+            $foundUser = fetchOne($sql, [$searchUsername, $searchNamePattern, $searchUsername]);
+            
+            if ($foundUser) {
+                $userId = $foundUser['user_id'];
+                error_log("notifyStudentOnNewCase: Found matching user - user_id $userId with role {$foundUser['role']}");
+                
+                // Update the student record to link to this user
+                try {
+                    $updateSql = "UPDATE students SET user_id = ? WHERE student_id = ?";
+                    executeQuery($updateSql, [$userId, $studentId]);
+                    error_log("notifyStudentOnNewCase: Linked student $studentId to user_id $userId");
+                } catch (Exception $e) {
+                    error_log("notifyStudentOnNewCase: Could not update student record - " . $e->getMessage());
+                }
+                
+                // If the user's role is not 'student', update it to 'student'
+                if ($foundUser['role'] !== 'student') {
+                    try {
+                        $roleUpdateSql = "UPDATE users SET role = 'student' WHERE user_id = ?";
+                        executeQuery($roleUpdateSql, [$userId]);
+                        error_log("notifyStudentOnNewCase: Updated user role to 'student' for user_id $userId (was: {$foundUser['role']})");
+                    } catch (Exception $roleEx) {
+                        error_log("notifyStudentOnNewCase: Could not update user role - " . $roleEx->getMessage());
+                    }
+                }
+            } else {
+                error_log("notifyStudentOnNewCase: No matching user found, will create new account");
+                
+                // Create new user account as fallback
+                try {
+                    $tempPassword = password_hash('TempPassword123!', PASSWORD_BCRYPT);
+                    $username = strtolower(str_replace(' ', '.', $student['first_name'] . '.' . $student['last_name'] . '.' . substr($studentId, -4)));
+                    $email = 'student.' . $studentId . '@sti.edu.ph';
+                    
+                    $sql = "INSERT INTO users (username, password_hash, email, full_name, role, is_active)
+                            VALUES (?, ?, ?, ?, ?, 1)";
+                    executeQuery($sql, [
+                        $username,
+                        $tempPassword,
+                        $email,
+                        $student['first_name'] . ' ' . $student['last_name'],
+                        'student'
+                    ]);
+                    
+                    $newUser = fetchOne("SELECT user_id FROM users WHERE username = ?", [$username]);
+                    if ($newUser) {
+                        $userId = $newUser['user_id'];
+                        
+                        $updateSql = "UPDATE students SET user_id = ? WHERE student_id = ?";
+                        executeQuery($updateSql, [$userId, $studentId]);
+                        
+                        error_log("notifyStudentOnNewCase: Created new user account - user_id $userId for student $studentId");
+                    }
+                } catch (Exception $createUserEx) {
+                    error_log("notifyStudentOnNewCase: Failed to create user account - " . $createUserEx->getMessage());
+                    return false;
+                }
+            }
+        }
+        
+        if (!$userId) {
+            error_log("notifyStudentOnNewCase: Still no user_id available");
+            return false;
+        }
+        
+        $title = "New Case - " . $severity;
+        $message = "You have been reported for: $caseType. Severity: $severity. Case ID: $caseId. Please check the case details for more information.";
+        
+        createNotification($userId, $title, $message, 'case_reported', $caseId);
+        
+        error_log("notifyStudentOnNewCase: Notification sent to user_id {$userId} for case $caseId");
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in notifyStudentOnNewCase: " . $e->getMessage());
+        return false;
+    }
 }
 
 
@@ -554,6 +1848,7 @@ function logFailedLogin($username, $reason = 'Invalid credentials') {
 
 /**
  * Quick audit helper for CREATE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -562,11 +1857,26 @@ function logFailedLogin($username, $reason = 'Invalid credentials') {
  */
 function auditCreate($tableName, $recordId, $data) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Created', $tableName, $recordId, null, $data);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Created',
+        'students' => 'Student Created',
+        'users' => 'User Created',
+        'calendar_events' => 'Calendar Event Created',
+        'lost_found_items' => 'Lost Item Created',
+        'notifications' => 'Notification Created',
+        'sanctions' => 'Sanction Created',
+        'case_sanctions' => 'Sanction Applied'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Created';
+    logAudit($userId, $action, $tableName, $recordId, null, $data);
 }
 
 /**
  * Quick audit helper for UPDATE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -576,11 +1886,26 @@ function auditCreate($tableName, $recordId, $data) {
  */
 function auditUpdate($tableName, $recordId, $oldData, $newData) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Updated', $tableName, $recordId, $oldData, $newData);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Updated',
+        'students' => 'Student Updated',
+        'users' => 'User Updated',
+        'calendar_events' => 'Calendar Event Updated',
+        'lost_found_items' => 'Lost Item Updated',
+        'notifications' => 'Notification Updated',
+        'sanctions' => 'Sanction Updated',
+        'case_sanctions' => 'Sanction Updated'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Updated';
+    logAudit($userId, $action, $tableName, $recordId, $oldData, $newData);
 }
 
 /**
  * Quick audit helper for DELETE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -589,11 +1914,26 @@ function auditUpdate($tableName, $recordId, $oldData, $newData) {
  */
 function auditDelete($tableName, $recordId, $oldData) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Deleted', $tableName, $recordId, $oldData, null);
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Deleted',
+        'students' => 'Student Deleted',
+        'users' => 'User Deleted',
+        'calendar_events' => 'Calendar Event Deleted',
+        'lost_found_items' => 'Lost Item Deleted',
+        'notifications' => 'Notification Deleted',
+        'sanctions' => 'Sanction Removed',
+        'case_sanctions' => 'Sanction Removed'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Deleted';
+    logAudit($userId, $action, $tableName, $recordId, $oldData, null);
 }
 
 /**
  * Quick audit helper for ARCHIVE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -602,7 +1942,17 @@ function auditDelete($tableName, $recordId, $oldData) {
  */
 function auditArchive($tableName, $recordId, $oldStatus) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Archived', $tableName, $recordId, 
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Archived',
+        'students' => 'Student Archived',
+        'lost_found_items' => 'Lost Item Archived',
+        'notifications' => 'Notification Archived'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Archived';
+    logAudit($userId, $action, $tableName, $recordId, 
         ['status' => $oldStatus], 
         ['status' => 'Archived', 'archived_date' => date('Y-m-d H:i:s')]
     );
@@ -610,6 +1960,7 @@ function auditArchive($tableName, $recordId, $oldStatus) {
 
 /**
  * Quick audit helper for RESTORE operations
+ * Generates specific action names based on table
  * 
  * @param string $tableName The table name
  * @param mixed $recordId The record ID
@@ -618,11 +1969,334 @@ function auditArchive($tableName, $recordId, $oldStatus) {
  */
 function auditRestore($tableName, $recordId, $oldStatus) {
     $userId = $_SESSION['user_id'] ?? null;
-    logAudit($userId, 'Restored', $tableName, $recordId, 
+    
+    // Generate specific action names based on table
+    $actionNames = [
+        'cases' => 'Case Restored',
+        'students' => 'Student Restored',
+        'lost_found_items' => 'Lost Item Restored',
+        'notifications' => 'Notification Restored'
+    ];
+    
+    $action = $actionNames[$tableName] ?? 'Restored';
+    logAudit($userId, $action, $tableName, $recordId, 
         ['status' => $oldStatus], 
         ['status' => 'Active', 'restored_date' => date('Y-m-d H:i:s')]
     );
 }
+
+// ==========================================
+// SANCTION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log sanction application
+ */
+function auditSanctionApplied($caseId, $sanctionId, $sanctionName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Applied', 'case_sanctions', $caseId, null, array_merge(
+        ['sanction_name' => $sanctionName, 'case_id' => $caseId],
+        $data
+    ));
+}
+
+/**
+ * Log sanction removal
+ */
+function auditSanctionRemoved($caseId, $sanctionName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Removed', 'case_sanctions', $caseId, 
+        array_merge(['sanction_name' => $sanctionName], $data), 
+        null
+    );
+}
+
+/**
+ * Log sanction deadline extension
+ */
+function auditSanctionExtended($caseId, $sanctionName, $oldDeadline, $newDeadline) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Deadline Extended', 'case_sanctions', $caseId, 
+        ['deadline' => $oldDeadline, 'sanction_name' => $sanctionName],
+        ['deadline' => $newDeadline, 'sanction_name' => $sanctionName]
+    );
+}
+
+/**
+ * Log sanction duration increase
+ */
+function auditSanctionDurationIncreased($caseId, $sanctionName, $oldDuration, $newDuration) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Sanction Duration Increased', 'case_sanctions', $caseId, 
+        ['duration_days' => $oldDuration, 'sanction_name' => $sanctionName],
+        ['duration_days' => $newDuration, 'sanction_name' => $sanctionName]
+    );
+}
+
+/**
+ * Log case resolution
+ */
+function auditCaseResolved($caseId, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Case Resolved', 'cases', $caseId, 
+        ['status' => 'On Going'],
+        array_merge(['status' => 'Resolved'], $data)
+    );
+}
+
+// ==========================================
+// CHECK-IN/CHECK-OUT AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log check-in recorded
+ */
+function auditCheckInRecorded($caseId, $dayNumber, $checkInTime) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Check-In Recorded', 'case_checkins', "$caseId-Day$dayNumber", null,
+        ['day_number' => $dayNumber, 'check_in_time' => $checkInTime, 'case_id' => $caseId]
+    );
+}
+
+/**
+ * Log check-out recorded
+ */
+function auditCheckOutRecorded($caseId, $dayNumber, $checkOutTime) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Check-Out Recorded', 'case_checkins', "$caseId-Day$dayNumber", null,
+        ['day_number' => $dayNumber, 'check_out_time' => $checkOutTime, 'case_id' => $caseId]
+    );
+}
+
+/**
+ * Log time correction
+ */
+function auditTimeRecordCorrected($caseId, $dayNumber, $oldTime, $newTime, $timeType) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, "Time Corrected ({$timeType})", 'case_checkins', "$caseId-Day$dayNumber",
+        [$timeType => $oldTime],
+        [$timeType => $newTime]
+    );
+}
+
+/**
+ * Log time record reverted
+ */
+function auditTimeRecordReverted($caseId, $dayNumber, $removedTime, $timeType) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, "Time Record Reverted ({$timeType})", 'case_checkins', "$caseId-Day$dayNumber",
+        [$timeType => $removedTime],
+        null
+    );
+}
+
+// ==========================================
+// LOST & FOUND AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log lost item added
+ */
+function auditLostItemAdded($itemId, $itemName, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Added', 'lost_found_items', $itemId, null, 
+        array_merge(['item_name' => $itemName], $data)
+    );
+}
+
+/**
+ * Log lost item updated
+ */
+function auditLostItemUpdated($itemId, $oldData, $newData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Updated', 'lost_found_items', $itemId, $oldData, $newData);
+}
+
+/**
+ * Log lost item claimed
+ */
+function auditLostItemClaimed($itemId, $studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Claimed', 'lost_found_items', $itemId, 
+        ['status' => 'Unclaimed'],
+        ['status' => 'Claimed', 'claimed_by' => $studentName, 'claimed_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log lost item unclaimed
+ */
+function auditLostItemUnclaimed($itemId, $studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Unclaimed', 'lost_found_items', $itemId, 
+        ['status' => 'Claimed', 'claimed_by' => $studentName],
+        ['status' => 'Unclaimed']
+    );
+}
+
+/**
+ * Log lost item archived
+ */
+function auditLostItemArchived($itemId, $itemName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Lost Item Archived', 'lost_found_items', $itemId, 
+        ['status' => 'Active'],
+        ['status' => 'Archived', 'archived_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+// ==========================================
+// CALENDAR AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log calendar event created
+ */
+function auditCalendarEventCreated($eventId, $eventTitle, $data) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Created', 'calendar_events', $eventId, null,
+        array_merge(['title' => $eventTitle], $data)
+    );
+}
+
+/**
+ * Log calendar event updated
+ */
+function auditCalendarEventUpdated($eventId, $oldData, $newData) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Updated', 'calendar_events', $eventId, $oldData, $newData);
+}
+
+/**
+ * Log calendar event deleted
+ */
+function auditCalendarEventDeleted($eventId, $eventTitle) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Calendar Event Deleted', 'calendar_events', $eventId,
+        ['title' => $eventTitle],
+        null
+    );
+}
+
+// ==========================================
+// NOTIFICATION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log notification marked as read
+ */
+function auditNotificationRead($notificationId, $notificationTitle) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Notification Read', 'notifications', $notificationId, 
+        ['is_read' => 0],
+        ['is_read' => 1, 'read_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log report generated
+ */
+function auditReportGenerated($reportType, $reportParams) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Report Generated', 'reports', null, null,
+        array_merge(['type' => $reportType, 'generated_at' => date('Y-m-d H:i:s')], $reportParams)
+    );
+}
+
+// ==========================================
+// USER ACTION AUDIT HELPERS
+// ==========================================
+
+/**
+ * Log student imported
+ */
+function auditStudentImported($studentId, $studentName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Student Imported', 'students', $studentId, null,
+        ['name' => $studentName, 'imported_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log user created
+ */
+function auditUserCreated($userId, $username, $role) {
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    logAudit($currentUserId, 'User Created', 'users', $userId, null,
+        ['username' => $username, 'role' => $role, 'created_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+/**
+ * Log bulk import
+ */
+function auditBulkImport($count, $type, $filename) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Bulk Import', 'system', null, null,
+        ['type' => $type, 'count' => $count, 'filename' => $filename, 'imported_at' => date('Y-m-d H:i:s')]
+    );
+}
+
+// ==========================================
+// SUBMISSION AUDIT HELPERS (Reports & Portfolios)
+// ==========================================
+
+/**
+ * Log report submission by teacher
+ */
+function auditReportSubmitted($caseId, $studentName, $caseType, $severity) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Report Submitted', 'cases', $caseId, null,
+        [
+            'student_name' => $studentName,
+            'case_type' => $caseType,
+            'severity' => $severity,
+            'submitted_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
+/**
+ * Log portfolio/community service submission by student
+ */
+function auditPortfolioSubmitted($caseId, $studentId, $sanctionName, $fileName) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Portfolio Submitted', 'community_service_submissions', $caseId, null,
+        [
+            'student_id' => $studentId,
+            'sanction' => $sanctionName,
+            'file_name' => $fileName,
+            'submitted_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
+/**
+ * Log portfolio/community service submission viewed by DO
+ */
+function auditPortfolioViewed($caseId, $submissionCount) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Portfolio Viewed', 'community_service_submissions', $caseId, null,
+        [
+            'submissions_viewed' => $submissionCount,
+            'viewed_at' => date('Y-m-d H:i:s')
+        ]
+    );
+}
+
+/**
+ * Log student viewing their case details
+ */
+function auditStudentCaseViewed($caseId) {
+    $userId = $_SESSION['user_id'] ?? null;
+    logAudit($userId, 'Student Case Viewed', 'cases', $caseId, null,
+        [
+            'viewed_at' => date('Y-m-d H:i:s'),
+            'student_view' => true
+        ]
+    );
+}
+
 // ==========================================
 // UTILITY FUNCTIONS
 // ==========================================
@@ -638,10 +2312,11 @@ function formatDate($date, $format = 'M d, Y') {
 function getStatusColor($status) {
     $colors = [
         'Pending' => 'yellow',
-        'Under Review' => 'blue',
+        'On Going' => 'blue',
         'Resolved' => 'green',
-        'Escalated' => 'red',
-        'Dismissed' => 'gray'
+        'Dismissed' => 'gray',
+        'Recorded' => 'green',
+        'Unrecorded' => 'yellow'
     ];
     
     return $colors[$status] ?? 'gray';
@@ -653,53 +2328,45 @@ function getStatusColor($status) {
 
 function get_sidebar_items($role) {
     $items = [];
+
+    $teacherSubrole = $_SESSION['teacher_subrole'] ?? ($_SESSION['user']['teacher_subrole'] ?? null);
+    if ($role === 'teacher' && $teacherSubrole !== 'department_head' && !empty($_SESSION['user_id'])) {
+        $currentUser = getUserById($_SESSION['user_id']);
+        $teacherSubrole = $currentUser['teacher_subrole'] ?? $teacherSubrole;
+    }
     
     if ($role === 'super_admin') {
         $items = [
             [
-                'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/do/doDashboard.php',
+                'label' => 'System Settings',
+                'path' => '/PrototypeDO/modules/super-admin/systemControl.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
-                'label' => 'Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
-                'icon' => 'cases-icon.png'
+                'label' => 'Case Rules',
+                'path' => '/PrototypeDO/modules/super-admin/violationMatrix.php',
+                'icon' => 'Cases-icon.png',
+                'tooltip' => 'Configure violation types, categories, and escalation rules'
             ],
             [
-                'label' => 'Statistics',
-                'path' => '/PrototypeDO/modules/do/statistics.php',
-                'icon' => 'statistics-icon.png'
+                'label' => 'User Management',
+                'path' => '/PrototypeDO/modules/super-admin/adminUsers.php',
+                'icon' => 'users-icon.png'
             ],
             [
-                'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
-                'icon' => 'Lost-and-found-icon.png'
+                'label' => 'Data Recovery',
+                'path' => '/PrototypeDO/modules/super-admin/dataRecovery.php',
+                'icon' => 'Audit-log-icon.png'
             ],
             [
-                'label' => 'Student History',
-                'path' => '/PrototypeDO/modules/do/studentHistory.php',
-                'icon' => 'student-history-icon.png'
-            ],
-            [
-                'label' => 'Reports',
-                'path' => '/PrototypeDO/modules/do/reports.php',
-                'icon' => 'reports-icon.png'
-            ],
-            [
-                'label' => 'Calendar',
-                'path' => '/PrototypeDO/modules/do/calendar.php',
-                'icon' => 'calendar-icon.png'
-            ],
-            [
-                'label' => 'Handbook',
+                'label' => 'Student Handbook',
                 'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
             [
-                'label' => 'Users',
-                'path' => '/PrototypeDO/modules/super-admin/adminUsers.php',
-                'icon' => 'users-icon.png'
+                'label' => 'Terms & Conditions',
+                'path' => '/PrototypeDO/modules/super-admin/adminTerms.php',
+                'icon' => 'Terms-icon.png'
             ],
             [
                 'label' => 'Audit Log',
@@ -715,12 +2382,17 @@ function get_sidebar_items($role) {
                 'icon' => 'dashboard-icon.png'
             ],
             [
-                'label' => 'Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
+                'label' => 'Minor Cases',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
                 'icon' => 'cases-icon.png'
             ],
             [
-                'label' => 'Statistics',
+                'label' => 'Major Cases',
+                'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
+                'icon' => 'cases-icon.png'
+            ],
+            [
+                'label' => 'Statistics & Reports',
                 'path' => '/PrototypeDO/modules/do/statistics.php',
                 'icon' => 'statistics-icon.png'
             ],
@@ -730,14 +2402,9 @@ function get_sidebar_items($role) {
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
-                'label' => 'Student History',
+                'label' => 'Student List',
                 'path' => '/PrototypeDO/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
-            ],
-            [
-                'label' => 'Reports',
-                'path' => '/PrototypeDO/modules/do/reports.php',
-                'icon' => 'reports-icon.png'
             ],
             [
                 'label' => 'Calendar',
@@ -764,12 +2431,12 @@ function get_sidebar_items($role) {
             ],
             [
                 'label' => 'My Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php',
+                'path' => '/PrototypeDO/modules/student/studentCases.php',
                 'icon' => 'cases-icon.png'
             ],  
             [
                 'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
+                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
@@ -778,7 +2445,33 @@ function get_sidebar_items($role) {
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
-    } elseif ($role === 'teacher' || $role === 'security') {
+    } elseif ($role === 'teacher') {
+        $items = [
+            [
+                'label' => 'Report Student',
+                'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
+                'icon' => 'Reports-icon.png'
+            ],
+            [
+                'label' => 'Lost & Found',
+                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
+                'icon' => 'Lost-and-found-icon.png'
+            ],
+            [
+                'label' => 'Handbook',
+                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'icon' => 'Student-handbook-icon.png'
+            ],
+        ];
+
+        if ($teacherSubrole === 'department_head') {
+            $items[] = [
+                'label' => 'Calendar',
+                'path' => '/PrototypeDO/modules/do/calendar.php?calendar_view=personal',
+                'icon' => 'calendar-icon.png'
+            ];
+        }
+    } elseif ($role === 'security') {
         $items = [
             [
                 'label' => 'Report Student',
@@ -794,6 +2487,31 @@ function get_sidebar_items($role) {
     }
     
     return $items;
+}
+
+function getSystemSetting($key, $default = null) {
+    try {
+        $value = fetchValue("SELECT setting_value FROM system_settings WHERE setting_key = ?", [$key]);
+        return $value === null ? $default : $value;
+    } catch (Throwable $e) {
+        error_log('System setting read failed: ' . $e->getMessage());
+        return $default;
+    }
+}
+
+function setSystemSetting($key, $value) {
+    executeQuery(
+        "MERGE system_settings AS target
+         USING (SELECT ? AS setting_key, ? AS setting_value) AS source
+         ON target.setting_key = source.setting_key
+         WHEN MATCHED THEN UPDATE SET setting_value = source.setting_value, updated_at = GETDATE()
+         WHEN NOT MATCHED THEN INSERT (setting_key, setting_value) VALUES (source.setting_key, source.setting_value);",
+        [$key, (string)$value]
+    );
+}
+
+function isMaintenanceModeEnabled() {
+    return getSystemSetting('maintenance_mode', 'disabled') === 'enabled';
 }
 // ==========================================
 // OFFENSE TYPES FUNCTIONS
@@ -824,24 +2542,506 @@ function getAllSanctions() {
     return fetchAll($sql);
 }
 
-function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '') {
-    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes)
-            VALUES (?, ?, ?, ?)";
+/**
+ * Check for scheduling conflicts
+ * @param string $scheduleDate - Date in YYYY-MM-DD format
+ * @param string $scheduleStartTime - Start time in HH:MM:SS format
+ * @param string $scheduleEndTime - End time in HH:MM:SS format (optional)
+ * @param int $excludeEventId - Event ID to exclude from conflict check (for updates)
+ * @return array - Array of conflicting events or empty array if no conflicts
+ */
+function checkSchedulingConflicts($scheduleDate, $scheduleStartTime, $scheduleEndTime = null, $excludeEventId = null) {
+    if (empty($scheduleDate) || empty($scheduleStartTime)) {
+        return [];
+    }
     
-    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes]);
+    // If no end time provided, assume 1-hour duration
+    if (empty($scheduleEndTime)) {
+        $scheduleEndTime = date('H:i:s', strtotime($scheduleStartTime) + 3600);
+    }
+    
+    // Only check calendar_events table since all scheduled sanctions create calendar events
+    // This prevents duplicate conflict messages
+    // Filter by current user (DO) - each DO has their own schedule
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    
+    $sql = "SELECT 
+                event_id,
+                event_name,
+                event_date,
+                event_time,
+                event_end_time,
+                category
+            FROM calendar_events 
+            WHERE event_date = ?
+            AND category = 'Hearing'
+            AND event_time IS NOT NULL
+            AND created_by = ?";
+    
+    $params = [$scheduleDate, $currentUserId];
+    
+    if ($excludeEventId !== null) {
+        $sql .= " AND event_id != ?";
+        $params[] = $excludeEventId;
+    }
+    
+    $events = fetchAll($sql, $params);
+    $conflicts = [];
+    
+    foreach ($events as $event) {
+        $eventStart = $event['event_time'];
+        $eventEnd = $event['event_end_time'] ?? date('H:i:s', strtotime($eventStart) + 3600);
+        
+        // Check if time ranges overlap
+        // Overlap occurs if: (StartA < EndB) AND (EndA > StartB)
+        if (($scheduleStartTime < $eventEnd) && ($scheduleEndTime > $eventStart)) {
+            $conflicts[] = [
+                'event_name' => $event['event_name'],
+                'event_date' => $event['event_date'],
+                'event_time' => $eventStart,
+                'event_end_time' => $eventEnd,
+                'type' => 'calendar_event'
+            ];
+        }
+    }
+    
+    return $conflicts;
+}
+
+function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes = '', $scheduleDate = null, $scheduleTime = null, $scheduleNotes = '', $scheduleEndTime = null, $deadlineDate = null) {
+    ensureCaseSanctionsDeadlineColumns();
+
+    $case = getCaseById($caseId);
+    if (($case['severity'] ?? '') === 'Minor') {
+        $sanctionName = fetchValue("SELECT sanction_name FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
+        $sanctionLevel = fetchValue("SELECT severity_level FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
+        if (stripos((string) $sanctionName, 'corrective reinforcement') !== false || intval($sanctionLevel) >= 3) {
+            throw new Exception('Minor cases must be escalated to Major before recording this sanction.');
+        }
+    }
+
+    // Prevent duplicate sanction assignment for the same case.
+    $duplicateSql = "SELECT TOP 1 case_sanction_id
+                     FROM case_sanctions
+                     WHERE case_id = ? AND sanction_id = ?";
+    $existing = fetchOne($duplicateSql, [$caseId, $sanctionId]);
+    if ($existing) {
+        throw new Exception('This sanction is already applied to this case.');
+    }
+
+    // Check for scheduling conflicts if date and time are provided
+    if (!empty($scheduleDate) && !empty($scheduleTime)) {
+        $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);
+        if (!empty($conflicts)) {
+            throw new Exception('Scheduling conflict detected: ' . $conflicts[0]['event_name'] . ' is already scheduled at this time.');
+        }
+    }
+    
+    // Convert deadline date to datetime if provided (set to end of day)
+    $deadline = null;
+    if (!empty($deadlineDate)) {
+        $deadline = $deadlineDate . ' 23:59:59';
+    }
+    
+    // scheduleTime should already be in HH:MM:SS format from cases.php
+    $sql = "INSERT INTO case_sanctions (case_id, sanction_id, duration_days, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes, deadline, original_duration_days)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    executeQuery($sql, [$caseId, $sanctionId, $durationDays, $notes, $scheduleDate, $scheduleTime, $scheduleEndTime, $scheduleNotes, $deadline, $durationDays]);
     
     // Log the sanction
-    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied");
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Sanction Applied', null, "Sanction ID: $sanctionId applied" . ($deadline ? " with deadline: $deadlineDate" : ''));
+    
+    // If a schedule date is provided, create a calendar event
+    if ($scheduleDate) {
+        try {
+            $existingScheduleSql = "SELECT TOP 1 event_id
+                                    FROM calendar_events
+                                    WHERE category = 'Hearing'
+                                      AND event_date = ?
+                                      AND event_name LIKE ?";
+            $existingSchedule = fetchOne($existingScheduleSql, [$scheduleDate, "%Case {$caseId}%"]);
+
+            if ($existingSchedule) {
+                error_log("Calendar event already exists for case {$caseId} on {$scheduleDate}; skipping duplicate insert");
+            } else {
+                // Get case and sanction details for the event name
+                $case = getCaseById($caseId);
+                $sanctionSql = "SELECT sanction_name FROM sanctions WHERE sanction_id = ?";
+                $sanction = fetchOne($sanctionSql, [$sanctionId]);
+                
+                $studentName = $case['student_name'] ?? 'Student';
+                $sanctionName = $sanction['sanction_name'] ?? 'Sanction';
+                
+                $eventName = "Sanction: {$sanctionName} - {$studentName} (Case {$caseId})";
+                $description = $scheduleNotes ?: "Scheduled sanction event for Case {$caseId}";
+                
+                // Create calendar event
+                if ($scheduleTime) {
+                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
+                                VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                    executeQuery($eventSql, [
+                        $eventName,
+                        $scheduleDate,
+                        $scheduleTime,
+                        $scheduleEndTime,
+                        $description,
+                        'Discipline Office',
+                        $_SESSION['user_id'] ?? null
+                    ]);
+                } else {
+                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, created_at)
+                                VALUES (?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                    executeQuery($eventSql, [
+                        $eventName,
+                        $scheduleDate,
+                        $description,
+                        'Discipline Office',
+                        $_SESSION['user_id'] ?? null
+                    ]);
+                }
+            }
+            
+            error_log("Calendar event created for sanction schedule on {$scheduleDate}");
+        } catch (Exception $e) {
+            error_log("Error creating calendar event for sanction: " . $e->getMessage());
+            // Don't fail the sanction application if calendar event fails
+        }
+    }
+}
+
+// ==========================================
+// DEADLINE AND EXTENSION MANAGEMENT
+// ==========================================
+
+function ensureCaseSanctionsDeadlineColumns() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $columns = [
+        'deadline' => "ALTER TABLE case_sanctions ADD deadline DATETIME NULL",
+        'original_duration_days' => "ALTER TABLE case_sanctions ADD original_duration_days INT NULL",
+        'duration_extra_hours' => "ALTER TABLE case_sanctions ADD duration_extra_hours INT NOT NULL CONSTRAINT DF_case_sanctions_duration_extra_hours DEFAULT 0 WITH VALUES",
+        'days_extended' => "ALTER TABLE case_sanctions ADD days_extended INT NOT NULL CONSTRAINT DF_case_sanctions_days_extended DEFAULT 0 WITH VALUES",
+        'extension_count' => "ALTER TABLE case_sanctions ADD extension_count INT NOT NULL CONSTRAINT DF_case_sanctions_extension_count DEFAULT 0 WITH VALUES",
+        'extension_notes' => "ALTER TABLE case_sanctions ADD extension_notes NVARCHAR(MAX) NULL",
+    ];
+
+    foreach ($columns as $columnName => $alterSql) {
+        $existsSql = "SELECT 1 AS column_exists
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE TABLE_NAME = 'case_sanctions' AND COLUMN_NAME = ?";
+        $exists = fetchOne($existsSql, [$columnName]);
+        if (!$exists) {
+            try {
+                executeQuery($alterSql, []);
+            } catch (Exception $e) {
+                // Ignore if another request added the column concurrently.
+                error_log("Deadline column bootstrap skipped for {$columnName}: " . $e->getMessage());
+            }
+        }
+    }
+
+    $initialized = true;
+}
+
+function ensureCommunityServiceSubmissionTable() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $tableExistsSql = "SELECT 1 AS table_exists
+                       FROM INFORMATION_SCHEMA.TABLES
+                       WHERE TABLE_NAME = 'community_service_submissions'";
+    $tableExists = fetchOne($tableExistsSql);
+
+    if (!$tableExists) {
+        $createTableSql = "CREATE TABLE community_service_submissions (
+            submission_id INT IDENTITY(1,1) PRIMARY KEY,
+            case_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES cases(case_id),
+            case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
+            student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
+            uploaded_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+            file_name NVARCHAR(255) NOT NULL,
+            original_file_name NVARCHAR(255) NOT NULL,
+            file_path NVARCHAR(500) NOT NULL,
+            file_size_bytes BIGINT NULL,
+            mime_type NVARCHAR(120) NULL,
+            remarks NVARCHAR(1000) NULL,
+            review_status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+            review_notes NVARCHAR(1000) NULL,
+            reviewed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+            reviewed_at DATETIME NULL,
+            is_seen_by_do BIT NOT NULL DEFAULT 0,
+            seen_by_do_at DATETIME NULL,
+            seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
+            created_at DATETIME NOT NULL DEFAULT GETDATE()
+        )";
+
+        try {
+            executeQuery($createTableSql, []);
+        } catch (Exception $e) {
+            error_log('Community service submission table bootstrap skipped: ' . $e->getMessage());
+        }
+    }
+
+    $columns = [
+        'remarks' => "ALTER TABLE community_service_submissions ADD remarks NVARCHAR(1000) NULL",
+        'review_status' => "ALTER TABLE community_service_submissions ADD review_status NVARCHAR(20) NOT NULL CONSTRAINT DF_css_review_status DEFAULT 'pending' WITH VALUES",
+        'review_notes' => "ALTER TABLE community_service_submissions ADD review_notes NVARCHAR(1000) NULL",
+        'reviewed_by' => "ALTER TABLE community_service_submissions ADD reviewed_by INT NULL",
+        'reviewed_at' => "ALTER TABLE community_service_submissions ADD reviewed_at DATETIME NULL",
+        'is_seen_by_do' => "ALTER TABLE community_service_submissions ADD is_seen_by_do BIT NOT NULL CONSTRAINT DF_css_is_seen_by_do DEFAULT 0 WITH VALUES",
+        'seen_by_do_at' => "ALTER TABLE community_service_submissions ADD seen_by_do_at DATETIME NULL",
+        'seen_by_do_user_id' => "ALTER TABLE community_service_submissions ADD seen_by_do_user_id INT NULL",
+    ];
+
+    foreach ($columns as $columnName => $alterSql) {
+        $existsSql = "SELECT 1 AS column_exists
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE TABLE_NAME = 'community_service_submissions' AND COLUMN_NAME = ?";
+        $exists = fetchOne($existsSql, [$columnName]);
+        if (!$exists) {
+            try {
+                executeQuery($alterSql, []);
+            } catch (Exception $e) {
+                error_log("Community service submission column bootstrap skipped for {$columnName}: " . $e->getMessage());
+            }
+        }
+    }
+
+    $fkExistsSql = "SELECT 1 AS fk_exists
+                    FROM sys.foreign_keys
+                    WHERE name = 'FK_css_seen_by_do_user'";
+    $fkExists = fetchOne($fkExistsSql);
+    if (!$fkExists) {
+        try {
+            executeQuery(
+                "ALTER TABLE community_service_submissions
+                 ADD CONSTRAINT FK_css_seen_by_do_user
+                 FOREIGN KEY (seen_by_do_user_id) REFERENCES users(user_id)",
+                []
+            );
+        } catch (Exception $e) {
+            error_log('Community service submission FK bootstrap skipped: ' . $e->getMessage());
+        }
+    }
+
+    $initialized = true;
+}
+
+function notifyDOOnCommunityServicePortfolioSubmission($caseId, $studentName, $originalFileName, $sanctionName = '') {
+    try {
+        $doUsers = fetchAll(
+            "SELECT user_id
+             FROM users
+             WHERE is_active = 1
+               AND (role = 'discipline_office' OR role = 'do' OR role = 'super_admin')"
+        );
+
+        if (empty($doUsers)) {
+            return 0;
+        }
+
+        $sanctionNameLower = strtolower((string)$sanctionName);
+        $sanctionType = (strpos($sanctionNameLower, 'suspension from class') !== false) ? 'suspension' : 'corrective';
+        $sanctionLabel = ($sanctionType === 'suspension') ? 'Suspension from Class' : 'Community Service';
+
+        $title = 'New ' . $sanctionLabel . ' Completion Report Submitted';
+        $message = "{$studentName} submitted a completion report ({$originalFileName}) for {$sanctionLabel} in Case {$caseId}.";
+        $count = 0;
+
+        $relatedId = 'community_service_submission:' . $sanctionType . ':' . $caseId;
+
+        foreach ($doUsers as $doUser) {
+            createNotification($doUser['user_id'], $title, $message, 'community_service_submission', $relatedId);
+            $count++;
+        }
+
+        return $count;
+    } catch (Exception $e) {
+        error_log('Error notifying DO on community service portfolio submission: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function buildDefaultSanctionDeadline($appliedDate, $durationDays, $graceDays = 7) {
+    $durationInt = intval($durationDays);
+    if ($durationInt <= 0) {
+        return null;
+    }
+
+    $baseDate = !empty($appliedDate) ? $appliedDate : date('Y-m-d');
+
+    try {
+        $deadline = new DateTime(date('Y-m-d', strtotime($baseDate)) . ' 23:59:59');
+        $deadline->modify('+' . ($durationInt + intval($graceDays)) . ' days');
+        return $deadline->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        error_log('Error building default sanction deadline: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Check deadline status for a sanction
+ * Returns: 'on-track', 'due-soon' (2 days or less), 'overdue'
+ */
+function getDeadlineStatus($deadline) {
+    if (!$deadline) {
+        return 'no-deadline';
+    }
+    
+    $now = new DateTime();
+    $deadlineTime = new DateTime($deadline);
+    $daysUntilDeadline = $deadlineTime->diff($now)->days;
+    $isOverdue = $deadlineTime < $now;
+    
+    if ($isOverdue) {
+        return 'overdue';
+    } elseif ($daysUntilDeadline <= 2) {
+        return 'due-soon';
+    } else {
+        return 'on-track';
+    }
+}
+
+/**
+ * Get days remaining until deadline
+ */
+function getDaysUntilDeadline($deadline) {
+    if (!$deadline) {
+        return null;
+    }
+    
+    $now = new DateTime();
+    $deadlineTime = new DateTime($deadline);
+    $interval = $deadlineTime->diff($now);
+    
+    return $deadlineTime < $now ? -$interval->days : $interval->days;
+}
+
+/**
+ * Extend a sanction deadline by specified days
+ */
+function extendSanctionDeadline($caseSanctionId, $daysToAdd = 7, $extensionNotes = '') {
+    try {
+        ensureCaseSanctionsDeadlineColumns();
+
+        $sql = "SELECT case_id, deadline FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanction = fetchOne($sql, [$caseSanctionId]);
+        
+        if (!$sanction) {
+            throw new Exception('Sanction not found');
+        }
+        
+        $currentDeadline = $sanction['deadline'] ? new DateTime($sanction['deadline']) : new DateTime();
+        $newDeadline = $currentDeadline->modify("+{$daysToAdd} days");
+        
+        $updateSql = "UPDATE case_sanctions 
+                      SET deadline = ?
+                      WHERE case_sanction_id = ?";
+        
+        $timestamp = date('Y-m-d H:i:s', $newDeadline->getTimestamp());
+        $newNote = "Deadline extended by {$daysToAdd} day(s) on " . date('Y-m-d H:i:s');
+        if (!empty($extensionNotes)) {
+            $newNote .= ": " . $extensionNotes;
+        }
+        
+        executeQuery($updateSql, [$timestamp, $caseSanctionId]);
+        if (!empty($sanction['case_id'])) {
+            logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Deadline Extended', null, $newNote);
+        }
+
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'deadline_extended', ['daysToAdd' => $daysToAdd]);
+
+        return true;
+    } catch (Exception $e) {
+        error_log("Error extending sanction deadline: " . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
+ * Increase sanction duration (as penalty for missed deadline)
+ */
+function increaseSanctionDuration($caseSanctionId, $additionalHours = 8, $reason = 'Missed deadline') {
+    try {
+        ensureCaseSanctionsDeadlineColumns();
+
+        $sql = "SELECT case_id, duration_days, duration_extra_hours FROM case_sanctions WHERE case_sanction_id = ?";
+        $sanction = fetchOne($sql, [$caseSanctionId]);
+
+        if (!$sanction) {
+            throw new Exception('Sanction not found');
+        }
+
+        $hoursToAdd = max(1, intval($additionalHours));
+        $baseDays = max(1, intval($sanction['duration_days'] ?? 0));
+        $baseExtraHours = max(0, intval($sanction['duration_extra_hours'] ?? 0));
+
+        $currentRequiredHours = $baseExtraHours > 0
+            ? (($baseDays - 1) * 8) + $baseExtraHours
+            : ($baseDays * 8);
+
+        $newTotalHours = $currentRequiredHours + $hoursToAdd;
+        // Keep duration_days stable. Additional required hours are represented in duration_extra_hours.
+        $newExtraHours = max(0, $newTotalHours - (($baseDays - 1) * 8));
+
+        $updateSql = "UPDATE case_sanctions
+                      SET duration_extra_hours = ?
+                      WHERE case_sanction_id = ?";
+
+        $note = "Duration increased by {$hoursToAdd} hour(s) on " . date('Y-m-d H:i:s') . " - {$reason}";
+
+        executeQuery($updateSql, [$newExtraHours, $caseSanctionId]);
+        if (!empty($sanction['case_id'])) {
+            logCaseHistory($sanction['case_id'], $_SESSION['user_id'] ?? null, 'Sanction Duration Increased', null, $note);
+        }
+
+        notifyStudentOnCommunityServiceEvent($caseSanctionId, 'hours_added', ['additionalHours' => $hoursToAdd]);
+
+        return true;
+    } catch (Exception $e) {
+        error_log("Error increasing sanction duration: " . $e->getMessage());
+        throw $e;
+    }
 }
 
 function getCaseSanctions($caseId) {
+    // First get the basic sanction info
     $sql = "SELECT cs.*, s.sanction_name, s.severity_level, s.description
             FROM case_sanctions cs
             JOIN sanctions s ON cs.sanction_id = s.sanction_id
             WHERE cs.case_id = ?
             ORDER BY cs.applied_date DESC";
     
-    return fetchAll($sql, [$caseId]);
+    $sanctions = fetchAll($sql, [$caseId]);
+    
+    // For each sanction with a schedule, try to find the corresponding calendar event
+    foreach ($sanctions as &$sanction) {
+        if ($sanction['scheduled_date']) {
+            $eventSql = "SELECT TOP 1 u.full_name as scheduled_by_name
+                        FROM calendar_events ce
+                        JOIN users u ON ce.created_by = u.user_id
+                        WHERE ce.category = 'Hearing'
+                        AND ce.event_date = ?
+                        AND ce.event_name LIKE ?
+                        ORDER BY ce.created_at DESC";
+            
+            $eventPattern = '%Case ' . $caseId . ')%';
+            $eventData = fetchOne($eventSql, [$sanction['scheduled_date'], $eventPattern]);
+            
+            if ($eventData) {
+                $sanction['scheduled_by_name'] = $eventData['scheduled_by_name'];
+            }
+        }
+    }
+    
+    return $sanctions;
 }
 
 // ==========================================
@@ -849,9 +3049,333 @@ function getCaseSanctions($caseId) {
 // ==========================================
 
 function markCaseAsResolved($caseId) {
-    $sql = "UPDATE cases SET status = 'Resolved', resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
-    executeQuery($sql, [$caseId]);
+    $caseSeverity = fetchValue("SELECT severity FROM cases WHERE case_id = ?", [$caseId]);
+    if ($caseSeverity !== 'Minor') {
+        $sanctionCheck = fetchOne("SELECT COUNT(*) as cnt FROM case_sanctions WHERE case_id = ?", [$caseId]);
+        if (!$sanctionCheck || intval($sanctionCheck['cnt']) === 0) {
+            throw new Exception('Cannot resolve case without an applied sanction. Please apply a sanction first.');
+        }
+    }
+
+    $resolvedStatus = $caseSeverity === 'Minor' ? 'Recorded' : 'Resolved';
+    $sql = "UPDATE cases SET status = ?, assigned_to = ?, resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$resolvedStatus, $_SESSION['user_id'] ?? null, $caseId]);
+
+    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, $resolvedStatus, 'Previous Status', 'Case marked as resolved');
+}
+
+function getCaseResolutionEligibility($caseId) {
+    $correctiveSql = "SELECT cs.duration_days,
+                             (SELECT COUNT(DISTINCT cci.day_number)
+                              FROM case_checkins cci
+                              WHERE cci.case_sanction_id = cs.case_sanction_id
+                                AND cci.check_in_time IS NOT NULL
+                                AND cci.check_out_time IS NOT NULL) AS completed_days
+                      FROM case_sanctions cs
+                      JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                      WHERE cs.case_id = ?
+                        AND LOWER(s.sanction_name) LIKE '%corrective%'
+                        AND cs.duration_days > 0";
+    $correctiveRows = fetchAll($correctiveSql, [$caseId]);
+
+    foreach ($correctiveRows as $row) {
+        $required = intval($row['duration_days']);
+        $done = intval($row['completed_days']);
+        if ($required > 0 && $done < $required) {
+            return [
+                'can_resolve' => false,
+                'error' => 'Check-in is not complete.'
+            ];
+        }
+    }
+
+    $missingCorrectivePortfolioRow = fetchOne(
+        "SELECT COUNT(*) AS cnt
+         FROM case_sanctions cs
+         JOIN sanctions s ON cs.sanction_id = s.sanction_id
+         WHERE cs.case_id = ?
+           AND LOWER(s.sanction_name) LIKE '%corrective%'
+           AND cs.duration_days > 0
+           AND NOT EXISTS (
+               SELECT 1
+               FROM community_service_submissions css
+               WHERE css.case_id = cs.case_id
+                 AND css.case_sanction_id = cs.case_sanction_id
+            )",
+        [$caseId]
+    );
+
+    if (intval($missingCorrectivePortfolioRow['cnt'] ?? 0) > 0) {
+        return [
+            'can_resolve' => false,
+            'error' => 'Student has not submitted a completion report'
+        ];
+    }
+
+    $suspensionSql = "SELECT cs.duration_days, cs.applied_date
+                      FROM case_sanctions cs
+                      JOIN sanctions s ON cs.sanction_id = s.sanction_id
+                      WHERE cs.case_id = ?
+                        AND LOWER(s.sanction_name) LIKE '%suspension from class%'
+                        AND cs.duration_days > 0";
+    $suspensionRows = fetchAll($suspensionSql, [$caseId]);
+
+    $countSchoolDaysInclusive = function ($startDateStr, $endDateStr) {
+        if (empty($startDateStr) || empty($endDateStr)) {
+            return 0;
+        }
+
+        $start = strtotime(date('Y-m-d', strtotime($startDateStr)));
+        $end = strtotime(date('Y-m-d', strtotime($endDateStr)));
+
+        if ($start === false || $end === false || $start > $end) {
+            return 0;
+        }
+
+        $days = 0;
+        for ($ts = $start; $ts <= $end; $ts += 86400) {
+            $isoDay = intval(date('N', $ts));
+            if ($isoDay >= 1 && $isoDay <= 6) {
+                $days++;
+            }
+        }
+
+        return $days;
+    };
+
+    foreach ($suspensionRows as $row) {
+        $required = intval($row['duration_days']);
+        $elapsedDays = $countSchoolDaysInclusive(
+            $row['applied_date'] ?? null,
+            date('Y-m-d', strtotime('-1 day'))
+        );
+
+        $done = min($required, $elapsedDays);
+        if ($required > 0 && $done < $required) {
+            return [
+                'can_resolve' => false,
+                'error' => 'Suspension from class is not complete.'
+            ];
+        }
+    }
+
+    return [
+        'can_resolve' => true,
+        'error' => null
+    ];
+}
+
+// ==========================================
+// CASE ATTACHMENTS/IMAGES FUNCTIONS
+// ==========================================
+
+function saveAttachmentForCase($caseId, $file) {
+    if (!isset($file) || $file['error'] !== UPLOAD_ERR_OK) {
+        return false;
+    }
     
-    logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Resolved', 'Previous Status', 'Case marked as resolved');
+    // Create attachments directory if it doesn't exist
+    $attachmentsDir = __DIR__ . '/../assets/case_attachments';
+    if (!is_dir($attachmentsDir)) {
+        mkdir($attachmentsDir, 0755, true);
+    }
+    
+    // Validate file is an image
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!in_array($file['type'], $allowedMimes)) {
+        return false;
+    }
+    
+    // Validate file size (max 5MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        return false;
+    }
+    
+    // Generate unique filename
+    $filename = uniqid('case_' . $caseId . '_') . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filepath = $attachmentsDir . '/' . $filename;
+    
+    // Move uploaded file
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        return false;
+    }
+    
+    // Return relative path for storage in database
+    return '/PrototypeDO/assets/case_attachments/' . $filename;
+}
+
+function addCaseAttachments($caseId, $attachmentPaths) {
+    // Get current attachments
+    $case = getCaseById($caseId);
+    $currentAttachments = !empty($case['attachments']) ? json_decode($case['attachments'], true) : [];
+    
+    // Add new attachments
+    if (is_array($attachmentPaths)) {
+        $currentAttachments = array_merge($currentAttachments, $attachmentPaths);
+    } else {
+        $currentAttachments[] = $attachmentPaths;
+    }
+    
+    // Update case with new attachments
+    $attachmentsJson = json_encode(array_unique($currentAttachments));
+    $sql = "UPDATE cases SET attachments = ?, updated_at = GETDATE() WHERE case_id = ?";
+    executeQuery($sql, [$attachmentsJson, $caseId]);
+    
+    return true;
+}
+
+function getCaseAttachments($caseId) {
+    $case = getCaseById($caseId);
+    if (empty($case['attachments'])) {
+        return [];
+    }
+    
+    $attachments = json_decode($case['attachments'], true);
+    return is_array($attachments) ? $attachments : [];
+}
+
+// ==========================================
+// TERMS AND CONDITIONS FUNCTIONS
+// ==========================================
+
+/**
+ * Get the current active version of Terms and Conditions
+ */
+function getCurrentTermsVersion() {
+    $sql = "SELECT TOP 1 version FROM terms_and_conditions WHERE is_active = 1 ORDER BY version DESC";
+    $result = fetchOne($sql, []);
+    return $result ? $result['version'] : 0;
+}
+
+/**
+ * Get Terms and Conditions by version
+ */
+function getTermsByVersion($version = null) {
+    if ($version === null) {
+        $version = getCurrentTermsVersion();
+    }
+    
+    $sql = "SELECT * FROM terms_and_conditions WHERE version = ?";
+    return fetchOne($sql, [$version]);
+}
+
+/**
+ * Check if user needs to accept new Terms and Conditions
+ */
+function userNeedsToAcceptTerms($userId) {
+    $user = getUserById($userId);
+    if (!$user) {
+        return false;
+    }
+    
+    $currentVersion = getCurrentTermsVersion();
+    $userVersion = $user['terms_accepted_version'] ?? 0;
+    
+    return $currentVersion > $userVersion;
+}
+
+/**
+ * Accept Terms and Conditions for a user
+ */
+function acceptTermsAndConditions($userId, $version = null) {
+    if ($version === null) {
+        $version = getCurrentTermsVersion();
+    }
+    
+    // Update user's terms_accepted_version
+    $sql = "UPDATE users SET terms_accepted_version = ? WHERE user_id = ?";
+    $result = executeQuery($sql, [$version, $userId]);
+    
+    // Log the acceptance
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+    
+    $logSql = "INSERT INTO terms_acceptance_log (user_id, terms_version, ip_address, user_agent) 
+               VALUES (?, ?, ?, ?)";
+    executeQuery($logSql, [$userId, $version, $ipAddress, $userAgent]);
+    
+    return $result !== false;
+}
+
+/**
+ * Get acceptance history for a user
+ */
+function getUserTermsAcceptanceHistory($userId) {
+    $sql = "SELECT * FROM terms_acceptance_log 
+            WHERE user_id = ? 
+            ORDER BY accepted_date DESC";
+    return fetchAll($sql, [$userId]);
+}
+
+/**
+ * Audit log helper: User accepts Terms and Conditions
+ */
+function auditTermsAccepted($userId, $version = null) {
+    if ($version === null) {
+        $version = 2; // Current version
+    }
+    
+    $user = getUserById($userId);
+    $userName = $user ? ($user['name'] ?? $user['email'] ?? "User #$userId") : "User #$userId";
+    
+    logAudit($userId, 'Terms Accepted', 'terms', 0, null, [
+        'action' => 'User accepted Terms and Conditions',
+        'terms_version' => $version,
+        'accepted_by' => $userName,
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
+    ]);
+}
+
+/**
+ * Audit log helper: Admin updates Terms and Conditions
+ */
+function auditTermsUpdated($adminId, $sectionsChanged = 0, $details = []) {
+    $admin = getUserById($adminId);
+    $adminName = $admin ? ($admin['name'] ?? $admin['email'] ?? "Admin #$adminId") : "Admin #$adminId";
+    
+    logAudit($adminId, 'Terms and Conditions Updated', 'terms', 0, null, [
+        'action' => 'Terms and Conditions content updated',
+        'updated_by' => $adminName,
+        'sections_changed' => $sectionsChanged,
+        'details' => $details,
+        'note' => 'All users will be required to accept the new terms on their next login'
+    ]);
+}
+
+/**
+ * Audit log helper: Admin views Terms in admin panel
+ */
+function auditTermsViewed($adminId) {
+    logAudit($adminId, 'Terms Viewed', 'terms', 0, null, [
+        'action' => 'Super admin viewed Terms and Conditions'
+    ]);
+}
+
+/**
+ * Maps full course names or variations to their official code abbreviation.
+ */
+function normalizeProgramAbbreviation($input) {
+    if (empty($input)) {
+        return null;
+    }
+
+    $trimmed = trim($input);
+
+    $map = [
+        'Bachelor of Science in Computer Science'      => 'BSCS',
+        'Bachelor of Science in Information Technology'=> 'BSIT',
+        'Bachelor of Science in Computer Engineering'  => 'BSCpE',
+        'Bachelor of Science in Management Accounting'  => 'BSMA',
+        'Bachelor of Science in Accountancy'            => 'BSA',
+        'Bachelor of Science in Hospitality Management' => 'BSHM',
+        'Bachelor of Multimedia Arts'                   => 'BMMA',
+        'Bachelor of Arts in Communication'             => 'BACOMM',
+        'Bachelor of Arts in Psychology'                => 'BAPsych',
+        'Bachelor of Science in Tourism Management'     => 'BSTM',
+        'Bachelor of Science in Criminology'            => 'BSCRIM'
+    ];
+
+    // Return mapped abbreviation if matched, otherwise return trimmed input
+    return $map[$trimmed] ?? $trimmed;
 }
 ?>

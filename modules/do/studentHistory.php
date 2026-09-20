@@ -1,10 +1,420 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
-// Page metadata
-$pageTitle = "Page Title"; // 👈 Replace dynamically (e.g., “Cases”)
-$adminName = $_SESSION['admin_name'] ?? 'Admin'; 
+// Handle CSV Import
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv']) && !in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)) {
+    header('Content-Type: application/json');
+
+    try {
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error occurred']);
+            exit;
+        }
+
+        $file = $_FILES['csv_file'];
+        $fileName = $file['tmp_name'];
+
+        // Validate file type
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($fileExtension !== 'csv') {
+            echo json_encode(['success' => false, 'error' => 'Only CSV files are allowed']);
+            exit;
+        }
+
+        // Open and parse CSV
+        $handle = fopen($fileName, 'r');
+        if (!$handle) {
+            echo json_encode(['success' => false, 'error' => 'Could not open the CSV file']);
+            exit;
+        }
+
+        // Read header row
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            echo json_encode(['success' => false, 'error' => 'CSV file is empty']);
+            exit;
+        }
+
+        // Expected columns: student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+        $expectedColumns = [
+            'student_id',
+            'first_name',
+            'last_name',
+            'middle_name',
+            'grade_year',
+            'track_course',
+            'section',
+            'student_type',
+            'guardian_name',
+            'guardian_contact'
+        ];
+
+        $normalizedHeader = array_map(function ($column) {
+            return strtolower(trim($column));
+        }, $header);
+
+        if ($normalizedHeader !== $expectedColumns) {
+            fclose($handle);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid CSV format. Expected columns: ' . implode(', ', $expectedColumns)
+            ]);
+            exit;
+        }
+
+        $imported = 0;
+        $errors = [];
+        $skipped = 0;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            // Skip empty rows
+            if (empty(array_filter($row))) {
+                continue;
+            }
+
+            // Map CSV columns to array
+            if (count($row) !== count($expectedColumns)) {
+                $errors[] = 'Row skipped: Column count does not match the CSV header';
+                $skipped++;
+                continue;
+            }
+
+            $data = array_combine($expectedColumns, $row);
+
+            $studentId = trim($data['student_id'] ?? '');
+            $firstName = trim($data['first_name'] ?? '');
+            $lastName = trim($data['last_name'] ?? '');
+            $gradeYear = trim($data['grade_year'] ?? '');
+            $trackCourse = normalizeProgramAbbreviation($data['track_course'] ?? '');
+
+            // Validate required fields including student_id.
+            if ($studentId === '' || $firstName === '' || $lastName === '' || $gradeYear === '') {
+                $errors[] = "Row skipped: Missing required fields (student_id, first_name, last_name, or grade_year)";
+                $skipped++;
+                continue;
+            }
+
+            try {
+                // Check if provided student_id already exists.
+                $checkSql = "SELECT student_id FROM students WHERE student_id = ?";
+                $existing = fetchOne($checkSql, [$studentId]);
+
+                if ($existing) {
+                    $errors[] = "Error: Student ID {$studentId} already exists";
+                    $skipped++;
+                    continue;
+                }
+
+                // Auto-generate email: lastname.last6digits@sti.edu
+                $emailLastName = strtolower(str_replace(' ', '', $lastName)); // Remove spaces and lowercase
+                $last6Digits = substr($studentId, -6); // Get last 6 digits
+                $email = $emailLastName . '.' . $last6Digits . '@sti.edu';
+
+                // Create user account for the student
+                $fullName = trim($firstName . ' ' . ($data['middle_name'] ?? '') . ' ' . $lastName);
+                $username = $email; // Use email as username
+                $defaultPassword = 'password'; // Default password for all students
+                $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+
+                // Check if email already exists
+                $emailCheck = fetchOne("SELECT user_id FROM users WHERE email = ?", [$email]);
+                if ($emailCheck) {
+                    $errors[] = "Error: Email {$email} already exists for student {$newStudentId}";
+                    $skipped++;
+                    continue;
+                }
+
+                // Insert user account
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, 'student', ?, 1, GETDATE())";
+                executeQuery($userSql, [
+                    $username,
+                    $passwordHash,
+                    $email,
+                    $fullName,
+                    $data['guardian_contact'] ?? null
+                ]);
+
+                // Get the newly created user_id
+                $userId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
+
+                // Insert new student with auto-generated ID and linked user_id
+                $insertSql = "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                executeQuery($insertSql, [
+                    $studentId,
+                    $userId,
+                    $firstName,
+                    $lastName,
+                    $data['middle_name'] ?? null,
+                    $gradeYear,
+                    $trackCourse,
+                    $data['section'] ?? null,
+                    $data['student_type'] ?? null,
+                    $data['guardian_name'] ?? null,
+                    $data['guardian_contact'] ?? null
+                ]);
+
+                $imported++;
+            } catch (Exception $e) {
+                $errors[] = "Error importing student: " . $e->getMessage();
+                $skipped++;
+            }
+        }
+
+        fclose($handle);
+
+        echo json_encode([
+            'success' => true,
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'errors' => $errors
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        error_log("CSV Import Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
+    header('Content-Type: application/json');
+
+    // Mark password warning as shown in this login session
+    if (isset($_POST['action']) && $_POST['action'] === 'markPasswordWarningShown') {
+        $_SESSION['password_warning_modal_shown'] = true;
+        echo json_encode(['success' => true, 'message' => 'Password warning marked as shown']);
+        exit;
+    }
+
+    try {
+        // Get students with filters
+        if ($_POST['action'] === 'getStudents') {
+            $search = $_POST['search'] ?? '';
+            $grade = $_POST['grade'] ?? '';
+            $status = $_POST['status'] ?? '';
+
+            // ── Sync student statuses based on handbook offense categories ──
+            //
+            // Category A (1st = Corrective Reinforcement, 2nd = Suspension, 3rd = Non-readmission)
+            // Category B (1st = Suspension, 2nd = Non-readmission)
+            // Category C (1st = Suspension 7-10d, 2nd = Non-readmission)
+            // Category D (1st = Exclusion / Expulsion)
+            //
+            // On Probation : 1+ active Cat B/C/D  OR  2+ active Cat A
+            // On Watch     : 1 active Cat A  OR  3+ active minor  (if not On Probation)
+            // Good Standing: everything else
+
+            // Step 1 – Elevate to On Probation (highest priority, overwrites any lower status)
+            executeQuery(
+                "UPDATE students
+                SET status = 'On Probation'
+                WHERE (
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category IN ('Category B','Category C','Category D')
+                       AND c.is_archived = 0) >= 1
+                    OR
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) >= 2
+                )"
+            );
+
+            // Step 2 – Revert On Probation if conditions no longer met
+            //          (drop to On Watch or Good Standing as appropriate)
+            executeQuery(
+                "UPDATE students
+                SET status = CASE
+                    WHEN (SELECT COUNT(*) FROM cases c
+                          WHERE c.student_id = students.student_id
+                            AND c.severity = 'Minor'
+                            AND c.is_archived = 0) >= 3
+                         OR
+                         (SELECT COUNT(*) FROM cases c
+                          WHERE c.student_id = students.student_id
+                            AND c.severity = 'Major'
+                            AND c.offense_category = 'Category A'
+                            AND c.is_archived = 0) >= 1
+                    THEN 'On Watch'
+                    ELSE 'Good Standing'
+                END
+                WHERE status = 'On Probation'
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category IN ('Category B','Category C','Category D')
+                       AND c.is_archived = 0) = 0
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) < 2"
+            );
+
+            // Step 3 – Set On Watch (not already On Probation)
+            //          3+ active minor  OR  1 active Category A major
+            executeQuery(
+                "UPDATE students
+                SET status = 'On Watch'
+                WHERE status != 'On Probation'
+                AND (
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Minor'
+                       AND c.is_archived = 0) >= 3
+                    OR
+                    (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) >= 1
+                )"
+            );
+
+            // Step 4 – Revert On Watch to Good Standing if below both thresholds
+            executeQuery(
+                "UPDATE students
+                SET status = 'Good Standing'
+                WHERE status = 'On Watch'
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Minor'
+                       AND c.is_archived = 0) < 3
+                AND (SELECT COUNT(*) FROM cases c
+                     WHERE c.student_id = students.student_id
+                       AND c.severity = 'Major'
+                       AND c.offense_category = 'Category A'
+                       AND c.is_archived = 0) < 1"
+            );
+
+            // Build SQL query with filters
+            $sql = "SELECT 
+                        s.student_id,
+                        s.first_name,
+                        s.last_name,
+                        s.grade_year,
+                        s.track_course,
+                        s.total_offenses,
+                        s.major_offenses,
+                        s.minor_offenses,
+                        s.last_incident_date,
+                        s.status,
+                        (SELECT COUNT(*) FROM cases c WHERE c.student_id = s.student_id AND c.is_archived = 1) AS archived_cases
+                    FROM students s
+                    WHERE 1=1";
+            
+            $params = [];
+
+            // Search filter
+            if (!empty($search)) {
+                // Check if search contains space (full name search)
+                if (strpos($search, ' ') !== false) {
+                    // Split the search term
+                    $parts = explode(' ', trim($search));
+                    $firstName = $parts[0];
+                    $lastName = isset($parts[1]) ? $parts[1] : '';
+                    
+                    // Search for first name + last name combination
+                    $sql .= " AND (s.student_id LIKE ? OR (s.first_name LIKE ? AND s.last_name LIKE ?) OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+                    $searchTerm = '%' . $search . '%';
+                    $firstNameTerm = '%' . $firstName . '%';
+                    $lastNameTerm = '%' . $lastName . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $firstNameTerm;
+                    $params[] = $lastNameTerm;
+                    $params[] = $searchTerm; // Also search for full term in first_name
+                    $params[] = $searchTerm; // Also search for full term in last_name
+                } else {
+                    // Single word search (matching original behavior)
+                    $sql .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+                    $searchTerm = '%' . $search . '%';
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                }
+            }
+
+            // Grade filter
+            if (!empty($grade)) {
+                $sql .= " AND s.grade_year = ?";
+                $params[] = $grade;
+            }
+
+            // Status filter
+            if (!empty($status)) {
+                $sql .= " AND s.status = ?";
+                $params[] = $status;
+            }
+
+            $sql .= " ORDER BY s.total_offenses DESC, s.last_name ASC";
+
+            $students = fetchAll($sql, $params);
+
+            // Format data for JavaScript
+            $formattedStudents = array_map(function ($student) {
+                return [
+                    'id' => $student['student_id'],
+                    'name' => $student['first_name'] . ' ' . $student['last_name'],
+                    'studentId' => $student['student_id'],
+                    'grade' => $student['grade_year'] ?? 'N/A',
+                    'strand' => $student['track_course'] ?? 'N/A',
+                    'incidents' => $student['total_offenses'] ?? 0,
+                    'majorOffenses' => $student['major_offenses'] ?? 0,
+                    'minorOffenses' => $student['minor_offenses'] ?? 0,
+                    'archivedCases' => $student['archived_cases'] ?? 0,
+                    'lastIncident' => $student['last_incident_date'] ?? null,
+                    'status' => $student['status'] ?? 'Good Standing'
+                ];
+            }, $students);
+
+            echo json_encode(['success' => true, 'students' => $formattedStudents]);
+            exit;
+        }
+
+        // Get student case history
+        if ($_POST['action'] === 'getStudentHistory') {
+            $studentId = $_POST['studentId'];
+            
+            $sql = "SELECT 
+                        c.case_id,
+                        c.case_type,
+                        c.severity,
+                        c.status,
+                        c.is_archived,
+                        c.date_reported,
+                        c.description,
+                        u.full_name as reported_by_name
+                    FROM cases c
+                    LEFT JOIN users u ON c.reported_by = u.user_id
+                    WHERE c.student_id = ?
+                    ORDER BY c.is_archived ASC, c.date_reported DESC";
+            
+            $cases = fetchAll($sql, [$studentId]);
+            
+            echo json_encode(['success' => true, 'cases' => $cases]);
+            exit;
+        }
+
+    } catch (Exception $e) {
+        error_log("Students AJAX Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
+$pageTitle = "Student List";
+$adminName = getFormattedUserName();
 ?>
 
 <!DOCTYPE html>
@@ -32,35 +442,155 @@ $adminName = $_SESSION['admin_name'] ?? 'Admin';
     </script>
 </head>
 
-<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased">
+<body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
     <div class="flex h-screen">
         <div class="flex-1 overflow-y-auto ml-64">
-            <!-- Fixed Header -->
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-            <!-- Page Content -->
             <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
-                <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-8">
-                    <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
-                        <?php echo htmlspecialchars($pageTitle); ?>
-                    </h2>
-                    <p class="text-gray-600 dark:text-gray-400">
-                        This is a placeholder for the <strong><?php echo htmlspecialchars($pageTitle); ?></strong> module.
-                    </p>
+                <!-- Top Bar -->
+                <div class="mb-6 flex items-center justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" id="searchInput" placeholder="Search students by name or ID..."
+                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                            oninput="filterStudents()">
+                    </div>
 
-                    <div class="mt-6 flex items-center justify-center">
-                        <button
-                            class="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition transform hover:-translate-y-0.5 shadow-md hover:shadow-lg">
-                            Coming Soon
+                    <div class="ml-4 flex gap-3 items-center">
+                        <?php if (!in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)): ?>
+                        <?php if (!in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office'], true)): ?>
+                        <!-- Import CSV Button -->
+                        <button onclick="openImportModal()"
+                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            Import CSV
                         </button>
+                        <?php endif; ?>
+
+                        <?php endif; ?>
+
+                        <!-- Grade Filter -->
+                        <select id="gradeFilter" onchange="filterStudents()"
+                            class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            <option value="">All Levels</option>
+
+                            <!-- Senior High -->
+                            <option value="11">Grade 11</option>
+                            <option value="12">Grade 12</option>
+
+                            <!-- College -->
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+
+                    </div>
+                </div>
+
+                <!-- Students Grid -->
+                <div id="studentsGrid" class="space-y-4">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <!-- Pagination -->
+                <div class="mt-6 flex items-center justify-between">
+                    <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Showing 1-6 of 248 students</p>
+                    <div id="paginationButtons" class="flex gap-2">
+                        <!-- Populated by JavaScript -->
                     </div>
                 </div>
             </main>
         </div>
     </div>
 
+    <!-- View Student History Modal -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 flex items-center justify-between">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Student History</h3>
+                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div id="historyContent" class="p-6">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV Modal -->
+    <div id="importModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Students from CSV</h3>
+                <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
+                <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">The CSV file must have the following columns:</p>
+                <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
+                    student_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact
+                </code>
+                <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">* Required fields: student_id, first_name, last_name, grade_year</p>
+            </div>
+
+            <form id="importCsvForm" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select CSV File
+                    </label>
+                    <input type="file" id="csvFile" name="csv_file" accept=".csv" required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400">
+                </div>
+
+                <div id="importProgress" class="hidden mb-4">
+                    <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Importing students...</span>
+                    </div>
+                </div>
+
+                <div id="importResult" class="hidden mb-4"></div>
+
+                <div class="flex gap-3">
+                    <button type="submit" id="importBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Upload and Import
+                    </button>
+                    <button type="button" onclick="closeImportModal()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/PrototypeDO/assets/js/students/filters.js?v=<?php echo time(); ?>"></script>
+    <script src="/PrototypeDO/assets/js/students/modals.js?v=<?php echo time(); ?>"></script>
+    <script src="/PrototypeDO/assets/js/students/pagination.js?v=<?php echo time(); ?>"></script>
+    <script src="/PrototypeDO/assets/js/students/main.js?v=<?php echo time(); ?>"></script>
     <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
 </body>
+
 </html>

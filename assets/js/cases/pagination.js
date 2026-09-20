@@ -15,7 +15,7 @@ function renderCases() {
         const message = currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.';
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                <td colspan="${caseSeverity === 'Minor' ? 9 : 8}" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     ${message}
                 </td>
             </tr>
@@ -30,22 +30,29 @@ function renderCases() {
             <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${c.id}</td>
             <td class="px-6 py-4 text-sm">
                 <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex-shrink-0"></div>
+                    <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
+                        <span class="text-xs font-bold text-white">${c.student.split(' ').map(n => n[0]).join('').substring(0, 2)}</span>
+                    </div>
                     <span class="text-gray-900 dark:text-gray-100">${c.student}</span>
                 </div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.type}</td>
+            ${caseSeverity === 'Minor' ? `<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${formatOffenseNumber(c.offenseNumber)}</td>` : ''}
             <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.date}</td>
+            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.assignedTo || 'Unassigned'}</td>
             <td class="px-6 py-4 text-sm">
                 <span class="px-2.5 py-1 text-xs font-medium rounded ${statusColors[c.statusColor]}">${c.status}</span>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">${c.assignedTo}</td>
-            <td class="px-6 py-4 text-sm">
+            <td class="pl-0 pr-2 py-4 text-sm">
+                <div class="flex items-center gap-0.5 -ml-3">
                 ${currentTab === 'archived' 
                     ? `<button onclick="unarchiveCase('${c.id}')" class="text-green-600 dark:text-green-400 hover:underline mr-3">Restore</button>`
                     : `<button onclick="viewCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</button>
-                       <button onclick="editCase('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline">Edit</button>`
+                       ${(c.severity === 'Minor' ? c.status !== 'Recorded' : String(c.status || '').toLowerCase() !== 'resolved') ? `<button onclick="manageSanctions('${c.id}')" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">Sanctions</button>` : ''}
+                           ${c.severity === 'Minor' && c.status === 'Unrecorded' && c.offenseNumber >= 3 && !c.escalationSeen ? `<button onclick="openMinorEscalation('${c.id}')" title="Escalate minor offense to Major" class="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 rounded mr-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8" /></svg></button>` : ''}
+                       ${c.severity !== 'Minor' && c.status !== 'Resolved' ? `<span class="text-gray-300 dark:text-gray-600 mx-2">|</span><button onclick="markCaseResolved('${c.id}')" title="${getCaseResolutionBlockReason(c) || 'Mark this case as resolved'}" class="text-green-600 dark:text-green-400 hover:underline font-medium">Mark Resolved</button>` : ''}`
                 }
+                </div>
             </td>
         </tr>
     `).join('');
@@ -57,7 +64,7 @@ function renderCases() {
 function changePage(page) {
     const totalPages = Math.ceil(filteredCases.length / casesPerPage);
     if (page < 1 || page > totalPages) return;
-    currentPage = page;
+    updateActiveTabPage(page);
     renderCases();
 }
 
@@ -72,37 +79,48 @@ function updatePaginationButtons() {
     const pagination = document.getElementById('paginationButtons');
     const totalPages = Math.ceil(filteredCases.length / casesPerPage);
 
-    if (totalPages === 0) {
-        pagination.innerHTML = '';
-        return;
+    function renderCompactPaginationDOM(container, currentPage, totalPages, onPageChange) {
+        if (!container) return;
+        const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center';
+        const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
+        const disabledClass = 'opacity-50 cursor-not-allowed';
+        const ellipsis = 'px-2';
+        const maxButtons = 7;
+
+        container.innerHTML = '';
+        // Always render pagination controls even if there's only one page
+
+        const appendBtn = (text, enabled, page, isActive) => {
+            const tag = enabled ? 'button' : 'span';
+            const el = document.createElement(tag);
+            el.textContent = text;
+            el.className = isActive ? active : (btnBase + (enabled ? '' : ' ' + disabledClass));
+            if (!enabled) el.setAttribute('aria-disabled', 'true');
+            if (enabled && typeof onPageChange === 'function') el.addEventListener('click', () => onPageChange(page));
+            container.appendChild(el);
+        };
+
+        appendBtn('« Prev', currentPage > 1, Math.max(1, currentPage - 1), false);
+
+        if (totalPages <= maxButtons) {
+            for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
+        } else {
+            const innerCount = maxButtons - 2;
+            let start = Math.max(2, currentPage - Math.floor(innerCount / 2));
+            let end = Math.min(totalPages - 1, start + innerCount - 1);
+            if (end - start + 1 < innerCount) start = Math.max(2, end - innerCount + 1);
+
+            appendBtn('1', true, 1, currentPage === 1);
+            if (start > 2) { const s = document.createElement('span'); s.className = btnBase + ' ' + disabledClass; s.textContent = '…'; container.appendChild(s); }
+
+            for (let i = start; i <= end; i++) appendBtn(String(i), true, i, i === currentPage);
+
+            if (end < totalPages - 1) { const s = document.createElement('span'); s.className = btnBase + ' ' + disabledClass; s.textContent = '…'; container.appendChild(s); }
+            appendBtn(String(totalPages), true, totalPages, currentPage === totalPages);
+        }
+
+        appendBtn('Next »', currentPage < totalPages, Math.min(totalPages, currentPage + 1), false);
     }
 
-    let html = `
-        <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} 
-            class="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300">
-            Previous
-        </button>
-    `;
-
-    for (let i = 1; i <= totalPages; i++) {
-        html += `
-            <button onclick="changePage(${i})" 
-                class="px-3 py-1.5 text-sm border rounded ${
-                    i === currentPage 
-                        ? 'bg-blue-600 text-white border-blue-600' 
-                        : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'
-                }">
-                ${i}
-            </button>
-        `;
-    }
-
-    html += `
-        <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} 
-            class="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300">
-            Next
-        </button>
-    `;
-
-    pagination.innerHTML = html;
+    renderCompactPaginationDOM(pagination, currentPage, totalPages, changePage);
 }

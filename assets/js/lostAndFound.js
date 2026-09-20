@@ -1,0 +1,1252 @@
+// Lost & Found Management JavaScript
+
+let lostFoundImageUploadBound = false;
+let lostFoundFilterBound = false;
+
+// Image upload handling
+function setupImageUpload() {
+    const dropZone = document.getElementById('imageDropZone');
+    const fileInput = document.getElementById('itemImageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePrompt = document.getElementById('imagePrompt');
+    
+    if (!dropZone || !fileInput) return;
+
+    if (lostFoundImageUploadBound || dropZone.dataset.uploadBound === 'true') {
+        return;
+    }
+
+    lostFoundImageUploadBound = true;
+    dropZone.dataset.uploadBound = 'true';
+    
+    // Click to select file
+    dropZone.addEventListener('click', (event) => {
+        if (event.target.closest('button, input, a')) {
+            return;
+        }
+
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('click', (event) => event.stopPropagation());
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            displayImagePreview(e.target.files[0]);
+        }
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+        
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                fileInput.files = e.dataTransfer.files;
+                displayImagePreview(file);
+            } else {
+                showNotification('Error', 'Please drop an image file', 'error');
+            }
+        }
+    });
+}
+
+function setupLostFoundFilters() {
+    const form = document.getElementById('lostFoundFilterForm');
+    const searchInput = document.getElementById('lostFoundSearchFilter');
+    const statusSelect = document.getElementById('lostFoundStatusFilter');
+    const categorySelect = document.getElementById('lostFoundCategoryFilter');
+
+    if (!form || lostFoundFilterBound) {
+        return;
+    }
+
+    const applyFilters = () => {
+        const searchValue = (searchInput?.value || '').trim().toLowerCase();
+        const statusValue = (statusSelect?.value || '').trim().toLowerCase();
+        const categoryValue = (categorySelect?.value || '').trim().toLowerCase();
+        const rows = Array.from(document.querySelectorAll('tbody tr[data-item-name]'));
+        const noResultsRow = document.getElementById('lostFoundNoResultsRow');
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const matchesSearch = !searchValue || [
+                row.dataset.itemName || '',
+                row.dataset.location || '',
+                row.dataset.category || ''
+            ].some((value) => value.includes(searchValue));
+            const matchesStatus = !statusValue || (row.dataset.status || '') === statusValue;
+            const matchesCategory = !categoryValue || (row.dataset.category || '') === categoryValue;
+            const isVisible = matchesSearch && matchesStatus && matchesCategory;
+
+            row.classList.toggle('hidden', !isVisible);
+
+            if (isVisible) {
+                visibleCount += 1;
+            }
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle('hidden', visibleCount !== 0);
+        }
+    };
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const url = new URL(window.location.href);
+
+        const searchValue = (searchInput?.value || '').trim();
+        const statusValue = statusSelect?.value || '';
+        const categoryValue = categorySelect?.value || '';
+
+        if (searchValue) {
+            url.searchParams.set('search', searchValue);
+        } else {
+            url.searchParams.delete('search');
+        }
+
+        if (statusValue) {
+            url.searchParams.set('status', statusValue);
+        } else {
+            url.searchParams.delete('status');
+        }
+
+        if (categoryValue) {
+            url.searchParams.set('category', categoryValue);
+        } else {
+            url.searchParams.delete('category');
+        }
+
+        window.location.href = url.toString();
+    });
+
+    [searchInput, statusSelect, categorySelect].forEach((control) => {
+        control?.addEventListener('change', applyFilters);
+        control?.addEventListener('input', applyFilters);
+    });
+
+    lostFoundFilterBound = true;
+    applyFilters();
+}
+
+function displayImagePreview(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePrompt = document.getElementById('imagePrompt');
+        const previewImg = document.getElementById('previewImg');
+        
+        previewImg.src = e.target.result;
+        imagePreview.classList.remove('hidden');
+        imagePrompt.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearImagePreview() {
+    const fileInput = document.getElementById('itemImageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePrompt = document.getElementById('imagePrompt');
+    
+    fileInput.value = '';
+    imagePreview.classList.add('hidden');
+    imagePrompt.classList.remove('hidden');
+}
+
+// Modal management
+function openAddModal() {
+    document.getElementById('addModal').classList.remove('hidden');
+    document.getElementById('addItemForm').reset();
+    clearImagePreview();
+    setupImageUpload();
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').classList.add('hidden');
+}
+
+// Close modals on outside click
+window.onclick = function(event) {
+    const addModal = document.getElementById('addModal');
+    const viewModal = document.getElementById('viewModal');
+    const editModal = document.getElementById('editModal');
+    const claimModal = document.getElementById('claimModal');
+    const unclaimedModal = document.getElementById('unclaimedModal');
+    const archiveModal = document.getElementById('archiveModal');
+    
+    if (event.target === addModal) closeAddModal();
+    if (viewModal && event.target === viewModal) closeViewModal();
+    if (editModal && event.target === editModal) closeEditModal();
+    if (claimModal && event.target === claimModal) closeClaimModal();
+    if (unclaimedModal && event.target === unclaimedModal) closeUnclaimedModal();
+    if (archiveModal && event.target === archiveModal) closeArchiveModal();
+}
+
+// Add new item
+document.getElementById('addItemForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    formData.append('action', 'add');
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Success!', 'Item added successfully', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to add item', 'error');
+    }
+});
+
+// View item details
+async function viewItem(itemId) {
+    try {
+        const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            showViewModal(result.data);
+        } else {
+            showNotification('Error', 'Failed to load item details', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to load item details', 'error');
+    }
+}
+
+function openItemFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('item_id');
+
+    if (!itemId) {
+        return;
+    }
+
+    viewItem(itemId);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('item_id');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+}
+
+function showViewModal(item) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('viewModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'viewModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        <i class="fas fa-eye mr-2 text-blue-600 dark:text-blue-400"></i>
+                        Item Details
+                    </h3>
+                </div>
+                <div id="viewModalContent" class="p-6"></div>
+                <div class="p-6 border-t border-gray-200 dark:border-slate-700">
+                    <button onclick="closeViewModal()" 
+                            class="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Format date
+    const dateFound = new Date(item.date_found).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    const dateClaimed = item.date_claimed ? new Date(item.date_claimed).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    }) : 'N/A';
+    
+    // Populate content
+    document.getElementById('viewModalContent').innerHTML = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Item ID</label>
+                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">${item.item_id}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+                    <span class="inline-block px-3 py-1 text-sm font-semibold rounded-full ${
+                        item.status === 'Claimed' 
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                            : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                    }">
+                        ${item.status}
+                    </span>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Item Name</label>
+                <p class="text-lg text-gray-900 dark:text-gray-100">${item.item_name}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Category</label>
+                <p class="text-gray-900 dark:text-gray-100">${item.category}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
+                <p class="text-gray-900 dark:text-gray-100">${item.description || 'No description provided'}</p>
+            </div>
+            
+            ${item.image_path ? `
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Item Picture</label>
+                    <img src="${item.image_path}" alt="Item image" class="w-full max-h-96 object-cover rounded-lg border border-gray-200 dark:border-slate-700">
+                </div>
+            ` : ''}
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Location Found</label>
+                    <p class="text-gray-900 dark:text-gray-100">${item.found_location}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Date Found</label>
+                    <p class="text-gray-900 dark:text-gray-100">${dateFound}</p>
+                </div>
+            </div>
+            
+            ${item.time_found ? `
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Time Found</label>
+                    <p class="text-gray-900 dark:text-gray-100">${item.time_found}</p>
+                </div>
+            ` : ''}
+            
+            ${item.finder_name ? `
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Finder Name</label>
+                        <p class="text-gray-900 dark:text-gray-100">${item.finder_name}</p>
+                    </div>
+                    ${item.finder_student_id ? `
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Finder Student ID</label>
+                            <p class="text-gray-900 dark:text-gray-100">${item.finder_student_id}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
+            
+            ${item.status === 'Claimed' ? `
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                        <i class="fas fa-check-circle text-green-600 dark:text-green-400 mr-2"></i>
+                        Claim Information
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Claimer Name</label>
+                            <p class="text-gray-900 dark:text-gray-100">${item.claimer_name || 'N/A'}</p>
+                        </div>
+                        ${item.claimer_student_id ? `
+                            <div>
+                                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Claimer ID</label>
+                                <p class="text-gray-900 dark:text-gray-100">${item.claimer_student_id}</p>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Date Claimed</label>
+                            <p class="text-gray-900 dark:text-gray-100">${dateClaimed}</p>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${item.is_archived ? `
+                <div class="bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-slate-700 rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                        <i class="fas fa-box-archive text-gray-500 dark:text-gray-400 mr-2"></i>
+                        Archived
+                    </h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        ${item.archived_at ? new Date(item.archived_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                    </p>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+}
+
+function closeViewModal() {
+    document.getElementById('viewModal')?.classList.add('hidden');
+}
+
+// Edit item
+async function editItem(itemId) {
+    try {
+        const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            showEditModal(result.data);
+        } else {
+            showNotification('Error', 'Failed to load item details', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to load item details', 'error');
+    }
+}
+
+function showEditModal(item) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('editModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'editModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
+    }
+    
+    // Get categories from page
+    const categorySelect = document.querySelector('select[name="category"]');
+    const categories = Array.from(categorySelect.options).map(opt => opt.value).filter(v => v);
+    
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-edit mr-2 text-green-600 dark:text-green-400"></i>
+                    Edit Item
+                </h3>
+            </div>
+            <form id="editItemForm" class="p-6 space-y-4">
+                <input type="hidden" name="item_id" value="${item.item_id}">
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item Name *</label>
+                        <input type="text" name="item_name" required value="${item.item_name}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category *</label>
+                        <select name="category" required 
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                            ${categories.map(cat => `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Found *</label>
+                        <input type="date" name="date_found" required value="${item.date_found}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Found</label>
+                        <input type="time" name="time_found" value="${item.time_found || ''}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Location Found *</label>
+                        <input type="text" name="location" required value="${item.found_location}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Finder Name</label>
+                        <input type="text" name="finder_name" value="${item.finder_name || ''}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Finder Student ID</label>
+                        <input type="text" name="finder_student_id" value="${item.finder_student_id || ''}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                        <textarea name="description" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">${item.description || ''}</textarea>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" 
+                            class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-save mr-2"></i>Save Changes
+                    </button>
+                    <button type="button" onclick="closeEditModal()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    // Attach submit handler
+    document.getElementById('editItemForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('action', 'update');
+        
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Success!', 'Item updated successfully', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showNotification('Error', result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Error', 'Failed to update item', 'error');
+        }
+    });
+}
+
+function closeEditModal() {
+    document.getElementById('editModal')?.classList.add('hidden');
+}
+
+// Mark as claimed
+function markClaimed(itemId) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('claimModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'claimModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-hand-holding mr-2 text-purple-600 dark:text-purple-400"></i>
+                    Mark as Claimed
+                </h3>
+            </div>
+            <form id="claimItemForm" class="p-4 space-y-4">
+                <input type="hidden" name="item_id" value="${itemId}">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer ID</label>
+                    <input type="text" name="claimer_student_id" id="claimerIdInput" placeholder="Enter Teacher, DO, or Student ID"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Entering a Teacher, DO, or Student ID will automatically fill the name field</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Claimer Name *</label>
+                    <input type="text" name="claimer_name" id="claimerNameInput" required placeholder="Full name of person claiming item"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" 
+                            class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                        <i class="fas fa-check mr-2"></i>Mark as Claimed
+                    </button>
+                    <button type="button" onclick="closeClaimModal()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    // Add event listener to student ID input for auto-lookup
+    const claimerIdInput = document.getElementById('claimerIdInput');
+    const claimerNameInput = document.getElementById('claimerNameInput');
+    
+    claimerIdInput.addEventListener('blur', async function() {
+        const claimerId = this.value.trim();
+        
+        if (!claimerId) {
+            return; // Don't do anything if empty
+        }
+        
+        try {
+            const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=lookup_claimer_id&claimer_id=${encodeURIComponent(claimerId)}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                claimerNameInput.value = result.data.full_name;
+            } else {
+                showNotification('Info', 'ID not found', 'info');
+            }
+        } catch (error) {
+            console.error('Error fetching claimer ID:', error);
+        }
+    });
+    
+    // Attach submit handler
+    document.getElementById('claimItemForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('action', 'mark_claimed');
+        
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Success!', 'Item marked as claimed', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showNotification('Error', result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Error', 'Failed to mark item as claimed', 'error');
+        }
+    });
+}
+
+function closeClaimModal() {
+    document.getElementById('claimModal')?.classList.add('hidden');
+}
+
+// Mark as unclaimed
+async function markUnclaimed(itemId) {
+    let modal = document.getElementById('unclaimedModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'unclaimedModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-undo mr-2 text-orange-600 dark:text-orange-400"></i>
+                    Mark as Unclaimed
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300">
+                    This will return the item to unclaimed status and remove the current claim record.
+                </p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="confirmMarkUnclaimed('${itemId}')"
+                            class="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                        <i class="fas fa-undo mr-2"></i>Mark as Unclaimed
+                    </button>
+                    <button type="button" onclick="closeUnclaimedModal()"
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+function closeUnclaimedModal() {
+    document.getElementById('unclaimedModal')?.classList.add('hidden');
+}
+
+async function confirmMarkUnclaimed(itemId) {
+    closeUnclaimedModal();
+    
+    const formData = new FormData();
+    formData.append('action', 'mark_unclaimed');
+    formData.append('item_id', itemId);
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Success!', 'Item marked as unclaimed', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to mark item as unclaimed', 'error');
+    }
+}
+
+// Archive item (manual)
+function archiveItemPrompt(itemId) {
+    let modal = document.getElementById('archiveModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'archiveModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-box-archive mr-2 text-gray-600 dark:text-gray-400"></i>
+                    Archive Item
+                </h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300">
+                    This will move the item to the Archived tab. You can restore it later.
+                </p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="confirmArchiveItem('${itemId}')"
+                            class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
+                        <i class="fas fa-box-archive mr-2"></i>Archive
+                    </button>
+                    <button type="button" onclick="closeArchiveModal()"
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+function closeArchiveModal() {
+    document.getElementById('archiveModal')?.classList.add('hidden');
+}
+
+function openArchiveRangeModal() {
+    const modal = document.getElementById('archiveRangeModal');
+    const form = document.getElementById('archiveRangeForm');
+    const status = document.getElementById('archiveRangeStatus');
+
+    if (!modal || !form || !status) return;
+
+    form.reset();
+    status.textContent = '';
+    status.className = 'text-xs hidden';
+    modal.classList.remove('hidden');
+}
+
+function closeArchiveRangeModal() {
+    document.getElementById('archiveRangeModal')?.classList.add('hidden');
+}
+
+function setupArchiveRangeForm() {
+    const form = document.getElementById('archiveRangeForm');
+    if (!form || form.dataset.bound === 'true') return;
+
+    form.dataset.bound = 'true';
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const startDate = document.getElementById('archiveStartDate')?.value || '';
+        const endDate = document.getElementById('archiveEndDate')?.value || '';
+        const status = document.getElementById('archiveRangeStatus');
+
+        if (!status) return;
+
+        if (!startDate || !endDate || startDate > endDate) {
+            status.textContent = 'Start date cannot be after end date, and both dates are required.';
+            status.className = 'text-xs text-red-600 dark:text-red-400 block';
+            return;
+        }
+
+        status.textContent = 'Processing archive request...';
+        status.className = 'text-xs text-blue-600 dark:text-blue-400 block';
+
+        const formData = new FormData();
+        formData.append('action', 'archiveLostAndFoundRange');
+        formData.append('start_date', startDate);
+        formData.append('end_date', endDate);
+
+        try {
+            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundapi.php', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                status.textContent = result.message;
+                status.className = 'text-xs text-green-600 dark:text-green-400 block';
+                setTimeout(() => {
+                    closeArchiveRangeModal();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                status.textContent = result.error || result.message || 'Failed to archive items.';
+                status.className = 'text-xs text-red-600 dark:text-red-400 block';
+            }
+        } catch (error) {
+            console.error('Archive range error:', error);
+            status.textContent = 'A network error occurred while submitting.';
+            status.className = 'text-xs text-red-600 dark:text-red-400 block';
+        }
+    });
+}
+
+async function confirmArchiveItem(itemId) {
+    closeArchiveModal();
+
+    const formData = new FormData();
+    formData.append('action', 'archive');
+    formData.append('item_id', itemId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Success!', 'Item archived', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to archive item', 'error');
+    }
+}
+
+// Restore item from archive
+async function restoreItem(itemId) {
+    const formData = new FormData();
+    formData.append('action', 'restore');
+    formData.append('item_id', itemId);
+
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            showNotification('Success!', 'Item restored', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to restore item', 'error');
+    }
+}
+
+// Notification system
+function showNotification(title, message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-[1000] p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+    
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+    };
+    
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+    };
+    
+    notification.className += ` ${colors[type]} text-white`;
+    notification.innerHTML = `
+        <div class="flex items-start gap-3">
+            <i class="fas ${icons[type]} text-2xl"></i>
+            <div>
+                <div class="font-semibold">${title}</div>
+                <div class="text-sm">${message}</div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.classList.remove('translate-x-full'), 100);
+    setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Initialize image upload when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    setupImageUpload();
+    setupLostFoundFilters();
+    setupArchiveRangeForm();
+    setupCategoryHandling();
+    openItemFromUrl();
+});
+
+// Handle category selection and new category input
+function setupCategoryHandling() {
+    const dropdownBtn = document.getElementById('categoryDropdownBtn');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
+    const categorySelect = document.getElementById('categorySelect');
+    const newCategoryDiv = document.getElementById('newCategoryDiv');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const categoryDeleteModal = document.getElementById('categoryDeleteModal');
+    const cannotDeleteModal = document.getElementById('categoryCannotDeleteModal');
+    
+    if (!dropdownBtn || !dropdownMenu) return;
+    
+    // Toggle dropdown
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('hidden');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        // Only close if click is outside the dropdown button and menu
+        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.classList.add('hidden');
+        }
+    });
+    
+    // Handle option selection
+    dropdownMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        const option = e.target.closest('.category-option');
+        if (!option) return;
+        
+        // Prevent delete click from selecting
+        if (e.target.closest('.delete-category-x')) return;
+        
+        const value = option.dataset.value;
+        
+        if (value === '__add_new__') {
+            // Show new category input
+            newCategoryDiv.classList.remove('hidden');
+            newCategoryInput.focus();
+            dropdownMenu.classList.add('hidden');
+        } else {
+            // Select the category
+            categorySelect.value = value;
+            const display = option.textContent.trim().split('\n')[0].trim();
+            document.getElementById('categoryDropdownDisplay').textContent = display;
+            dropdownMenu.classList.add('hidden');
+        }
+    });
+    
+    // Handle new category cancel
+    document.getElementById('addItemForm')?.addEventListener('reset', () => {
+        newCategoryDiv.classList.add('hidden');
+        newCategoryInput.value = '';
+        categorySelect.value = '';
+        document.getElementById('categoryDropdownDisplay').textContent = 'Select Category';
+    });
+    
+    // Close modals when clicking on overlay
+    if (categoryDeleteModal) {
+        categoryDeleteModal.addEventListener('click', (e) => {
+            if (e.target === categoryDeleteModal) {
+                closeCategoryDeleteModal();
+            }
+        });
+    }
+    
+    if (cannotDeleteModal) {
+        cannotDeleteModal.addEventListener('click', (e) => {
+            if (e.target === cannotDeleteModal) {
+                closeCannotDeleteModal();
+            }
+        });
+    }
+}
+
+// Create new category
+async function createNewCategory() {
+    const categorySelect = document.getElementById('categorySelect');
+    const filterSelect = document.getElementById('lostFoundCategoryFilter');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const newCategoryDescription = document.getElementById('newCategoryDescription');
+    const newCategoryDiv = document.getElementById('newCategoryDiv');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
+    const categoryName = newCategoryInput.value.trim();
+    
+    if (!categoryName) {
+        alert('Please enter a category name');
+        newCategoryInput.focus();
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('action', 'add_category');
+    formData.append('category_name', categoryName);
+    formData.append('description', newCategoryDescription.value.trim());
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Use canonical category name from server
+            const canonicalName = result.category_name || categoryName;
+            const categoryId = result.category_id;
+            
+            // Add to hidden select for form submission
+            const newOption = document.createElement('option');
+            newOption.value = canonicalName;
+            newOption.textContent = canonicalName;
+            newOption.selected = true;
+            newOption.dataset.categoryId = categoryId;
+            newOption.dataset.isNew = 'true';
+            const addNewOption = categorySelect.querySelector('option[value="__add_new__"]');
+            categorySelect.insertBefore(newOption, addNewOption);
+            
+            // Add to custom dropdown with delete button
+            const categoryOption = document.createElement('div');
+            categoryOption.className = 'category-option flex items-center justify-between px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer group';
+            categoryOption.dataset.value = canonicalName;
+            categoryOption.dataset.isNew = 'true';
+            categoryOption.dataset.categoryId = categoryId;
+            categoryOption.innerHTML = `
+                <span>${canonicalName}</span>
+                <button type="button" class="delete-category-x ml-2 px-2 py-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded opacity-0 group-hover:opacity-100 transition" onclick="deleteNewCategoryInline(event, ${categoryId}, '${canonicalName.replace(/'/g, "\\'")}')" title="Delete">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            // Insert before "Add New Category" option
+            const addNewBtn = dropdownMenu.querySelector('.add-new-cat');
+            addNewBtn.parentElement.insertBefore(categoryOption, addNewBtn);
+            
+            // Update or add to filter dropdown
+            if (filterSelect) {
+                const filterOption = document.createElement('option');
+                filterOption.value = canonicalName;
+                filterOption.textContent = canonicalName;
+                filterOption.dataset.categoryId = categoryId;
+                filterOption.dataset.isNew = 'true';
+                filterSelect.appendChild(filterOption);
+            }
+            
+            // Select the newly created category
+            categorySelect.value = canonicalName;
+            document.getElementById('categoryDropdownDisplay').textContent = canonicalName;
+            
+            // Hide the input and clear it
+            newCategoryDiv.classList.add('hidden');
+            newCategoryInput.value = '';
+            newCategoryDescription.value = '';
+            dropdownMenu.classList.add('hidden');
+            
+            showNotification('Success!', `Category "${canonicalName}" created successfully`, 'success');
+        } else {
+            showNotification('Error', result.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to create category', 'error');
+    }
+}
+
+// Delete category from inline dropdown
+async function deleteNewCategoryInline(event, categoryId, categoryName) {
+    event.stopPropagation();
+    showCategoryDeleteModal(categoryId, categoryName, 'new');
+}
+
+// Delete default category
+async function deleteDefaultCategory(event, categoryName) {
+    event.stopPropagation();
+    showCategoryDeleteModal(null, categoryName, 'default');
+}
+
+// Show category delete modal
+function showCategoryDeleteModal(categoryId, categoryName, type) {
+    // Store the delete context
+    window.pendingCategoryDelete = {
+        categoryId: categoryId,
+        categoryName: categoryName,
+        type: type
+    };
+    
+    // Update modal content
+    document.getElementById('deleteCategoryName').textContent = categoryName;
+    document.getElementById('categoryDeleteModal').classList.remove('hidden');
+}
+
+// Close category delete modal
+function closeCategoryDeleteModal() {
+    document.getElementById('categoryDeleteModal').classList.add('hidden');
+    window.pendingCategoryDelete = null;
+}
+
+// Close cannot delete modal
+function closeCannotDeleteModal() {
+    document.getElementById('categoryCannotDeleteModal').classList.add('hidden');
+}
+
+// Execute the actual category delete
+async function executeCategoryDelete() {
+    const deleteContext = window.pendingCategoryDelete;
+    if (!deleteContext) return;
+    
+    closeCategoryDeleteModal();
+    
+    const categorySelect = document.getElementById('categorySelect');
+    const filterSelect = document.getElementById('lostFoundCategoryFilter');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
+    const dropdownDisplay = document.getElementById('categoryDropdownDisplay');
+    
+    const formData = new FormData();
+    
+    if (deleteContext.type === 'new') {
+        // Delete by category ID
+        formData.append('action', 'delete_category');
+        formData.append('category_id', deleteContext.categoryId);
+    } else {
+        // Delete by category name
+        formData.append('action', 'delete_category_by_name');
+        formData.append('category_name', deleteContext.categoryName);
+    }
+    
+    try {
+        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if (deleteContext.type === 'new') {
+                // Remove from hidden select
+                const option = categorySelect.querySelector(`option[data-category-id="${deleteContext.categoryId}"]`);
+                if (option) option.remove();
+                
+                // Remove from filter dropdown
+                if (filterSelect) {
+                    const filterOption = filterSelect.querySelector(`option[data-category-id="${deleteContext.categoryId}"]`);
+                    if (filterOption) filterOption.remove();
+                }
+                
+                // Remove from custom dropdown
+                const dropdownOption = dropdownMenu.querySelector(`[data-category-id="${deleteContext.categoryId}"]`);
+                if (dropdownOption) dropdownOption.remove();
+            } else {
+                // Remove from hidden select
+                const option = categorySelect.querySelector(`option[value="${deleteContext.categoryName}"]`);
+                if (option) option.remove();
+                
+                // Remove from filter dropdown
+                if (filterSelect) {
+                    const filterOption = filterSelect.querySelector(`option[value="${deleteContext.categoryName}"]`);
+                    if (filterOption) filterOption.remove();
+                }
+                
+                // Remove from custom dropdown
+                const dropdownOptions = dropdownMenu.querySelectorAll('.category-option[data-value]');
+                dropdownOptions.forEach(opt => {
+                    if (opt.dataset.value === deleteContext.categoryName) {
+                        opt.remove();
+                    }
+                });
+            }
+            
+            // Reset display if this was selected
+            if (categorySelect.value === '' || !categorySelect.value) {
+                dropdownDisplay.textContent = 'Select Category';
+            }
+            
+            showNotification('Success!', `Category removed`, 'success');
+        } else {
+            // Check if category has items
+            if (result.code === 'HAS_ITEMS') {
+                showCannotDeleteModal(deleteContext.categoryName, result.itemCount);
+            } else {
+                showNotification('Error', result.message, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error', 'Failed to delete category', 'error');
+    }
+}
+
+// Show cannot delete modal
+function showCannotDeleteModal(categoryName, itemCount) {
+    document.getElementById('cannotDeleteCategoryName').textContent = categoryName;
+    document.getElementById('itemCountSpan').textContent = itemCount;
+    document.getElementById('categoryCannotDeleteModal').classList.remove('hidden');
+}
+
+// Cancel new category creation
+function cancelNewCategory() {
+    const newCategoryDiv = document.getElementById('newCategoryDiv');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const newCategoryDescription = document.getElementById('newCategoryDescription');
+    const dropdownMenu = document.getElementById('categoryDropdownMenu');
+    
+    newCategoryDiv.classList.add('hidden');
+    newCategoryInput.value = '';
+    newCategoryDescription.value = '';
+    dropdownMenu.classList.add('hidden');
+}

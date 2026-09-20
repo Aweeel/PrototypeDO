@@ -1,0 +1,178 @@
+// ====== ADVANCED FILTERS MODAL ======
+
+async function openAdvancedFilters() {
+    const modalState = window.__casesModalState || (window.__casesModalState = {});
+    const openToken = Symbol('advancedFilters');
+    modalState.advancedFilters = openToken;
+    document.querySelectorAll('[data-advanced-filters-modal="true"]').forEach(existingModal => existingModal.remove());
+
+    // Load offense types for the currently active case severity to keep the filter aligned with the separated major/minor views.
+    const allOffenses = await loadOffenseTypes(caseSeverity || '');
+    if (modalState.advancedFilters !== openToken) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4';
+    modal.setAttribute('data-advanced-filters-modal', 'true');
+    const statusOptions = caseSeverity === 'Minor'
+        ? [
+            { value: 'Unrecorded', label: 'Unrecorded' },
+            { value: 'Recorded', label: 'Recorded' }
+        ]
+        : [
+            { value: 'Pending', label: 'Pending' },
+            { value: 'On Going', label: 'On Going' },
+            { value: 'Resolved', label: 'Resolved' }
+        ];
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
+                <button onclick="closeModal(this)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="advancedFilterForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Case Type
+                    </label>
+                    <select id="filterCaseType"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <option value="">All Types</option>
+                        ${allOffenses.map(o => `
+                            <option value="${o.offense_name}" ${activeFilters.caseType === o.offense_name ? 'selected' : ''}>
+                                ${o.offense_name}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Status
+                    </label>
+                    <select id="filterStatus"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <option value="">All Status</option>
+                        ${statusOptions.map(option => `
+                            <option value="${option.value}" ${activeFilters.status === option.value ? 'selected' : ''}>${option.label}</option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            From Date
+                        </label>
+                        <input type="date" id="filterDateFrom" value="${activeFilters.dateFrom}"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            To Date
+                        </label>
+                        <input type="date" id="filterDateTo" value="${activeFilters.dateTo}"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </div>
+
+                <div id="activeFiltersSummary" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg" style="display: none;">
+                    <p class="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">Active Filters:</p>
+                    <div id="filterTags" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="flex justify-between gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+                    <button type="button" onclick="clearAllFilters()"
+                        class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700">
+                        Clear All
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeModal(this)"
+                            class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    `;
+    if (modalState.advancedFilters !== openToken) return;
+    document.body.appendChild(modal);
+
+    updateFilterSummary();
+
+    document.getElementById('advancedFilterForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        activeFilters.caseType = document.getElementById('filterCaseType').value;
+        activeFilters.status = document.getElementById('filterStatus').value;
+        activeFilters.dateFrom = document.getElementById('filterDateFrom').value;
+        activeFilters.dateTo = document.getElementById('filterDateTo').value;
+
+        closeModal(e.target);
+        applyClientSideFilters();
+    });
+}
+
+function updateFilterSummary() {
+    const summaryDiv = document.getElementById('activeFiltersSummary');
+    const tagsDiv = document.getElementById('filterTags');
+
+    let hasFilters = false;
+    let tags = '';
+
+    if (activeFilters.offenseType) {
+        hasFilters = true;
+        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Offense: ${activeFilters.offenseType}</span>`;
+    }
+
+    if (activeFilters.caseType) {
+        hasFilters = true;
+        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Type: ${activeFilters.caseType}</span>`;
+    }
+
+    if (activeFilters.status) {
+        hasFilters = true;
+        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Status: ${activeFilters.status}</span>`;
+    }
+
+    if (activeFilters.dateFrom || activeFilters.dateTo) {
+        hasFilters = true;
+        const fromDate = activeFilters.dateFrom || '...';
+        const toDate = activeFilters.dateTo || '...';
+        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Date: ${fromDate} to ${toDate}</span>`;
+    }
+
+    if (hasFilters) {
+        summaryDiv.style.display = 'block';
+        tagsDiv.innerHTML = tags;
+    } else {
+        summaryDiv.style.display = 'none';
+    }
+}
+
+function clearAllFilters() {
+    activeFilters = {
+        offenseType: '',
+        caseType: '',
+        status: '',
+        dateFrom: '',
+        dateTo: ''
+    };
+
+    filterByOffenseType('');
+
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) modal.remove();
+
+    loadCasesFromDB();
+}
