@@ -1,0 +1,10 @@
+{
+  "name": "prototypedo/app",
+  "description": "PrototypeDO PHP Web Application",
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pdo_sqlsrv": "*",
+    "ext-sqlsrv": "*"
+  }
+}
