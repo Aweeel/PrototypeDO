@@ -1,62 +1,90 @@
 <?php
 // includes/db_connect.php
+// SQL Server Connection using PDO
 
-// SmarterASP Database Credentials
-$host     = getenv('DB_HOST')     ?: 'mssqlXXXX.smarterasp.net'; // Replace with your SmarterASP SQL Host
-$dbname   = getenv('DB_NAME')     ?: 'db_acea8f_doms';           // Your SmarterASP Database Name
-$username = getenv('DB_USER')     ?: 'db_acea8f_doms_admin';     // Your SmarterASP DB User
-$password = getenv('DB_PASS')     ?: 'YourDatabasePassword';    // Your SmarterASP DB Password
+// Database configuration
+define('DB_SERVER', '(localdb)\\MSSQLLocalDB');
+define('DB_NAME', 'PrototypeDO_DB');
+define('DB_DRIVER', '{ODBC Driver 17 for SQL Server}');
 
-try {
-    // PDO Connection string for Microsoft SQL Server
-    $pdo = new PDO("sqlsrv:Server=$host;Database=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+// Global connection variable
+$conn = null;
+
+function getDBConnection() {
+    global $conn;
     
-    // Alias for legacy scripts that might use $conn
-    $conn = $pdo;
-} catch (PDOException $e) {
-    die("Database Connection Error: " . $e->getMessage());
+    // Return existing connection if already established
+    if ($conn !== null) {
+        return $conn;
+    }
+    
+    try {
+        // Connection string for Windows Authentication with LocalDB
+        $connectionString = "odbc:Driver=" . DB_DRIVER . ";Server=" . DB_SERVER . ";Database=" . DB_NAME . ";Trusted_Connection=yes;";
+        
+        // Create PDO connection
+        $conn = new PDO($connectionString);
+        
+        // Set error mode to exceptions
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Set default fetch mode to associative array
+        $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        
+        return $conn;
+        
+    } catch(PDOException $e) {
+        // Log error (in production, log to file instead of displaying)
+        error_log("Database Connection Error: " . $e->getMessage());
+        die("Database connection failed. Please contact system administrator.");
+    }
 }
 
-/**
- * Helper function: Fetch all records from a query
- */
-if (!function_exists('fetchAll')) {
-    function fetchAll($sql, $params = []) {
-        global $pdo;
-        $stmt = $pdo->prepare($sql);
+// Close database connection
+function closeDBConnection() {
+    global $conn;
+    $conn = null;
+}
+
+// Helper function to execute queries safely
+function executeQuery($sql, $params = []) {
+    try {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare($sql);
+        
+        // For SQL Server ODBC, let PDO handle parameter binding automatically
+        // This avoids "Invalid character value for cast specification" errors
         $stmt->execute($params);
-        return $stmt->fetchAll();
+        return $stmt;
+    } catch(PDOException $e) {
+        error_log("Query Error: " . $e->getMessage());
+        throw $e;
     }
 }
 
-/**
- * Helper function: Fetch a single setting
- */
-if (!function_exists('getSystemSetting')) {
-    function getSystemSetting($key, $default = null) {
-        global $pdo;
-        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
-        $stmt->execute([$key]);
-        $result = $stmt->fetchColumn();
-        return $result !== false ? $result : $default;
-    }
+// Helper function to get single row
+function fetchOne($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    return $stmt->fetch();
 }
 
-/**
- * Helper function: Set or update a setting
- */
-if (!function_exists('setSystemSetting')) {
-    function setSystemSetting($key, $value) {
-        global $pdo;
-        $stmt = $pdo->prepare("
-            IF EXISTS (SELECT 1 FROM system_settings WHERE setting_key = ?)
-                UPDATE system_settings SET setting_value = ?, updated_at = GETDATE() WHERE setting_key = ?
-            ELSE
-                INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
-        ");
-        $stmt->execute([$key, $value, $key, $key, $value]);
-    }
+// Helper function to get all rows
+function fetchAll($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    return $stmt->fetchAll();
+}
+
+// Helper function to get single value
+function fetchValue($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    $row = $stmt->fetch(PDO::FETCH_NUM);
+    return $row ? $row[0] : null;
+}
+
+// Helper function for INSERT and get last inserted ID
+function insertAndGetId($sql, $params = []) {
+    $stmt = executeQuery($sql, $params);
+    $conn = getDBConnection();
+    return $conn->lastInsertId();
 }
 ?>
