@@ -2609,14 +2609,6 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
         throw new Exception('This sanction is already applied to this case.');
     }
 
-    // Check for scheduling conflicts if date and time are provided
-    if (!empty($scheduleDate) && !empty($scheduleTime)) {
-        $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);
-        if (!empty($conflicts)) {
-            throw new Exception('Scheduling conflict detected: ' . $conflicts[0]['event_name'] . ' is already scheduled at this time.');
-        }
-    }
-    
     // Convert deadline date to datetime if provided (set to end of day)
     $deadline = null;
     if (!empty($deadlineDate)) {
