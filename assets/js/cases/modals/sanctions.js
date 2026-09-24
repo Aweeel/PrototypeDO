@@ -771,7 +771,12 @@ function toggleScheduleSection() {
 }
 
 // Open schedule popup modal
-function openSchedulePopup() {
+async function openSchedulePopup() {
+    const eventIdInput = document.getElementById('sanctionScheduleEventId');
+    if (window.currentCaseId && eventIdInput && !eventIdInput.value) {
+        await loadSavedSchedule(window.currentCaseId);
+    }
+
     const existingData = {
         date: document.getElementById('sanctionScheduleDate')?.value || '',
         time: document.getElementById('sanctionScheduleTime')?.value || '',
@@ -1275,6 +1280,8 @@ async function checkScheduleConflicts() {
             formData.append('scheduleDate', scheduleDate);
             formData.append('scheduleTime', scheduleTime);
             formData.append('scheduleEndTime', scheduleEndTime);
+            const eventId = document.getElementById('sanctionScheduleEventId')?.value || '';
+            if (eventId) formData.append('scheduleEventId', eventId);
             
             const response = await fetch('/PrototypeDO/modules/do/cases.php', {
                 method: 'POST',
@@ -1345,6 +1352,7 @@ function calculatePopupDuration() {
 
 // Check conflicts for popup
 let popupConflictCheckTimeout = null;
+let popupConflictRequestId = 0;
 async function checkPopupConflicts() {
     // Clear previous timeout
     if (popupConflictCheckTimeout) {
@@ -1364,6 +1372,10 @@ async function checkPopupConflicts() {
     const scheduleDate = dateInput.value;
     const scheduleTime = startTimeInput?.value || '';
     const scheduleEndTime = endTimeInput?.value || '';
+    const requestId = ++popupConflictRequestId;
+
+    // Do not let a previous time range block the current one while checking.
+    conflictWarning.classList.add('hidden');
     
     // Hide warning if date is not provided
     if (!scheduleDate) {
@@ -1392,6 +1404,8 @@ async function checkPopupConflicts() {
             formData.append('scheduleDate', scheduleDate);
             formData.append('scheduleTime', scheduleTime);
             formData.append('scheduleEndTime', scheduleEndTime);
+            const eventId = document.getElementById('sanctionScheduleEventId')?.value || '';
+            if (eventId) formData.append('scheduleEventId', eventId);
             
             const response = await fetch('/PrototypeDO/modules/do/cases.php', {
                 method: 'POST',
@@ -1399,6 +1413,10 @@ async function checkPopupConflicts() {
             });
             
             const data = await response.json();
+
+            if (requestId !== popupConflictRequestId) {
+                return;
+            }
             
             if (data.success && data.hasConflict && data.conflicts.length > 0) {
                 // Show conflict warning

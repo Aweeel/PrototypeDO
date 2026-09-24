@@ -1947,6 +1947,7 @@ if ($_POST['action'] === 'applySanction') {
         $scheduleDate = $_POST['scheduleDate'] ?? null;
         $scheduleTime = $_POST['scheduleTime'] ?? null;
         $scheduleEndTime = $_POST['scheduleEndTime'] ?? null;
+        $scheduleEventId = !empty($_POST['scheduleEventId']) ? (int)$_POST['scheduleEventId'] : null;
         
         if (empty($scheduleDate) || empty($scheduleTime)) {
             echo json_encode(['success' => true, 'hasConflict' => false, 'conflicts' => []]);
@@ -1963,7 +1964,7 @@ if ($_POST['action'] === 'applySanction') {
         }
         
         try {
-            $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime);
+            $conflicts = checkSchedulingConflicts($scheduleDate, $scheduleTime, $scheduleEndTime, $scheduleEventId);
             
             if (!empty($conflicts)) {
                 // Format conflicts for display
