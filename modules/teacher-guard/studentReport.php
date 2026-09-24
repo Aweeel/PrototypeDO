@@ -139,15 +139,15 @@ $pageTitle = "Report Student Incident";
 $adminName = getFormattedUserName(); 
 
 // Fetch top 5 most common case types with their severity categories and descriptions 
-$sql = "SELECT case_type,  
-        ISNULL((SELECT TOP 1 category FROM offense_types WHERE offense_name = cases.case_type), 'Minor') as severity, 
-        ISNULL((SELECT TOP 1 description FROM offense_types WHERE offense_name = cases.case_type), '') as description, 
+$sql = "SELECT case_type,
+    COALESCE((SELECT category FROM offense_types WHERE offense_name = cases.case_type LIMIT 1), 'Minor') as severity,
+    COALESCE((SELECT description FROM offense_types WHERE offense_name = cases.case_type LIMIT 1), '') as description,
         COUNT(*) as count 
         FROM cases 
         WHERE is_archived = 0 
         GROUP BY case_type 
         ORDER BY count DESC 
-        OFFSET 0 ROWS FETCH NEXT 5 ROWS ONLY"; 
+    LIMIT 5";
 $topCaseTypes = fetchAll($sql); 
 $caseTypesList = array_column($topCaseTypes, 'case_type'); 
 $caseTypeSeverityMap = array_combine( 

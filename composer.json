@@ -4,7 +4,6 @@
   "require": {
     "php": ">=8.2",
     "ext-pdo": "*",
-    "ext-pdo_sqlsrv": "*",
-    "ext-sqlsrv": "*"
+    "ext-pdo_mysql": "*"
   }
 }

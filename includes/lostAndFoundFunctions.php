@@ -9,7 +9,7 @@ require_once __DIR__ . '/config.php';
  */
 function generateItemId() {
     $prefix = 'LF-';
-    $sql = "SELECT TOP 1 item_id FROM lost_found_items ORDER BY item_id DESC";
+    $sql = "SELECT item_id FROM lost_found_items ORDER BY item_id DESC LIMIT 1";
     
     try {
         $result = fetchOne($sql);
@@ -173,8 +173,8 @@ function getLostFoundItems($filters = []) {
 
     $sql = "SELECT 
         lf.*,
-        s1.first_name + ' ' + s1.last_name AS finder_full_name,
-        COALESCE(s2.first_name + ' ' + s2.last_name, u2.full_name) AS claimer_full_name
+        CONCAT(s1.first_name, ' ', s1.last_name) AS finder_full_name,
+        COALESCE(CONCAT(s2.first_name, ' ', s2.last_name), u2.full_name) AS claimer_full_name
     FROM lost_found_items lf
     LEFT JOIN students s1 ON lf.finder_student_id = s1.student_id
     LEFT JOIN students s2 ON lf.claimer_student_id = s2.student_id
@@ -247,8 +247,8 @@ function getLostFoundItems($filters = []) {
 function getItemById($item_id) {
     $sql = "SELECT 
         lf.*,
-        s1.first_name + ' ' + s1.last_name AS finder_full_name,
-        COALESCE(s2.first_name + ' ' + s2.last_name, u2.full_name) AS claimer_full_name
+        CONCAT(s1.first_name, ' ', s1.last_name) AS finder_full_name,
+        COALESCE(CONCAT(s2.first_name, ' ', s2.last_name), u2.full_name) AS claimer_full_name
     FROM lost_found_items lf
     LEFT JOIN students s1 ON lf.finder_student_id = s1.student_id
     LEFT JOIN students s2 ON lf.claimer_student_id = s2.student_id
@@ -302,7 +302,7 @@ function updateItem($item_id, $data) {
             time_found = ?,
             finder_name = ?,
             finder_student_id = ?,
-            updated_at = GETDATE()
+            updated_at = NOW()
         WHERE item_id = ?";
         
         $params = [
@@ -326,7 +326,7 @@ function updateItem($item_id, $data) {
             time_found = NULL,
             finder_name = ?,
             finder_student_id = ?,
-            updated_at = GETDATE()
+            updated_at = NOW()
         WHERE item_id = ?";
         
         $params = [
@@ -388,8 +388,8 @@ function markAsClaimed($item_id, $claimer_data) {
         status = 'Claimed',
         claimer_name = ?,
         claimer_student_id = ?,
-        date_claimed = CAST(GETDATE() AS DATE),
-        updated_at = GETDATE()
+        date_claimed = CURRENT_DATE,
+        updated_at = NOW()
     WHERE item_id = ?";
     
     // Convert empty student ID to NULL
@@ -427,7 +427,7 @@ function markAsUnclaimed($item_id) {
         claimer_name = NULL,
         claimer_student_id = NULL,
         date_claimed = NULL,
-        updated_at = GETDATE()
+        updated_at = NOW()
     WHERE item_id = ?";
     
     try {
@@ -527,7 +527,7 @@ function getLostFoundStats() {
         
         // Recent (last 7 days)
         $sql = "SELECT COUNT(*) as count FROM lost_found_items 
-                WHERE is_archived = 0 AND date_found >= DATEADD(day, -7, GETDATE())";
+                WHERE is_archived = 0 AND date_found >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
         $result = fetchOne($sql);
         if ($result) {
             $stats['recent'] = $result['count'];
@@ -556,7 +556,7 @@ function archiveItem($item_id) {
     
     $sql = "UPDATE lost_found_items SET 
         is_archived = 1,
-        archived_at = GETDATE()
+        archived_at = NOW()
     WHERE item_id = ?";
     
     try {
@@ -708,7 +708,7 @@ function addCategory($categoryName, $description = null) {
         executeQuery($sql, [$categoryName, $description]);
         
         // Get the inserted category ID
-        $selectSql = "SELECT TOP 1 category_id FROM lost_found_categories WHERE category_name = ? ORDER BY created_at DESC";
+        $selectSql = "SELECT category_id FROM lost_found_categories WHERE category_name = ? ORDER BY created_at DESC LIMIT 1";
         $result = fetchOne($selectSql, [$categoryName]);
         $categoryId = $result['category_id'] ?? null;
         
@@ -758,7 +758,7 @@ function updateCategory($categoryId, $categoryName, $description = null) {
     }
     
     // Update category
-    $sql = "UPDATE lost_found_categories SET category_name = ?, description = ?, updated_at = GETDATE() WHERE category_id = ?";
+    $sql = "UPDATE lost_found_categories SET category_name = ?, description = ?, updated_at = NOW() WHERE category_id = ?";
     try {
         executeQuery($sql, [$categoryName, $description, $categoryId]);
         
@@ -782,7 +782,7 @@ function updateCategory($categoryId, $categoryName, $description = null) {
  * Deactivate a category
  */
 function deactivateCategory($categoryId) {
-    $sql = "UPDATE lost_found_categories SET is_active = 0, updated_at = GETDATE() WHERE category_id = ?";
+    $sql = "UPDATE lost_found_categories SET is_active = 0, updated_at = NOW() WHERE category_id = ?";
     try {
         executeQuery($sql, [$categoryId]);
         
@@ -806,7 +806,7 @@ function deactivateCategory($categoryId) {
  * Reactivate a category
  */
 function reactivateCategory($categoryId) {
-    $sql = "UPDATE lost_found_categories SET is_active = 1, updated_at = GETDATE() WHERE category_id = ?";
+    $sql = "UPDATE lost_found_categories SET is_active = 1, updated_at = NOW() WHERE category_id = ?";
     try {
         executeQuery($sql, [$categoryId]);
         
@@ -1094,17 +1094,15 @@ function auditCategoryReactivated($categoryId) {
 function autoArchiveLostFoundItems() {
     $sql = "UPDATE lost_found_items 
             SET is_archived = 1, 
-                archived_at = GETDATE()
+                archived_at = NOW()
             WHERE is_archived = 0 
               AND status = 'Unclaimed'
               AND date_found IS NOT NULL
-              AND DATEDIFF(day, date_found, GETDATE()) >= 30";
+              AND date_found <= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)";
     
     try {
-        executeQuery($sql);
-        
-        $countSql = "SELECT @@ROWCOUNT as archived_count";
-        $count = fetchValue($countSql);
+        $stmt = executeQuery($sql);
+        $count = $stmt->rowCount();
         
         if ($count > 0) {
             error_log("Auto-archived $count lost & found items older than 30 days.");

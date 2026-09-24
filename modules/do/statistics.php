@@ -79,16 +79,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // Add date range filter
             switch ($dateRange) {
                 case 'last_30_days':
-                    $where .= " AND c.date_reported >= DATEADD(day, -30, CAST(GETDATE() AS DATE))";
+                    $where .= " AND c.date_reported >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)";
                     break;
                 case 'last_3_months':
-                    $where .= " AND c.date_reported >= DATEADD(month, -3, CAST(GETDATE() AS DATE))";
+                    $where .= " AND c.date_reported >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)";
                     break;
                 case 'last_6_months':
-                    $where .= " AND c.date_reported >= DATEADD(month, -6, CAST(GETDATE() AS DATE))";
+                    $where .= " AND c.date_reported >= DATE_SUB(CURRENT_DATE, INTERVAL 6 MONTH)";
                     break;
                 case 'this_year':
-                    $where .= " AND YEAR(c.date_reported) = YEAR(GETDATE())";
+                    $where .= " AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
                     break;
             }
             
@@ -239,13 +239,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             
             switch ($dateRange) {
                 case 'this_month':
-                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(GETDATE()) AND YEAR(c.date_reported) = YEAR(GETDATE())";
+                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(CURRENT_DATE) AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
                     break;
                 case 'last_month':
-                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(DATEADD(month, -1, GETDATE())) AND YEAR(c.date_reported) = YEAR(DATEADD(month, -1, GETDATE()))";
+                    $dateFilter = "AND MONTH(c.date_reported) = MONTH(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH)) AND YEAR(c.date_reported) = YEAR(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH))";
                     break;
                 case 'this_year':
-                    $dateFilter = "AND YEAR(c.date_reported) = YEAR(GETDATE())";
+                    $dateFilter = "AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
                     break;
             }
             

@@ -111,10 +111,10 @@ if ($_POST['action'] === 'getEvents') {
                 exit;
             }
 
-            $sql = "SELECT TOP 1 event_id, event_name, event_date, event_time, event_end_time, description
+            $sql = "SELECT event_id, event_name, event_date, event_time, event_end_time, description
                     FROM calendar_events
                     WHERE category = 'Hearing' AND event_name LIKE ?
-                    ORDER BY event_date DESC, event_id DESC";
+                    ORDER BY event_date DESC, event_id DESC LIMIT 1";
 
             $schedule = fetchOne($sql, ["%Case {$caseId}%"]);
 
@@ -144,7 +144,7 @@ if ($_POST['action'] === 'getEvents') {
             if ($eventTime === '') {
                 $eventTime = null;
             } elseif ($eventTime !== null) {
-                // Normalize to HH:MM:SS for SQL Server
+                // Normalize to HH:MM:SS for MySQL TIME columns
                 if (preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
                     $eventTime .= ':00';
                 }
@@ -154,7 +154,7 @@ if ($_POST['action'] === 'getEvents') {
             if ($eventEndTime === '') {
                 $eventEndTime = null;
             } elseif ($eventEndTime !== null) {
-                // Normalize to HH:MM:SS for SQL Server
+                // Normalize to HH:MM:SS for MySQL TIME columns
                 if (preg_match('/^\d{2}:\d{2}$/', $eventEndTime)) {
                     $eventEndTime .= ':00';
                 }
@@ -177,7 +177,7 @@ if ($_POST['action'] === 'getEvents') {
                 if ($caseId !== '') {
                     $case = getCaseById($caseId);
                     if ($case) {
-                        executeQuery("UPDATE cases SET assigned_to = ?, updated_at = GETDATE() WHERE case_id = ?", [$_SESSION['user_id'] ?? null, $caseId]);
+                        executeQuery("UPDATE cases SET assigned_to = ?, updated_at = NOW() WHERE case_id = ?", [$_SESSION['user_id'] ?? null, $caseId]);
                         $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
                         $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
                         if ($program) {
@@ -191,7 +191,7 @@ if ($_POST['action'] === 'getEvents') {
             // Build SQL based on whether time is provided
             if ($eventTime !== null) {
                 $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 $params = [
                     $eventName,
                     $eventDate,
@@ -205,7 +205,7 @@ if ($_POST['action'] === 'getEvents') {
                 ];
             } else {
                 $sql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, target_user_id, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
                 $params = [
                     $eventName,
                     $eventDate,
@@ -222,12 +222,12 @@ if ($_POST['action'] === 'getEvents') {
             
             executeQuery($sql, $params);
 
-                        $eventIdSql = "SELECT TOP 1 event_id
+                        $eventIdSql = "SELECT event_id
                                                      FROM calendar_events
                                                      WHERE event_name = ?
                                                          AND event_date = ?
                                                          AND created_by = ?
-                                                     ORDER BY event_id DESC";
+                                                       ORDER BY event_id DESC LIMIT 1";
                         $eventRow = fetchOne($eventIdSql, [$eventName, $eventDate, $createdBy]);
             
             // 🧾 Audit Log - Use specialized calendar audit function
@@ -285,7 +285,7 @@ if ($_POST['action'] === 'getEvents') {
                 $targetUserId = $oldEvent['target_user_id'] ?? null;
             }
             
-            // Normalize times to HH:MM:SS for SQL Server
+            // Normalize times to HH:MM:SS for MySQL TIME columns
             if ($eventTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventTime)) {
                 $eventTime .= ':00';
             }
@@ -294,7 +294,7 @@ if ($_POST['action'] === 'getEvents') {
             }
             
                 $sql = "UPDATE calendar_events 
-                    SET event_name = ?, event_date = ?, event_time = ?, event_end_time = ?, category = ?, description = ?, location = ?, target_user_id = ?, updated_at = GETDATE()
+                    SET event_name = ?, event_date = ?, event_time = ?, event_end_time = ?, category = ?, description = ?, location = ?, target_user_id = ?, updated_at = NOW()
                     WHERE event_id = ?";
             
             $params = [

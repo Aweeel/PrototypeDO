@@ -1,41 +1,17 @@
--- ============================================
--- PrototypeDO Database Schema - COMPLETE VERSION WITH 2025 & 2026 CASES
--- SQL Server 2019+
+﻿-- PrototypeDO Database Schema - MySQL 8.0+
 -- Discipline Office Management System
--- Safe to run multiple times - prevents duplicates
--- Student IDs are explicitly stored/provided (recommended format: 02000 + 6 digits, e.g., 02000000001)
--- Teacher IDs use 01000 + 6 digits, and Discipline Office IDs use 03000 + 6 digits
--- ============================================
+-- Recreates the database from scratch; existing data in this database is removed.
 
-USE master;
-GO
-
--- Drop database if exists (careful in production!)
-IF EXISTS (SELECT * FROM sys.databases WHERE name = 'PrototypeDO_DB')
-BEGIN
-    ALTER DATABASE PrototypeDO_DB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE PrototypeDO_DB;
-END
-GO
-
--- Create database
-CREATE DATABASE PrototypeDO_DB;
-GO
-
--- Switch to the new database
+DROP DATABASE IF EXISTS PrototypeDO_DB;
+CREATE DATABASE IF NOT EXISTS PrototypeDO_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE PrototypeDO_DB;
-GO
 
-IF OBJECT_ID('system_settings', 'U') IS NULL
 CREATE TABLE system_settings (
-    setting_id INT IDENTITY(1,1) PRIMARY KEY,
-    setting_key NVARCHAR(100) UNIQUE NOT NULL,
-    setting_value NVARCHAR(MAX) NULL,
-    updated_at DATETIME DEFAULT GETDATE()
+    setting_id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value LONGTEXT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-GO
-
-IF NOT EXISTS (SELECT 1 FROM system_settings WHERE setting_key = 'maintenance_mode')
 INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('maintenance_mode', 'disabled'),
 ('global_banner_enabled', 'disabled'),
@@ -45,240 +21,234 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('lost_found_retention_days', '365'),
 ('audit_log_retention_days', '730'),
 ('escalation_minor_count', '3');
-GO
-
 CREATE TABLE users (
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
-    username NVARCHAR(50) UNIQUE NOT NULL,
-    password_hash NVARCHAR(255) NOT NULL,
-    email NVARCHAR(100) UNIQUE NOT NULL,
-    full_name NVARCHAR(100) NOT NULL,
-    teacher_id NVARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id LIKE '01000[0-9][0-9][0-9][0-9][0-9][0-9]'),
-    do_id NVARCHAR(20) NULL CHECK (do_id IS NULL OR do_id LIKE '03000[0-9][0-9][0-9][0-9][0-9][0-9]'),
-    teacher_subrole NVARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
-    program NVARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering')),
-    role NVARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
-    contact_number NVARCHAR(20),
-    is_active BIT DEFAULT 1,
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    teacher_id VARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id REGEXP '^01000[0-9]{6}$'),
+    do_id VARCHAR(20) NULL CHECK (do_id IS NULL OR do_id REGEXP '^03000[0-9]{6}$'),
+    teacher_subrole VARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
+    program VARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
+    contact_number VARCHAR(20),
+    is_active TINYINT(1) DEFAULT 1,
     last_login DATETIME,
-    remember_token NVARCHAR(64) NULL,
+    remember_token VARCHAR(64) NULL,
     remember_token_expiry DATETIME NULL,
     terms_accepted_version INT DEFAULT 0,
     terms_accepted_date DATETIME NULL,
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE(),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     -- department heads must have a program; non-heads/other roles must not
     CONSTRAINT chk_department_head_program CHECK (
         (teacher_subrole = 'department_head' AND program IS NOT NULL)
         OR (teacher_subrole IS NULL AND program IS NULL)
     )
 );
-GO
-
 -- ============================================
 -- 2. STUDENTS TABLE (Extended student info)
 -- ============================================
 CREATE TABLE students (
-    student_id NVARCHAR(20) PRIMARY KEY,
-    user_id INT NULL UNIQUE FOREIGN KEY REFERENCES users(user_id) ON DELETE SET NULL,
-    first_name NVARCHAR(50) NOT NULL,
-    last_name NVARCHAR(50) NOT NULL,
-    middle_name NVARCHAR(50),
-    grade_year NVARCHAR(20) NOT NULL,
-    track_course NVARCHAR(100),
-    section NVARCHAR(50),
-    student_type NVARCHAR(20) CHECK (student_type IN ('SHS', 'College')),
-    status NVARCHAR(20) DEFAULT 'Good Standing' CHECK (status IN ('Good Standing', 'On Watch', 'On Probation')),
+    student_id VARCHAR(20) PRIMARY KEY,
+    user_id INT NULL UNIQUE,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    middle_name VARCHAR(50),
+    grade_year VARCHAR(20) NOT NULL,
+    track_course VARCHAR(100),
+    section VARCHAR(50),
+    student_type VARCHAR(20) CHECK (student_type IN ('SHS', 'College')),
+    status VARCHAR(20) DEFAULT 'Good Standing' CHECK (status IN ('Good Standing', 'On Watch', 'On Probation')),
     total_offenses INT DEFAULT 0,
     major_offenses INT DEFAULT 0,
     minor_offenses INT DEFAULT 0,
     last_incident_date DATE,
-    guardian_name NVARCHAR(100),
-    guardian_contact NVARCHAR(20),
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    guardian_name VARCHAR(100),
+    guardian_contact VARCHAR(20),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
-GO
-
 -- ============================================
 -- 3. OFFENSE TYPES TABLE (Catalog based on handbook)
 -- ============================================
 CREATE TABLE offense_types (
-    offense_id INT IDENTITY(1,1) PRIMARY KEY,
-    offense_name NVARCHAR(100) NOT NULL,
-    category NVARCHAR(20) NOT NULL CHECK (category IN ('Major', 'Minor')),
-    description NVARCHAR(500),
-    is_active BIT DEFAULT 1,
-    created_at DATETIME DEFAULT GETDATE()
+    offense_id INT AUTO_INCREMENT PRIMARY KEY,
+    offense_name VARCHAR(100) NOT NULL,
+    category VARCHAR(20) NOT NULL CHECK (category IN ('Major', 'Minor')),
+    description VARCHAR(500),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-GO
-
 -- ============================================
 -- 4. CASES TABLE (Main discipline cases)
 -- ============================================
 CREATE TABLE cases (
-    case_id NVARCHAR(20) PRIMARY KEY,
-    student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
-    offense_id INT NULL FOREIGN KEY REFERENCES offense_types(offense_id),
-    case_type NVARCHAR(100) NOT NULL,
-    severity NVARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
-    offense_category NVARCHAR(50) NULL,
-    status NVARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'On Going', 'Resolved', 'Dismissed', 'Recorded', 'Unrecorded')),
-    date_reported DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    case_id VARCHAR(20) PRIMARY KEY,
+    student_id VARCHAR(20) NOT NULL,
+    offense_id INT NULL,
+    case_type VARCHAR(100) NOT NULL,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('Major', 'Minor')),
+    offense_category VARCHAR(50) NULL,
+    status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'On Going', 'Resolved', 'Dismissed', 'Recorded', 'Unrecorded')),
+    date_reported DATE NOT NULL DEFAULT CURRENT_DATE,
     time_reported TIME,
-    location NVARCHAR(200),
-    reported_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    assigned_to INT NULL FOREIGN KEY REFERENCES users(user_id),
-    description NVARCHAR(MAX),
-    witnesses NVARCHAR(500),
-    action_taken NVARCHAR(500),
-    notes NVARCHAR(MAX),
-    attachments NVARCHAR(MAX),
+    location VARCHAR(200),
+    reported_by INT NULL,
+    assigned_to INT NULL,
+    description LONGTEXT,
+    witnesses VARCHAR(500),
+    action_taken VARCHAR(500),
+    notes LONGTEXT,
+    attachments LONGTEXT,
     next_hearing_date DATETIME,
     resolved_date DATE NULL,
-    minor_escalation_seen BIT NOT NULL DEFAULT 0,
-    is_archived BIT DEFAULT 0,
-    manually_restored BIT DEFAULT 0,
+    minor_escalation_seen TINYINT(1) NOT NULL DEFAULT 0,
+    is_archived TINYINT(1) DEFAULT 0,
+    manually_restored TINYINT(1) DEFAULT 0,
     archived_at DATETIME,
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cases_student FOREIGN KEY (student_id) REFERENCES students(student_id),
+    CONSTRAINT fk_cases_offense FOREIGN KEY (offense_id) REFERENCES offense_types(offense_id),
+    CONSTRAINT fk_cases_reported_by FOREIGN KEY (reported_by) REFERENCES users(user_id),
+    CONSTRAINT fk_cases_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 5. SANCTIONS TABLE (Corrective actions)
 -- ============================================
 CREATE TABLE sanctions (
-    sanction_id INT IDENTITY(1,1) PRIMARY KEY,
-    sanction_name NVARCHAR(200) NOT NULL,
+    sanction_id INT AUTO_INCREMENT PRIMARY KEY,
+    sanction_name VARCHAR(200) NOT NULL,
     severity_level INT NOT NULL CHECK (severity_level BETWEEN 1 AND 5),
-    description NVARCHAR(500),
-    requires_schedule BIT DEFAULT 0,
-    is_active BIT DEFAULT 1,
-    created_at DATETIME DEFAULT GETDATE()
+    description VARCHAR(500),
+    requires_schedule TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-GO
-
 -- ============================================
 -- 6. CASE_SANCTIONS TABLE (Link cases to sanctions)
 -- ============================================
 CREATE TABLE case_sanctions (
-    case_sanction_id INT IDENTITY(1,1) PRIMARY KEY,
-    case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
-    sanction_id INT FOREIGN KEY REFERENCES sanctions(sanction_id),
-    applied_date DATE DEFAULT CAST(GETDATE() AS DATE),
+    case_sanction_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id VARCHAR(20),
+    sanction_id INT,
+    applied_date DATE DEFAULT CURRENT_DATE,
     duration_days INT NULL,
     duration_extra_hours INT NOT NULL DEFAULT 0,
-    is_completed BIT DEFAULT 0,
+    is_completed TINYINT(1) DEFAULT 0,
     completion_date DATE,
-    notes NVARCHAR(500),
+    notes VARCHAR(500),
     scheduled_date DATE NULL,
     scheduled_time TIME NULL,
     scheduled_end_time TIME NULL,
-    schedule_notes NVARCHAR(500),
+    schedule_notes VARCHAR(500),
     deadline DATETIME NULL,
     original_duration_days INT NULL,
     days_extended INT DEFAULT 0,
     extension_count INT DEFAULT 0,
-    extension_notes NVARCHAR(MAX),
-    created_at DATETIME DEFAULT GETDATE()
+    extension_notes LONGTEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_case_sanctions_case FOREIGN KEY (case_id) REFERENCES cases(case_id),
+    CONSTRAINT fk_case_sanctions_sanction FOREIGN KEY (sanction_id) REFERENCES sanctions(sanction_id)
 );
-GO
-
 -- ============================================
 -- 6.5. CASE_CHECKINS TABLE (Check-in/Check-out tracking for time-based sanctions)
 -- ============================================
 CREATE TABLE case_checkins (
-    checkin_id INT IDENTITY(1,1) PRIMARY KEY,
-    case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
+    checkin_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_sanction_id INT NOT NULL,
     day_number INT NOT NULL,
     check_in_time DATETIME NULL,
     check_out_time DATETIME NULL,
-    check_in_date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    check_in_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_case_checkins_sanction FOREIGN KEY (case_sanction_id) REFERENCES case_sanctions(case_sanction_id)
 );
-GO
-
 -- ============================================
 -- 6.6. COMMUNITY_SERVICE_SUBMISSIONS TABLE
 -- ============================================
 CREATE TABLE community_service_submissions (
-    submission_id INT IDENTITY(1,1) PRIMARY KEY,
-    case_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES cases(case_id),
-    case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
-    student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
-    uploaded_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    file_name NVARCHAR(255) NOT NULL,
-    original_file_name NVARCHAR(255) NOT NULL,
-    file_path NVARCHAR(500) NOT NULL,
+    submission_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id VARCHAR(20) NOT NULL,
+    case_sanction_id INT NOT NULL,
+    student_id VARCHAR(20) NOT NULL,
+    uploaded_by INT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    original_file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
     file_size_bytes BIGINT NULL,
-    mime_type NVARCHAR(120) NULL,
-    remarks NVARCHAR(1000) NULL,
-    review_status NVARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'rejected')),
-    review_notes NVARCHAR(1000) NULL,
-    reviewed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+    mime_type VARCHAR(120) NULL,
+    remarks VARCHAR(1000) NULL,
+    review_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'rejected')),
+    review_notes VARCHAR(1000) NULL,
+    reviewed_by INT NULL,
     reviewed_at DATETIME NULL,
-    is_seen_by_do BIT NOT NULL DEFAULT 0,
+    is_seen_by_do TINYINT(1) NOT NULL DEFAULT 0,
     seen_by_do_at DATETIME NULL,
-    seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
-    created_at DATETIME NOT NULL DEFAULT GETDATE()
+    seen_by_do_user_id INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_submissions_case FOREIGN KEY (case_id) REFERENCES cases(case_id),
+    CONSTRAINT fk_submissions_sanction FOREIGN KEY (case_sanction_id) REFERENCES case_sanctions(case_sanction_id),
+    CONSTRAINT fk_submissions_student FOREIGN KEY (student_id) REFERENCES students(student_id),
+    CONSTRAINT fk_submissions_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(user_id),
+    CONSTRAINT fk_submissions_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(user_id),
+    CONSTRAINT fk_submissions_seen_by FOREIGN KEY (seen_by_do_user_id) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 7. CASE_HISTORY TABLE (Track all changes)
 -- ============================================
 CREATE TABLE case_history (
-    history_id INT IDENTITY(1,1) PRIMARY KEY,
-    case_id NVARCHAR(20) FOREIGN KEY REFERENCES cases(case_id),
-    changed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    action NVARCHAR(50) NOT NULL,
-    old_value NVARCHAR(MAX),
-    new_value NVARCHAR(MAX),
-    notes NVARCHAR(500),
-    timestamp DATETIME DEFAULT GETDATE()
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id VARCHAR(20),
+    changed_by INT NULL,
+    action VARCHAR(50) NOT NULL,
+    old_value LONGTEXT,
+    new_value LONGTEXT,
+    notes VARCHAR(500),
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_case_history_case FOREIGN KEY (case_id) REFERENCES cases(case_id),
+    CONSTRAINT fk_case_history_changed_by FOREIGN KEY (changed_by) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 8. LOST_FOUND_ITEMS TABLE
 -- ============================================
 CREATE TABLE lost_found_items (
-    item_id NVARCHAR(20) PRIMARY KEY,
-    item_name NVARCHAR(200) NOT NULL,
-    category NVARCHAR(50) NOT NULL,
-    description NVARCHAR(MAX),
-    found_location NVARCHAR(200) NOT NULL,
-    date_found DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    item_id VARCHAR(20) PRIMARY KEY,
+    item_name VARCHAR(200) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    description LONGTEXT,
+    found_location VARCHAR(200) NOT NULL,
+    date_found DATE NOT NULL DEFAULT CURRENT_DATE,
     time_found TIME,
-    finder_name NVARCHAR(100),
-    finder_student_id NVARCHAR(20) NULL FOREIGN KEY REFERENCES students(student_id),
-    status NVARCHAR(20) DEFAULT 'Unclaimed' CHECK (status IN ('Unclaimed', 'Claimed', 'Disposed')),
-    claimer_name NVARCHAR(100),
-    claimer_student_id NVARCHAR(20) NULL FOREIGN KEY REFERENCES students(student_id),
+    finder_name VARCHAR(100),
+    finder_student_id VARCHAR(20) NULL,
+    status VARCHAR(20) DEFAULT 'Unclaimed' CHECK (status IN ('Unclaimed', 'Claimed', 'Disposed')),
+    claimer_name VARCHAR(100),
+    claimer_student_id VARCHAR(20) NULL,
     date_claimed DATE,
-    image_path NVARCHAR(500),
-    is_archived BIT DEFAULT 0,
+    image_path VARCHAR(500),
+    is_archived TINYINT(1) DEFAULT 0,
     archived_at DATETIME,
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_lost_found_finder FOREIGN KEY (finder_student_id) REFERENCES students(student_id),
+    CONSTRAINT fk_lost_found_claimer FOREIGN KEY (claimer_student_id) REFERENCES students(student_id)
 );
-GO
-
 -- ============================================
 -- 8.1 LOST_FOUND_CATEGORIES TABLE
 -- ============================================
 CREATE TABLE lost_found_categories (
-    category_id INT IDENTITY(1,1) PRIMARY KEY,
-    category_name NVARCHAR(100) NOT NULL UNIQUE,
-    description NVARCHAR(500),
-    is_active BIT DEFAULT 1,
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(500),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-GO
-
 -- Insert default categories
 INSERT INTO lost_found_categories (category_name, description) VALUES
 ('Electronics', 'Electronic devices, gadgets, phones, headphones, and tech accessories'),
@@ -292,106 +262,101 @@ INSERT INTO lost_found_categories (category_name, description) VALUES
 ('Personal Items', 'Wallets, personal belongings, and miscellaneous personal effects'),
 ('School Supplies', 'Pens, folders, pencils, and stationery'),
 ('Others', 'Miscellaneous items not fitting other categories');
-GO
-
 -- ============================================
 -- 9. NOTIFICATIONS TABLE
 -- ============================================
 CREATE TABLE notifications (
-    notification_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_id INT FOREIGN KEY REFERENCES users(user_id),
-    title NVARCHAR(200) NOT NULL,
-    message NVARCHAR(MAX) NOT NULL,
-    type NVARCHAR(50) NOT NULL,
-    related_id NVARCHAR(50),
-    is_read BIT DEFAULT 0,
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    title VARCHAR(200) NOT NULL,
+    message LONGTEXT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    related_id VARCHAR(50),
+    is_read TINYINT(1) DEFAULT 0,
     read_at DATETIME,
-    created_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 10. REPORTS TABLE (Generated reports history)
 -- ============================================
 CREATE TABLE reports (
-    report_id INT IDENTITY(1,1) PRIMARY KEY,
-    report_name NVARCHAR(200) NOT NULL,
-    report_type NVARCHAR(50) NOT NULL,
-    format NVARCHAR(10) NOT NULL CHECK (format IN ('PDF', 'Excel', 'CSV')),
-    file_path NVARCHAR(500),
-    generated_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    date_generated DATETIME DEFAULT GETDATE(),
-    parameters NVARCHAR(MAX),
-    file_size_kb INT
+    report_id INT AUTO_INCREMENT PRIMARY KEY,
+    report_name VARCHAR(200) NOT NULL,
+    report_type VARCHAR(50) NOT NULL,
+    format VARCHAR(10) NOT NULL CHECK (format IN ('PDF', 'Excel', 'CSV')),
+    file_path VARCHAR(500),
+    generated_by INT NULL,
+    date_generated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    parameters LONGTEXT,
+    file_size_kb INT,
+    CONSTRAINT fk_reports_generated_by FOREIGN KEY (generated_by) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 11. CALENDAR_EVENTS TABLE
 -- ============================================
 CREATE TABLE calendar_events (
-    event_id INT IDENTITY(1,1) PRIMARY KEY,
-    event_name NVARCHAR(200) NOT NULL,
+    event_id INT AUTO_INCREMENT PRIMARY KEY,
+    event_name VARCHAR(200) NOT NULL,
     event_date DATE NOT NULL,
     event_time TIME,
     event_end_time TIME NULL,
-    category NVARCHAR(50) NOT NULL CHECK (category IN ('Meeting', 'Conference', 'Deadline', 'Hearing', 'Holiday', 'Other')),
-    description NVARCHAR(MAX),
-    location NVARCHAR(200),
-    created_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    target_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    category VARCHAR(50) NOT NULL CHECK (category IN ('Meeting', 'Conference', 'Deadline', 'Hearing', 'Holiday', 'Other')),
+    description LONGTEXT,
+    location VARCHAR(200),
+    created_by INT NULL,
+    target_user_id INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_calendar_created_by FOREIGN KEY (created_by) REFERENCES users(user_id),
+    CONSTRAINT fk_calendar_target_user FOREIGN KEY (target_user_id) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 12. HANDBOOK_SECTIONS TABLE (For editing)
 -- ============================================
 CREATE TABLE handbook_sections (
-    section_id INT IDENTITY(1,1) PRIMARY KEY,
-    section_title NVARCHAR(200) NOT NULL,
+    section_id INT AUTO_INCREMENT PRIMARY KEY,
+    section_title VARCHAR(200) NOT NULL,
     section_order INT NOT NULL,
-    content NVARCHAR(MAX) NOT NULL,
-    last_edited_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    last_edited_at DATETIME DEFAULT GETDATE(),
-    created_at DATETIME DEFAULT GETDATE()
+    content LONGTEXT NOT NULL,
+    last_edited_by INT NULL,
+    last_edited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_handbook_last_edited_by FOREIGN KEY (last_edited_by) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 13. WATCH_LIST TABLE (Students to monitor)
 -- ============================================
 CREATE TABLE watch_list (
-    watch_id INT IDENTITY(1,1) PRIMARY KEY,
-    student_id NVARCHAR(20) FOREIGN KEY REFERENCES students(student_id),
-    reason NVARCHAR(500) NOT NULL,
-    added_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    added_date DATE DEFAULT CAST(GETDATE() AS DATE),
-    is_active BIT DEFAULT 1,
+    watch_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id VARCHAR(20),
+    reason VARCHAR(500) NOT NULL,
+    added_by INT NULL,
+    added_date DATE DEFAULT CURRENT_DATE,
+    is_active TINYINT(1) DEFAULT 1,
     removed_date DATE,
-    removed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-    notes NVARCHAR(MAX)
+    removed_by INT NULL,
+    notes LONGTEXT,
+    CONSTRAINT fk_watch_list_student FOREIGN KEY (student_id) REFERENCES students(student_id),
+    CONSTRAINT fk_watch_list_added_by FOREIGN KEY (added_by) REFERENCES users(user_id),
+    CONSTRAINT fk_watch_list_removed_by FOREIGN KEY (removed_by) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- 14. AUDIT_LOG TABLE (System activity tracking)
 -- ============================================
 CREATE TABLE audit_log (
-    log_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
-    action NVARCHAR(100) NOT NULL,
-    table_name NVARCHAR(50),
-    record_id NVARCHAR(50),
-    old_values NVARCHAR(MAX),
-    new_values NVARCHAR(MAX),
-    ip_address NVARCHAR(50),
-    user_agent NVARCHAR(500),
-    timestamp DATETIME DEFAULT GETDATE()
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    action VARCHAR(100) NOT NULL,
+    table_name VARCHAR(50),
+    record_id VARCHAR(50),
+    old_values LONGTEXT,
+    new_values LONGTEXT,
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(500),
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audit_log_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
-GO
-
 -- ============================================
 -- INDEXES for Performance
 -- ============================================
@@ -405,89 +370,67 @@ CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_audit_user ON audit_log(user_id);
 CREATE INDEX idx_lost_found_status ON lost_found_items(status);
 CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
-CREATE UNIQUE INDEX ux_users_teacher_id ON users(teacher_id) WHERE teacher_id IS NOT NULL;
-CREATE UNIQUE INDEX ux_users_do_id ON users(do_id) WHERE do_id IS NOT NULL;
-GO
-
+CREATE UNIQUE INDEX ux_users_teacher_id ON users(teacher_id);
+CREATE UNIQUE INDEX ux_users_do_id ON users(do_id);
 -- ============================================
 -- TRIGGERS for Data Integrity
 -- ============================================
 -- Enforce sanction requirement for active cases: 'On Going' or 'Resolved' require at least one sanction
 -- Note: Only enforced on UPDATE to allow initial schema data load. Application layer validates on INSERT.
-CREATE TRIGGER trg_enforce_sanction_on_active_case
-ON cases
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    DECLARE @invalid_count INT = 0;
-    DECLARE @invalid_case_id NVARCHAR(20);
-    DECLARE @invalid_status NVARCHAR(50);
-    
-    -- Find any cases with 'On Going' or 'Resolved' status that lack a sanction
-    SELECT TOP 1 
-        @invalid_case_id = i.case_id,
-        @invalid_status = i.status,
-        @invalid_count = 1
-    FROM inserted i
-    WHERE i.status IN ('On Going', 'Resolved')
-        AND NOT EXISTS (
-            SELECT 1
-            FROM case_sanctions cs
-            WHERE cs.case_id = i.case_id
-        );
-    
-    -- If found, rollback and raise error
-    IF @invalid_count > 0
-    BEGIN
-        ROLLBACK TRANSACTION;
-        RAISERROR('Cannot mark case %s as %s without an applied sanction. Please apply a sanction first.', 16, 1, @invalid_case_id, @invalid_status);
-    END
-END
-GO
+DELIMITER $$
 
+CREATE TRIGGER trg_enforce_sanction_on_active_case
+BEFORE UPDATE ON cases
+FOR EACH ROW
+BEGIN
+    IF NEW.status IN ('On Going', 'Resolved')
+       AND NOT EXISTS (SELECT 1 FROM case_sanctions WHERE case_id = NEW.case_id) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Cannot mark a case as On Going or Resolved without an applied sanction.';
+    END IF;
+END$$
 -- Auto-set preset deadline for corrective reinforcement sanctions when missing.
 -- Formula: applied_date + duration_days + 7 grace days, set to end-of-day (23:59:59).
-CREATE TRIGGER trg_case_sanctions_autoset_corrective_deadline
-ON case_sanctions
-AFTER INSERT, UPDATE
-AS
+CREATE TRIGGER trg_case_sanctions_autoset_corrective_deadline_insert
+BEFORE INSERT ON case_sanctions
+FOR EACH ROW
 BEGIN
-    SET NOCOUNT ON;
+    IF NEW.deadline IS NULL
+       AND COALESCE(NEW.duration_days, 0) > 0
+       AND EXISTS (
+           SELECT 1 FROM sanctions
+           WHERE sanction_id = NEW.sanction_id
+             AND LOWER(sanction_name) LIKE '%corrective reinforcement%'
+       ) THEN
+        SET NEW.deadline = TIMESTAMP(
+            DATE_ADD(COALESCE(NEW.applied_date, CURRENT_DATE), INTERVAL (COALESCE(NEW.duration_days, 0) + 7) DAY),
+            '23:59:59'
+        );
+    END IF;
+END$$
 
-    UPDATE cs
-    SET cs.deadline = DATEADD(
-        SECOND,
-        86399,
-        CAST(
-            DATEADD(
-                DAY,
-                (COALESCE(i.duration_days, 0) + 7),
-                COALESCE(i.applied_date, CAST(GETDATE() AS DATE))
-            ) AS DATETIME
-        )
-    )
-    FROM case_sanctions cs
-    INNER JOIN inserted i ON i.case_sanction_id = cs.case_sanction_id
-    INNER JOIN sanctions s ON s.sanction_id = i.sanction_id
-    WHERE cs.deadline IS NULL
-      AND COALESCE(i.duration_days, 0) > 0
-      AND LOWER(s.sanction_name) LIKE '%corrective reinforcement%';
-END
-GO
+CREATE TRIGGER trg_case_sanctions_autoset_corrective_deadline_update
+BEFORE UPDATE ON case_sanctions
+FOR EACH ROW
+BEGIN
+    IF NEW.deadline IS NULL
+       AND COALESCE(NEW.duration_days, 0) > 0
+       AND EXISTS (
+           SELECT 1 FROM sanctions
+           WHERE sanction_id = NEW.sanction_id
+             AND LOWER(sanction_name) LIKE '%corrective reinforcement%'
+       ) THEN
+        SET NEW.deadline = TIMESTAMP(
+            DATE_ADD(COALESCE(NEW.applied_date, CURRENT_DATE), INTERVAL (COALESCE(NEW.duration_days, 0) + 7) DAY),
+            '23:59:59'
+        );
+    END IF;
+END$$
 
-PRINT '============================================';
-PRINT 'Tables created successfully!';
-PRINT 'Now inserting data...';
-PRINT '============================================';
-GO
-
+DELIMITER ;
 -- ============================================
 -- INSERT DEFAULT USERS
 -- ============================================
-PRINT 'Inserting users...';
-
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
@@ -501,182 +444,143 @@ VALUES
 ('student', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'student1@sti.edu', 'Alex Reyes', NULL, NULL, 'student', '09193456781');
 
-PRINT 'Users inserted: 5';
-GO
-
 -- ============================================
 -- INSERT ADDITIONAL STAFF (2 DO, 4 Security, 4 Teachers)
 -- ============================================
-PRINT 'Inserting additional staff accounts...';
-
 -- Default password for all staff: 'password'
-DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
-
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 -- Discipline Office Staff (2 additional)
-('torres.discipline@sti.edu', @defaultPassword, 'torres.discipline@sti.edu', 'Patricia Torres', NULL, '03000000002', 'discipline_office', '09189876543'),
-('reyes.discipline@sti.edu', @defaultPassword, 'reyes.discipline@sti.edu', 'Miguel Reyes', NULL, '03000000003', 'discipline_office', '09186543210'),
+('torres.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'torres.discipline@sti.edu', 'Patricia Torres', NULL, '03000000002', 'discipline_office', '09189876543'),
+('reyes.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'reyes.discipline@sti.edu', 'Miguel Reyes', NULL, '03000000003', 'discipline_office', '09186543210'),
 -- Security Staff (4)
-('santos.security1@sti.edu', @defaultPassword, 'santos.security1@sti.edu', 'Robert Santos', NULL, NULL, 'security', '09184567891'),
-('cruz.security2@sti.edu', @defaultPassword, 'cruz.security2@sti.edu', 'Fernando Cruz', NULL, NULL, 'security', '09184567892'),
-('diaz.security3@sti.edu', @defaultPassword, 'diaz.security3@sti.edu', 'Eduardo Diaz', NULL, NULL, 'security', '09184567893'),
-('herrera.security4@sti.edu', @defaultPassword, 'herrera.security4@sti.edu', 'Manuel Herrera', NULL, NULL, 'security', '09184567894'),
+('santos.security1@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'santos.security1@sti.edu', 'Robert Santos', NULL, NULL, 'security', '09184567891'),
+('cruz.security2@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cruz.security2@sti.edu', 'Fernando Cruz', NULL, NULL, 'security', '09184567892'),
+('diaz.security3@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'diaz.security3@sti.edu', 'Eduardo Diaz', NULL, NULL, 'security', '09184567893'),
+('herrera.security4@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'herrera.security4@sti.edu', 'Manuel Herrera', NULL, NULL, 'security', '09184567894'),
 -- Teachers (4)
-('garcia.teacher@sti.edu', @defaultPassword, 'garcia.teacher@sti.edu', 'Lisa Garcia', '01000000002', NULL, 'teacher', '09173334567'),
-('morales.teacher@sti.edu', @defaultPassword, 'morales.teacher@sti.edu', 'Vincent Morales', '01000000003', NULL, 'teacher', '09173334568'),
-('gutierrez.teacher@sti.edu', @defaultPassword, 'gutierrez.teacher@sti.edu', 'Rachel Gutierrez', '01000000004', NULL, 'teacher', '09173334569'),
-('lopez.teacher@sti.edu', @defaultPassword, 'lopez.teacher@sti.edu', 'Francisco Lopez', '01000000005', NULL, 'teacher', '09173334570');
-
-PRINT 'Additional staff inserted: 10';
-GO
+('garcia.teacher@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'garcia.teacher@sti.edu', 'Lisa Garcia', '01000000002', NULL, 'teacher', '09173334567'),
+('morales.teacher@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'morales.teacher@sti.edu', 'Vincent Morales', '01000000003', NULL, 'teacher', '09173334568'),
+('gutierrez.teacher@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'gutierrez.teacher@sti.edu', 'Rachel Gutierrez', '01000000004', NULL, 'teacher', '09173334569'),
+('lopez.teacher@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'lopez.teacher@sti.edu', 'Francisco Lopez', '01000000005', NULL, 'teacher', '09173334570');
 
 -- ============================================
 -- INSERT STUDENT USER ACCOUNTS (Auto-generated emails)
 -- ============================================
-PRINT 'Inserting student user accounts...';
-
--- Re-declare variable (DECLARE scope is per-batch in SQL Server)
-DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
-
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active)
 VALUES 
 -- SHS Students
-('delacruz.000001@sti.edu', @defaultPassword, 'delacruz.000001@sti.edu', 'Juan Santos Dela Cruz', NULL, NULL, 'student', '09171234001', 1),
-('garcia.000002@sti.edu', @defaultPassword, 'garcia.000002@sti.edu', 'Maria Reyes Garcia', NULL, NULL, 'student', '09171234002', 1),
-('santos.000003@sti.edu', @defaultPassword, 'santos.000003@sti.edu', 'Pedro Lopez Santos', NULL, NULL, 'student', '09171234003', 1),
-('reyes.000004@sti.edu', @defaultPassword, 'reyes.000004@sti.edu', 'Ana Cruz Reyes', NULL, NULL, 'student', '09171234004', 1),
-('mendoza.000005@sti.edu', @defaultPassword, 'mendoza.000005@sti.edu', 'Carlos Torres Mendoza', NULL, NULL, 'student', '09171234005', 1),
-('ramos.000006@sti.edu', @defaultPassword, 'ramos.000006@sti.edu', 'Sofia Diaz Ramos', NULL, NULL, 'student', '09171234006', 1),
-('torres.000007@sti.edu', @defaultPassword, 'torres.000007@sti.edu', 'Miguel Morales Torres', NULL, NULL, 'student', '09171234007', 1),
-('cruz.000008@sti.edu', @defaultPassword, 'cruz.000008@sti.edu', 'Isabella Fernandez Cruz', NULL, NULL, 'student', '09171234008', 1),
-('fernandez.000009@sti.edu', @defaultPassword, 'fernandez.000009@sti.edu', 'Luis Diaz Fernandez', NULL, NULL, 'student', '09171234009', 1),
-('diaz.000010@sti.edu', @defaultPassword, 'diaz.000010@sti.edu', 'Carmen Gutierrez Diaz', NULL, NULL, 'student', '09171234010', 1),
-('morales.000011@sti.edu', @defaultPassword, 'morales.000011@sti.edu', 'Diego Herrera Morales', NULL, NULL, 'student', '09171234011', 1),
-('gutierrez.000012@sti.edu', @defaultPassword, 'gutierrez.000012@sti.edu', 'Lucia Jimenez Gutierrez', NULL, NULL, 'student', '09171234012', 1),
-('johnson.000013@sti.edu', @defaultPassword, 'johnson.000013@sti.edu', 'Alex Michael Johnson', NULL, NULL, 'student', '09171234013', 1),
-('wilson.000014@sti.edu', @defaultPassword, 'wilson.000014@sti.edu', 'Emma Rose Wilson', NULL, NULL, 'student', '09171234014', 1),
-('lee.000015@sti.edu', @defaultPassword, 'lee.000015@sti.edu', 'Daniel James Lee', NULL, NULL, 'student', '09171234015', 1),
+('delacruz.000001@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'delacruz.000001@sti.edu', 'Juan Santos Dela Cruz', NULL, NULL, 'student', '09171234001', 1),
+('garcia.000002@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'garcia.000002@sti.edu', 'Maria Reyes Garcia', NULL, NULL, 'student', '09171234002', 1),
+('santos.000003@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'santos.000003@sti.edu', 'Pedro Lopez Santos', NULL, NULL, 'student', '09171234003', 1),
+('reyes.000004@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'reyes.000004@sti.edu', 'Ana Cruz Reyes', NULL, NULL, 'student', '09171234004', 1),
+('mendoza.000005@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'mendoza.000005@sti.edu', 'Carlos Torres Mendoza', NULL, NULL, 'student', '09171234005', 1),
+('ramos.000006@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ramos.000006@sti.edu', 'Sofia Diaz Ramos', NULL, NULL, 'student', '09171234006', 1),
+('torres.000007@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'torres.000007@sti.edu', 'Miguel Morales Torres', NULL, NULL, 'student', '09171234007', 1),
+('cruz.000008@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cruz.000008@sti.edu', 'Isabella Fernandez Cruz', NULL, NULL, 'student', '09171234008', 1),
+('fernandez.000009@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'fernandez.000009@sti.edu', 'Luis Diaz Fernandez', NULL, NULL, 'student', '09171234009', 1),
+('diaz.000010@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'diaz.000010@sti.edu', 'Carmen Gutierrez Diaz', NULL, NULL, 'student', '09171234010', 1),
+('morales.000011@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'morales.000011@sti.edu', 'Diego Herrera Morales', NULL, NULL, 'student', '09171234011', 1),
+('gutierrez.000012@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'gutierrez.000012@sti.edu', 'Lucia Jimenez Gutierrez', NULL, NULL, 'student', '09171234012', 1),
+('johnson.000013@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'johnson.000013@sti.edu', 'Alex Michael Johnson', NULL, NULL, 'student', '09171234013', 1),
+('wilson.000014@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'wilson.000014@sti.edu', 'Emma Rose Wilson', NULL, NULL, 'student', '09171234014', 1),
+('lee.000015@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'lee.000015@sti.edu', 'Daniel James Lee', NULL, NULL, 'student', '09171234015', 1),
 -- College Students
-('villanueva.000016@sti.edu', @defaultPassword, 'villanueva.000016@sti.edu', 'Marco Santos Villanueva', NULL, NULL, 'student', '09181234001', 1),
-('castillo.000017@sti.edu', @defaultPassword, 'castillo.000017@sti.edu', 'Angela Reyes Castillo', NULL, NULL, 'student', '09181234002', 1),
-('herrera.000018@sti.edu', @defaultPassword, 'herrera.000018@sti.edu', 'Rafael Cruz Herrera', NULL, NULL, 'student', '09181234003', 1),
-('jimenez.000019@sti.edu', @defaultPassword, 'jimenez.000019@sti.edu', 'Gabriela Torres Jimenez', NULL, NULL, 'student', '09181234004', 1),
-('navarro.000020@sti.edu', @defaultPassword, 'navarro.000020@sti.edu', 'Daniel Mendoza Navarro', NULL, NULL, 'student', '09181234005', 1),
-('romero.000021@sti.edu', @defaultPassword, 'romero.000021@sti.edu', 'Valentina Garcia Romero', NULL, NULL, 'student', '09181234006', 1),
-('vargas.000022@sti.edu', @defaultPassword, 'vargas.000022@sti.edu', 'Andres Lopez Vargas', NULL, NULL, 'student', '09181234007', 1),
-('flores.000023@sti.edu', @defaultPassword, 'flores.000023@sti.edu', 'Camila Diaz Flores', NULL, NULL, 'student', '09181234008', 1),
-('martinez.000024@sti.edu', @defaultPassword, 'martinez.000024@sti.edu', 'Sebastian Ramos Martinez', NULL, NULL, 'student', '09181234009', 1),
-('gonzalez.000025@sti.edu', @defaultPassword, 'gonzalez.000025@sti.edu', 'Nicole Morales Gonzalez', NULL, NULL, 'student', '09181234010', 1),
-('lopez.000026@sti.edu', @defaultPassword, 'lopez.000026@sti.edu', 'Adrian Fernandez Lopez', NULL, NULL, 'student', '09181234011', 1),
-('perez.000027@sti.edu', @defaultPassword, 'perez.000027@sti.edu', 'Bianca Gutierrez Perez', NULL, NULL, 'student', '09181234012', 1),
-('smith.000028@sti.edu', @defaultPassword, 'smith.000028@sti.edu', 'James Robert Smith', NULL, NULL, 'student', '09181234013', 1),
-('brown.000029@sti.edu', @defaultPassword, 'brown.000029@sti.edu', 'Sophia Anne Brown', NULL, NULL, 'student', '09181234014', 1),
-('wang.000030@sti.edu', @defaultPassword, 'wang.000030@sti.edu', 'Michael Chen Wang', NULL, NULL, 'student', '09181234015', 1);
-
-PRINT 'Student user accounts inserted: 30';
-GO
+('villanueva.000016@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'villanueva.000016@sti.edu', 'Marco Santos Villanueva', NULL, NULL, 'student', '09181234001', 1),
+('castillo.000017@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'castillo.000017@sti.edu', 'Angela Reyes Castillo', NULL, NULL, 'student', '09181234002', 1),
+('herrera.000018@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'herrera.000018@sti.edu', 'Rafael Cruz Herrera', NULL, NULL, 'student', '09181234003', 1),
+('jimenez.000019@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'jimenez.000019@sti.edu', 'Gabriela Torres Jimenez', NULL, NULL, 'student', '09181234004', 1),
+('navarro.000020@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'navarro.000020@sti.edu', 'Daniel Mendoza Navarro', NULL, NULL, 'student', '09181234005', 1),
+('romero.000021@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'romero.000021@sti.edu', 'Valentina Garcia Romero', NULL, NULL, 'student', '09181234006', 1),
+('vargas.000022@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'vargas.000022@sti.edu', 'Andres Lopez Vargas', NULL, NULL, 'student', '09181234007', 1),
+('flores.000023@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'flores.000023@sti.edu', 'Camila Diaz Flores', NULL, NULL, 'student', '09181234008', 1),
+('martinez.000024@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'martinez.000024@sti.edu', 'Sebastian Ramos Martinez', NULL, NULL, 'student', '09181234009', 1),
+('gonzalez.000025@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'gonzalez.000025@sti.edu', 'Nicole Morales Gonzalez', NULL, NULL, 'student', '09181234010', 1),
+('lopez.000026@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'lopez.000026@sti.edu', 'Adrian Fernandez Lopez', NULL, NULL, 'student', '09181234011', 1),
+('perez.000027@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'perez.000027@sti.edu', 'Bianca Gutierrez Perez', NULL, NULL, 'student', '09181234012', 1),
+('smith.000028@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'smith.000028@sti.edu', 'James Robert Smith', NULL, NULL, 'student', '09181234013', 1),
+('brown.000029@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'brown.000029@sti.edu', 'Sophia Anne Brown', NULL, NULL, 'student', '09181234014', 1),
+('wang.000030@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'wang.000030@sti.edu', 'Michael Chen Wang', NULL, NULL, 'student', '09181234015', 1);
 
 -- ============================================
 -- INSERT SAMPLE STUDENTS (Linked to user accounts)
 -- Student IDs below are explicitly assigned sample values
 -- ============================================
-PRINT 'Inserting students...';
-
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
 VALUES 
--- SHS Students (user_id 16-30)
-('02000000001', 16, 'Juan', 'Dela Cruz', 'Santos', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
-('02000000002', 17, 'Maria', 'Garcia', 'Reyes', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Jose Garcia', '09171234002'),
-('02000000003', 18, 'Pedro', 'Santos', 'Lopez', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Ana Santos', '09171234003'),
-('02000000004', 19, 'Ana', 'Reyes', 'Cruz', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Carlos Reyes', '09171234004'),
-('02000000005', 20, 'Carlos', 'Mendoza', 'Torres', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
-('02000000006', 21, 'Sofia', 'Ramos', 'Diaz', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
-('02000000007', 22, 'Miguel', 'Torres', 'Morales', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
-('02000000008', 23, 'Isabella', 'Cruz', 'Fernandez', '12', 'HUMSS', 'C', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
-('02000000009', 24, 'Luis', 'Fernandez', 'Diaz', '11', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
-('02000000010', 25, 'Carmen', 'Diaz', 'Gutierrez', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
-('02000000011', 26, 'Diego', 'Morales', 'Herrera', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
-('02000000012', 27, 'Lucia', 'Gutierrez', 'Jimenez', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
-('02000000013', 28, 'Alex', 'Johnson', 'Michael', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Mary Johnson', '09171234013'),
-('02000000014', 29, 'Emma', 'Wilson', 'Rose', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Sarah Wilson', '09171234014'),
-('02000000015', 30, 'Daniel', 'Lee', 'James', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Lisa Lee', '09171234015'),
--- College Students (user_id 31-45)
-('02000000016', 31, 'Marco', 'Villanueva', 'Santos', '1st Year', 'BSIT', 'IT-101', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
-('02000000017', 32, 'Angela', 'Castillo', 'Reyes', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
-('02000000018', 33, 'Rafael', 'Herrera', 'Cruz', '3rd Year', 'BSIT', 'IT-301', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
-('02000000019', 34, 'Gabriela', 'Jimenez', 'Torres', '4th Year', 'BSIT', 'IT-401', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
-('02000000020', 35, 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
-('02000000021', 36, 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
-('02000000022', 37, 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
-('02000000023', 38, 'Camila', 'Flores', 'Diaz', '4th Year', 'BSA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
-('02000000024', 39, 'Sebastian', 'Martinez', 'Ramos', '1st Year', 'BSCS', 'CS-101', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
-('02000000025', 40, 'Nicole', 'Gonzalez', 'Morales', '2nd Year', 'BSCS', 'CS-201', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
-('02000000026', 41, 'Adrian', 'Lopez', 'Fernandez', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
-('02000000027', 42, 'Bianca', 'Perez', 'Gutierrez', '4th Year', 'BSCS', 'CS-401', 'College', 'Good Standing', 'Ramon Perez', '09181234012'),
-('02000000028', 43, 'James', 'Smith', 'Robert', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'John Smith', '09181234013'),
-('02000000029', 44, 'Sophia', 'Brown', 'Anne', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Brown', '09181234014'),
-('02000000030', 45, 'Michael', 'Wang', 'Chen', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Wei Wang', '09181234015');
-
-PRINT 'Students inserted: 30';
-GO
+-- SHS Students
+('02000000001', (SELECT user_id FROM users WHERE username = 'delacruz.000001@sti.edu'), 'Juan', 'Dela Cruz', 'Santos', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Maria Dela Cruz', '09171234001'),
+('02000000002', (SELECT user_id FROM users WHERE username = 'garcia.000002@sti.edu'), 'Maria', 'Garcia', 'Reyes', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Jose Garcia', '09171234002'),
+('02000000003', (SELECT user_id FROM users WHERE username = 'santos.000003@sti.edu'), 'Pedro', 'Santos', 'Lopez', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Ana Santos', '09171234003'),
+('02000000004', (SELECT user_id FROM users WHERE username = 'reyes.000004@sti.edu'), 'Ana', 'Reyes', 'Cruz', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Carlos Reyes', '09171234004'),
+('02000000005', (SELECT user_id FROM users WHERE username = 'mendoza.000005@sti.edu'), 'Carlos', 'Mendoza', 'Torres', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Linda Mendoza', '09171234005'),
+('02000000006', (SELECT user_id FROM users WHERE username = 'ramos.000006@sti.edu'), 'Sofia', 'Ramos', 'Diaz', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Ramos', '09171234006'),
+('02000000007', (SELECT user_id FROM users WHERE username = 'torres.000007@sti.edu'), 'Miguel', 'Torres', 'Morales', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Isabel Torres', '09171234007'),
+('02000000008', (SELECT user_id FROM users WHERE username = 'cruz.000008@sti.edu'), 'Isabella', 'Cruz', 'Fernandez', '12', 'HUMSS', 'C', 'SHS', 'On Watch', 'Fernando Cruz', '09171234008'),
+('02000000009', (SELECT user_id FROM users WHERE username = 'fernandez.000009@sti.edu'), 'Luis', 'Fernandez', 'Diaz', '11', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Elena Fernandez', '09171234009'),
+('02000000010', (SELECT user_id FROM users WHERE username = 'diaz.000010@sti.edu'), 'Carmen', 'Diaz', 'Gutierrez', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Ricardo Diaz', '09171234010'),
+('02000000011', (SELECT user_id FROM users WHERE username = 'morales.000011@sti.edu'), 'Diego', 'Morales', 'Herrera', '12', 'ABM', 'B', 'SHS', 'Good Standing', 'Patricia Morales', '09171234011'),
+('02000000012', (SELECT user_id FROM users WHERE username = 'gutierrez.000012@sti.edu'), 'Lucia', 'Gutierrez', 'Jimenez', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Manuel Gutierrez', '09171234012'),
+('02000000013', (SELECT user_id FROM users WHERE username = 'johnson.000013@sti.edu'), 'Alex', 'Johnson', 'Michael', '12', 'STEM', 'A', 'SHS', 'Good Standing', 'Mary Johnson', '09171234013'),
+('02000000014', (SELECT user_id FROM users WHERE username = 'wilson.000014@sti.edu'), 'Emma', 'Wilson', 'Rose', '11', 'ABM', 'B', 'SHS', 'Good Standing', 'Sarah Wilson', '09171234014'),
+('02000000015', (SELECT user_id FROM users WHERE username = 'lee.000015@sti.edu'), 'Daniel', 'Lee', 'James', '12', 'HUMSS', 'C', 'SHS', 'Good Standing', 'Lisa Lee', '09171234015'),
+-- College Students
+('02000000016', (SELECT user_id FROM users WHERE username = 'villanueva.000016@sti.edu'), 'Marco', 'Villanueva', 'Santos', '1st Year', 'BSIT', 'IT-101', 'College', 'Good Standing', 'Rosa Villanueva', '09181234001'),
+('02000000017', (SELECT user_id FROM users WHERE username = 'castillo.000017@sti.edu'), 'Angela', 'Castillo', 'Reyes', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'Antonio Castillo', '09181234002'),
+('02000000018', (SELECT user_id FROM users WHERE username = 'herrera.000018@sti.edu'), 'Rafael', 'Herrera', 'Cruz', '3rd Year', 'BSIT', 'IT-301', 'College', 'Good Standing', 'Gloria Herrera', '09181234003'),
+('02000000019', (SELECT user_id FROM users WHERE username = 'jimenez.000019@sti.edu'), 'Gabriela', 'Jimenez', 'Torres', '4th Year', 'BSIT', 'IT-401', 'College', 'Good Standing', 'Alberto Jimenez', '09181234004'),
+('02000000020', (SELECT user_id FROM users WHERE username = 'navarro.000020@sti.edu'), 'Daniel', 'Navarro', 'Mendoza', '1st Year', 'BSA', 'BA-101', 'College', 'Good Standing', 'Teresa Navarro', '09181234005'),
+('02000000021', (SELECT user_id FROM users WHERE username = 'romero.000021@sti.edu'), 'Valentina', 'Romero', 'Garcia', '2nd Year', 'BSA', 'BA-201', 'College', 'Good Standing', 'Francisco Romero', '09181234006'),
+('02000000022', (SELECT user_id FROM users WHERE username = 'vargas.000022@sti.edu'), 'Andres', 'Vargas', 'Lopez', '3rd Year', 'BSA', 'BA-301', 'College', 'On Watch', 'Carmen Vargas', '09181234007'),
+('02000000023', (SELECT user_id FROM users WHERE username = 'flores.000023@sti.edu'), 'Camila', 'Flores', 'Diaz', '4th Year', 'BSA', 'BA-401', 'College', 'Good Standing', 'Eduardo Flores', '09181234008'),
+('02000000024', (SELECT user_id FROM users WHERE username = 'martinez.000024@sti.edu'), 'Sebastian', 'Martinez', 'Ramos', '1st Year', 'BSCS', 'CS-101', 'College', 'Good Standing', 'Laura Martinez', '09181234009'),
+('02000000025', (SELECT user_id FROM users WHERE username = 'gonzalez.000025@sti.edu'), 'Nicole', 'Gonzalez', 'Morales', '2nd Year', 'BSCS', 'CS-201', 'College', 'Good Standing', 'Jorge Gonzalez', '09181234010'),
+('02000000026', (SELECT user_id FROM users WHERE username = 'lopez.000026@sti.edu'), 'Adrian', 'Lopez', 'Fernandez', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Silvia Lopez', '09181234011'),
+('02000000027', (SELECT user_id FROM users WHERE username = 'perez.000027@sti.edu'), 'Bianca', 'Perez', 'Gutierrez', '4th Year', 'BSCS', 'CS-401', 'College', 'Good Standing', 'Ramon Perez', '09181234012'),
+('02000000028', (SELECT user_id FROM users WHERE username = 'smith.000028@sti.edu'), 'James', 'Smith', 'Robert', '2nd Year', 'BSIT', 'IT-201', 'College', 'Good Standing', 'John Smith', '09181234013'),
+('02000000029', (SELECT user_id FROM users WHERE username = 'brown.000029@sti.edu'), 'Sophia', 'Brown', 'Anne', '11', 'STEM', 'A', 'SHS', 'Good Standing', 'Robert Brown', '09181234014'),
+('02000000030', (SELECT user_id FROM users WHERE username = 'wang.000030@sti.edu'), 'Michael', 'Wang', 'Chen', '3rd Year', 'BSCS', 'CS-301', 'College', 'Good Standing', 'Wei Wang', '09181234015');
 
 -- ============================================
 -- INSERT PROGRAM HEADS AND ADDITIONAL COLLEGE STUDENTS
 -- ============================================
-PRINT 'Inserting program heads and additional college students...';
-
-DECLARE @defaultPassword NVARCHAR(255) = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
-
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
 VALUES
-('it.head@sti.edu', @defaultPassword, 'it.head@sti.edu', 'Alicia Rivera', '01000000006', NULL, 'department_head', 'Information Technology', 'teacher', '09170000006', 1),
-('business.head@sti.edu', @defaultPassword, 'business.head@sti.edu', 'Benjamin Santos', '01000000007', NULL, 'department_head', 'Business & Management', 'teacher', '09170000007', 1),
-('hospitality.head@sti.edu', @defaultPassword, 'hospitality.head@sti.edu', 'Carla Mendoza', '01000000008', NULL, 'department_head', 'Hospitality Management', 'teacher', '09170000008', 1),
-('tourism.head@sti.edu', @defaultPassword, 'tourism.head@sti.edu', 'Daniel Reyes', '01000000009', NULL, 'department_head', 'Tourism Management', 'teacher', '09170000009', 1),
-('engineering.head@sti.edu', @defaultPassword, 'engineering.head@sti.edu', 'Elena Cruz', '01000000010', NULL, 'department_head', 'Engineering', 'teacher', '09170000010', 1),
-('arts.head@sti.edu', @defaultPassword, 'arts.head@sti.edu', 'Francis Lopez', '01000000011', NULL, 'department_head', 'Arts & Sciences', 'teacher', '09170000011', 1),
-('cj.head@sti.edu', @defaultPassword, 'cj.head@sti.edu', 'Grace Navarro', '01000000012', NULL, 'department_head', 'Criminal Justice Education', 'teacher', '09170000012', 1),
-('navarro.000031@sti.edu', @defaultPassword, 'navarro.000031@sti.edu', 'Luna Navarro', NULL, NULL, NULL, NULL, 'student', '09191234016', 1),
-('reyes.000032@sti.edu', @defaultPassword, 'reyes.000032@sti.edu', 'Marcus Reyes', NULL, NULL, NULL, NULL, 'student', '09191234017', 1),
-('bautista.000033@sti.edu', @defaultPassword, 'bautista.000033@sti.edu', 'Sofia Bautista', NULL, NULL, NULL, NULL, 'student', '09191234018', 1),
-('cruz.000034@sti.edu', @defaultPassword, 'cruz.000034@sti.edu', 'Noah Cruz', NULL, NULL, NULL, NULL, 'student', '09191234019', 1),
-('santos.000035@sti.edu', @defaultPassword, 'santos.000035@sti.edu', 'Ivy Santos', NULL, NULL, NULL, NULL, 'student', '09191234020', 1),
-('garcia.000036@sti.edu', @defaultPassword, 'garcia.000036@sti.edu', 'Mikaela Garcia', NULL, NULL, NULL, NULL, 'student', '09191234021', 1),
-('flores.000037@sti.edu', @defaultPassword, 'flores.000037@sti.edu', 'Adrian Flores', NULL, NULL, NULL, NULL, 'student', '09191234022', 1),
-('diaz.000038@sti.edu', @defaultPassword, 'diaz.000038@sti.edu', 'Paula Diaz', NULL, NULL, NULL, NULL, 'student', '09191234023', 1),
-('lim.000039@sti.edu', @defaultPassword, 'lim.000039@sti.edu', 'Jasper Lim', NULL, NULL, NULL, NULL, 'student', '09191234024', 1);
-
-PRINT 'Program heads inserted: 7';
-PRINT 'Additional student user accounts inserted: 9';
-GO
-
-PRINT 'Inserting sample students for new college programs...';
+('it.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'it.head@sti.edu', 'Alicia Rivera', '01000000006', NULL, 'department_head', 'Information Technology', 'teacher', '09170000006', 1),
+('business.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'business.head@sti.edu', 'Benjamin Santos', '01000000007', NULL, 'department_head', 'Business & Management', 'teacher', '09170000007', 1),
+('hospitality.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'hospitality.head@sti.edu', 'Carla Mendoza', '01000000008', NULL, 'department_head', 'Hospitality Management', 'teacher', '09170000008', 1),
+('tourism.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'tourism.head@sti.edu', 'Daniel Reyes', '01000000009', NULL, 'department_head', 'Tourism Management', 'teacher', '09170000009', 1),
+('engineering.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'engineering.head@sti.edu', 'Elena Cruz', '01000000010', NULL, 'department_head', 'Engineering', 'teacher', '09170000010', 1),
+('arts.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'arts.head@sti.edu', 'Francis Lopez', '01000000011', NULL, 'department_head', 'Arts & Sciences', 'teacher', '09170000011', 1),
+('cj.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cj.head@sti.edu', 'Grace Navarro', '01000000012', NULL, 'department_head', 'Criminal Justice Education', 'teacher', '09170000012', 1),
+('navarro.000031@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'navarro.000031@sti.edu', 'Luna Navarro', NULL, NULL, NULL, NULL, 'student', '09191234016', 1),
+('reyes.000032@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'reyes.000032@sti.edu', 'Marcus Reyes', NULL, NULL, NULL, NULL, 'student', '09191234017', 1),
+('bautista.000033@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'bautista.000033@sti.edu', 'Sofia Bautista', NULL, NULL, NULL, NULL, 'student', '09191234018', 1),
+('cruz.000034@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cruz.000034@sti.edu', 'Noah Cruz', NULL, NULL, NULL, NULL, 'student', '09191234019', 1),
+('santos.000035@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'santos.000035@sti.edu', 'Ivy Santos', NULL, NULL, NULL, NULL, 'student', '09191234020', 1),
+('garcia.000036@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'garcia.000036@sti.edu', 'Mikaela Garcia', NULL, NULL, NULL, NULL, 'student', '09191234021', 1),
+('flores.000037@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'flores.000037@sti.edu', 'Adrian Flores', NULL, NULL, NULL, NULL, 'student', '09191234022', 1),
+('diaz.000038@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'diaz.000038@sti.edu', 'Paula Diaz', NULL, NULL, NULL, NULL, 'student', '09191234023', 1),
+('lim.000039@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'lim.000039@sti.edu', 'Jasper Lim', NULL, NULL, NULL, NULL, 'student', '09191234024', 1);
 
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
 VALUES
-('02000000031', 53, 'Luna', 'Navarro', 'Reyes', '1st Year', 'BSA', 'BSA-101', 'College', 'Good Standing', 'Teresa Navarro', '09191234016'),
-('02000000032', 54, 'Marcus', 'Reyes', 'Garcia', '2nd Year', 'BSMA', 'BSMA-201', 'College', 'Good Standing', 'Francisco Reyes', '09191234017'),
-('02000000033', 55, 'Sofia', 'Bautista', 'Cruz', '1st Year', 'BSHM', 'BSHM-101', 'College', 'Good Standing', 'Ramon Bautista', '09191234018'),
-('02000000034', 56, 'Noah', 'Cruz', 'Santos', '2nd Year', 'BSTM', 'BSTM-201', 'College', 'Good Standing', 'Luz Cruz', '09191234019'),
-('02000000035', 57, 'Ivy', 'Santos', 'Mendoza', '1st Year', 'BSCpE', 'BSCPE-101', 'College', 'Good Standing', 'Carlo Santos', '09191234020'),
-('02000000036', 58, 'Mikaela', 'Garcia', 'Flores', '1st Year', 'BACOMM', 'BACOMM-101', 'College', 'Good Standing', 'Angela Garcia', '09191234021'),
-('02000000037', 59, 'Adrian', 'Flores', 'Lim', '2nd Year', 'BMMA', 'BMMA-201', 'College', 'Good Standing', 'Eduardo Flores', '09191234022'),
-('02000000038', 60, 'Paula', 'Diaz', 'Morales', '1st Year', 'BAPsych', 'BAPSYCH-101', 'College', 'Good Standing', 'Carmen Diaz', '09191234023'),
-('02000000039', 61, 'Jasper', 'Lim', 'Torres', '1st Year', 'BSCRIM', 'BSCRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
+('02000000031', (SELECT user_id FROM users WHERE username = 'navarro.000031@sti.edu'), 'Luna', 'Navarro', 'Reyes', '1st Year', 'BSA', 'BSA-101', 'College', 'Good Standing', 'Teresa Navarro', '09191234016'),
+('02000000032', (SELECT user_id FROM users WHERE username = 'reyes.000032@sti.edu'), 'Marcus', 'Reyes', 'Garcia', '2nd Year', 'BSMA', 'BSMA-201', 'College', 'Good Standing', 'Francisco Reyes', '09191234017'),
+('02000000033', (SELECT user_id FROM users WHERE username = 'bautista.000033@sti.edu'), 'Sofia', 'Bautista', 'Cruz', '1st Year', 'BSHM', 'BSHM-101', 'College', 'Good Standing', 'Ramon Bautista', '09191234018'),
+('02000000034', (SELECT user_id FROM users WHERE username = 'cruz.000034@sti.edu'), 'Noah', 'Cruz', 'Santos', '2nd Year', 'BSTM', 'BSTM-201', 'College', 'Good Standing', 'Luz Cruz', '09191234019'),
+('02000000035', (SELECT user_id FROM users WHERE username = 'santos.000035@sti.edu'), 'Ivy', 'Santos', 'Mendoza', '1st Year', 'BSCpE', 'BSCPE-101', 'College', 'Good Standing', 'Carlo Santos', '09191234020'),
+('02000000036', (SELECT user_id FROM users WHERE username = 'garcia.000036@sti.edu'), 'Mikaela', 'Garcia', 'Flores', '1st Year', 'BACOMM', 'BACOMM-101', 'College', 'Good Standing', 'Angela Garcia', '09191234021'),
+('02000000037', (SELECT user_id FROM users WHERE username = 'flores.000037@sti.edu'), 'Adrian', 'Flores', 'Lim', '2nd Year', 'BMMA', 'BMMA-201', 'College', 'Good Standing', 'Eduardo Flores', '09191234022'),
+('02000000038', (SELECT user_id FROM users WHERE username = 'diaz.000038@sti.edu'), 'Paula', 'Diaz', 'Morales', '1st Year', 'BAPsych', 'BAPSYCH-101', 'College', 'Good Standing', 'Carmen Diaz', '09191234023'),
+('02000000039', (SELECT user_id FROM users WHERE username = 'lim.000039@sti.edu'), 'Jasper', 'Lim', 'Torres', '1st Year', 'BSCRIM', 'BSCRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
 
-PRINT 'Additional students inserted: 9';
-GO
 -- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)
 -- ============================================
-PRINT 'Inserting offense types...';
-
--- Minor Offenses
 INSERT INTO offense_types (offense_name, category, description) VALUES
-('Non-adherence to Student Decorum', 'Minor', 'Discourtesy towards STI community members'),
-('Non-wearing of School Uniform', 'Minor', 'Not wearing uniform or improper use of ID'),
 ('Inappropriate Campus Attire', 'Minor', 'Wearing inappropriate clothes on wash days'),
+('Non-wearing of School Uniform', 'Minor', 'Not wearing uniform or improper use of ID'),
 ('Losing/Forgetting ID', 'Minor', 'Lost or forgot ID three times'),
 ('Disrespect to National Symbols', 'Minor', 'Disrespectful behavior to national symbols'),
 ('Improper Use of School Property', 'Minor', 'Irresponsible use of school property'),
@@ -720,14 +624,9 @@ INSERT INTO offense_types (offense_name, category, description) VALUES
 ('Subversion/Sedition', 'Major', 'Acts of subversion, sedition, or insurgency'),
 ('Others', 'Minor', 'Other offenses not specifically listed');
 
-PRINT 'Offense types inserted: 45';
-GO
-
 -- ============================================
 -- INSERT SANCTIONS (Based on STI Handbook)
 -- ============================================
-PRINT 'Inserting sanctions...';
-
 INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Verbal/Oral Warning', 1, 'Verbal warning for first minor offense'),
 ('Written Apology', 1, 'Required to write apology letter'),
@@ -740,15 +639,10 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Exclusion', 5, 'Immediately removed from school'),
 ('Expulsion', 5, 'Disqualified from all Philippine institutions');
 
-PRINT 'Sanctions inserted: 10';
-GO
-
 -- ============================================
 -- INSERT SAMPLE CASES (30 Total - All 2026 Cases)
 -- 10 Pending, 10 On Going, 10 Resolved
 -- ============================================
-PRINT 'Inserting cases...';
-
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes, resolved_date)
 VALUES 
 -- PENDING CASES (10)
@@ -839,19 +733,13 @@ VALUES
 ('C-2025010', '02000000021', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Resolved', '2025-12-01', '09:00:00', 'Reported online, investigated in DO Office', 3, 2, 
  'Student posted derogatory and insulting comments about a classmate on social media group. Screenshots provided as evidence.', 'Victim student + 3 classmates who witnessed posts', 'Investigation completed. Mediation held. 5-day suspension applied', 'Serious case. Both students and parents called for mediation. Student completed suspension and apologized.', '2025-12-10');
 
-PRINT 'Cases inserted: 40';
-
 -- Minor cases use recording status instead of the major-case workflow statuses.
 UPDATE cases
 SET status = CASE WHEN status = 'Pending' THEN 'Unrecorded' ELSE 'Recorded' END
 WHERE severity = 'Minor';
-GO
-
 -- ============================================
 -- UPDATE STUDENT OFFENSE COUNTS
 -- ============================================
-PRINT 'Updating student offense counts...';
-
 UPDATE students 
 SET 
     total_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND is_archived = 0),
@@ -859,35 +747,26 @@ SET
     minor_offenses = (SELECT COUNT(*) FROM cases WHERE student_id = students.student_id AND severity = 'Minor' AND is_archived = 0),
     last_incident_date = (SELECT MAX(date_reported) FROM cases WHERE student_id = students.student_id)
 WHERE student_id IN (
-    SELECT DISTINCT student_id FROM cases
+    SELECT student_id
+    FROM (SELECT DISTINCT student_id FROM cases) AS temp
 );
-
-PRINT 'Student offense counts updated!';
-GO
 
 -- ============================================
 -- INSERT CASE HISTORY FOR ALL CASES
 -- ============================================
-PRINT 'Inserting case history...';
-
 INSERT INTO case_history (case_id, changed_by, action, new_value, notes, timestamp)
 SELECT 
     case_id,
     2,
     'Created',
-    'Status: ' + status,
+    CONCAT('Status: ', status),
     'Case created and logged into system',
-    DATEADD(MINUTE, 5, CAST(date_reported AS DATETIME) + CAST(ISNULL(time_reported, '08:00:00') AS DATETIME))
+    TIMESTAMP(date_reported, COALESCE(time_reported, '08:00:00')) + INTERVAL 5 MINUTE
 FROM cases;
-
-PRINT 'Case history inserted!';
-GO
 
 -- ============================================
 -- INSERT SAMPLE LOST & FOUND ITEMS
 -- ============================================
-PRINT 'Inserting Lost & Found items...';
-
 INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
 VALUES 
 ('LF-1001', 'Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
@@ -911,14 +790,9 @@ VALUES
 ('LF-1019', 'Earbuds', 'Electronics', 'Classroom C-305', '2026-02-04', 'Unclaimed', 'Apple AirPods with charging case'),
 ('LF-1020', 'Sports Medal', 'Personal Items', 'Gym', '2026-02-03', 'Unclaimed', 'Gold medal from 2026 Sports Festival');
 
-PRINT 'Lost & Found items inserted: 20';
-GO
-
 -- ============================================
 -- INSERT WATCH LIST ENTRIES
 -- ============================================
-PRINT 'Inserting watch list entries...';
-
 INSERT INTO watch_list (student_id, reason, added_by, added_date, notes)
 VALUES 
 ('02000000022', 'Multiple major offenses: Cheating and other violations. Requires close monitoring.', 2, '2026-02-01', 
@@ -926,14 +800,9 @@ VALUES
 ('02000000008', 'Major offense: Smoking on campus. Multiple previous violations. On watch list.', 2, '2026-02-05', 
  'Requires behavioral intervention. Parent involvement necessary.');
 
-PRINT 'Watch list entries inserted: 2';
-GO
-
 -- ============================================
 -- INSERT SAMPLE SANCTIONS APPLIED
 -- ============================================
-PRINT 'Inserting applied sanctions...';
-
 INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
 VALUES
 -- 2026 ON GOING CASES (Incomplete sanctions)
@@ -970,14 +839,9 @@ VALUES
 ('C-2025009', 1, '2025-11-15', 1, '2025-11-15', 'Educational discussion conducted about campus policies'),
 ('C-2025010', 6, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
 
-PRINT 'Applied sanctions inserted: 37';
-GO
-
 -- ============================================
 -- INSERT SAMPLE NOTIFICATIONS
 -- ============================================
-PRINT 'Inserting notifications...';
-
 INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
 VALUES
 (2, 'New Case Reported', 'New cyberbullying case C-2026008 requires immediate attention', 'case_update', 'C-2026008', 0),
@@ -985,29 +849,9 @@ VALUES
 (2, 'Active Investigation', 'Case C-2026005 (Cheating) is currently under investigation', 'case_update', 'C-2026005', 1),
 (2, 'Pending Action', 'Case C-2026010 (ID Violation) awaits disciplinary action', 'case_update', 'C-2026010', 0);
 
-PRINT 'Notifications inserted: 4';
-GO
-
 -- ============================================
 -- FINAL VERIFICATION & SUMMARY
 -- ============================================
-
-PRINT '';
-PRINT '============================================';
-PRINT 'Database Created Successfully!';
-PRINT '============================================';
-PRINT '';
-PRINT 'Default Login Credentials:';
-PRINT 'Username: admin';
-PRINT 'Password: password';
-PRINT '';
-PRINT 'OR';
-PRINT '';
-PRINT 'Username: do_staff';
-PRINT 'Password: password';
-PRINT '';
-PRINT '⚠️  IMPORTANT: Change passwords after first login!';
-PRINT '';
 
 SELECT 
     'Total Students' AS metric, 
@@ -1073,13 +917,6 @@ SELECT
     'Watch List Entries', 
     COUNT(*) 
 FROM watch_list;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'STUDENT BREAKDOWN BY TRACK/COURSE';
-PRINT '============================================';
-
 SELECT 
     track_course AS 'Track/Course',
     student_type AS 'Type',
@@ -1087,13 +924,6 @@ SELECT
 FROM students
 GROUP BY track_course, student_type
 ORDER BY student_type, COUNT(*) DESC;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT '2026 CASES SUMMARY';
-PRINT '============================================';
-
 SELECT 
     case_id AS 'Case ID',
     student_id AS 'Student ID',
@@ -1103,14 +933,6 @@ SELECT
     date_reported AS 'Date'
 FROM cases
 ORDER BY date_reported DESC;
-GO
-
-
-PRINT '';
-PRINT '============================================';
-PRINT '2026 CASES SUMMARY';
-PRINT '============================================';
-
 SELECT 
     case_id AS 'Case ID',
     student_id AS 'Student ID',
@@ -1121,13 +943,6 @@ SELECT
 FROM cases
 WHERE case_id LIKE 'C-2026%'
 ORDER BY date_reported;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT '2025 CASES SUMMARY';
-PRINT '============================================';
-
 SELECT 
     case_id AS 'Case ID',
     student_id AS 'Student ID',
@@ -1138,16 +953,9 @@ SELECT
 FROM cases
 WHERE case_id LIKE 'C-2025%'
 ORDER BY date_reported;
-GO
-
-PRINT '';
-PRINT '============================================';
-PRINT 'STUDENTS WITH MULTIPLE OFFENSES';
-PRINT '============================================';
-
 SELECT 
     s.student_id AS 'Student ID',
-    s.first_name + ' ' + s.last_name AS 'Student Name',
+    CONCAT(s.first_name, ' ', s.last_name) AS 'Student Name',
     s.track_course AS 'Track/Course',
     s.total_offenses AS 'Total',
     s.major_offenses AS 'Major',
@@ -1156,46 +964,5 @@ SELECT
 FROM students s
 WHERE s.total_offenses > 0
 ORDER BY s.total_offenses DESC, s.major_offenses DESC;
-GO
 
-PRINT '';
-PRINT '============================================';
-PRINT 'TEST STUDENT NUMBERS FOR AUTO-FILL FEATURE';
-PRINT '============================================';
-PRINT '';
-PRINT 'All student IDs follow format: 02000 + 6 digits';
-PRINT '';
-PRINT 'SHS Students with Cases:';
-PRINT '  - 02000000001 (Juan Dela Cruz - STEM) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000003 (Pedro Santos - STEM) - 2 cases (2025 & 2026)'; 
-PRINT '  - 02000000005 (Carlos Mendoza - ABM) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000008 (Isabella Cruz - HUMSS - On Watch) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000009 (Luis Fernandez - HUMSS) - 2 cases (2025 & 2026)';
-PRINT '';
-PRINT 'College Students with Cases:';
-PRINT '  - 02000000016 (Marco Villanueva - BSIT) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000017 (Angela Castillo - BSIT) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000021 (Valentina Romero - BSBA) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000022 (Andres Vargas - BSBA - On Watch) - 2 cases (2025 & 2026)';
-PRINT '  - 02000000024 (Sebastian Martinez - BSCS) - 2 cases (2025 & 2026)';
-PRINT '';
-PRINT '✅ Database ready for use!';
-PRINT '✅ Total Users: 35 (5 staff + 30 students)';
-PRINT '✅ All students have auto-generated emails: lastname.last6digits@sti.edu';
-PRINT '✅ Default password for all students: password';
-PRINT '';
-PRINT 'Sample Student Login Credentials:';
-PRINT '  Email: delacruz.000001@sti.edu | Password: password';
-PRINT '  Email: garcia.000002@sti.edu | Password: password';
-PRINT '  Email: santos.000003@sti.edu | Password: password';
-PRINT '';
-PRINT '✅ Includes 40 total cases:';
-PRINT '   - 10 cases from 2025 (all resolved)';
-PRINT '   - 30 cases from 2026 (10 Pending, 10 On Going, 10 Resolved)';
-PRINT '✅ All student IDs in consistent format: 02000XXXXXX';
-PRINT '✅ All student offense counts updated';
-PRINT '✅ Watch list populated';
-PRINT '✅ Case history tracked';
-PRINT '✅ Lost & Found items working correctly';
-PRINT '============================================';
-GO
+

@@ -151,11 +151,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 echo json_encode(['success' => false, 'error' => 'Unauthorized']);
                 exit;
             }
-            $databaseSize = fetchValue("SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(12,2)) FROM sys.database_files");
-            $activeSessions = fetchValue("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATEADD(minute, -30, GETDATE())");
-            $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CAST(GETDATE() AS date)");
-            $failedLogins = fetchAll("SELECT TOP 10 ip_address, timestamp, JSON_VALUE(new_values, '$.username') AS attempted_username, JSON_VALUE(new_values, '$.reason') AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC");
-            $peakHours = fetchAll("SELECT TOP 5 DATEPART(hour, timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATEADD(day, -30, GETDATE()) GROUP BY DATEPART(hour, timestamp) ORDER BY activity_count DESC");
+            $databaseSize = fetchValue("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) FROM information_schema.tables WHERE table_schema = DATABASE()");
+            $activeSessions = fetchValue("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)");
+            $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CURRENT_DATE");
+            $failedLogins = fetchAll("SELECT ip_address, timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.reason')) AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 10");
+            $peakHours = fetchAll("SELECT HOUR(timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY HOUR(timestamp) ORDER BY activity_count DESC LIMIT 5");
             echo json_encode(['success' => true, 'metrics' => compact('databaseSize', 'activeSessions', 'auditEventsToday', 'failedLogins', 'peakHours')]);
             exit;
         }

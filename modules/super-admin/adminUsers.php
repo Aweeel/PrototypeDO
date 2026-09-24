@@ -79,7 +79,7 @@ function getPendingResetExistsSql() {
                 SELECT 1 FROM notifications n
                 WHERE n.type = 'password_reset_request'
                   AND n.is_read = 0
-                  AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                  AND CAST(SUBSTRING_INDEX(n.related_id, ':', -1) AS UNSIGNED) = u.user_id
             )";
 }
 
@@ -196,17 +196,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             }
 
             // Check for existing IDs
-            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS NVARCHAR(50)) = ?", [$studentId])) {
+            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS CHAR) = ?", [$studentId])) {
                 $errors[] = "Row skipped: student_id '{$studentId}' already exists";
                 $skipped++;
                 continue;
             }
-            if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(teacher_id AS NVARCHAR(50)) = ?", [$teacherId])) {
+            if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(teacher_id AS CHAR) = ?", [$teacherId])) {
                 $errors[] = "Row skipped: teacher_id '{$teacherId}' already exists";
                 $skipped++;
                 continue;
             }
-            if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(do_id AS NVARCHAR(50)) = ?", [$doId])) {
+            if ($doId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(do_id AS CHAR) = ?", [$doId])) {
                 $errors[] = "Row skipped: do_id '{$doId}' already exists";
                 $skipped++;
                 continue;
@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
 
                 $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), NULLIF(CAST(? AS NVARCHAR(50)), ''), ?, ?, 1, GETDATE())";
+                            VALUES (?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,
@@ -324,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $sql = "SELECT 
                                 COALESCE(u.user_id, 0) as user_id,
                                 COALESCE(u.email, 'N/A') as email,
-                                COALESCE(u.full_name, s.first_name + ' ' + s.last_name) as full_name,
+                                COALESCE(u.full_name, CONCAT(s.first_name, ' ', s.last_name)) as full_name,
                                 COALESCE(u.role, 'student') as role,
                                 COALESCE(u.contact_number, '') as contact_number,
                                 COALESCE(u.is_active, 1) as is_active,
@@ -340,17 +340,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                         SELECT 1 FROM notifications n 
                                         WHERE n.type = 'password_reset_request' 
                                         AND n.is_read = 0
-                                        AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                                        AND CAST(SUBSTRING_INDEX(n.related_id, ':', -1) AS UNSIGNED) = u.user_id
                                     ) THEN 1
                                     ELSE 0
                                 END as has_pending_reset
                             FROM students s
                             LEFT JOIN users u ON s.user_id = u.user_id
-                                WHERE CAST(s.student_id AS NVARCHAR(50)) = ?";
+                                WHERE CAST(s.student_id AS CHAR) = ?";
                     $params = [$search];
                 } else {
                     $idColumn = $matchedIdSearch['column'];
-                    $castColumn = "CAST(u.{$idColumn} AS NVARCHAR(50))";
+                    $castColumn = "CAST(u.{$idColumn} AS CHAR)";
                     $sql = "SELECT 
                                 u.user_id,
                                 u.email,
@@ -370,7 +370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                         SELECT 1 FROM notifications n 
                                         WHERE n.type = 'password_reset_request' 
                                         AND n.is_read = 0
-                                        AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                                        AND CAST(SUBSTRING_INDEX(n.related_id, ':', -1) AS UNSIGNED) = u.user_id
                                     ) THEN 1
                                     ELSE 0
                                 END as has_pending_reset
@@ -391,7 +391,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             SELECT 1 FROM notifications n 
                             WHERE n.type = 'password_reset_request' 
                             AND n.is_read = 0
-                            AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                            AND CAST(SUBSTRING_INDEX(n.related_id, ':', -1) AS UNSIGNED) = u.user_id
                         )";
                     } else {
                         $sql .= " AND COALESCE(u.is_active, 1) = ?";
@@ -402,9 +402,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
                                u.is_active, u.last_login, u.created_at,
                                CASE WHEN u.role = 'student' THEN (
-                                   SELECT TOP 1 student_id FROM students 
+                                   SELECT student_id FROM students 
                                    WHERE user_id = u.user_id 
                                    ORDER BY created_at ASC
+                                   LIMIT 1
                                ) ELSE NULL END as student_id,
                                u.teacher_id,
                                u.do_id,
@@ -415,7 +416,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                        SELECT 1 FROM notifications n 
                                        WHERE n.type = 'password_reset_request' 
                                        AND n.is_read = 0
-                                       AND TRY_CAST(SUBSTRING(CAST(n.related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(n.related_id AS NVARCHAR(255))) + 1, LEN(CAST(n.related_id AS NVARCHAR(255)))) AS INT) = u.user_id
+                                       AND CAST(SUBSTRING_INDEX(n.related_id, ':', -1) AS UNSIGNED) = u.user_id
                                    ) THEN 1
                                    ELSE 0
                                END as has_pending_reset
@@ -425,7 +426,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params = [];
 
                 if (!empty($search)) {
-                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS NVARCHAR) LIKE ? OR CAST(u.teacher_id AS NVARCHAR(50)) LIKE ? OR CAST(u.do_id AS NVARCHAR(50)) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND CAST(student_id AS NVARCHAR(50)) LIKE ?)))";
+                    $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS CHAR) LIKE ? OR CAST(u.teacher_id AS CHAR) LIKE ? OR CAST(u.do_id AS CHAR) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND CAST(student_id AS CHAR) LIKE ?)))";
                     $searchTerm = '%' . $search . '%';
                     $params[] = $searchTerm;
                     $params[] = $searchTerm;
@@ -549,7 +550,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // Insert new user record
             $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
-                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(20)), ''), NULLIF(CAST(? AS NVARCHAR(30)), ''), NULLIF(CAST(? AS NVARCHAR(50)), ''), ?, ?, 1, GETDATE())";
+                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
             executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
@@ -671,8 +672,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // Update user
             $sql = "UPDATE users 
-                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), do_id = NULLIF(CAST(? AS NVARCHAR(20)), ''), teacher_subrole = NULLIF(CAST(? AS NVARCHAR(30)), ''), program = NULLIF(CAST(? AS NVARCHAR(50)), ''), is_active = ?, updated_at = GETDATE()
-                    WHERE user_id = CAST(? AS INT)";
+                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS CHAR), ''), do_id = NULLIF(CAST(? AS CHAR), ''), teacher_subrole = NULLIF(CAST(? AS CHAR), ''), program = NULLIF(CAST(? AS CHAR), ''), is_active = ?, updated_at = NOW()
+                    WHERE user_id = CAST(? AS SIGNED)";
             
             executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
 
@@ -709,15 +710,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
 
-            $sql = "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?";
+            $sql = "UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?";
             executeQuery($sql, [$password_hash, $user_id]);
 
             // Mark any pending password reset notifications as read
             $notifSql = "UPDATE notifications 
-                         SET is_read = 1, read_at = GETDATE()
+                         SET is_read = 1, read_at = NOW()
                          WHERE type = 'password_reset_request' 
                          AND is_read = 0
-                         AND TRY_CAST(SUBSTRING(CAST(related_id AS NVARCHAR(255)), CHARINDEX(':', CAST(related_id AS NVARCHAR(255))) + 1, LEN(CAST(related_id AS NVARCHAR(255)))) AS INT) = ?";
+                         AND CAST(SUBSTRING_INDEX(related_id, ':', -1) AS UNSIGNED) = ?";
             executeQuery($notifSql, [$user_id]);
 
             // Audit log
@@ -734,7 +735,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $currentStatus = fetchValue("SELECT is_active FROM users WHERE user_id = ?", [$user_id]);
             $newStatus = $currentStatus ? 0 : 1;
 
-            $sql = "UPDATE users SET is_active = ?, updated_at = GETDATE() WHERE user_id = ?";
+            $sql = "UPDATE users SET is_active = ?, updated_at = NOW() WHERE user_id = ?";
             executeQuery($sql, [$newStatus, $user_id]);
 
             // Audit log
@@ -819,7 +820,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         continue;
                     }
 
-                    $sql = "UPDATE users SET is_active = 1, updated_at = GETDATE() WHERE user_id = ?";
+                    $sql = "UPDATE users SET is_active = 1, updated_at = NOW() WHERE user_id = ?";
                     executeQuery($sql, [$userId]);
 
                     // Audit log
@@ -870,7 +871,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         continue;
                     }
 
-                    $sql = "UPDATE users SET is_active = 0, updated_at = GETDATE() WHERE user_id = ?";
+                    $sql = "UPDATE users SET is_active = 0, updated_at = NOW() WHERE user_id = ?";
                     executeQuery($sql, [$userId]);
 
                     // Audit log

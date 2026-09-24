@@ -26,11 +26,11 @@ if ($pdo) {
             if (count($result) < 2) {
                 // One or both columns missing, add them
                 if (!in_array('terms_accepted_version', array_column($result, 'COLUMN_NAME'))) {
-                    $pdo->exec("ALTER TABLE users ADD terms_accepted_version INT DEFAULT 0");
+                    $pdo->exec("ALTER TABLE users ADD COLUMN terms_accepted_version INT DEFAULT 0");
                     error_log("Added missing terms_accepted_version column to users table");
                 }
                 if (!in_array('terms_accepted_date', array_column($result, 'COLUMN_NAME'))) {
-                    $pdo->exec("ALTER TABLE users ADD terms_accepted_date DATETIME NULL");
+                    $pdo->exec("ALTER TABLE users ADD COLUMN terms_accepted_date DATETIME NULL");
                     error_log("Added missing terms_accepted_date column to users table");
                 }
             }
