@@ -5,17 +5,20 @@ require_once __DIR__ . '/../../includes/functions.php';
 if (($_SESSION['user_role'] ?? '') !== 'super_admin') { header('Location: ' . BASE_URL . '/index.php'); exit; }
 $backupDirectory = __DIR__ . '/../../assets/backups';
 if (!is_dir($backupDirectory)) { mkdir($backupDirectory, 0755, true); }
-function recoverySqlLiteral($value) { if ($value === null) return 'NULL'; return "N'" . str_replace("'", "''", (string)$value) . "'"; }
+function recoverySqlIdentifier($value) { return '`' . str_replace('`', '``', (string)$value) . '`'; }
+function recoverySqlLiteral($value) { if ($value === null) return 'NULL'; return "'" . str_replace("'", "''", (string)$value) . "'"; }
 function createRecoverySnapshot($tables) {
-    $output = "-- PrototypeDO SQL snapshot generated " . date('Y-m-d H:i:s') . "\nSET NOCOUNT ON;\n\n";
+    $output = "-- PrototypeDO MySQL snapshot generated " . date('Y-m-d H:i:s') . "\n\n";
     foreach ($tables as $table) {
         $columns = fetchAll("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY ORDINAL_POSITION", [$table]);
         if (!$columns) continue;
         $names = array_column($columns, 'COLUMN_NAME');
-        foreach (fetchAll('SELECT * FROM [' . str_replace(']', ']]', $table) . ']') as $row) {
+        $quotedTable = recoverySqlIdentifier($table);
+        foreach (fetchAll('SELECT * FROM ' . $quotedTable) as $row) {
             $values = [];
             foreach ($names as $name) $values[] = recoverySqlLiteral($row[$name] ?? null);
-            $output .= 'INSERT INTO [' . $table . '] ([' . implode('], [', $names) . ']) VALUES (' . implode(', ', $values) . ");\n";
+            $quotedColumns = implode(', ', array_map('recoverySqlIdentifier', $names));
+            $output .= 'INSERT INTO ' . $quotedTable . ' (' . $quotedColumns . ') VALUES (' . implode(', ', $values) . ");\n";
         }
         $output .= "\n";
     }

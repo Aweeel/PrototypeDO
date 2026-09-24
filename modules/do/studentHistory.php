@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv']) && !in_
 
                 // Insert user account
                 $userSql = "INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, 'student', ?, 1, GETDATE())";
+                            VALUES (?, ?, ?, ?, 'student', ?, 1, NOW())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,

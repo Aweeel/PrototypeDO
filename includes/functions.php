@@ -34,22 +34,12 @@ function ensureUsersTeacherSubroleColumn() {
     );
 
     if (!$columnInfo) {
-        executeQuery("ALTER TABLE users ADD teacher_subrole NVARCHAR(30) NULL");
+        executeQuery("ALTER TABLE users ADD COLUMN teacher_subrole VARCHAR(30) NULL");
     } else {
         $dataType = strtolower((string)($columnInfo['DATA_TYPE'] ?? ''));
-        if (!in_array($dataType, ['nvarchar', 'varchar', 'nchar', 'char'], true)) {
-            executeQuery("ALTER TABLE users ALTER COLUMN teacher_subrole NVARCHAR(30) NULL");
+        if (!in_array($dataType, ['varchar', 'char'], true)) {
+            executeQuery("ALTER TABLE users MODIFY COLUMN teacher_subrole VARCHAR(30) NULL");
         }
-    }
-
-    $constraintExists = fetchOne(
-        "SELECT 1 AS constraint_exists
-         FROM sys.check_constraints
-         WHERE name = 'CK_users_teacher_subrole'"
-    );
-
-    if (!$constraintExists) {
-        executeQuery("ALTER TABLE users ADD CONSTRAINT CK_users_teacher_subrole CHECK (teacher_subrole IS NULL OR CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head')");
     }
 
     $initialized = true;
@@ -72,16 +62,6 @@ function ensureCalendarTargetUserColumn() {
 
     if (!$columnInfo) {
         executeQuery("ALTER TABLE calendar_events ADD target_user_id INT NULL");
-    }
-
-    $constraintExists = fetchOne(
-        "SELECT 1 AS constraint_exists
-         FROM sys.foreign_keys
-         WHERE name = 'FK_calendar_events_target_user_id'"
-    );
-
-    if (!$constraintExists) {
-        executeQuery("ALTER TABLE calendar_events ADD CONSTRAINT FK_calendar_events_target_user_id FOREIGN KEY (target_user_id) REFERENCES users(user_id)");
     }
 
     $initialized = true;
@@ -124,7 +104,7 @@ function getDepartmentHeadTeachers($program = null) {
             FROM users
             WHERE role = 'teacher'
               AND is_active = 1
-              AND CAST(teacher_subrole AS NVARCHAR(30)) = 'department_head'";
+              AND teacher_subrole = 'department_head'";
     $params = [];
 
     if (!empty($program)) {
@@ -230,7 +210,7 @@ function authenticateUser($username, $password) {
     
     if ($user && password_verify($password, $user['password_hash'])) {
         // Update last login
-        $sql = "UPDATE users SET last_login = GETDATE() WHERE user_id = ?";
+            $sql = "UPDATE users SET last_login = NOW() WHERE user_id = ?";
         executeQuery($sql, [$user['user_id']]);
         
         return $user;
@@ -319,7 +299,7 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
     $firstName = trim((string)($nameParts[0] ?? ''));
     $lastName = trim((string)($nameParts[count($nameParts) - 1] ?? ''));
 
-    $linkedStudent = fetchOne("SELECT TOP 1 * FROM students WHERE user_id = ?", [$userId]);
+        $linkedStudent = fetchOne("SELECT * FROM students WHERE user_id = ? LIMIT 1", [$userId]);
     $linkedStudentLooksCorrect = false;
     if ($linkedStudent) {
         $linkedFirst = strtolower(trim((string)($linkedStudent['first_name'] ?? '')));
@@ -355,16 +335,16 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
     $candidate = null;
     if ($firstName !== '' && $lastName !== '') {
         $candidate = fetchOne(
-            "SELECT TOP 1 * FROM students
-             WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)",
+            "SELECT * FROM students
+             WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?) LIMIT 1",
             [$firstName, $lastName]
         );
     }
 
     if (!$candidate && $firstName !== '') {
         $candidate = fetchOne(
-            "SELECT TOP 1 * FROM students
-             WHERE LOWER(first_name) = LOWER(?) OR LOWER(first_name + ' ' + last_name) = LOWER(?)",
+            "SELECT * FROM students
+             WHERE LOWER(first_name) = LOWER(?) OR LOWER(CONCAT(first_name, ' ', last_name)) = LOWER(?) LIMIT 1",
             [$firstName, $fullName]
         );
     }
@@ -372,7 +352,7 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
     if (!$candidate && !empty($studentIdFragments)) {
         foreach ($studentIdFragments as $fragment) {
             $candidate = fetchOne(
-                "SELECT TOP 1 * FROM students WHERE student_id LIKE ? ORDER BY student_id DESC",
+                "SELECT * FROM students WHERE student_id LIKE ? ORDER BY student_id DESC LIMIT 1",
                 ['%' . $fragment . '%']
             );
             if ($candidate) {
@@ -387,12 +367,12 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
                 continue;
             }
             $candidate = fetchOne(
-                "SELECT TOP 1 * FROM students
+                "SELECT * FROM students
                  WHERE LOWER(first_name) LIKE ?
                     OR LOWER(last_name) LIKE ?
-                    OR LOWER(first_name + ' ' + last_name) LIKE ?
+                    OR LOWER(CONCAT(first_name, ' ', last_name)) LIKE ?
                     OR student_id LIKE ?
-                 ORDER BY student_id DESC",
+                 ORDER BY student_id DESC LIMIT 1",
                 ['%' . $token . '%', '%' . $token . '%', '%' . $token . '%', '%' . $token . '%']
             );
             if ($candidate) {
@@ -427,21 +407,19 @@ function getStudentRecordForUser($userId = null, $linkIfFound = true) {
 function autoArchiveOldCases() {
     $sql = "UPDATE cases 
             SET is_archived = 1, 
-                archived_at = GETDATE(),
+                archived_at = NOW(),
                 notes = CASE 
                     WHEN notes IS NULL OR notes = '' THEN '[Auto-archived after 1 year]'
                     ELSE CONCAT(notes, ' [Auto-archived after 1 year]')
                 END
             WHERE is_archived = 0 
-            AND DATEDIFF(year, date_reported, GETDATE()) >= 1
+            AND date_reported <= DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR)
             AND date_reported IS NOT NULL
             AND (manually_restored = 0 OR manually_restored IS NULL)";
     
     try {
-        executeQuery($sql);
-        
-        $countSql = "SELECT @@ROWCOUNT as archived_count";
-        $count = fetchValue($countSql);
+        $stmt = executeQuery($sql);
+        $count = $stmt->rowCount();
         
         if ($count > 0) {
             error_log("Auto-archived $count old cases (1+ years old)");
@@ -562,7 +540,7 @@ function ensureMinorEscalationSeenColumn() {
 
     $column = fetchOne("SELECT 1 AS column_exists FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'cases' AND COLUMN_NAME = 'minor_escalation_seen'");
     if (!$column) {
-        executeQuery("ALTER TABLE cases ADD minor_escalation_seen BIT NOT NULL CONSTRAINT DF_cases_minor_escalation_seen DEFAULT 0");
+        executeQuery("ALTER TABLE cases ADD COLUMN minor_escalation_seen TINYINT(1) NOT NULL DEFAULT 0");
     }
 
     executeQuery("UPDATE cases
@@ -590,21 +568,22 @@ function getCaseById($caseId) {
 }
 
 function getRecentCases($limit = 5) {
-    $sql = "SELECT TOP (?) c.*, s.first_name, s.last_name,
+    $sql = "SELECT c.*, s.first_name, s.last_name,
             CONCAT(s.first_name, ' ', s.last_name) as student_name,
             u.full_name as assigned_to_name
             FROM cases c
             LEFT JOIN students s ON c.student_id = s.student_id
             LEFT JOIN users u ON c.assigned_to = u.user_id
             WHERE c.is_archived = 0
-            ORDER BY c.date_reported DESC, c.created_at DESC";
+            ORDER BY c.date_reported DESC, c.created_at DESC
+            LIMIT ?";
     
     return fetchAll($sql, [$limit]);
 }
 
 function createCase($data) {
     // Generate new case ID
-    $lastCase = fetchOne("SELECT TOP 1 case_id FROM cases ORDER BY case_id DESC");
+    $lastCase = fetchOne("SELECT case_id FROM cases ORDER BY case_id DESC LIMIT 1");
     $lastNum = $lastCase ? intval(substr($lastCase['case_id'], 2)) : 1000;
     $newCaseId = 'C-' . ($lastNum + 1);
 
@@ -706,7 +685,7 @@ function updateCase($caseId, $data) {
             assigned_to = ?,
             description = ?, 
             notes = ?,
-            updated_at = GETDATE()";
+            updated_at = NOW()";
     
     $params = [
         $data['case_type'],
@@ -750,7 +729,7 @@ function archiveCase($caseId) {
     $oldStatus = $oldData['status'] ?? 'Unknown';
 
     //  Archive the case
-    $sql = "UPDATE cases SET is_archived = 1, archived_at = GETDATE() WHERE case_id = ?";
+    $sql = "UPDATE cases SET is_archived = 1, archived_at = NOW() WHERE case_id = ?";
     executeQuery($sql, [$caseId]);
 
     //  Get new data after update (for audit comparison)
@@ -847,11 +826,13 @@ function getAllLostFoundItems($filters = []) {
 }
 
 function getRecentLostFoundItems($limit = 4) {
-    $sql = "SELECT TOP (?) * FROM lost_found_items 
+    $limit = max(1, (int) $limit);
+    $sql = "SELECT * FROM lost_found_items 
             WHERE is_archived = 0 
-            ORDER BY date_found DESC";
+            ORDER BY date_found DESC
+            LIMIT {$limit}";
     
-    return fetchAll($sql, [$limit]);
+    return fetchAll($sql);
 }
 
 function getLostFoundStatistics() {
@@ -1216,7 +1197,7 @@ function markNotificationAsRead($notificationId) {
     $notifSql = "SELECT title, is_read FROM notifications WHERE notification_id = ?";
     $notification = fetchOne($notifSql, [$notificationId]);
     
-    $sql = "UPDATE notifications SET is_read = 1, read_at = GETDATE() WHERE notification_id = ?";
+    $sql = "UPDATE notifications SET is_read = 1, read_at = NOW() WHERE notification_id = ?";
     executeQuery($sql, [$notificationId]);
     
     // 🧾 Audit Log - Log only if notification was previously unread
@@ -1233,10 +1214,11 @@ function createUniqueNotification($userId, $title, $message, $type = 'system', $
     $relatedKey = trim((string)($relatedId ?? ''));
     if ($relatedKey !== '') {
         $existing = fetchOne(
-            "SELECT TOP 1 notification_id
+            "SELECT notification_id
              FROM notifications
              WHERE user_id = ?
-               AND CAST(related_id AS NVARCHAR(255)) = CAST(? AS NVARCHAR(255))",
+               AND CAST(related_id AS CHAR) = CAST(? AS CHAR)
+               LIMIT 1",
             [$userId, $relatedKey]
         );
 
@@ -1295,11 +1277,11 @@ function resolveStudentRecordForNotification($studentId) {
         $searchNamePattern = strtolower($student['first_name']) . '%';
 
         $foundUser = fetchOne(
-            "SELECT TOP 1 user_id, role FROM users WHERE (
+            "SELECT user_id, role FROM users WHERE (
                         username LIKE ? 
                         OR username LIKE ?
                         OR email LIKE ?
-                    )",
+                    ) LIMIT 1",
             [$searchUsername, $searchNamePattern, $searchUsername]
         );
 
@@ -1328,7 +1310,7 @@ function resolveStudentRecordForNotification($studentId) {
                     ]
                 );
 
-                $newUser = fetchOne("SELECT TOP 1 user_id FROM users WHERE username = ?", [$username]);
+                $newUser = fetchOne("SELECT user_id FROM users WHERE username = ? LIMIT 1", [$username]);
                 if ($newUser) {
                     $userId = $newUser['user_id'];
                     executeQuery("UPDATE students SET user_id = ? WHERE student_id = ?", [$userId, $studentId]);
@@ -1388,10 +1370,10 @@ function getCommunityServiceCompletionSnapshot($caseSanctionId) {
                             CASE
                                 WHEN cci.check_in_time IS NOT NULL
                                  AND cci.check_out_time IS NOT NULL
-                                 AND DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                 AND TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
                                 THEN CASE
-                                    WHEN DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
-                                    ELSE CAST(DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS FLOAT) / 60.0
+                                    WHEN TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
+                                    ELSE CAST(TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS DECIMAL(12,4)) / 60.0
                                 END
                                 ELSE 0
                             END
@@ -2501,11 +2483,9 @@ function getSystemSetting($key, $default = null) {
 
 function setSystemSetting($key, $value) {
     executeQuery(
-        "MERGE system_settings AS target
-         USING (SELECT ? AS setting_key, ? AS setting_value) AS source
-         ON target.setting_key = source.setting_key
-         WHEN MATCHED THEN UPDATE SET setting_value = source.setting_value, updated_at = GETDATE()
-         WHEN NOT MATCHED THEN INSERT (setting_key, setting_value) VALUES (source.setting_key, source.setting_value);",
+        "INSERT INTO system_settings (setting_key, setting_value)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP",
         [$key, (string)$value]
     );
 }
@@ -2621,9 +2601,9 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
     }
 
     // Prevent duplicate sanction assignment for the same case.
-    $duplicateSql = "SELECT TOP 1 case_sanction_id
+    $duplicateSql = "SELECT case_sanction_id
                      FROM case_sanctions
-                     WHERE case_id = ? AND sanction_id = ?";
+                     WHERE case_id = ? AND sanction_id = ? LIMIT 1";
     $existing = fetchOne($duplicateSql, [$caseId, $sanctionId]);
     if ($existing) {
         throw new Exception('This sanction is already applied to this case.');
@@ -2655,11 +2635,11 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
     // If a schedule date is provided, create a calendar event
     if ($scheduleDate) {
         try {
-            $existingScheduleSql = "SELECT TOP 1 event_id
+            $existingScheduleSql = "SELECT event_id
                                     FROM calendar_events
                                     WHERE category = 'Hearing'
                                       AND event_date = ?
-                                      AND event_name LIKE ?";
+                                      AND event_name LIKE ? LIMIT 1";
             $existingSchedule = fetchOne($existingScheduleSql, [$scheduleDate, "%Case {$caseId}%"]);
 
             if ($existingSchedule) {
@@ -2679,7 +2659,7 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
                 // Create calendar event
                 if ($scheduleTime) {
                     $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
-                                VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                                VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, NOW())";
                     executeQuery($eventSql, [
                         $eventName,
                         $scheduleDate,
@@ -2691,7 +2671,7 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
                     ]);
                 } else {
                     $eventSql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, created_at)
-                                VALUES (?, ?, 'Hearing', ?, ?, ?, GETDATE())";
+                                VALUES (?, ?, 'Hearing', ?, ?, ?, NOW())";
                     executeQuery($eventSql, [
                         $eventName,
                         $scheduleDate,
@@ -2723,10 +2703,10 @@ function ensureCaseSanctionsDeadlineColumns() {
     $columns = [
         'deadline' => "ALTER TABLE case_sanctions ADD deadline DATETIME NULL",
         'original_duration_days' => "ALTER TABLE case_sanctions ADD original_duration_days INT NULL",
-        'duration_extra_hours' => "ALTER TABLE case_sanctions ADD duration_extra_hours INT NOT NULL CONSTRAINT DF_case_sanctions_duration_extra_hours DEFAULT 0 WITH VALUES",
-        'days_extended' => "ALTER TABLE case_sanctions ADD days_extended INT NOT NULL CONSTRAINT DF_case_sanctions_days_extended DEFAULT 0 WITH VALUES",
-        'extension_count' => "ALTER TABLE case_sanctions ADD extension_count INT NOT NULL CONSTRAINT DF_case_sanctions_extension_count DEFAULT 0 WITH VALUES",
-        'extension_notes' => "ALTER TABLE case_sanctions ADD extension_notes NVARCHAR(MAX) NULL",
+        'duration_extra_hours' => "ALTER TABLE case_sanctions ADD COLUMN duration_extra_hours INT NOT NULL DEFAULT 0",
+        'days_extended' => "ALTER TABLE case_sanctions ADD COLUMN days_extended INT NOT NULL DEFAULT 0",
+        'extension_count' => "ALTER TABLE case_sanctions ADD COLUMN extension_count INT NOT NULL DEFAULT 0",
+        'extension_notes' => "ALTER TABLE case_sanctions ADD COLUMN extension_notes LONGTEXT NULL",
     ];
 
     foreach ($columns as $columnName => $alterSql) {
@@ -2760,25 +2740,27 @@ function ensureCommunityServiceSubmissionTable() {
 
     if (!$tableExists) {
         $createTableSql = "CREATE TABLE community_service_submissions (
-            submission_id INT IDENTITY(1,1) PRIMARY KEY,
-            case_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES cases(case_id),
-            case_sanction_id INT NOT NULL FOREIGN KEY REFERENCES case_sanctions(case_sanction_id),
-            student_id NVARCHAR(20) NOT NULL FOREIGN KEY REFERENCES students(student_id),
-            uploaded_by INT NULL FOREIGN KEY REFERENCES users(user_id),
-            file_name NVARCHAR(255) NOT NULL,
-            original_file_name NVARCHAR(255) NOT NULL,
-            file_path NVARCHAR(500) NOT NULL,
+            submission_id INT AUTO_INCREMENT PRIMARY KEY,
+            case_id VARCHAR(20) NOT NULL,
+            case_sanction_id INT NOT NULL,
+            student_id VARCHAR(20) NOT NULL,
+            uploaded_by INT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            original_file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
             file_size_bytes BIGINT NULL,
-            mime_type NVARCHAR(120) NULL,
-            remarks NVARCHAR(1000) NULL,
-            review_status NVARCHAR(20) NOT NULL DEFAULT 'pending',
-            review_notes NVARCHAR(1000) NULL,
-            reviewed_by INT NULL FOREIGN KEY REFERENCES users(user_id),
+            mime_type VARCHAR(120) NULL,
+            remarks VARCHAR(1000) NULL,
+            review_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            review_notes VARCHAR(1000) NULL,
+            reviewed_by INT NULL,
             reviewed_at DATETIME NULL,
-            is_seen_by_do BIT NOT NULL DEFAULT 0,
+            is_seen_by_do TINYINT(1) NOT NULL DEFAULT 0,
             seen_by_do_at DATETIME NULL,
-            seen_by_do_user_id INT NULL FOREIGN KEY REFERENCES users(user_id),
-            created_at DATETIME NOT NULL DEFAULT GETDATE()
+            seen_by_do_user_id INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_submissions_case FOREIGN KEY (case_id) REFERENCES cases(case_id),
+            CONSTRAINT fk_submissions_sanction FOREIGN KEY (case_sanction_id) REFERENCES case_sanctions(case_sanction_id)
         )";
 
         try {
@@ -2789,14 +2771,14 @@ function ensureCommunityServiceSubmissionTable() {
     }
 
     $columns = [
-        'remarks' => "ALTER TABLE community_service_submissions ADD remarks NVARCHAR(1000) NULL",
-        'review_status' => "ALTER TABLE community_service_submissions ADD review_status NVARCHAR(20) NOT NULL CONSTRAINT DF_css_review_status DEFAULT 'pending' WITH VALUES",
-        'review_notes' => "ALTER TABLE community_service_submissions ADD review_notes NVARCHAR(1000) NULL",
-        'reviewed_by' => "ALTER TABLE community_service_submissions ADD reviewed_by INT NULL",
-        'reviewed_at' => "ALTER TABLE community_service_submissions ADD reviewed_at DATETIME NULL",
-        'is_seen_by_do' => "ALTER TABLE community_service_submissions ADD is_seen_by_do BIT NOT NULL CONSTRAINT DF_css_is_seen_by_do DEFAULT 0 WITH VALUES",
-        'seen_by_do_at' => "ALTER TABLE community_service_submissions ADD seen_by_do_at DATETIME NULL",
-        'seen_by_do_user_id' => "ALTER TABLE community_service_submissions ADD seen_by_do_user_id INT NULL",
+        'remarks' => "ALTER TABLE community_service_submissions ADD COLUMN remarks VARCHAR(1000) NULL",
+        'review_status' => "ALTER TABLE community_service_submissions ADD COLUMN review_status VARCHAR(20) NOT NULL DEFAULT 'pending'",
+        'review_notes' => "ALTER TABLE community_service_submissions ADD COLUMN review_notes VARCHAR(1000) NULL",
+        'reviewed_by' => "ALTER TABLE community_service_submissions ADD COLUMN reviewed_by INT NULL",
+        'reviewed_at' => "ALTER TABLE community_service_submissions ADD COLUMN reviewed_at DATETIME NULL",
+        'is_seen_by_do' => "ALTER TABLE community_service_submissions ADD COLUMN is_seen_by_do TINYINT(1) NOT NULL DEFAULT 0",
+        'seen_by_do_at' => "ALTER TABLE community_service_submissions ADD COLUMN seen_by_do_at DATETIME NULL",
+        'seen_by_do_user_id' => "ALTER TABLE community_service_submissions ADD COLUMN seen_by_do_user_id INT NULL",
     ];
 
     foreach ($columns as $columnName => $alterSql) {
@@ -2810,23 +2792,6 @@ function ensureCommunityServiceSubmissionTable() {
             } catch (Exception $e) {
                 error_log("Community service submission column bootstrap skipped for {$columnName}: " . $e->getMessage());
             }
-        }
-    }
-
-    $fkExistsSql = "SELECT 1 AS fk_exists
-                    FROM sys.foreign_keys
-                    WHERE name = 'FK_css_seen_by_do_user'";
-    $fkExists = fetchOne($fkExistsSql);
-    if (!$fkExists) {
-        try {
-            executeQuery(
-                "ALTER TABLE community_service_submissions
-                 ADD CONSTRAINT FK_css_seen_by_do_user
-                 FOREIGN KEY (seen_by_do_user_id) REFERENCES users(user_id)",
-                []
-            );
-        } catch (Exception $e) {
-            error_log('Community service submission FK bootstrap skipped: ' . $e->getMessage());
         }
     }
 
@@ -3024,13 +2989,13 @@ function getCaseSanctions($caseId) {
     // For each sanction with a schedule, try to find the corresponding calendar event
     foreach ($sanctions as &$sanction) {
         if ($sanction['scheduled_date']) {
-            $eventSql = "SELECT TOP 1 u.full_name as scheduled_by_name
+            $eventSql = "SELECT u.full_name as scheduled_by_name
                         FROM calendar_events ce
                         JOIN users u ON ce.created_by = u.user_id
                         WHERE ce.category = 'Hearing'
                         AND ce.event_date = ?
                         AND ce.event_name LIKE ?
-                        ORDER BY ce.created_at DESC";
+                        ORDER BY ce.created_at DESC LIMIT 1";
             
             $eventPattern = '%Case ' . $caseId . ')%';
             $eventData = fetchOne($eventSql, [$sanction['scheduled_date'], $eventPattern]);
@@ -3058,7 +3023,7 @@ function markCaseAsResolved($caseId) {
     }
 
     $resolvedStatus = $caseSeverity === 'Minor' ? 'Recorded' : 'Resolved';
-    $sql = "UPDATE cases SET status = ?, assigned_to = ?, resolved_date = CAST(GETDATE() AS DATE), updated_at = GETDATE() WHERE case_id = ?";
+    $sql = "UPDATE cases SET status = ?, assigned_to = ?, resolved_date = CURRENT_DATE, updated_at = NOW() WHERE case_id = ?";
     executeQuery($sql, [$resolvedStatus, $_SESSION['user_id'] ?? null, $caseId]);
 
     logCaseHistory($caseId, $_SESSION['user_id'] ?? null, $resolvedStatus, 'Previous Status', 'Case marked as resolved');
@@ -3218,7 +3183,7 @@ function addCaseAttachments($caseId, $attachmentPaths) {
     
     // Update case with new attachments
     $attachmentsJson = json_encode(array_unique($currentAttachments));
-    $sql = "UPDATE cases SET attachments = ?, updated_at = GETDATE() WHERE case_id = ?";
+    $sql = "UPDATE cases SET attachments = ?, updated_at = NOW() WHERE case_id = ?";
     executeQuery($sql, [$attachmentsJson, $caseId]);
     
     return true;
@@ -3242,7 +3207,7 @@ function getCaseAttachments($caseId) {
  * Get the current active version of Terms and Conditions
  */
 function getCurrentTermsVersion() {
-    $sql = "SELECT TOP 1 version FROM terms_and_conditions WHERE is_active = 1 ORDER BY version DESC";
+    $sql = "SELECT version FROM terms_and_conditions WHERE is_active = 1 ORDER BY version DESC LIMIT 1";
     $result = fetchOne($sql, []);
     return $result ? $result['version'] : 0;
 }

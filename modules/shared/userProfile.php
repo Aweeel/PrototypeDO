@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("
                     UPDATE users 
-                    SET password_hash = ?, updated_at = GETDATE()
+                    SET password_hash = ?, updated_at = NOW()
                     WHERE user_id = ?
                 ");
                 $stmt->execute([$hashedPassword, $userId]);
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
         try {
             $stmt = $pdo->prepare("
                 UPDATE users 
-                SET contact_number = ?, updated_at = GETDATE()
+                SET contact_number = ?, updated_at = NOW()
                 WHERE user_id = ?
             ");
             $stmt->execute([$contactNumber, $userId]);

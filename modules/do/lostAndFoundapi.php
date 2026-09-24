@@ -19,9 +19,9 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 try {
     switch ($action) {
         case 'add':
-            // Convert empty strings to null for proper SQL Server handling
+            // Convert empty strings to null for proper MySQL handling
             $time_found = !empty(trim($_POST['time_found'] ?? '')) ? trim($_POST['time_found']) : null;
-            // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+            // Convert HH:MM to HH:MM:SS format for MySQL TIME column
             if ($time_found && strlen($time_found) === 5 && substr_count($time_found, ':') === 1) {
                 $time_found .= ':00';
             }
@@ -72,9 +72,9 @@ try {
             
         case 'update':
             $item_id = $_POST['item_id'];
-            // Convert empty strings to null for proper SQL Server handling
+            // Convert empty strings to null for proper MySQL handling
             $time_found = !empty(trim($_POST['time_found'] ?? '')) ? trim($_POST['time_found']) : null;
-            // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+            // Convert HH:MM to HH:MM:SS format for MySQL TIME column
             if ($time_found && strlen($time_found) === 5 && substr_count($time_found, ':') === 1) {
                 $time_found .= ':00';
             }
@@ -141,10 +141,10 @@ try {
 
             $sql = "UPDATE lost_found_items
                     SET is_archived = 1,
-                        archived_at = GETDATE()
+                        archived_at = NOW()
                     WHERE is_archived = 0
-                      AND CAST(date_found AS DATE) >= CAST(? AS DATE)
-                      AND CAST(date_found AS DATE) <= CAST(? AS DATE)";
+                      AND DATE(date_found) >= DATE(?)
+                      AND DATE(date_found) <= DATE(?)";
 
             $stmt = executeQuery($sql, [$startDate, $endDate]);
             $archivedCount = $stmt->rowCount();
@@ -209,9 +209,9 @@ try {
             }
 
             $sql = "
-                SELECT TOP 1 id_type, claimer_id, full_name
+                SELECT id_type, claimer_id, full_name
                 FROM (
-                    SELECT 1 AS sort_order, 'student' AS id_type, student_id AS claimer_id, first_name + ' ' + last_name AS full_name
+                    SELECT 1 AS sort_order, 'student' AS id_type, student_id AS claimer_id, CONCAT(first_name, ' ', last_name) AS full_name
                     FROM students
                     WHERE student_id = ?
 
@@ -228,6 +228,7 @@ try {
                     WHERE do_id = ?
                 ) claimer_matches
                 ORDER BY sort_order
+                LIMIT 1
             ";
 
             try {

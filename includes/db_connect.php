@@ -1,13 +1,12 @@
 <?php
 // includes/db_connect.php
-// SQL Server Connection using PDO (Compatible with Railway & LocalDB)
+// MySQL connection using PDO.
 
-// Pull credentials from Railway environment variables (or default to local fallback)
-define('DB_HOST', getenv('MSSQL_HOST') ?: '(localdb)\\MSSQLLocalDB');
-define('DB_PORT', getenv('MSSQL_PORT') ?: '1433');
-define('DB_USER', getenv('MSSQL_USER') ?: 'sa');
-define('DB_PASS', getenv('MSSQL_PASSWORD') ?: '');
-define('DB_NAME', getenv('MSSQL_DATABASE') ?: 'PrototypeDO_DB');
+define('DB_HOST', getenv('MYSQL_HOST') ?: '127.0.0.1');
+define('DB_PORT', getenv('MYSQL_PORT') ?: '3306');
+define('DB_USER', getenv('MYSQL_USER') ?: 'root');
+define('DB_PASS', getenv('MYSQL_PASSWORD') ?: '');
+define('DB_NAME', getenv('MYSQL_DATABASE') ?: 'PrototypeDO_DB');
 
 // Global connection variable
 $conn = null;
@@ -21,16 +20,8 @@ function getDBConnection() {
     }
     
     try {
-        // Detect environment: Use sqlsrv DSN on Railway / Linux servers, or fall back to ODBC for LocalDB
-        if (getenv('MSSQL_HOST')) {
-            // Railway / Production Server (pdo_sqlsrv driver)
-            $dsn = "sqlsrv:Server=" . DB_HOST . "," . DB_PORT . ";Database=" . DB_NAME . ";TrustServerCertificate=true";
-            $conn = new PDO($dsn, DB_USER, DB_PASS);
-        } else {
-            // Local Development fallback (Windows LocalDB via ODBC)
-            $connectionString = "odbc:Driver={ODBC Driver 17 for SQL Server};Server=" . DB_HOST . ";Database=" . DB_NAME . ";Trusted_Connection=yes;";
-            $conn = new PDO($connectionString);
-        }
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        $conn = new PDO($dsn, DB_USER, DB_PASS);
         
         // Set error mode to exceptions
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -54,7 +45,7 @@ function closeDBConnection() {
 }
 
 // Helper function to execute queries safely
-function executeQuery($sql, $params = []) {
+function executeQuery($sql, $params = []): PDOStatement {
     try {
         $conn = getDBConnection();
         $stmt = $conn->prepare($sql);

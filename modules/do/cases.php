@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 exit;
             }
 
-            executeQuery("UPDATE cases SET severity = 'Major', status = 'Pending', assigned_to = ?, minor_escalation_seen = 1, updated_at = GETDATE() WHERE case_id = ? AND severity = 'Minor'", [$_SESSION['user_id'] ?? null, $caseId]);
+            executeQuery("UPDATE cases SET severity = 'Major', status = 'Pending', assigned_to = ?, minor_escalation_seen = 1, updated_at = NOW() WHERE case_id = ? AND severity = 'Minor'", [$_SESSION['user_id'] ?? null, $caseId]);
             logCaseHistory($caseId, $_SESSION['user_id'] ?? null, 'Escalated', $case['severity'] . ' / ' . $case['status'], 'Minor case escalated to Major');
             auditUpdate('cases', $caseId, ['severity' => 'Minor', 'status' => $case['status']], ['severity' => 'Major', 'status' => 'Pending']);
             echo json_encode(['success' => true, 'caseId' => $caseId]);
@@ -361,24 +361,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                                             CASE
                                                 WHEN cci.check_in_time IS NOT NULL
                                                  AND cci.check_out_time IS NOT NULL
-                                                 AND DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                                 AND TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
                                                 THEN CASE
-                                                    WHEN DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
-                                                    ELSE CAST(DATEDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS FLOAT) / 60.0
+                                                    WHEN TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 8.0
+                                                    ELSE CAST(TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) AS DECIMAL(12,4)) / 60.0
                                                 END
                                                 ELSE 0
                                             END
                                          ), 0)
-                                          FROM (
-                                              SELECT check_in_time, check_out_time,
-                                                     ROW_NUMBER() OVER (
-                                                         PARTITION BY day_number
-                                                         ORDER BY COALESCE(updated_at, created_at) DESC, checkin_id DESC
-                                                     ) AS rn
-                                              FROM case_checkins
-                                              WHERE case_sanction_id = cs.case_sanction_id
-                                          ) cci
-                                          WHERE cci.rn = 1) AS completed_hours
+                                          FROM case_checkins cci
+                                          WHERE cci.case_sanction_id = cs.case_sanction_id
+                                            AND NOT EXISTS (
+                                                SELECT 1
+                                                FROM case_checkins newer
+                                                WHERE newer.case_sanction_id = cci.case_sanction_id
+                                                  AND newer.day_number = cci.day_number
+                                                  AND (
+                                                      COALESCE(newer.updated_at, newer.created_at) > COALESCE(cci.updated_at, cci.created_at)
+                                                      OR (
+                                                          COALESCE(newer.updated_at, newer.created_at) = COALESCE(cci.updated_at, cci.created_at)
+                                                          AND newer.checkin_id > cci.checkin_id
+                                                      )
+                                                  )
+                                            )) AS completed_hours
                                   FROM case_sanctions cs
                                   JOIN sanctions s ON cs.sanction_id = s.sanction_id
                                   WHERE cs.case_id = ?
@@ -1081,7 +1086,7 @@ if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
     executeQuery(
         "UPDATE community_service_submissions
          SET is_seen_by_do = 1,
-             seen_by_do_at = GETDATE(),
+             seen_by_do_at = NOW(),
              seen_by_do_user_id = ?
          WHERE case_id = ? AND is_seen_by_do = 0",
         [$viewerId, $caseId]
@@ -1140,7 +1145,7 @@ if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
          SET review_status = ?,
              review_notes = ?,
              reviewed_by = ?,
-             reviewed_at = GETDATE(),
+             reviewed_at = NOW(),
              is_seen_by_do = 1
          WHERE submission_id = ?",
         [$decision, $reviewNotes !== '' ? $reviewNotes : null, $_SESSION['user_id'] ?? null, $submissionId]
@@ -1272,7 +1277,7 @@ if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
     executeQuery(
         "INSERT INTO community_service_submissions
          (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, review_status, reviewed_by, reviewed_at, is_seen_by_do)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, GETDATE(), 1)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, NOW(), 1)",
         [
             $caseId,
             $caseSanctionId,
@@ -1818,7 +1823,7 @@ if ($_POST['action'] === 'applySanction') {
     $scheduleNotes = $_POST['scheduleNotes'] ?? '';
     $deadlineDate = $_POST['deadlineDate'] ?? null;
     
-    // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+    // Convert HH:MM to HH:MM:SS format for MySQL TIME column
     if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
         $scheduleTime .= ':00';
     }
@@ -1948,7 +1953,7 @@ if ($_POST['action'] === 'applySanction') {
             exit;
         }
         
-        // Convert HH:MM to HH:MM:SS format for SQL Server TIME column
+        // Convert HH:MM to HH:MM:SS format for MySQL TIME column
         if ($scheduleTime && strlen($scheduleTime) === 5 && substr_count($scheduleTime, ':') === 1) {
             $scheduleTime .= ':00';
         }

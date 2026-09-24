@@ -33,26 +33,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
 // Get statistics from database
 $stats = getCaseStatistics();
 $lostFoundStats = getLostFoundStatistics();
-$recentCases = fetchAll("SELECT TOP 5 c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, u.full_name as assigned_to_name
+$recentCases = fetchAll("SELECT c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, u.full_name as assigned_to_name
                         FROM cases c
                         LEFT JOIN students s ON c.student_id = s.student_id
                         LEFT JOIN users u ON c.assigned_to = u.user_id
                         WHERE c.is_archived = 0
-                        ORDER BY c.date_reported DESC, c.created_at DESC");
+                        ORDER BY c.date_reported DESC, c.created_at DESC LIMIT 5");
 $caseTypes = array_slice(getCaseTypeDistribution(), 0, 7);
 $recentLostFound = getRecentLostFoundItems(4);
-$pendingCases = fetchAll("SELECT TOP 4 c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.student_id as student_number
+$pendingCases = fetchAll("SELECT c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.student_id as student_number
                           FROM cases c
                           LEFT JOIN students s ON c.student_id = s.student_id
                           WHERE c.status = 'Pending' AND c.is_archived = 0
-                          ORDER BY c.date_reported DESC");
+                          ORDER BY c.date_reported DESC LIMIT 4");
 
 // Recent calendar events (upcoming)
-$recentCalendarEvents = fetchAll("SELECT TOP 2 ce.*, u.full_name as created_by_name
+$recentCalendarEvents = fetchAll("SELECT ce.*, u.full_name as created_by_name
                                   FROM calendar_events ce
                                   LEFT JOIN users u ON ce.created_by = u.user_id
-                                  WHERE ce.event_date >= CONVERT(date, GETDATE())
-                                  ORDER BY ce.event_date ASC, ce.event_time ASC");
+                                  WHERE ce.event_date >= CURRENT_DATE
+                                  ORDER BY ce.event_date ASC, ce.event_time ASC LIMIT 2");
 
 // Dynamic color generator for case types using Tailwind classes
 function generateCaseTypeColors($caseTypes) {

@@ -53,7 +53,7 @@ if ($studentId) {
     // Get next scheduled hearing from calendar_events
     // Find hearings that mention any of this student's cases
     $stmt = $pdo->prepare("
-        SELECT TOP 1 
+        SELECT
             ce.event_date,
             ce.event_time,
             ce.event_end_time,
@@ -61,13 +61,14 @@ if ($studentId) {
             ce.location
         FROM calendar_events ce
         WHERE ce.category = 'Hearing'
-        AND ce.event_date >= CAST(GETDATE() AS DATE)
+        AND ce.event_date >= CURRENT_DATE
         AND EXISTS (
             SELECT 1 FROM cases c 
             WHERE c.student_id = ?
-            AND ce.event_name LIKE '%Case ' + CAST(c.case_id AS VARCHAR) + ')%'
+            AND ce.event_name LIKE CONCAT('%Case ', c.case_id, ')%')
         )
         ORDER BY ce.event_date ASC, ce.event_time ASC
+        LIMIT 1
     ");
     $stmt->execute([$studentId]);
     $hearingData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -75,7 +76,7 @@ if ($studentId) {
 
     // Get recent cases
     $stmt = $pdo->prepare("
-        SELECT TOP 5
+        SELECT
             case_id,
             case_type,
             created_at,
@@ -84,6 +85,7 @@ if ($studentId) {
         FROM cases 
         WHERE student_id = ?
         ORDER BY is_archived ASC, created_at DESC
+        LIMIT 5
     ");
     $stmt->execute([$studentId]);
     $recentCases = $stmt->fetchAll(PDO::FETCH_ASSOC);

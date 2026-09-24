@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         // Format data for JavaScript
         $formattedCases = array_map(function ($case) {
             $portfolioSanction = fetchOne(
-                "SELECT TOP 1 cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
+                "SELECT cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
                         cs.applied_date, cs.is_completed, s.sanction_name
                  FROM case_sanctions cs
                  JOIN sanctions s ON cs.sanction_id = s.sanction_id
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         OR LOWER(s.sanction_name) LIKE '%community service%'
                         OR LOWER(s.sanction_name) LIKE '%suspension from class%'
                    )
-                 ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC",
+                 ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC LIMIT 1",
                 [$case['case_id']]
             );
             $isSuspensionSanction = $portfolioSanction
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $portfolioSanction = fetchOne(
-            "SELECT TOP 1 cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
+            "SELECT cs.case_sanction_id, cs.sanction_id, cs.duration_days, cs.duration_extra_hours, cs.deadline,
                     cs.applied_date, cs.is_completed, s.sanction_name
              FROM case_sanctions cs
              JOIN sanctions s ON cs.sanction_id = s.sanction_id
@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     OR LOWER(s.sanction_name) LIKE '%community service%'
                     OR LOWER(s.sanction_name) LIKE '%suspension from class%'
                )
-             ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC",
+             ORDER BY cs.applied_date DESC, cs.case_sanction_id DESC LIMIT 1",
             [$caseId]
         );
 

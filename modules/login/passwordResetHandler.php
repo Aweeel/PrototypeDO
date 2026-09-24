@@ -70,7 +70,7 @@ try {
     foreach ($admins as $admin) {
         try {
             $notifSql = "INSERT INTO notifications (user_id, title, message, type, related_id, is_read, created_at)
-                         VALUES (?, ?, ?, ?, ?, 0, GETDATE())";
+                         VALUES (?, ?, ?, ?, ?, 0, NOW())";
             
             $title = "Password Reset Request";
             $message = "User {$user['full_name']} ({$user['email']}) has requested a password reset. Please take appropriate action.";

@@ -22,7 +22,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $pdo = getDBConnection();
     if ($pdo) {
         // Find user by token
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CONVERT(datetime, GETDATE())");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CURRENT_TIMESTAMP");
         $stmt->execute([$tokenHash]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -68,7 +68,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             }
             
             // Update last login
-            $stmt = $pdo->prepare("UPDATE users SET last_login = GETDATE() WHERE user_id = ?");
+            $stmt = $pdo->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?");
             $stmt->execute([$user['user_id']]);
         } else {
             // Token is invalid or expired, clear the cookie
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             }
             
             // Now update the terms acceptance
-            $stmt = $pdo->prepare("UPDATE users SET terms_accepted_version = ?, terms_accepted_date = GETDATE() WHERE user_id = ?");
+            $stmt = $pdo->prepare("UPDATE users SET terms_accepted_version = ?, terms_accepted_date = CURRENT_TIMESTAMP WHERE user_id = ?");
             
             // Explicitly bind parameters with type hints
             $stmt->bindValue(1, 2, PDO::PARAM_INT);
