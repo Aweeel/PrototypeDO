@@ -2490,6 +2490,23 @@ function setSystemSetting($key, $value) {
     );
 }
 
+function getAcademicTermDates($term) {
+    $settings = [
+        'first_semester' => ['first_semester_start', 'first_semester_end'],
+        'second_semester' => ['second_semester_start', 'second_semester_end'],
+    ];
+
+    if (!isset($settings[$term])) {
+        return null;
+    }
+
+    [$startKey, $endKey] = $settings[$term];
+    $start = getSystemSetting($startKey, '');
+    $end = getSystemSetting($endKey, '');
+
+    return ($start !== '' && $end !== '') ? ['start' => $start, 'end' => $end] : null;
+}
+
 function isMaintenanceModeEnabled() {
     return getSystemSetting('maintenance_mode', 'disabled') === 'enabled';
 }

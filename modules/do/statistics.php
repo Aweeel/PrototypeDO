@@ -90,6 +90,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 case 'this_year':
                     $where .= " AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
                     break;
+                case 'first_semester':
+                case 'second_semester':
+                    $termDates = getAcademicTermDates($dateRange);
+                    if ($termDates) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $termDates['start'];
+                        $params[] = $termDates['end'];
+                    }
+                    break;
             }
             
             if ($gradeLevel) {
@@ -247,6 +256,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 case 'this_year':
                     $dateFilter = "AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
                     break;
+                case 'first_semester':
+                case 'second_semester':
+                    $termDates = getAcademicTermDates($dateRange);
+                    if ($termDates) {
+                        $dateFilter = "AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $termDates['start'];
+                        $params[] = $termDates['end'];
+                    }
+                    break;
             }
             
             if ($gradeLevel || $yearLevel || $strand || $course) {
@@ -335,6 +353,8 @@ $offenseTypes = getAllOffenseTypes();
                             <option value="this_month">This Month</option>
                             <option value="last_month">Last Month</option>
                             <option value="this_year" selected>This Year</option>
+                            <option value="first_semester">1st Semester</option>
+                            <option value="second_semester">2nd Semester</option>
                         </select>
 
                         <select id="gradeLevelFilter" onchange="updateAllCharts()" 
@@ -463,6 +483,8 @@ $offenseTypes = getAllOffenseTypes();
                                 <option value="last_3_months">Last 3 Months</option>
                                 <option value="last_6_months">Last 6 Months</option>
                                 <option value="this_year" selected>This Year</option>
+                                <option value="first_semester">1st Semester</option>
+                                <option value="second_semester">2nd Semester</option>
                             </select>
                         </div>
                         <div class="h-80">

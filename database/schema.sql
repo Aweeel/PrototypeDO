@@ -451,8 +451,8 @@ VALUES
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 -- Discipline Office Staff (2 additional)
-('torres.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'torres.discipline@sti.edu', 'Patricia Torres', NULL, '03000000002', 'discipline_office', '09189876543'),
-('reyes.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'reyes.discipline@sti.edu', 'Miguel Reyes', NULL, '03000000003', 'discipline_office', '09186543210'),
+('sanvictores.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'sanvictores.discipline@sti.edu', 'Maria Bianca Sanvictores', NULL, '03000000002', 'discipline_office', '09189876543'),
+('Balneg.discipline@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'balneg.discipline@sti.edu', 'Angelica Balneg', NULL, '03000000003', 'discipline_office', '09186543210'),
 -- Security Staff (4)
 ('santos.security1@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'santos.security1@sti.edu', 'Robert Santos', NULL, NULL, 'security', '09184567891'),
 ('cruz.security2@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cruz.security2@sti.edu', 'Fernando Cruz', NULL, NULL, 'security', '09184567892'),
