@@ -123,8 +123,18 @@ function fetchIncidentData($p) {
 function fetchStatisticsData($p) {
     $year  = !empty($p['year']) ? (int)$p['year'] : null;
     $month = !empty($p['month']) ? (int)$p['month'] : null;
+    $dateRange = $p['dateRange'] ?? '';
     $where = "WHERE c.is_archived = 0";
     $params = [];
+
+    if (in_array($dateRange, ['first_semester', 'second_semester'], true)) {
+        $termDates = getAcademicTermDates($dateRange);
+        if ($termDates) {
+            $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+            $params[] = $termDates['start'];
+            $params[] = $termDates['end'];
+        }
+    }
     
     if ($year) {
         $where .= " AND YEAR(c.date_reported) = ?";
@@ -500,6 +510,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         'type'   => 'statistics',
                         'fields' => [
                             ['id'=>'stat-year',       'label'=>'Year',        'type'=>'ajax','action'=>'getAvailableYears','vk'=>'year'],
+                            ['id'=>'stat-dateRange',  'label'=>'Date Range',  'type'=>'select','opts'=>[''=>'All Time','first_semester'=>'1st Semester','second_semester'=>'2nd Semester']],
                             ['id'=>'stat-view',       'label'=>'View',        'type'=>'select','opts'=>[''=>'Yearly Overview','monthly'=>'Monthly Breakdown']],
                             ['id'=>'stat-month',      'label'=>'Month (Optional)','type'=>'select','opts'=>
                                 [''=>'All Months','1'=>'January','2'=>'February','3'=>'March','4'=>'April','5'=>'May','6'=>'June',
@@ -555,7 +566,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                             <input type="text" id="<?= $f['id'] ?>" class="input-field" placeholder="<?= $f['placeholder'] ?? '' ?>">
                                         <?php elseif ($f['type'] === 'select'): ?>
                                             <select id="<?= $f['id'] ?>" class="input-field">
-                                                <?php foreach ($f['opts'] as $v=>$l): ?><option value="<?= $v ?>"><?= $l ?></option><?php endforeach; ?>
+                                                <?php foreach ($f['opts'] as $v=>$l): ?><option value="<?= $v ?>" <?= ($f['id'] === 'stat-dateRange' && ($_GET['dateRange'] ?? '') === $v) ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?>
                                             </select>
                                         <?php elseif ($f['type'] === 'year'): ?>
                                             <select id="<?= $f['id'] ?>" class="input-field">

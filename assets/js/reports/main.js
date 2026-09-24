@@ -146,7 +146,7 @@ function getFilters(type) {
     const g = id => document.getElementById(id)?.value ?? '';
     const map = {
         incident:   () => ({ reportType:g('inc-reportType'), caseId:g('inc-caseId'), dateFrom:g('inc-dateFrom'), dateTo:g('inc-dateTo'), severity:g('inc-severity'), status:g('inc-status'), offenseType:g('inc-offenseType') }),
-        statistics: () => ({ year:g('stat-year'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel'), course:g('stat-course'), offenseType:g('stat-offenseType') }),
+        statistics: () => ({ year:g('stat-year'), dateRange:g('stat-dateRange'), month:g('stat-month'), view:g('stat-view'), severity:g('stat-severity'), gradeLevel:g('stat-gradeLevel'), course:g('stat-course'), offenseType:g('stat-offenseType') }),
         lostfound:  () => ({ dateFrom:g('lf-dateFrom'), dateTo:g('lf-dateTo'), status:g('lf-status'), category:g('lf-category') }),
         student:    () => ({ studentId:g('stu-studentId'), gradeLevel:g('stu-gradeLevel'), course:g('stu-course'), status:g('stu-status') }),
         audit:      () => ({ dateFrom:g('aud-dateFrom'), dateTo:g('aud-dateTo'), actionType:g('aud-actionType') }),
