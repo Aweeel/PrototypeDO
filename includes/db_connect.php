@@ -1,12 +1,13 @@
 <?php
 // includes/db_connect.php
-// MySQL connection using PDO.
+// MySQL connection using PDO with Railway & local env support.
 
-define('DB_HOST', getenv('MYSQL_HOST') ?: '127.0.0.1');
-define('DB_PORT', getenv('MYSQL_PORT') ?: '3306');
-define('DB_USER', getenv('MYSQL_USER') ?: 'root');
-define('DB_PASS', getenv('MYSQL_PASSWORD') ?: '');
-define('DB_NAME', getenv('MYSQL_DATABASE') ?: 'PrototypeDO_DB');
+// Railway provides environment variables with or without underscores (e.g., MYSQLHOST or MYSQL_HOST)
+define('DB_HOST', getenv('MYSQLHOST') ?: (getenv('MYSQL_HOST') ?: '127.0.0.1'));
+define('DB_PORT', getenv('MYSQLPORT') ?: (getenv('MYSQL_PORT') ?: '3306'));
+define('DB_USER', getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: 'root'));
+define('DB_PASS', getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: ''));
+define('DB_NAME', getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: 'sti_handbook_db'));
 
 // Global connection variable
 $conn = null;
