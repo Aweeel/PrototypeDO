@@ -182,6 +182,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
         }
     };
 
+    $validateDailyCheckInDuration = function ($checkInTime, $checkOutTime) {
+        if (empty($checkInTime) || empty($checkOutTime)) {
+            return ['ok' => true];
+        }
+
+        $checkInTimestamp = strtotime(date('H:i:s', strtotime($checkInTime)));
+        $checkOutTimestamp = strtotime(date('H:i:s', strtotime($checkOutTime)));
+        if ($checkInTimestamp === false || $checkOutTimestamp === false) {
+            return ['ok' => true];
+        }
+
+        if (($checkOutTimestamp - $checkInTimestamp) > (8 * 60 * 60)) {
+            return ['ok' => false, 'error' => 'A single check-in day cannot exceed 8 hours'];
+        }
+
+        return ['ok' => true];
+    };
+
     $logCommunityServiceEventAudit = function ($caseSanctionId, $eventType, $dayNumber, $timeLabel, $now) {
         $sanctionInfo = fetchOne(
             "SELECT case_id FROM case_sanctions WHERE case_sanction_id = ?",
@@ -331,8 +349,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 return 0;
             };
 
+            $schoolYearStart = getSystemSetting('sy_start_date', '');
+            $schoolYearEnd = getSystemSetting('sy_end_date', '');
+            $firstSemesterDates = getAcademicTermDates('first_semester');
+            $secondSemesterDates = getAcademicTermDates('second_semester');
+
+            $getCaseSemester = function ($reportedDate) use ($schoolYearStart, $schoolYearEnd, $firstSemesterDates, $secondSemesterDates) {
+                $caseDate = strtotime((string)$reportedDate);
+                if ($caseDate === false) {
+                    return '';
+                }
+
+                $caseDate = date('Y-m-d', $caseDate);
+                if (($schoolYearStart !== '' && $caseDate < $schoolYearStart)
+                    || ($schoolYearEnd !== '' && $caseDate > $schoolYearEnd)) {
+                    return '';
+                }
+
+                foreach ([
+                    ['code' => '1T', 'dates' => $firstSemesterDates],
+                    ['code' => '2T', 'dates' => $secondSemesterDates]
+                ] as $semester) {
+                    if ($semester['dates']
+                        && $caseDate >= $semester['dates']['start']
+                        && $caseDate <= $semester['dates']['end']) {
+                        return $semester['code'];
+                    }
+                }
+
+                return '';
+            };
+
             // Format data for JavaScript
-            $formattedCases = array_map(function ($case) use ($countSchoolDaysInclusive, $inferSanctionDurationDays) {
+            $formattedCases = array_map(function ($case) use ($countSchoolDaysInclusive, $inferSanctionDurationDays, $getCaseSemester) {
                 $attachments = [];
                 if (!empty($case['attachments'])) {
                     $attachments = json_decode($case['attachments'], true);
@@ -483,7 +532,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'id' => $case['case_id'],
                     'student' => $case['student_name'],
                     'studentId' => $case['student_id'],
+                    'student_id' => $case['student_id'],
+                    'grade_level' => $case['grade_year'] ?? null,
+                    'track_course' => $case['track_course'] ?? null,
                     'type' => $case['case_type'],
+                    'semester' => $getCaseSemester($case['date_reported']),
                     'offenseNumber' => intval($case['minor_offense_number'] ?? 0),
                     'escalationSeen' => !empty($case['minor_escalation_seen']),
                     'date' => formatDate($case['date_reported']),
@@ -575,8 +628,13 @@ if ($_POST['action'] === 'getStudentByNumber') {
             'student' => [
                 'student_id' => $student['student_id'],
                 'first_name' => $student['first_name'],
+                'middle_name' => $student['middle_name'] ?? '',
                 'last_name' => $student['last_name'],
-                'full_name' => $student['first_name'] . ' ' . $student['last_name']
+                'full_name' => trim(implode(' ', array_filter([
+                    $student['first_name'],
+                    $student['middle_name'] ?? null,
+                    $student['last_name']
+                ], static fn($name) => trim((string)$name) !== '')))
             ]
         ]);
     } else {
@@ -965,7 +1023,7 @@ if ($_POST['action'] === 'getCheckInHistory') {
                     $outTime = new DateTime($checkInRow['check_out_time']);
                     $secondsWorked = $outTime->getTimestamp() - $inTime->getTimestamp();
                     if ($secondsWorked > 0) {
-                        $completedHours += ($secondsWorked / 3600);
+                        $completedHours += min(8, $secondsWorked / 3600);
                     }
                 } catch (Exception $e) {
                     // Ignore malformed timestamps and continue with remaining rows.
@@ -1431,6 +1489,12 @@ if ($_POST['action'] === 'recordCheckOut') {
     $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber]);
 
     if ($existing) {
+        $durationValidation = $validateDailyCheckInDuration($existing['check_in_time'], $now);
+        if (!$durationValidation['ok']) {
+            echo json_encode(['success' => false, 'error' => $durationValidation['error']]);
+            exit;
+        }
+
         // Update check-out time on existing record
         $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
@@ -1538,6 +1602,12 @@ if ($_POST['action'] === 'manualCheckOut') {
     $existing = fetchOne($checkSql, [$caseSanctionId, $dayNumber]);
 
     if ($existing) {
+        $durationValidation = $validateDailyCheckInDuration($existing['check_in_time'], $now);
+        if (!$durationValidation['ok']) {
+            echo json_encode(['success' => false, 'error' => $durationValidation['error']]);
+            exit;
+        }
+
         // Existing record - update check-out time
         $sql = "UPDATE case_checkins SET check_out_time = ?, updated_at = ? 
                 WHERE checkin_id = ?";
@@ -1593,6 +1663,14 @@ if ($_POST['action'] === 'correctTime') {
 
     // Get old value for audit
     $oldTime = $timeType === 'check_in' ? $existing['check_in_time'] : $existing['check_out_time'];
+
+    $candidateCheckIn = $timeType === 'check_in' ? $correctedTime : $existing['check_in_time'];
+    $candidateCheckOut = $timeType === 'check_out' ? $correctedTime : $existing['check_out_time'];
+    $durationValidation = $validateDailyCheckInDuration($candidateCheckIn, $candidateCheckOut);
+    if (!$durationValidation['ok']) {
+        echo json_encode(['success' => false, 'error' => $durationValidation['error']]);
+        exit;
+    }
 
     // Build the corrected time with today's date
     $correctedDateTime = $today . ' ' . $correctedTime . ':00';

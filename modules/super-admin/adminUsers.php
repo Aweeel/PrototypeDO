@@ -10,6 +10,7 @@ if ($_SESSION['user_role'] !== 'super_admin') {
 }
 
 ensureUsersTeacherSubroleColumn();
+ensureUsersArchiveColumn();
 
 function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
     if ($role === 'teacher') {
@@ -44,17 +45,13 @@ function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
 
 function validateTeacherProgram($teacherSubrole, $program) {
     $allowedPrograms = [
-        'BSCS',
-        'BSIT',
-        'BSCpE',
-        'BSMA',
-        'BSA',
-        'BSHM',
-        'BMMA',
-        'BACOMM',
-        'BAPsych',
-        'BSTM',
-        'BSCRIM'
+        'Information Technology',
+        'Tourism Management',
+        'Criminal Justice Education',
+        'Hospitality Management',
+        'Business & Management',
+        'Arts & Sciences',
+        'Engineering'
     ];
     
     if ($teacherSubrole === 'department_head') {
@@ -67,11 +64,45 @@ function validateTeacherProgram($teacherSubrole, $program) {
         return null;
     }
 
-    if ($program !== '') {
+    if ($program !== null && $program !== '') {
         return 'Program is only allowed for department head teachers';
     }
 
     return null;
+}
+
+function normalizeTeacherProgram($program) {
+    $program = trim((string)$program);
+    if ($program === '') {
+        return null;
+    }
+
+    $programMap = [
+        'BSCS' => 'Information Technology',
+        'BSIT' => 'Information Technology',
+        'BSCpE' => 'Engineering',
+        'BSMA' => 'Business & Management',
+        'BSA' => 'Business & Management',
+        'BSHM' => 'Hospitality Management',
+        'BMMA' => 'Arts & Sciences',
+        'BACOMM' => 'Arts & Sciences',
+        'BAPsych' => 'Arts & Sciences',
+        'BSTM' => 'Tourism Management',
+        'BSCRIM' => 'Criminal Justice Education',
+        'Bachelor of Science in Computer Science' => 'Information Technology',
+        'Bachelor of Science in Information Technology' => 'Information Technology',
+        'Bachelor of Science in Computer Engineering' => 'Engineering',
+        'Bachelor of Science in Management Accounting' => 'Business & Management',
+        'Bachelor of Science in Accountancy' => 'Business & Management',
+        'Bachelor of Science in Hospitality Management' => 'Hospitality Management',
+        'Bachelor of Multimedia Arts' => 'Arts & Sciences',
+        'Bachelor of Arts in Communication' => 'Arts & Sciences',
+        'Bachelor of Arts in Psychology' => 'Arts & Sciences',
+        'Bachelor of Science in Tourism Management' => 'Tourism Management',
+        'Bachelor of Science in Criminology' => 'Criminal Justice Education'
+    ];
+
+    return $programMap[$program] ?? $program;
 }
 
 function getPendingResetExistsSql() {
@@ -117,9 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             exit;
         }
 
-        // Clean headers (remove BOM or extra spaces)
+        // Clean headers (remove BOM, extra spaces, and normalize case)
         $header = array_map(function($h) {
-            return trim(preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $h));
+            $cleaned = trim(preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $h));
+            return strtolower($cleaned);
         }, $header);
 
         $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'super_admin'];
@@ -138,8 +170,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             $data = array_combine($header, $row);
 
             // Validate required fields
-            if (empty($data['first_name']) || empty($data['last_name']) || empty($data['role'])) {
-                $errors[] = "Row skipped: Missing required fields (first_name, last_name, or role)";
+            if (empty($data['first_name']) || empty($data['last_name']) || empty($data['role']) || empty($data['email'])) {
+                $errors[] = "Row skipped: Missing required fields (first_name, last_name, role, or email)";
+                $skipped++;
+                continue;
+            }
+
+            $email = trim((string) ($data['email'] ?? ''));
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Row skipped: Invalid email '{$email}' for '{$data['first_name']} {$data['last_name']}'";
                 $skipped++;
                 continue;
             }
@@ -158,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             $doId = ($role === 'discipline_office') ? $roleId : '';
 
             $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
-            $program = normalizeProgramAbbreviation($data['program'] ?? '');
+            $program = normalizeTeacherProgram($data['program'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = '';
@@ -211,22 +250,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 $skipped++;
                 continue;
             }
+            if (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
+                $errors[] = "Row skipped: email '{$email}' already exists";
+                $skipped++;
+                continue;
+            }
 
             try {
-                // Auto-generate email: firstname.lastname@sti.edu
-                $firstName = strtolower(str_replace(' ', '', $data['first_name']));
-                $lastName = strtolower(str_replace(' ', '', $data['last_name']));
-                $emailBase = $firstName . '.' . $lastName . '@sti.edu';
-                $email = $emailBase;
-
-                // Check if email already exists, if so add a number
-                $counter = 1;
-                while (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
-                    $email = $firstName . '.' . $lastName . $counter . '@sti.edu';
-                    $counter++;
-                }
-
-                // Create user account
+                // Email is provided in the CSV and must be unique
                 $fullName = trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']);
                 $username = $email;
                 $defaultPassword = 'password';
@@ -249,12 +280,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
 
                 if ($role === 'student') {
                     $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
-                    $nameParts = preg_split('/\s+/', trim($fullName));
-                    $firstNameOnly = $nameParts[0] ?? $data['first_name'];
-                    $lastNameOnly = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : ($data['last_name'] ?? '');
+                    $middleName = trim($data['middle_name'] ?? '');
                     executeQuery(
-                        "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)",
-                        [$studentId, $newUserId, $firstNameOnly, $lastNameOnly, 'N/A', 'College']
+                        "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$studentId, $newUserId, trim($data['first_name']), trim($data['last_name']), $middleName !== '' ? $middleName : null, 'N/A', 'College']
                     );
                 }
 
@@ -302,6 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $search = $_POST['search'] ?? '';
             $role = $_POST['role'] ?? '';
             $status = $_POST['status'] ?? '';
+            $archive = ($_POST['archive'] ?? '0') === '1';
 
             $idSearchPrefixes = [
                 '02000' => ['role' => 'student', 'column' => 'student_id'],
@@ -324,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $sql = "SELECT 
                                 COALESCE(u.user_id, 0) as user_id,
                                 COALESCE(u.email, 'N/A') as email,
-                                COALESCE(u.full_name, CONCAT(s.first_name, ' ', s.last_name)) as full_name,
+                                COALESCE(u.full_name, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name)) as full_name,
                                 COALESCE(u.role, 'student') as role,
                                 COALESCE(u.contact_number, '') as contact_number,
                                 COALESCE(u.is_active, 1) as is_active,
@@ -346,8 +376,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 END as has_pending_reset
                             FROM students s
                             LEFT JOIN users u ON s.user_id = u.user_id
-                                WHERE CAST(s.student_id AS CHAR) = ?";
-                    $params = [$search];
+                                                                WHERE CAST(s.student_id AS CHAR) = ?
+                                                                    AND COALESCE(u.is_archived, 0) = ?";
+                                        $params = [$search, $archive ? 1 : 0];
                 } else {
                     $idColumn = $matchedIdSearch['column'];
                     $castColumn = "CAST(u.{$idColumn} AS CHAR)";
@@ -376,8 +407,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 END as has_pending_reset
                             FROM users u
                             LEFT JOIN students s ON s.user_id = u.user_id
-                            WHERE {$castColumn} = ?";
-                    $params = [$search];
+                                WHERE {$castColumn} = ?
+                                  AND u.is_archived = ?";
+                            $params = [$search, $archive ? 1 : 0];
                 }
 
                 if (!empty($role)) {
@@ -421,9 +453,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                    ELSE 0
                                END as has_pending_reset
                         FROM users u
-                        WHERE 1=1";
+                        WHERE u.is_archived = ?";
 
-                $params = [];
+                    $params = [$archive ? 1 : 0];
 
                 if (!empty($search)) {
                     $sql .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR CAST(u.user_id AS CHAR) LIKE ? OR CAST(u.teacher_id AS CHAR) LIKE ? OR CAST(u.do_id AS CHAR) LIKE ? OR (u.role = 'student' AND EXISTS(SELECT 1 FROM students WHERE user_id = u.user_id AND CAST(student_id AS CHAR) LIKE ?)))";
@@ -487,7 +519,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
-            $program = normalizeProgramAbbreviation($_POST['program'] ?? '');
+            $program = normalizeTeacherProgram($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
@@ -619,7 +651,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
-            $program = normalizeProgramAbbreviation($_POST['program'] ?? '');
+            $program = normalizeTeacherProgram($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
 
@@ -748,31 +780,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Delete user
-        if ($_POST['action'] === 'deleteUser') {
+        // Archive or restore one user
+        if ($_POST['action'] === 'archiveUser' || $_POST['action'] === 'restoreUser') {
             $user_id = $_POST['user_id'];
+            $isArchiving = $_POST['action'] === 'archiveUser';
 
-            // Prevent deleting self
-            if ($user_id == $_SESSION['user_id']) {
-                echo json_encode(['success' => false, 'error' => 'Cannot delete your own account']);
+            if ($isArchiving && $user_id == $_SESSION['user_id']) {
+                echo json_encode(['success' => false, 'error' => 'Cannot archive your own account']);
                 exit;
             }
 
-            // Get user data before deletion
             $userData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$user_id]);
+            if (!$userData) {
+                echo json_encode(['success' => false, 'error' => 'User not found']);
+                exit;
+            }
 
-            // Delete associated audit logs first (foreign key constraint)
-            $sqlDeleteAudit = "DELETE FROM audit_log WHERE user_id = ?";
-            executeQuery($sqlDeleteAudit, [$user_id]);
+            $newArchiveState = $isArchiving ? 1 : 0;
+            executeQuery("UPDATE users SET is_archived = ?, is_active = CASE WHEN ? = 1 THEN 0 ELSE 1 END, updated_at = NOW() WHERE user_id = ?", [$newArchiveState, $newArchiveState, $user_id]);
+            logAudit($_SESSION['user_id'], $isArchiving ? 'User Archived' : 'User Restored', 'users', $user_id, sanitizeAuditData($userData), ['is_archived' => $newArchiveState]);
 
-            // Delete user
-            $sql = "DELETE FROM users WHERE user_id = ?";
-            executeQuery($sql, [$user_id]);
-
-            // Audit log
-            auditDelete('users', $user_id, sanitizeAuditData($userData));
-
-            echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
+            echo json_encode(['success' => true, 'message' => $isArchiving ? 'User archived successfully' : 'User restored successfully']);
             exit;
         }
 
@@ -894,9 +922,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Bulk delete users
-        if ($_POST['action'] === 'deleteUsers') {
+        // Bulk archive or restore users
+        if ($_POST['action'] === 'archiveUsers' || $_POST['action'] === 'restoreUsers') {
             $userIds = json_decode($_POST['user_ids'] ?? '[]', true);
+            $isArchiving = $_POST['action'] === 'archiveUsers';
             
             if (empty($userIds)) {
                 echo json_encode(['success' => false, 'error' => 'No users selected']);
@@ -910,29 +939,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 try {
                     $userId = intval($userId);
                     
-                    // Prevent deleting self
-                    if ($userId === (int)$_SESSION['user_id']) {
-                        $errors[] = "Cannot delete your own account";
+                    if ($isArchiving && $userId === (int)$_SESSION['user_id']) {
+                        $errors[] = "Cannot archive your own account";
                         continue;
                     }
 
-                    // Check if user exists
-                    $userData = fetchOne("SELECT * FROM users WHERE user_id = ?", [$userId]);
-                    if (!$userData) {
+                    if (!fetchOne("SELECT user_id FROM users WHERE user_id = ?", [$userId])) {
                         $errors[] = "User ID $userId not found";
                         continue;
                     }
 
-                    // Delete associated audit logs first (foreign key constraint)
-                    $sqlDeleteAudit = "DELETE FROM audit_log WHERE user_id = ?";
-                    executeQuery($sqlDeleteAudit, [$userId]);
-
-                    // Delete user
-                    $sql = "DELETE FROM users WHERE user_id = ?";
-                    executeQuery($sql, [$userId]);
-
-                    // Audit log
-                    auditDelete('users', $userId, sanitizeAuditData($userData));
+                    $newArchiveState = $isArchiving ? 1 : 0;
+                    executeQuery("UPDATE users SET is_archived = ?, is_active = CASE WHEN ? = 1 THEN 0 ELSE 1 END, updated_at = NOW() WHERE user_id = ?", [$newArchiveState, $newArchiveState, $userId]);
+                    logAudit($_SESSION['user_id'], $isArchiving ? 'User Archived (Bulk)' : 'User Restored (Bulk)', 'users', $userId, null, ['is_archived' => $newArchiveState]);
 
                     $successCount++;
                 } catch (Exception $e) {
@@ -940,7 +959,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
             }
 
-            $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " deleted successfully";
+            $actionLabel = $isArchiving ? 'archived' : 'restored';
+            $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " $actionLabel successfully";
             if (!empty($errors)) {
                 $message .= ". " . count($errors) . " error(s) occurred";
             }
@@ -1024,6 +1044,10 @@ $adminName = getFormattedUserName();
 
                 <!-- Filters -->
                 <div class="mb-6 flex items-center gap-3">
+                    <div class="flex items-center border border-gray-300 dark:border-slate-600 rounded-lg overflow-hidden">
+                        <button id="activeAccountsTab" onclick="setArchiveMode(false)" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white">Active Accounts</button>
+                        <button id="archivedAccountsTab" onclick="setArchiveMode(true)" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
+                    </div>
                     <select id="roleFilter" onchange="filterUsers()"
                         class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                         <option value="">All Roles</option>
@@ -1065,8 +1089,11 @@ $adminName = getFormattedUserName();
                                     <button onclick="bulkSetInactive()" class="px-3 py-1.5 border border-yellow-500 text-yellow-600 dark:text-yellow-400 text-xs font-medium rounded hover:bg-yellow-50 dark:hover:bg-yellow-900/10 transition-colors">
                                         Deactivate
                                     </button>
-                                    <button onclick="bulkDelete()" class="px-3 py-1.5 border border-red-500 text-red-600 dark:text-red-400 text-xs font-medium rounded hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
-                                        Delete
+                                    <button id="bulkArchiveButton" onclick="bulkArchive()" class="px-3 py-1.5 border border-red-500 text-red-600 dark:text-red-400 text-xs font-medium rounded hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+                                        Archive
+                                    </button>
+                                    <button id="bulkRestoreButton" onclick="bulkRestore()" class="hidden px-3 py-1.5 border border-green-500 text-green-600 dark:text-green-400 text-xs font-medium rounded hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors">
+                                        Restore
                                     </button>
                                 </div>
                             </div>
@@ -1159,13 +1186,13 @@ $adminName = getFormattedUserName();
             <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
             <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
             <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                role_id, teacher_subrole, program, first_name, last_name, middle_name, contact_number, role
+                role_id, email, teacher_subrole, program, first_name, last_name, middle_name, contact_number, role
             </code>
-            <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: <strong>first_name, last_name, role, role_id</strong>.</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: <strong>first_name, last_name, role, role_id, email</strong>.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>).</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM</strong></p>
-            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is auto-generated as <code>firstname.lastname@sti.edu</code>. Default password: <code>password</code>.</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is required in the CSV and must be unique. Default password: <code>password</code>.</p>
         </div>
         <form id="importUsersForm" enctype="multipart/form-data">
             <div class="mb-4">

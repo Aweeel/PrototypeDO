@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
 // Get statistics from database
 $stats = getCaseStatistics();
 $lostFoundStats = getLostFoundStatistics();
-$recentCases = fetchAll("SELECT c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, u.full_name as assigned_to_name
+$recentCases = fetchAll("SELECT c.*, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name, u.full_name as assigned_to_name
                         FROM cases c
                         LEFT JOIN students s ON c.student_id = s.student_id
                         LEFT JOIN users u ON c.assigned_to = u.user_id
@@ -41,7 +41,7 @@ $recentCases = fetchAll("SELECT c.*, CONCAT(s.first_name, ' ', s.last_name) as s
                         ORDER BY c.date_reported DESC, c.created_at DESC LIMIT 5");
 $caseTypes = array_slice(getCaseTypeDistribution(), 0, 7);
 $recentLostFound = getRecentLostFoundItems(4);
-$pendingCases = fetchAll("SELECT c.*, CONCAT(s.first_name, ' ', s.last_name) as student_name, s.student_id as student_number
+$pendingCases = fetchAll("SELECT c.*, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name, s.student_id as student_number
                           FROM cases c
                           LEFT JOIN students s ON c.student_id = s.student_id
                           WHERE c.status = 'Pending' AND c.is_archived = 0
@@ -96,7 +96,7 @@ function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false, $seve
 
     if ($isArchived) {
         $tab = 'archived';
-    } elseif (is_string($status) && strtolower($status) === 'resolved') {
+    } elseif (is_string($status) && (strtolower($status) === 'resolved' || ($severity === 'Minor' && strtolower($status) === 'recorded'))) {
         $tab = 'resolved';
     }
 
@@ -108,7 +108,7 @@ function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false, $se
 
     if ($isArchived) {
         $tab = 'archived';
-    } elseif (is_string($status) && strtolower($status) === 'resolved') {
+    } elseif (is_string($status) && (strtolower($status) === 'resolved' || ($severity === 'Minor' && strtolower($status) === 'recorded'))) {
         $tab = 'resolved';
     }
 

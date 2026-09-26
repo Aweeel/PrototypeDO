@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Get cases for only this student (including archived)
         $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-                CONCAT(s.first_name, ' ', s.last_name) as student_name,
+                CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name,
                 u.full_name as assigned_to_name
                 FROM cases c
                 LEFT JOIN students s ON c.student_id = s.student_id
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         // Get case but verify it belongs to the current student
         $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-                CONCAT(s.first_name, ' ', s.last_name) as student_name,
+                CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name,
                 u.full_name as assigned_to_name
                 FROM cases c
                 LEFT JOIN students s ON c.student_id = s.student_id
@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $ownedCase = fetchOne(
-            "SELECT c.case_id, CONCAT(s.first_name, ' ', s.last_name) AS student_name
+            "SELECT c.case_id, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name
              FROM cases c
              JOIN students s ON s.student_id = c.student_id
              WHERE c.case_id = ? AND c.student_id = ?",
@@ -380,7 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $ownedCase = fetchOne(
-            "SELECT c.case_id, CONCAT(s.first_name, ' ', s.last_name) AS student_name
+            "SELECT c.case_id, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name
              FROM cases c
              JOIN students s ON s.student_id = c.student_id
              WHERE c.case_id = ? AND c.student_id = ?",

@@ -99,7 +99,8 @@ async function openCaseDetailsFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const caseId = params.get('caseId') || params.get('case_id');
     const openDetails = params.get('viewCase');
-    const tab = params.get('tab');
+    const requestedTab = params.get('tab');
+    const tab = requestedTab === 'recorded' ? 'resolved' : requestedTab;
     const requestedPage = Number.parseInt(params.get('page') || '', 10);
 
     if (openDetails !== '1' || !caseId || window.__openedViewCaseId === caseId) {
@@ -139,7 +140,8 @@ async function highlightCaseFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const caseId = params.get('highlightCaseId');
     const shouldHighlight = params.get('highlightCase') === '1';
-    const tab = params.get('tab');
+    const requestedTab = params.get('tab');
+    const tab = requestedTab === 'recorded' ? 'resolved' : requestedTab;
 
     if (!shouldHighlight || !caseId) {
         return;

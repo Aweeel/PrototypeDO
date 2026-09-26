@@ -64,6 +64,18 @@ async function openAdvancedFilters() {
                     </select>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Semester
+                    </label>
+                    <select id="filterSemester"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <option value="">All Semesters</option>
+                        <option value="1T" ${activeFilters.semester === '1T' ? 'selected' : ''}>1st Semester</option>
+                        <option value="2T" ${activeFilters.semester === '2T' ? 'selected' : ''}>2nd Semester</option>
+                    </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -115,6 +127,7 @@ async function openAdvancedFilters() {
 
         activeFilters.caseType = document.getElementById('filterCaseType').value;
         activeFilters.status = document.getElementById('filterStatus').value;
+        activeFilters.semester = document.getElementById('filterSemester').value;
         activeFilters.dateFrom = document.getElementById('filterDateFrom').value;
         activeFilters.dateTo = document.getElementById('filterDateTo').value;
 
@@ -145,6 +158,12 @@ function updateFilterSummary() {
         tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Status: ${activeFilters.status}</span>`;
     }
 
+    if (activeFilters.semester) {
+        hasFilters = true;
+        const semesterLabel = activeFilters.semester === '1T' ? '1st Semester' : '2nd Semester';
+        tags += `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded">Semester: ${semesterLabel}</span>`;
+    }
+
     if (activeFilters.dateFrom || activeFilters.dateTo) {
         hasFilters = true;
         const fromDate = activeFilters.dateFrom || '...';
@@ -165,6 +184,7 @@ function clearAllFilters() {
         offenseType: '',
         caseType: '',
         status: '',
+        semester: '',
         dateFrom: '',
         dateTo: ''
     };

@@ -4,6 +4,7 @@ let filteredUsers = [];
 let selectedUserIds = new Set();
 let currentPage = 1;
 let itemsPerPage = 7;
+let archiveMode = false;
 
 // ====== Initialization ======
 document.addEventListener('DOMContentLoaded', function () {
@@ -33,8 +34,11 @@ function setupEventDelegation() {
                 const status = button.getAttribute('data-status') === '1';
                 toggleUserStatus(userId, status);
                 break;
-            case 'delete':
-                deleteUser(userId);
+            case 'archive':
+                archiveUser(userId);
+                break;
+            case 'restore':
+                restoreUser(userId);
                 break;
         }
     });
@@ -56,7 +60,7 @@ async function loadUsers() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `ajax=1&action=getUsers&search=${encodeURIComponent(searchTerm)}&role=${encodeURIComponent(roleFilter)}&status=${encodeURIComponent(statusFilter)}`
+            body: `ajax=1&action=getUsers&archive=${archiveMode ? 1 : 0}&search=${encodeURIComponent(searchTerm)}&role=${encodeURIComponent(roleFilter)}&status=${encodeURIComponent(statusFilter)}`
         });
 
         if (!response.ok) {
@@ -98,6 +102,17 @@ async function loadUsers() {
         console.error('Error loading users:', error);
         showMessage('Error loading users. Please try again.', 'error');
     }
+}
+
+function setArchiveMode(isArchived) {
+    archiveMode = isArchived;
+    document.getElementById('activeAccountsTab')?.classList.toggle('bg-blue-600', !isArchived);
+    document.getElementById('activeAccountsTab')?.classList.toggle('text-white', !isArchived);
+    document.getElementById('archivedAccountsTab')?.classList.toggle('bg-blue-600', isArchived);
+    document.getElementById('archivedAccountsTab')?.classList.toggle('text-white', isArchived);
+    document.getElementById('bulkArchiveButton')?.classList.toggle('hidden', isArchived);
+    document.getElementById('bulkRestoreButton')?.classList.toggle('hidden', !isArchived);
+    loadUsers();
 }
 
 // ====== Filter Users ======
@@ -217,8 +232,8 @@ function renderUsers() {
                         class="p-2 ${isActive ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'} rounded-lg transition-colors cursor-pointer" title="${isActive ? 'Deactivate User' : 'Activate User'}">
                         ${getStatusToggleIcon(isActive)}
                     </button>
-                    <button data-action="delete" data-user-id="${user.user_id}" 
-                        class="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer" title="Delete User">
+                    <button data-action="${archiveMode ? 'restore' : 'archive'}" data-user-id="${user.user_id}" 
+                        class="p-2 ${archiveMode ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'} rounded-lg transition-colors cursor-pointer" title="${archiveMode ? 'Restore User' : 'Archive User'}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -373,11 +388,15 @@ function editUser(userId) {
         document.getElementById('edit_contact_number').value = user.contact_number || '';
         const editTeacherId = document.getElementById('edit_teacher_id');
         const editDoId = document.getElementById('edit_do_id');
+        const editStudentId = document.getElementById('edit_student_id');
         if (editTeacherId) {
             editTeacherId.value = user.teacher_id || '';
         }
         if (editDoId) {
             editDoId.value = user.do_id || '';
+        }
+        if (editStudentId) {
+            editStudentId.value = user.student_id || '';
         }
         const editTeacherSubrole = document.getElementById('edit_teacher_subrole');
         if (editTeacherSubrole) {
@@ -469,21 +488,21 @@ function toggleUserStatus(userId, currentStatus) {
     });
 }
 
-function deleteUser(userId) {
+function archiveUser(userId) {
     const user = allUsers.find(u => u.user_id == userId);
     const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: 'Delete User',
-        message: `Are you sure you want to delete ${identifier}? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: 'Archive User',
+        message: `Are you sure you want to archive ${identifier}? The account can be restored later.`,
+        confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
         if (!confirmed) return;
 
         const formData = new FormData();
         formData.append('ajax', '1');
-        formData.append('action', 'deleteUser');
+        formData.append('action', 'archiveUser');
         formData.append('user_id', userId);
 
         fetch(window.location.pathname, {
@@ -493,7 +512,7 @@ function deleteUser(userId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showMessage('User deleted successfully', 'success');
+                showMessage('User archived successfully', 'success');
                 loadUsers();
             } else {
                 showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
@@ -501,8 +520,42 @@ function deleteUser(userId) {
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('Error deleting user', 'error');
+            showMessage('Error archiving user', 'error');
         });
+    });
+}
+
+function restoreUser(userId) {
+    const user = allUsers.find(u => u.user_id == userId);
+    const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
+
+    showConfirmDialog({
+        title: 'Restore User',
+        message: `Restore ${identifier} to the active accounts?`,
+        confirmText: 'Restore',
+        confirmClass: 'bg-green-600 hover:bg-green-700'
+    }).then((confirmed) => {
+        if (!confirmed) return;
+
+        const formData = new FormData();
+        formData.append('ajax', '1');
+        formData.append('action', 'restoreUser');
+        formData.append('user_id', userId);
+
+        fetch(window.location.pathname, { method: 'POST', body: new URLSearchParams(formData) })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('User restored successfully', 'success');
+                    loadUsers();
+                } else {
+                    showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error restoring user', 'error');
+            });
     });
 }
 
@@ -685,19 +738,35 @@ function bulkSetInactive() {
     });
 }
 
-function bulkDelete() {
+function bulkArchive() {
     if (selectedUserIds.size === 0) {
         showMessage('No users selected', 'error');
         return;
     }
 
     showConfirmDialog({
-        title: 'Delete Users',
-        message: `Delete ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: 'Archive Users',
+        message: `Archive ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? They can be restored later.`,
+        confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
-        if (confirmed) performBulkAction('deleteUsers', Array.from(selectedUserIds));
+        if (confirmed) performBulkAction('archiveUsers', Array.from(selectedUserIds));
+    });
+}
+
+function bulkRestore() {
+    if (selectedUserIds.size === 0) {
+        showMessage('No users selected', 'error');
+        return;
+    }
+
+    showConfirmDialog({
+        title: 'Restore Users',
+        message: `Restore ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
+        confirmText: 'Restore',
+        confirmClass: 'bg-green-600 hover:bg-green-700'
+    }).then((confirmed) => {
+        if (confirmed) performBulkAction('restoreUsers', Array.from(selectedUserIds));
     });
 }
 

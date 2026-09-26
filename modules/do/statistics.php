@@ -3,6 +3,17 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+function getStatisticsCustomDateRange($startDate, $endDate) {
+    $start = DateTime::createFromFormat('!Y-m-d', (string)$startDate);
+    $end = DateTime::createFromFormat('!Y-m-d', (string)$endDate);
+
+    if (!$start || !$end || $start->format('Y-m-d') !== $startDate || $end->format('Y-m-d') !== $endDate || $start > $end) {
+        return null;
+    }
+
+    return ['start' => $start->format('Y-m-d'), 'end' => $end->format('Y-m-d')];
+}
+
 // Handle AJAX requests for chart data
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -71,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $course = $_POST['course'] ?? '';
             $offenseType = $_POST['offenseType'] ?? '';
             $dateRange = $_POST['dateRange'] ?? 'this_year';
+            $customDateRange = getStatisticsCustomDateRange($_POST['startDate'] ?? '', $_POST['endDate'] ?? '');
             
             $joins = "FROM cases c JOIN students s ON c.student_id = s.student_id";
             $where = "WHERE c.is_archived = 0";
@@ -97,6 +109,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
                         $params[] = $termDates['start'];
                         $params[] = $termDates['end'];
+                    }
+                    break;
+                case 'custom':
+                    if ($customDateRange) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $customDateRange['start'];
+                        $params[] = $customDateRange['end'];
                     }
                     break;
             }
@@ -141,9 +160,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $course = $_POST['course'] ?? '';
             $offenseType = $_POST['offenseType'] ?? '';
             $groupBy = $_POST['groupBy'] ?? 'grade_year';
+            $dateRange = $_POST['dateRange'] ?? 'all';
+            $customDateRange = getStatisticsCustomDateRange($_POST['startDate'] ?? '', $_POST['endDate'] ?? '');
             
             $where = "WHERE c.is_archived = 0";
             $params = [];
+
+            if ($dateRange === 'custom' && $customDateRange) {
+                $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                $params[] = $customDateRange['start'];
+                $params[] = $customDateRange['end'];
+            }
             
             if ($gradeLevel) {
                 $where .= " AND s.grade_year = ?";
@@ -190,10 +217,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
             $offenseType = $_POST['offenseType'] ?? '';
+            $dateRange = $_POST['dateRange'] ?? 'all';
+            $customDateRange = getStatisticsCustomDateRange($_POST['startDate'] ?? '', $_POST['endDate'] ?? '');
             
             $joins = "FROM cases c";
-            $where = "WHERE YEAR(c.date_reported) = ? AND c.is_archived = 0";
-            $params = [$year];
+            $where = "WHERE c.is_archived = 0";
+            $params = [];
+
+            if ($dateRange === 'custom' && $customDateRange) {
+                $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                $params[] = $customDateRange['start'];
+                $params[] = $customDateRange['end'];
+            } else {
+                $where .= " AND YEAR(c.date_reported) = ?";
+                $params[] = $year;
+            }
             
             if ($gradeLevel || $yearLevel || $strand || $course) {
                 $joins .= " JOIN students s ON c.student_id = s.student_id";
@@ -240,6 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $strand = $_POST['strand'] ?? '';
             $course = $_POST['course'] ?? '';
             $offenseType = $_POST['offenseType'] ?? '';
+            $customDateRange = getStatisticsCustomDateRange($_POST['startDate'] ?? '', $_POST['endDate'] ?? '');
             
             // Build date filter
             $dateFilter = '';
@@ -263,6 +302,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         $dateFilter = "AND c.date_reported >= ? AND c.date_reported <= ?";
                         $params[] = $termDates['start'];
                         $params[] = $termDates['end'];
+                    }
+                    break;
+                case 'custom':
+                    if ($customDateRange) {
+                        $dateFilter = "AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $customDateRange['start'];
+                        $params[] = $customDateRange['end'];
                     }
                     break;
             }
@@ -347,15 +393,26 @@ $offenseTypes = getAllOffenseTypes();
                 <!-- Top Controls -->
                 <div class="mb-6 flex items-center justify-between">
                     <div class="flex gap-3 flex-wrap">
-                        <select id="dateRangeFilter" onchange="updateAllCharts()" 
+                        <select id="dateRangeFilter" onchange="handleDateRangeChange()" 
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="all">All Time</option>
-                            <option value="this_month">This Month</option>
-                            <option value="last_month">Last Month</option>
                             <option value="this_year" selected>This Year</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>                           
                             <option value="first_semester">1st Semester</option>
                             <option value="second_semester">2nd Semester</option>
+                            <option value="custom">Custom Range</option>
                         </select>
+
+                        <div id="customDateRange" class="hidden flex items-center gap-2">
+                            <label for="customStartDate" class="sr-only">Start date</label>
+                            <input type="date" id="customStartDate" onchange="handleCustomDateChange()"
+                                class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <span class="text-gray-500 dark:text-gray-400">to</span>
+                            <label for="customEndDate" class="sr-only">End date</label>
+                            <input type="date" id="customEndDate" onchange="handleCustomDateChange()"
+                                class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        </div>
 
                         <select id="gradeLevelFilter" onchange="updateAllCharts()" 
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">

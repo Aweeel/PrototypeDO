@@ -8,21 +8,42 @@ require_once __DIR__ . '/config.php';
  * Generate unique item ID
  */
 function generateItemId() {
-    $prefix = 'LF-';
-    $sql = "SELECT item_id FROM lost_found_items ORDER BY item_id DESC LIMIT 1";
-    
+    $year = date('Y');
+    $term = '1T';
+
     try {
-        $result = fetchOne($sql);
-        
-        if ($result) {
-            $lastId = intval(substr($result['item_id'], 3));
-            $newId = $prefix . str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
-        } else {
-            $newId = $prefix . '1001';
+        $termSettings = fetchAll(
+            "SELECT setting_key, setting_value
+             FROM system_settings
+             WHERE setting_key IN ('first_semester_start', 'first_semester_end', 'second_semester_start', 'second_semester_end')",
+            []
+        );
+        $settings = [];
+        foreach ($termSettings as $setting) {
+            $settings[$setting['setting_key']] = $setting['setting_value'];
+        }
+
+        $today = date('Y-m-d');
+        if (!empty($settings['second_semester_start'])
+            && !empty($settings['second_semester_end'])
+            && $today >= $settings['second_semester_start']
+            && $today <= $settings['second_semester_end']) {
+            $term = '2T';
         }
     } catch (Exception $e) {
+        error_log("generateItemId term lookup error: " . $e->getMessage());
+    }
+
+    $prefix = "LF-{$year}-{$term}-";
+    $sql = "SELECT item_id FROM lost_found_items WHERE item_id LIKE ? ORDER BY item_id DESC LIMIT 1";
+    
+    try {
+        $result = fetchOne($sql, [$prefix . '%']);
+        $lastId = $result ? intval(substr($result['item_id'], strlen($prefix))) : 0;
+        $newId = $prefix . str_pad((string)($lastId + 1), 4, '0', STR_PAD_LEFT);
+    } catch (Exception $e) {
         error_log("generateItemId error: " . $e->getMessage());
-        $newId = $prefix . '1001';
+        $newId = $prefix . '0001';
     }
     
     return $newId;
@@ -211,9 +232,10 @@ function getLostFoundItems($filters = []) {
         $params[] = $filters['date_to'];
     }
     
+    $dateSort = ($filters['date_sort'] ?? 'newest') === 'oldest' ? 'ASC' : 'DESC';
     $sql .= $archivedFlag
-        ? " ORDER BY lf.archived_at DESC"
-        : " ORDER BY lf.date_found DESC, lf.created_at DESC";
+        ? " ORDER BY lf.date_found $dateSort, lf.archived_at $dateSort"
+        : " ORDER BY lf.date_found $dateSort, lf.created_at $dateSort";
     
     try {
         $items = fetchAll($sql, $params);

@@ -1638,6 +1638,16 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     return;
   }
 
+  if (checkInValue && checkOutValue) {
+    const [checkInHours, checkInMinutes] = checkInValue.split(':').map(Number);
+    const [checkOutHours, checkOutMinutes] = checkOutValue.split(':').map(Number);
+    const durationMinutes = ((checkOutHours * 60) + checkOutMinutes) - ((checkInHours * 60) + checkInMinutes);
+    if (durationMinutes > 8 * 60) {
+      showNotification('A single check-in day cannot exceed 8 hours', 'error');
+      return;
+    }
+  }
+
   try {
     // Save check-in time if provided
     if (checkInValue) {

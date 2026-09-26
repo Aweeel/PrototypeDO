@@ -22,6 +22,7 @@ $categories = getCategories();
 $filterStatus = $_GET['status'] ?? '';
 $filterCategory = $_GET['category'] ?? '';
 $searchTerm = $_GET['search'] ?? '';
+$dateSort = ($_GET['date_sort'] ?? 'newest') === 'oldest' ? 'oldest' : 'newest';
 $highlightItemId = $_GET['highlightItemId'] ?? '';
 $view = ($_GET['view'] ?? 'active') === 'archived' ? 'archived' : 'active';
 
@@ -30,6 +31,7 @@ $filters = [];
 if ($filterStatus) $filters['status'] = $filterStatus;
 if ($filterCategory) $filters['category'] = $filterCategory;
 if ($searchTerm) $filters['search'] = $searchTerm;
+$filters['date_sort'] = $dateSort;
 if ($view === 'archived') $filters['archived'] = true;
 
 $items = getLostFoundItems($filters);
@@ -175,7 +177,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                         </div>
 
                         <!-- Filters -->
-                        <form method="GET" action="" id="lostFoundFilterForm" class="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-end">
+                        <form method="GET" action="" id="lostFoundFilterForm" class="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-end">
                             <input type="hidden" name="view" value="<?php echo htmlspecialchars($view); ?>">
                             <div>
                                 <input type="text" 
@@ -204,6 +206,14 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                             <?php echo $cat; ?>
                                         </option>
                                     <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <select name="date_sort"
+                                        id="lostFoundDateSortFilter"
+                                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
+                                    <option value="newest" <?php echo $dateSort === 'newest' ? 'selected' : ''; ?>>Newest first</option>
+                                    <option value="oldest" <?php echo $dateSort === 'oldest' ? 'selected' : ''; ?>>Oldest first</option>
                                 </select>
                             </div>
                             <div class="flex justify-end">

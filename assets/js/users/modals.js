@@ -172,6 +172,12 @@ function createAddModal() {
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for discipline office accounts.</p>
                 </div>
+                <div id="add_student_id_container" class="hidden">
+                    <label for="add_student_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student ID *</label>
+                    <input type="text" id="add_student_id" name="student_id" placeholder="02000000001"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for student accounts.</p>
+                </div>
                 <div>
                     <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
                     <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe"
@@ -218,6 +224,7 @@ async function submitAddUser(event) {
     const program = document.getElementById('add_program')?.value || '';
     const teacher_id = document.getElementById('add_teacher_id')?.value || '';
     const do_id = document.getElementById('add_do_id')?.value || '';
+    const student_id = document.getElementById('add_student_id')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -231,6 +238,7 @@ async function submitAddUser(event) {
     formData.append('program', program);
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
+    formData.append('student_id', student_id);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -335,6 +343,11 @@ function createEditModal() {
                         <input type="text" id="edit_do_id" name="do_id" placeholder="03000000001"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
+                    <div id="edit_student_id_container" class="hidden">
+                        <label for="edit_student_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student ID *</label>
+                        <input type="text" id="edit_student_id" name="student_id" placeholder="02000000001"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
                     <div>
                         <label for="edit_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
                         <input type="tel" id="edit_contact_number" name="contact_number" 
@@ -370,6 +383,7 @@ async function submitEditUser(event) {
     const program = document.getElementById('edit_program')?.value || '';
     const teacher_id = document.getElementById('edit_teacher_id')?.value || '';
     const do_id = document.getElementById('edit_do_id')?.value || '';
+    const student_id = document.getElementById('edit_student_id')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -383,6 +397,7 @@ async function submitEditUser(event) {
     formData.append('program', program);
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
+    formData.append('student_id', student_id);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -502,9 +517,12 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
     const teacherIdInput = document.getElementById(`${formType}_teacher_id`);
     const doIdContainer = document.getElementById(`${formType}_do_id_container`);
     const doIdInput = document.getElementById(`${formType}_do_id`);
+    const studentIdContainer = document.getElementById(`${formType}_student_id_container`);
+    const studentIdInput = document.getElementById(`${formType}_student_id`);
 
     const isTeacher = roleValue === 'teacher';
     const isDo = roleValue === 'discipline_office';
+    const isStudent = roleValue === 'student';
     const isDepartmentHead = isTeacher && subroleValue === 'department_head';
 
     if (subroleContainer && subroleSelect) {
@@ -533,6 +551,14 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
         doIdInput.required = isDo;
         if (!isDo) {
             doIdInput.value = '';
+        }
+    }
+
+    if (studentIdContainer && studentIdInput) {
+        studentIdContainer.classList.toggle('hidden', !isStudent);
+        studentIdInput.required = isStudent;
+        if (!isStudent) {
+            studentIdInput.value = '';
         }
     }
 }
