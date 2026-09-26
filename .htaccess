@@ -1,0 +1,9 @@
+# Turn on the Rewrite Engine
+RewriteEngine On
+
+# Allow direct access to existing files and directories (CSS, JS, images, etc.)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Route all other requests to index.php or handle extensions gracefully
+RewriteRule ^ index.php [L,QSA]
