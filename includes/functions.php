@@ -14,7 +14,8 @@ function getUserById($userId) {
 }
 
 function getUserByUsername($username) {
-    $sql = "SELECT * FROM users WHERE username = ?";
+    ensureUsersArchiveColumn();
+    $sql = "SELECT * FROM users WHERE username = ? AND COALESCE(is_archived, 0) = 0";
     return fetchOne($sql, [$username]);
 }
 
@@ -40,6 +41,27 @@ function ensureUsersTeacherSubroleColumn() {
         if (!in_array($dataType, ['varchar', 'char'], true)) {
             executeQuery("ALTER TABLE users MODIFY COLUMN teacher_subrole VARCHAR(30) NULL");
         }
+    }
+
+    $initialized = true;
+}
+
+function ensureUsersArchiveColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'is_archived'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE users ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
     }
 
     $initialized = true;
@@ -99,11 +121,13 @@ function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
 
 function getDepartmentHeadTeachers($program = null) {
     ensureUsersTeacherSubroleColumn();
+    ensureUsersArchiveColumn();
 
     $sql = "SELECT user_id, full_name, email, program
             FROM users
             WHERE role = 'teacher'
               AND is_active = 1
+              AND is_archived = 0
               AND teacher_subrole = 'department_head'";
     $params = [];
 
@@ -234,9 +258,8 @@ function userHasDefaultPassword($userId) {
 
 /**
  * Get the full name of a user for consistent display
- * Format: First Name Last Name (without middle name)
- * For students: Uses first_name last_name from students table
- * For others: Extracts first and last from full_name in users table
+ * For students: Uses the stored first, middle, and last names
+ * For others: Returns the full_name value as entered
  */
 function getFormattedUserName($userId = null) {
     if ($userId === null && isset($_SESSION['user_id'])) {
@@ -250,28 +273,21 @@ function getFormattedUserName($userId = null) {
     // Check if user is a student and get their name from students table
     $role = $_SESSION['user_role'] ?? null;
     if ($role === 'student') {
-        $sql = "SELECT first_name, last_name FROM students WHERE user_id = ?";
+        $sql = "SELECT first_name, middle_name, last_name FROM students WHERE user_id = ?";
         $student = fetchOne($sql, [$userId]);
         if ($student) {
-            return $student['first_name'] . ' ' . $student['last_name'];
+            return trim(implode(' ', array_filter([
+                $student['first_name'],
+                $student['middle_name'] ?? null,
+                $student['last_name']
+            ], static fn($name) => trim((string)$name) !== '')));
         }
     }
-    
-    // For non-students, extract first and last name from full_name field
+
+    // Preserve middle names and initials for non-students as well.
     $user = getUserById($userId);
     if ($user && !empty($user['full_name'])) {
-        $nameParts = explode(' ', trim($user['full_name']));
-        
-        if (count($nameParts) === 1) {
-            // Single name, return as-is
-            return $nameParts[0];
-        } elseif (count($nameParts) === 2) {
-            // First and Last name
-            return $nameParts[0] . ' ' . $nameParts[1];
-        } else {
-            // Multiple names - take first and last, skip middle names
-            return $nameParts[0] . ' ' . end($nameParts);
-        }
+        return trim($user['full_name']);
     }
     
     return 'User';
@@ -460,8 +476,8 @@ function getAllCases($filters = []) {
     checkAndArchiveOldCases();
     ensureMinorEscalationSeenColumn();
     
-        $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-        CONCAT(s.first_name, ' ', s.last_name) as student_name,
+        $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id, s.grade_year, s.track_course,
+        CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name,
         (SELECT COUNT(*) FROM cases c2
          WHERE c2.student_id = c.student_id
            AND c2.severity = 'Minor'
@@ -557,7 +573,7 @@ function ensureMinorEscalationSeenColumn() {
 
 function getCaseById($caseId) {
     $sql = "SELECT c.*, s.first_name, s.last_name, s.student_id,
-            CONCAT(s.first_name, ' ', s.last_name) as student_name,
+            CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name,
             u.full_name as assigned_to_name
             FROM cases c
             LEFT JOIN students s ON c.student_id = s.student_id
@@ -569,7 +585,7 @@ function getCaseById($caseId) {
 
 function getRecentCases($limit = 5) {
     $sql = "SELECT c.*, s.first_name, s.last_name,
-            CONCAT(s.first_name, ' ', s.last_name) as student_name,
+            CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) as student_name,
             u.full_name as assigned_to_name
             FROM cases c
             LEFT JOIN students s ON c.student_id = s.student_id
@@ -581,11 +597,32 @@ function getRecentCases($limit = 5) {
     return fetchAll($sql, [$limit]);
 }
 
+function getCurrentCaseTerm() {
+    $today = date('Y-m-d');
+    $semesters = [
+        ['name' => 'first_semester', 'code' => '1T'],
+        ['name' => 'second_semester', 'code' => '2T'],
+    ];
+
+    foreach ($semesters as $semester) {
+        $dates = getAcademicTermDates($semester['name']);
+        if ($dates && $today >= $dates['start'] && $today <= $dates['end']) {
+            return $semester['code'];
+        }
+    }
+
+    return '1T';
+}
+
 function createCase($data) {
     // Generate new case ID
-    $lastCase = fetchOne("SELECT case_id FROM cases ORDER BY case_id DESC LIMIT 1");
-    $lastNum = $lastCase ? intval(substr($lastCase['case_id'], 2)) : 1000;
-    $newCaseId = 'C-' . ($lastNum + 1);
+    $casePrefix = date('Y') . '-' . getCurrentCaseTerm() . '-';
+    $lastCase = fetchOne(
+        "SELECT case_id FROM cases WHERE case_id LIKE ? ORDER BY case_id DESC LIMIT 1",
+        [$casePrefix . '%']
+    );
+    $lastNum = $lastCase ? intval(substr($lastCase['case_id'], strlen($casePrefix))) : 0;
+    $newCaseId = $casePrefix . str_pad((string)($lastNum + 1), 4, '0', STR_PAD_LEFT);
 
     // Check if student exists
     $studentId = $data['student_number'];

@@ -34,15 +34,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Check if user is using default password and set warning flag
             $_SESSION['has_default_password'] = userHasDefaultPassword($user['user_id']);
 
-            // Set display name - always use First Name Last Name format (without middle names)
+            // Set display name using the stored name components.
             if ($user['role'] === 'student') {
                 $pdo = getDBConnection();
                 if ($pdo) {
-                    $stmt = $pdo->prepare("SELECT first_name, last_name FROM students WHERE user_id = ?");
+                    $stmt = $pdo->prepare("SELECT first_name, middle_name, last_name FROM students WHERE user_id = ?");
                     $stmt->execute([$user['user_id']]);
                     $student = $stmt->fetch(PDO::FETCH_ASSOC);
                     if ($student) {
-                        $_SESSION['admin_name'] = $student['first_name'] . ' ' . $student['last_name'];
+                        $_SESSION['admin_name'] = trim(implode(' ', array_filter([$student['first_name'], $student['middle_name'] ?? null, $student['last_name']], static fn($name) => trim((string)$name) !== '')));
                     } else {
                         $_SESSION['admin_name'] = $user['full_name'];
                     }
@@ -50,15 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['admin_name'] = $user['full_name'];
                 }
             } else {
-                // Extract first and last name from full_name (skip middle names)
-                $nameParts = explode(' ', trim($user['full_name']));
-                if (count($nameParts) === 1) {
-                    $_SESSION['admin_name'] = $nameParts[0];
-                } elseif (count($nameParts) === 2) {
-                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . $nameParts[1];
-                } else {
-                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . end($nameParts);
-                }
+                $_SESSION['admin_name'] = trim($user['full_name']);
             }
             
             $_SESSION['last_activity'] = time();

@@ -20,9 +20,9 @@ else if (!empty($_SESSION['user_id'])) {
         
         // Query directly from database
         if ($userRole === 'student') {
-            $student = fetchOne("SELECT first_name, last_name FROM students WHERE user_id = ? LIMIT 1", [$userId]);
+            $student = fetchOne("SELECT first_name, middle_name, last_name FROM students WHERE user_id = ? LIMIT 1", [$userId]);
             if ($student && !empty($student['first_name'])) {
-                $adminName = $student['first_name'] . ' ' . $student['last_name'];
+                $adminName = trim(implode(' ', array_filter([$student['first_name'], $student['middle_name'] ?? null, $student['last_name']], static fn($name) => trim((string)$name) !== '')));
             }
         } else {
             $user = fetchOne("SELECT full_name FROM users WHERE user_id = ? LIMIT 1", [$userId]);
@@ -87,7 +87,7 @@ function fetchIncidentData($p) {
     if (!empty($p['status']))      { $where .= " AND c.status = ?";         $params[] = $p['status']; }
 
     $cases = fetchAll("SELECT c.*,
-        CONCAT(s.first_name,' ',s.last_name) AS student_name,
+        CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name,
         s.student_id AS student_number, s.grade_year, s.track_course,
         ub.full_name AS reported_by_name, ua.full_name AS assigned_to_name
         FROM cases c
@@ -134,6 +134,10 @@ function fetchStatisticsData($p) {
             $params[] = $termDates['start'];
             $params[] = $termDates['end'];
         }
+    } elseif ($dateRange === 'custom' && !empty($p['dateFrom']) && !empty($p['dateTo'])) {
+        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+        $params[] = $p['dateFrom'];
+        $params[] = $p['dateTo'];
     }
     
     if ($year) {
@@ -164,7 +168,7 @@ function fetchStatisticsData($p) {
         'byGrade'         => fetchAll("SELECT s.grade_year, COUNT(*) AS count $joins $where AND s.grade_year IS NOT NULL GROUP BY s.grade_year ORDER BY s.grade_year", $params),
         'byStatus'        => fetchAll("SELECT c.status, COUNT(*) AS count $joins $where GROUP BY c.status", $params),
         'totals'          => fetchOne("SELECT COUNT(*) AS total, SUM(CASE WHEN c.severity='Major' THEN 1 ELSE 0 END) AS major, SUM(CASE WHEN c.severity='Minor' THEN 1 ELSE 0 END) AS minor, SUM(CASE WHEN c.status='Resolved' THEN 1 ELSE 0 END) AS resolved $joins $where", $params),
-        'repeatOffenders' => fetchAll("SELECT s.student_id, CONCAT(s.first_name,' ',s.last_name) AS name, s.grade_year, s.track_course, COUNT(c.case_id) AS offense_count $joins $where GROUP BY s.student_id, s.first_name, s.last_name, s.grade_year, s.track_course HAVING COUNT(c.case_id) > 1 ORDER BY offense_count DESC", $params),
+        'repeatOffenders' => fetchAll("SELECT s.student_id, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS name, s.grade_year, s.track_course, COUNT(c.case_id) AS offense_count $joins $where GROUP BY s.student_id, s.first_name, s.middle_name, s.last_name, s.grade_year, s.track_course HAVING COUNT(c.case_id) > 1 ORDER BY offense_count DESC", $params),
         'filters'         => $p];
 }
 

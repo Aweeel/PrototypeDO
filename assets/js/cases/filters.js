@@ -5,6 +5,7 @@ let activeFilters = {
     offenseType: '',
     caseType: '',
     status: '',
+    semester: '',
     dateFrom: '',
     dateTo: ''
 };
@@ -122,6 +123,10 @@ function applyClientSideFilters() {
     // Apply status filter
     if (activeFilters.status) {
         filteredCases = filteredCases.filter(c => c.status === activeFilters.status);
+    }
+
+    if (activeFilters.semester) {
+        filteredCases = filteredCases.filter(c => c.semester === activeFilters.semester);
     }
     
     // Apply date range filter

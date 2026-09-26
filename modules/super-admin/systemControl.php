@@ -43,7 +43,7 @@ try {
             $message = 'Academic and announcement settings saved.';
         } elseif ($action === 'archive_preview') {
             $days = (int)getSystemSetting('archive_after_days', 30);
-            $archivePreview = fetchAll("SELECT c.case_id, c.status, c.resolved_date, CONCAT(s.first_name, ' ', s.last_name) AS student_name FROM cases c LEFT JOIN students s ON s.student_id = c.student_id WHERE c.is_archived = 0 AND c.status IN ('Resolved', 'Dismissed') AND c.resolved_date IS NOT NULL AND c.resolved_date <= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY) ORDER BY c.resolved_date ASC LIMIT 100", [$days]);
+            $archivePreview = fetchAll("SELECT c.case_id, c.status, c.resolved_date, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name FROM cases c LEFT JOIN students s ON s.student_id = c.student_id WHERE c.is_archived = 0 AND c.status IN ('Resolved', 'Dismissed') AND c.resolved_date IS NOT NULL AND c.resolved_date <= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY) ORDER BY c.resolved_date ASC LIMIT 100", [$days]);
             $message = 'Dry run found ' . count($archivePreview) . ' eligible records' . (count($archivePreview) === 100 ? ' (showing the first 100).' : '.');
         } elseif ($action === 'archive_now') {
             $stmt = executeQuery("UPDATE cases SET is_archived = 1, archived_at = NOW() WHERE is_archived = 0 AND status IN ('Resolved', 'Dismissed') AND resolved_date IS NOT NULL AND resolved_date <= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)", [(int)getSystemSetting('archive_after_days', 30)]);

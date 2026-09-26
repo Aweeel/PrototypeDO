@@ -96,7 +96,7 @@ async function addCase() {
       const student = await lookupStudentByNumber(studentNumber);
 
       if (student) {
-        nameInput.value = `${student.first_name} ${student.last_name}`;
+        nameInput.value = student.full_name;
         nameInput.readOnly = true;
         nameInput.className =
           "w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100 cursor-not-allowed";

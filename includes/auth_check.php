@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/functions.php';
+ensureUsersArchiveColumn();
 
 // Prevent caching so back button won't load protected page
 header("Cache-Control: no-cache, no-store, must-revalidate");
@@ -22,7 +23,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $pdo = getDBConnection();
     if ($pdo) {
         // Find user by token
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CURRENT_TIMESTAMP");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CURRENT_TIMESTAMP AND COALESCE(is_archived, 0) = 0");
         $stmt->execute([$tokenHash]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -48,23 +49,16 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             
             // Set display name - same logic as login handler
             if ($user['role'] === 'student') {
-                $stmt = $pdo->prepare("SELECT first_name, last_name FROM students WHERE user_id = ?");
+                $stmt = $pdo->prepare("SELECT first_name, middle_name, last_name FROM students WHERE user_id = ?");
                 $stmt->execute([$user['user_id']]);
                 $student = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($student) {
-                    $_SESSION['admin_name'] = $student['first_name'] . ' ' . $student['last_name'];
+                    $_SESSION['admin_name'] = trim(implode(' ', array_filter([$student['first_name'], $student['middle_name'] ?? null, $student['last_name']], static fn($name) => trim((string)$name) !== '')));
                 } else {
                     $_SESSION['admin_name'] = $user['full_name'];
                 }
             } else {
-                $nameParts = explode(' ', trim($user['full_name']));
-                if (count($nameParts) === 1) {
-                    $_SESSION['admin_name'] = $nameParts[0];
-                } elseif (count($nameParts) === 2) {
-                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . $nameParts[1];
-                } else {
-                    $_SESSION['admin_name'] = $nameParts[0] . ' ' . end($nameParts);
-                }
+                $_SESSION['admin_name'] = trim($user['full_name']);
             }
             
             // Update last login

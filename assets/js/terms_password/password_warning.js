@@ -1,24 +1,3 @@
-// Mark the password warning modal as shown in this login session
-async function markPasswordWarningAsShown() {
-    try {
-        const formData = new FormData();
-        formData.append('ajax', '1');
-        formData.append('action', 'markPasswordWarningShown');
-
-        await fetch(window.location.pathname, {
-            method: 'POST',
-            body: formData
-        });
-    } catch (error) {
-        console.error('Error marking password warning as shown:', error);
-    }
-}
-
-// Mark as shown when modal first appears
-window.addEventListener('DOMContentLoaded', function() {
-    markPasswordWarningAsShown();
-});
-
 function closePasswordWarningModal() {
     const modal = document.getElementById('passwordWarningModal');
     if (modal) {

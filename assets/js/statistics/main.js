@@ -113,6 +113,43 @@ function updateAllCharts() {
     updateMonthlyTrends();
 }
 
+function getCustomDateRange() {
+    return {
+        startDate: document.getElementById('customStartDate')?.value || '',
+        endDate: document.getElementById('customEndDate')?.value || ''
+    };
+}
+
+function appendDateRange(formData, dateRange) {
+    formData.append('dateRange', dateRange);
+
+    if (dateRange === 'custom') {
+        const { startDate, endDate } = getCustomDateRange();
+        formData.append('startDate', startDate);
+        formData.append('endDate', endDate);
+    }
+}
+
+function handleDateRangeChange() {
+    const isCustom = document.getElementById('dateRangeFilter').value === 'custom';
+    document.getElementById('customDateRange').classList.toggle('hidden', !isCustom);
+
+    if (!isCustom || isCustomDateRangeComplete()) {
+        updateAllCharts();
+    }
+}
+
+function isCustomDateRangeComplete() {
+    const { startDate, endDate } = getCustomDateRange();
+    return Boolean(startDate && endDate && startDate <= endDate);
+}
+
+function handleCustomDateChange() {
+    if (isCustomDateRangeComplete()) {
+        updateAllCharts();
+    }
+}
+
 // Update statistics cards
 async function updateStatistics() {
     const dateRange = document.getElementById('dateRangeFilter').value;
@@ -126,7 +163,7 @@ async function updateStatistics() {
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', 'getStatistics');
-        formData.append('dateRange', dateRange);
+        appendDateRange(formData, dateRange);
         formData.append('gradeLevel', gradeLevel);
         formData.append('yearLevel', yearLevel);
         formData.append('strand', strand);
@@ -159,7 +196,10 @@ async function initializeCasesByTypeChart() {
         const strand = document.getElementById('strandFilter').value;
         const course = document.getElementById('courseFilter').value;
         const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
-        const dateRange = document.getElementById('casesByTypeDateRangeFilter').value;
+        const selectedDateRange = document.getElementById('dateRangeFilter').value;
+        const dateRange = selectedDateRange === 'custom'
+            ? selectedDateRange
+            : document.getElementById('casesByTypeDateRangeFilter').value;
         
         const formData = new FormData();
         formData.append('ajax', '1');
@@ -169,7 +209,7 @@ async function initializeCasesByTypeChart() {
         formData.append('strand', strand);
         formData.append('course', course);
         formData.append('offenseType', offenseType);
-        formData.append('dateRange', dateRange);
+        appendDateRange(formData, dateRange);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -261,6 +301,7 @@ async function initializeCasesByGradeChart() {
         formData.append('course', course);
         formData.append('offenseType', offenseType);
         formData.append('groupBy', groupBy);
+        appendDateRange(formData, document.getElementById('dateRangeFilter').value);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -347,6 +388,7 @@ async function updateMonthlyTrends() {
         formData.append('strand', strand);
         formData.append('course', course);
         formData.append('offenseType', offenseType);
+        appendDateRange(formData, document.getElementById('dateRangeFilter').value);
         
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -431,10 +473,15 @@ function exportStatistics() {
     const strand = document.getElementById('strandFilter')?.value || '';
     const course = document.getElementById('courseFilter')?.value || '';
     const offenseType = document.getElementById('offenseTypeFilter')?.value || '';
+    const { startDate, endDate } = getCustomDateRange();
     
     // Build query string for reports.php
     const params = new URLSearchParams();
     params.append('dateRange', dateRange);
+    if (dateRange === 'custom' && startDate && endDate) {
+        params.append('dateFrom', startDate);
+        params.append('dateTo', endDate);
+    }
     if (gradeLevel) params.append('gradeLevel', gradeLevel);
     if (yearLevel) params.append('yearLevel', yearLevel);
     if (strand) params.append('strand', strand);

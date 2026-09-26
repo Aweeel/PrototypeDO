@@ -14,6 +14,9 @@ if (!$showPasswordWarning) {
     return;
 }
 
+// Persist the display state before sending the page so navigation cannot show it again.
+$_SESSION['password_warning_modal_shown'] = true;
+
 ?>
 
 <!-- Default Password Warning Modal -->

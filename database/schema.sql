@@ -34,6 +34,7 @@ CREATE TABLE users (
     role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number VARCHAR(20),
     is_active TINYINT(1) DEFAULT 1,
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
     last_login DATETIME,
     remember_token VARCHAR(64) NULL,
     remember_token_expiry DATETIME NULL,
@@ -646,91 +647,111 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes, resolved_date)
 VALUES 
 -- PENDING CASES (10)
-('C-2026001', '02000000001', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2026-01-15', '08:30:00', 'Building A - Room 202', 3, 2, 
+('2026-1T-0001', '02000000001', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Pending', '2026-01-15', '08:30:00', 'Building A - Room 202', 3, 2, 
  'Student arrived 20 minutes late to morning class without valid excuse.', 'Class teacher - Maria Santos', NULL, 'First offense this semester. Parent contact pending.', NULL),
-('C-2026002', '02000000005', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Pending', '2026-01-18', '07:45:00', 'Main Gate Entrance', 4, 2, 
+('2026-1T-0002', '02000000005', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Pending', '2026-01-18', '07:45:00', 'Main Gate Entrance', 4, 2, 
  'Student wearing improper footwear (sneakers instead of black shoes).', 'Security guard - Carlos Dela Cruz', NULL, 'Violation noted. Awaiting parent conference.', NULL),
-('C-2026003', '02000000010', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Pending', '2026-01-22', '07:30:00', 'Main Gate', 4, 2, 
+('2026-1T-0003', '02000000010', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Pending', '2026-01-22', '07:30:00', 'Main Gate', 4, 2, 
  'Third time forgetting ID this semester. Required temporary pass to enter campus.', 'Security guard on duty', NULL, 'Pattern of negligence. Corrective action required.', NULL),
-('C-2026004', '02000000015', 8, 'Classroom Disruption', 'Minor', NULL, 'Pending', '2026-01-25', '10:15:00', 'Room B-203', 3, 2, 
+('2026-1T-0004', '02000000015', 8, 'Classroom Disruption', 'Minor', NULL, 'Pending', '2026-01-25', '10:15:00', 'Room B-203', 3, 2, 
  'Repeatedly talking during lecture despite multiple warnings from instructor.', 'Teacher and classmates (4 students)', NULL, 'Disruptive behavior affecting class learning.', NULL),
-('C-2026005', '02000000022', 17, 'Cheating', 'Major', 'Category A', 'Pending', '2026-02-01', '14:00:00', 'Room C-305', 3, 2, 
+('2026-1T-0005', '02000000022', 17, 'Cheating', 'Major', 'Category A', 'Pending', '2026-02-01', '14:00:00', 'Room C-305', 3, 2, 
  'Student caught with unauthorized notes during Business Law quiz.', 'Exam proctor - Maria Santos', NULL, 'Evidence collected. Investigation pending.', NULL),
-('C-2026006', '02000000008', 11, 'Public Display of Affection', 'Minor', NULL, 'Pending', '2026-02-05', '12:30:00', 'Canteen Area', 3, 2, 
+('2026-1T-0006', '02000000008', 11, 'Public Display of Affection', 'Minor', NULL, 'Pending', '2026-02-05', '12:30:00', 'Canteen Area', 3, 2, 
  'Inappropriate public display of affection observed during lunch break.', 'Teacher on duty', NULL, 'Students identified. Conference scheduled.', NULL),
-('C-2026007', '02000000018', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Pending', '2026-02-08', '16:00:00', 'Parking Lot Area', 4, 2, 
+('2026-1T-0007', '02000000018', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Pending', '2026-02-08', '16:00:00', 'Parking Lot Area', 4, 2, 
  'Student observed vaping in campus parking area after classes.', 'Security personnel', NULL, 'Vape device confiscated. Serious violation.', NULL),
-('C-2026008', '02000000025', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Pending', '2026-02-12', '09:00:00', 'Reported Online', 3, 2, 
+('2026-1T-0008', '02000000025', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Pending', '2026-02-12', '09:00:00', 'Reported Online', 3, 2, 
  'Student posted offensive remarks about classmate on social media. Screenshots provided.', 'Victim and 3 witnesses', NULL, 'Investigation ongoing. Digital evidence collected.', NULL),
-('C-2026009', '02000000012', 3, 'Inappropriate Campus Attire', 'Minor', NULL, 'Pending', '2026-02-14', '08:00:00', 'Main Building Lobby', 4, 2, 
+('2026-1T-0009', '02000000012', 3, 'Inappropriate Campus Attire', 'Minor', NULL, 'Pending', '2026-02-14', '08:00:00', 'Main Building Lobby', 4, 2, 
  'Wearing inappropriate clothing on wash day (tank top and shorts).', 'Security guard', NULL, 'Dress code violation. First offense.', NULL),
-('C-2026010', '02000000020', 13, 'Lending/Borrowing ID', 'Major', 'Category A', 'Pending', '2026-02-18', '07:50:00', 'Main Gate', 4, 2, 
+('2026-1T-0010', '02000000020', 13, 'Lending/Borrowing ID', 'Major', 'Category A', 'Pending', '2026-02-18', '07:50:00', 'Main Gate', 4, 2, 
  'Student caught using another student''s ID to enter campus.', 'Security team', NULL, 'Serious policy violation. Both students identified.', NULL),
 
 -- ON GOING CASES (10)
-('C-2026011', '02000000003', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'On Going', '2026-01-10', '08:45:00', 'Building C - Room 301', 3, 2, 
+('2026-1T-0011', '02000000003', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'On Going', '2026-01-10', '08:45:00', 'Building C - Room 301', 3, 2, 
  'Multiple tardiness incidents. Fourth occurrence this month.', 'Subject teacher', 'Parent conference scheduled for next week', 'Pattern of behavior noted. Monitoring progress.', NULL),
-('C-2026012', '02000000007', 8, 'Classroom Disruption', 'Minor', NULL, 'On Going', '2026-01-14', '13:30:00', 'Computer Lab 2', 3, 2, 
+('2026-1T-0012', '02000000007', 8, 'Classroom Disruption', 'Minor', NULL, 'On Going', '2026-01-14', '13:30:00', 'Computer Lab 2', 3, 2, 
  'Playing games during computer class instead of following lesson.', 'Lab instructor + student witnesses', 'Written warning issued. Counseling in progress', 'Second offense. Behavioral intervention ongoing.', NULL),
-('C-2026013', '02000000016', 17, 'Cheating', 'Major', 'Category A', 'On Going', '2026-01-20', '15:00:00', 'Room A-405', 3, 2, 
+('2026-1T-0013', '02000000016', 17, 'Cheating', 'Major', 'Category A', 'On Going', '2026-01-20', '15:00:00', 'Room A-405', 3, 2, 
  'Copying answers from classmate during Programming exam.', 'Exam proctor and nearby students', 'Exam paper confiscated. Case under review', 'Investigating full extent of academic dishonesty.', NULL),
-('C-2026014', '02000000021', 19, 'Vandalism', 'Major', 'Category B', 'On Going', '2026-01-28', '17:00:00', 'Boys Restroom - 2nd Floor', 4, 2, 
+('2026-1T-0014', '02000000021', 19, 'Vandalism', 'Major', 'Category B', 'On Going', '2026-01-28', '17:00:00', 'Boys Restroom - 2nd Floor', 4, 2, 
  'Graffiti found on restroom walls. Security footage identified student.', 'Janitor and security personnel', 'Student admitted offense. Restitution plan being prepared', 'To pay for cleaning and perform community service.', NULL),
-('C-2026015', '02000000013', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'On Going', '2026-02-02', '07:40:00', 'Main Entrance', 4, 2, 
+('2026-1T-0015', '02000000013', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'On Going', '2026-02-02', '07:40:00', 'Main Entrance', 4, 2, 
  'Repeated uniform violations - wearing casual jacket over uniform.', 'Security guard', 'Student counseled. Monitoring compliance', 'Third violation. Escalation to parents needed.', NULL),
-('C-2026016', '02000000026', 24, 'Use of Profane Language', 'Major', 'Category B', 'On Going', '2026-02-06', '11:30:00', 'Hallway - Building B', 3, 2, 
+('2026-1T-0016', '02000000026', 24, 'Use of Profane Language', 'Major', 'Category B', 'On Going', '2026-02-06', '11:30:00', 'Hallway - Building B', 3, 2, 
  'Student used profane and insulting language towards another student during argument.', 'Multiple students (5 witnesses)', 'Both parties interviewed. Mediation scheduled', 'Requires conflict resolution intervention.', NULL),
-('C-2026017', '02000000009', 10, 'Bringing Pets', 'Minor', NULL, 'On Going', '2026-02-10', '08:15:00', 'Student Parking', 4, 2, 
+('2026-1T-0017', '02000000009', 10, 'Bringing Pets', 'Minor', NULL, 'On Going', '2026-02-10', '08:15:00', 'Student Parking', 4, 2, 
  'Student brought pet cat to campus. Found in student locker area.', 'Security and students', 'Pet removed. Parent contacted to retrieve animal', 'Student claims forgot pet was in bag.', NULL),
-('C-2026018', '02000000023', 18, 'Plagiarism', 'Major', 'Category A', 'On Going', '2026-02-15', '10:00:00', 'Library - Research Area', 3, 2, 
+('2026-1T-0018', '02000000023', 18, 'Plagiarism', 'Major', 'Category A', 'On Going', '2026-02-15', '10:00:00', 'Library - Research Area', 3, 2, 
  'Major project submitted with plagiarized content. Similarity check confirmed.', 'Subject teacher', 'Student being interviewed. Sources being verified', 'Academic integrity violation under investigation.', NULL),
-('C-2026019', '02000000011', 6, 'Improper Use of School Property', 'Minor', NULL, 'On Going', '2026-02-17', '14:30:00', 'Gym Equipment Room', 3, 2, 
+('2026-1T-0019', '02000000011', 6, 'Improper Use of School Property', 'Minor', NULL, 'On Going', '2026-02-17', '14:30:00', 'Gym Equipment Room', 3, 2, 
  'Using gym equipment without authorization and leaving equipment damaged.', 'PE teacher', 'Student to repair/replace damaged equipment', 'Assessing extent of damage and responsibility.', NULL),
-('C-2026020', '02000000027', 16, 'Allowing Non-STI Entry', 'Major', 'Category A', 'On Going', '2026-02-20', '12:00:00', 'Campus Gate B', 4, 2, 
+('2026-1T-0020', '02000000027', 16, 'Allowing Non-STI Entry', 'Major', 'Category A', 'On Going', '2026-02-20', '12:00:00', 'Campus Gate B', 4, 2, 
  'Student allowed unauthorized person to enter campus using student ID.', 'Security personnel', 'Investigation ongoing. Reviewing security footage', 'Security breach. Determining appropriate sanction.', NULL),
 
 -- RESOLVED CASES (10)
-('C-2026021', '02000000002', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-01-08', '08:20:00', 'Room A-101', 3, 2, 
+('2026-1T-0021', '02000000002', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-01-08', '08:20:00', 'Room A-101', 3, 2, 
  'Student late to first period class.', 'Class teacher', 'Verbal warning issued', 'Student apologized. No repeat incidents.', '2026-01-08'),
-('C-2026022', '02000000006', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2026-01-12', '07:50:00', 'Main Gate', 4, 2, 
+('2026-1T-0022', '02000000006', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2026-01-12', '07:50:00', 'Main Gate', 4, 2, 
  'Missing school ID lanyard. Wearing ID in pocket instead.', 'Security guard', 'Written reprimand. Student complied immediately', 'Issue resolved. Student purchased new lanyard.', '2026-01-12'),
-('C-2026023', '02000000014', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2026-01-16', '11:00:00', 'Room B-205', 3, 2, 
+('2026-1T-0023', '02000000014', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2026-01-16', '11:00:00', 'Room B-205', 3, 2, 
  'Using mobile phone during class time.', 'Subject teacher', 'Phone confiscated and returned after class', 'Student acknowledged violation. Committed to improvement.', '2026-01-16'),
-('C-2026024', '02000000019', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2026-01-24', '15:30:00', 'Campus Garden', 3, 2, 
+('2026-1T-0024', '02000000019', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2026-01-24', '15:30:00', 'Campus Garden', 3, 2, 
  'Holding hands and hugging in public areas beyond appropriate behavior.', 'Teacher on duty', 'Counseling session conducted with both students', 'Students understood policies. No further incidents.', '2026-01-25'),
-('C-2026025', '02000000004', 5, 'Disrespect to National Symbols', 'Minor', NULL, 'Resolved', '2026-01-30', '07:00:00', 'Flag Ceremony Area', 3, 2, 
+('2026-1T-0025', '02000000004', 5, 'Disrespect to National Symbols', 'Minor', NULL, 'Resolved', '2026-01-30', '07:00:00', 'Flag Ceremony Area', 3, 2, 
  'Not standing properly during flag ceremony. Talking during national anthem.', 'Multiple teachers', 'Student counseled on civic responsibility', 'Student apologized. Attended values education session.', '2026-01-30'),
-('C-2026026', '02000000017', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-02-03', '09:00:00', 'Corridor Building A', 3, 2, 
+('2026-1T-0026', '02000000017', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-02-03', '09:00:00', 'Corridor Building A', 3, 2, 
  'Running in hallways during class hours.', 'Teacher on duty', 'Verbal warning given', 'Student complied. Safety rules explained.', '2026-02-03'),
-('C-2026027', '02000000024', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2026-02-07', '10:45:00', 'Science Laboratory', 3, 2, 
+('2026-1T-0027', '02000000024', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2026-02-07', '10:45:00', 'Science Laboratory', 3, 2, 
  'Horseplay during lab experiment causing minor disturbance.', 'Lab teacher and classmates', 'Student reprimanded. Safety protocols reviewed', 'No damage occurred. Behavior corrected.', '2026-02-07'),
-('C-2026028', '02000000028', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2026-02-11', '07:55:00', 'Campus Entrance', 4, 2, 
+('2026-1T-0028', '02000000028', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2026-02-11', '07:55:00', 'Campus Entrance', 4, 2, 
  'Wearing colored socks instead of regulation white socks.', 'Security guard', 'Student borrowed proper socks from office', 'Minor violation. Corrected immediately.', '2026-02-11'),
-('C-2026029', '02000000029', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-02-16', '08:10:00', 'Room C-202', 3, 2, 
+('2026-1T-0029', '02000000029', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2026-02-16', '08:10:00', 'Room C-202', 3, 2, 
  'Sleeping during class session.', 'Subject teacher', 'Student woken and counseled', 'Medical issue ruled out. Student committed to stay alert.', '2026-02-16'),
-('C-2026030', '02000000030', 6, 'Improper Use of School Property', 'Minor', NULL, 'Resolved', '2026-02-19', '13:00:00', 'Library', 3, 2, 
+('2026-1T-0030', '02000000030', 6, 'Improper Use of School Property', 'Minor', NULL, 'Resolved', '2026-02-19', '13:00:00', 'Library', 3, 2, 
  'Left library books on table instead of returning to proper shelf.', 'Librarian', 'Student reminded of library rules', 'Student apologized and returned books properly.', '2026-02-19'),
 
+-- MISSING COURSE COVERAGE CASES (9 total - one for each previously unrepresented course)
+('2026-1T-0031', '02000000031', 8, 'Classroom Disruption', 'Minor', NULL, 'Pending', '2026-03-03', '09:15:00', 'BSA Seminar Room', 3, 2,
+ 'Student was repeatedly using a phone during a guest lecture and ignored the instructor''s reminders.', 'Faculty coordinator and classmates', NULL, 'Issue documented for first semester monitoring.', NULL),
+('2026-1T-0032', '02000000032', 17, 'Cheating', 'Major', 'Category A', 'On Going', '2026-03-05', '13:45:00', 'Room BSMA-212', 3, 2,
+ 'Student was seen copying answers from a classmate during a management case analysis quiz.', 'Quiz proctor and witness student', 'Answer sheet confiscated and investigation ongoing', 'Academic integrity violation under review.', NULL),
+('2026-1T-0033', '02000000033', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Recorded', '2026-03-08', '08:10:00', 'Hospitality Lab', 3, 2,
+ 'Student arrived late without valid excuse during practical kitchen orientation.', 'Supervisor and classmates', 'Verbal warning issued', 'Student has been reminded to comply with punctuality rules.', '2026-03-08'),
+('2026-1T-0034', '02000000034', 11, 'Public Display of Affection', 'Minor', NULL, 'Pending', '2026-03-10', '12:40:00', 'Student Lounge', 3, 2,
+ 'Students were observed engaging in inappropriate affectionate behavior in a common area.', 'Teacher on duty', NULL, 'Counseling is pending parent notification.', NULL),
+('2026-1T-0035', '02000000035', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'On Going', '2026-03-12', '16:20:00', 'Engineering Building Gate', 4, 2,
+ 'Student was observed vaping near the engineering building after class hours.', 'Security guard on posted duty', 'Confiscated item and student was brought to DO office', 'The case is still under administrative review.', NULL),
+('2026-1T-0036', '02000000036', 10, 'Bringing Pets', 'Minor', NULL, 'Unrecorded', '2026-03-14', '08:45:00', 'Communication Arts Lobby', 4, 2,
+ 'Student brought a small dog to campus in a carrier, causing concern among campus staff.', 'Security guard', 'Pet was removed and parent was contacted', 'Student was advised on policy compliance.', '2026-03-14'),
+('2026-1T-0037', '02000000037', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Pending', '2026-03-15', '09:55:00', 'Reported Online', 3, 2,
+ 'Student posted insulting comments about a classmate in a social media group chat.', 'Victim and peer witnesses', NULL, 'Digital evidence is under documentation and review.', NULL),
+('2026-1T-0038', '02000000038', 5, 'Disrespect to National Symbols', 'Minor', NULL, 'Recorded', '2026-03-17', '07:20:00', 'Flag Ceremony Area', 3, 2,
+ 'Student was inattentive and talking during the flag ceremony while the anthem was playing.', 'Program adviser', 'Student was reminded of civic values', 'Case closed after a brief remediation session.', '2026-03-17'),
+('2026-1T-0039', '02000000039', 16, 'Allowing Non-STI Entry', 'Major', 'Category A', 'Pending', '2026-03-19', '18:05:00', 'Campus Gate B', 4, 2,
+ 'Student allowed an unregistered visitor to pass through the gate using the student''s credentials.', 'Security team', NULL, 'Investigation continues with CCTV review.', NULL),
+
 -- 2025 CASES (10 - Previous Year Cases)
-('C-2025001', '02000000001', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2025-03-15', '08:15:00', 'Building A - Room 201', 3, 2, 
+('2025-1T-0001', '02000000001', 1, 'Non-adherence to Student Decorum', 'Minor', NULL, 'Resolved', '2025-03-15', '08:15:00', 'Building A - Room 201', 3, 2, 
  'Student arrived 15 minutes late to first period class without valid excuse.', 'Class teacher - Maria Santos', 'Verbal warning issued', 'First offense for this semester. Student apologized and committed to punctuality.', '2025-03-15'),
-('C-2025002', '02000000005', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2025-04-20', '07:45:00', 'Main Gate Entrance', 4, 2, 
+('2025-1T-0002', '02000000005', 2, 'Non-wearing of School Uniform', 'Minor', NULL, 'Resolved', '2025-04-20', '07:45:00', 'Main Gate Entrance', 4, 2, 
  'Student entered campus wearing casual clothes (jeans and t-shirt) instead of proper uniform.', 'Security guard - Carlos Dela Cruz', 'Written reprimand issued, student changed to proper uniform', 'Student claimed uniform was being washed. Parent notified.', '2025-04-20'),
-('C-2025003', '02000000016', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2025-05-10', '10:30:00', 'Computer Laboratory 3', 3, 2, 
+('2025-1T-0003', '02000000016', 8, 'Classroom Disruption', 'Minor', NULL, 'Resolved', '2025-05-10', '10:30:00', 'Computer Laboratory 3', 3, 2, 
  'Student was repeatedly talking and laughing loudly during programming class, disturbing other students.', 'Teacher: Maria Santos; Classmates: 3 students', 'Student conference held. Written warning issued', 'Multiple warnings given during class. Behavior improved after conference.', '2025-05-12'),
-('C-2025004', '02000000022', 17, 'Cheating', 'Major', 'Category A', 'Resolved', '2025-06-14', '14:00:00', 'Room B-305', 3, 2, 
+('2025-1T-0004', '02000000022', 17, 'Cheating', 'Major', 'Category A', 'Resolved', '2025-06-14', '14:00:00', 'Room B-305', 3, 2, 
  'Student caught with written notes hidden in calculator case during Business Mathematics midterm exam.', 'Proctor: Maria Santos; Student seated nearby: 2 witnesses', 'Exam grade forfeited. 3-day corrective reinforcement applied', 'Major offense documented. Parent conference held. Student completed sanction.', '2025-06-20'),
-('C-2025005', '02000000009', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Resolved', '2025-07-01', '07:30:00', 'Main Gate', 4, 2, 
+('2025-1T-0005', '02000000009', 4, 'Losing/Forgetting ID', 'Minor', NULL, 'Resolved', '2025-07-01', '07:30:00', 'Main Gate', 4, 2, 
  'Student forgot ID for the third time this semester. Unable to enter campus without temporary pass.', 'Security guard on duty', 'Written warning issued. Temporary ID provided', 'Third occurrence. Student advised on responsibility. No further incidents.', '2025-07-01'),
-('C-2025006', '02000000008', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Resolved', '2025-08-10', '12:15:00', 'Behind Gymnasium', 4, 2, 
+('2025-1T-0006', '02000000008', 14, 'Smoking/Vaping on Campus', 'Major', 'Category A', 'Resolved', '2025-08-10', '12:15:00', 'Behind Gymnasium', 4, 2, 
  'Student caught smoking cigarettes in restricted area behind the gymnasium during lunch break.', 'Security guard + 1 janitor', 'Student brought to DO office, cigarettes confiscated. 7-day suspension applied', 'Student admitted to offense. Parent contacted immediately. Suspension completed. Under watch.', '2025-08-20'),
-('C-2025007', '02000000017', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2025-09-20', '16:45:00', 'Student Lounge', 3, 2, 
+('2025-1T-0007', '02000000017', 11, 'Public Display of Affection', 'Minor', NULL, 'Resolved', '2025-09-20', '16:45:00', 'Student Lounge', 3, 2, 
  'Students engaged in inappropriate public display of affection (prolonged embrace and kissing) in student common area.', 'Teacher on duty + 5 students present', 'Verbal warning, counseling session conducted', 'Both students counseled on appropriate campus behavior. First offense.', '2025-09-20'),
-('C-2025008', '02000000003', 19, 'Vandalism', 'Major', 'Category B', 'Resolved', '2025-10-02', '17:30:00', 'Restroom - 3rd Floor Building C', 4, 2, 
+('2025-1T-0008', '02000000003', 19, 'Vandalism', 'Major', 'Category B', 'Resolved', '2025-10-02', '17:30:00', 'Restroom - 3rd Floor Building C', 4, 2, 
  'Student caught spray painting graffiti on restroom walls. Security footage confirmed identity.', 'Security personnel, janitor who discovered vandalism', 'Student questioned, admitted to offense. Community service completed', 'Student paid for repainting costs and performed 20 hours community service. Parent meeting held.', '2025-10-15'),
-('C-2025009', '02000000024', 10, 'Bringing Pets', 'Minor', NULL, 'Resolved', '2025-11-15', '08:00:00', 'Parking Area', 4, 2, 
+('2025-1T-0009', '02000000024', 10, 'Bringing Pets', 'Minor', NULL, 'Resolved', '2025-11-15', '08:00:00', 'Parking Area', 4, 2, 
  'Student brought a small dog to campus in backpack. Animal was discovered during routine inspection.', 'Security guard at entrance', 'Pet removed from campus, parent called to pick up animal', 'Student unaware of policy. Educational discussion conducted. No malicious intent.', '2025-11-15'),
-('C-2025010', '02000000021', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Resolved', '2025-12-01', '09:00:00', 'Reported online, investigated in DO Office', 3, 2, 
+('2025-1T-0010', '02000000021', 20, 'Cyberbullying/Defamation', 'Major', 'Category B', 'Resolved', '2025-12-01', '09:00:00', 'Reported online, investigated in DO Office', 3, 2, 
  'Student posted derogatory and insulting comments about a classmate on social media group. Screenshots provided as evidence.', 'Victim student + 3 classmates who witnessed posts', 'Investigation completed. Mediation held. 5-day suspension applied', 'Serious case. Both students and parents called for mediation. Student completed suspension and apologized.', '2025-12-10');
 
 -- Minor cases use recording status instead of the major-case workflow statuses.
@@ -769,26 +790,26 @@ FROM cases;
 -- ============================================
 INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description)
 VALUES 
-('LF-1001', 'Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
-('LF-1002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle 500ml'),
-('LF-1003', 'Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
-('LF-1004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991'),
-('LF-1005', 'Mobile Phone', 'Electronics', 'Canteen', '2026-02-18', 'Unclaimed', 'iPhone 12 with black case'),
-('LF-1006', 'Wallet', 'Personal Items', 'Boys Restroom', '2026-02-17', 'Claimed', 'Brown leather wallet with ID card inside'),
-('LF-1007', 'Jacket', 'Clothing', 'Gym', '2026-02-16', 'Unclaimed', 'Black and red Nike windbreaker size M'),
-('LF-1008', 'Headphones', 'Electronics', 'Audio Lab', '2026-02-15', 'Unclaimed', 'Sony WH-CH720N wireless headphones, black'),
-('LF-1009', 'Keys', 'Personal Items', 'Parking Lot', '2026-02-14', 'Unclaimed', 'Set of 3 keys with blue keychain'),
-('LF-1010', 'Pen Drive', 'Electronics', 'Computer Lab 2', '2026-02-13', 'Unclaimed', '64GB Kingston DataTraveler pen drive'),
-('LF-1011', 'Scarf', 'Clothing', 'Building A Hallway', '2026-02-12', 'Claimed', 'Maroon wool scarf with STI logo'),
-('LF-1012', 'Notebook', 'Books', 'Student Lounge', '2026-02-11', 'Unclaimed', 'Spiral-bound notebook with name "Maria" written inside'),
-('LF-1013', 'Watch', 'Accessories', 'Cafeteria', '2026-02-10', 'Claimed', 'Casio digital watch with blue band'),
-('LF-1014', 'School ID', 'Personal Items', 'Main Gate', '2026-02-09', 'Unclaimed', 'STI School ID - Student ID: 02000000015'),
-('LF-1015', 'Hand Sanitizer', 'Accessories', 'Classroom Building B', '2026-02-08', 'Unclaimed', 'Pump bottle 250ml, lavender scent'),
-('LF-1016', 'USB Cable', 'Electronics', 'Library - Research Area', '2026-02-07', 'Unclaimed', 'Type-C charging cable 2 meters'),
-('LF-1017', 'Lunch Box', 'Bags', 'Cafeteria', '2026-02-06', 'Claimed', 'Stainless steel lunch container with handle'),
-('LF-1018', 'Baseball Cap', 'Clothing', 'Sports Complex', '2026-02-05', 'Unclaimed', 'Red and white STI Esports tournament cap'),
-('LF-1019', 'Earbuds', 'Electronics', 'Classroom C-305', '2026-02-04', 'Unclaimed', 'Apple AirPods with charging case'),
-('LF-1020', 'Sports Medal', 'Personal Items', 'Gym', '2026-02-03', 'Unclaimed', 'Gold medal from 2026 Sports Festival');
+('LF-2023-1T-0001', 'Backpack', 'Bags', 'Cafeteria', '2023-10-14', 'Unclaimed', 'Blue JanSport backpack with laptop'),
+('LF-2023-1T-0002', 'Water Bottle', 'Accessories', 'Gym', '2023-10-13', 'Unclaimed', 'Stainless steel water bottle 500ml'),
+('LF-2023-1T-0003', 'Textbook', 'Books', 'Library', '2023-10-12', 'Claimed', 'Grade 11 Math textbook'),
+('LF-2023-1T-0004', 'Calculator', 'Electronics', 'Room C401', '2023-10-08', 'Claimed', 'Scientific calculator Casio fx-991'),
+('LF-2026-1T-0001', 'Mobile Phone', 'Electronics', 'Canteen', '2026-02-18', 'Unclaimed', 'iPhone 12 with black case'),
+('LF-2026-1T-0002', 'Wallet', 'Personal Items', 'Boys Restroom', '2026-02-17', 'Claimed', 'Brown leather wallet with ID card inside'),
+('LF-2026-1T-0003', 'Jacket', 'Clothing', 'Gym', '2026-02-16', 'Unclaimed', 'Black and red Nike windbreaker size M'),
+('LF-2026-1T-0004', 'Headphones', 'Electronics', 'Audio Lab', '2026-02-15', 'Unclaimed', 'Sony WH-CH720N wireless headphones, black'),
+('LF-2026-1T-0005', 'Keys', 'Personal Items', 'Parking Lot', '2026-02-14', 'Unclaimed', 'Set of 3 keys with blue keychain'),
+('LF-2026-1T-0006', 'Pen Drive', 'Electronics', 'Computer Lab 2', '2026-02-13', 'Unclaimed', '64GB Kingston DataTraveler pen drive'),
+('LF-2026-1T-0007', 'Scarf', 'Clothing', 'Building A Hallway', '2026-02-12', 'Claimed', 'Maroon wool scarf with STI logo'),
+('LF-2026-1T-0008', 'Notebook', 'Books', 'Student Lounge', '2026-02-11', 'Unclaimed', 'Spiral-bound notebook with name "Maria" written inside'),
+('LF-2026-1T-0009', 'Watch', 'Accessories', 'Cafeteria', '2026-02-10', 'Claimed', 'Casio digital watch with blue band'),
+('LF-2026-1T-0010', 'School ID', 'Personal Items', 'Main Gate', '2026-02-09', 'Unclaimed', 'STI School ID - Student ID: 02000000015'),
+('LF-2026-1T-0011', 'Hand Sanitizer', 'Accessories', 'Classroom Building B', '2026-02-08', 'Unclaimed', 'Pump bottle 250ml, lavender scent'),
+('LF-2026-1T-0012', 'USB Cable', 'Electronics', 'Library - Research Area', '2026-02-07', 'Unclaimed', 'Type-C charging cable 2 meters'),
+('LF-2026-1T-0013', 'Lunch Box', 'Bags', 'Cafeteria', '2026-02-06', 'Claimed', 'Stainless steel lunch container with handle'),
+('LF-2026-1T-0014', 'Baseball Cap', 'Clothing', 'Sports Complex', '2026-02-05', 'Unclaimed', 'Red and white STI Esports tournament cap'),
+('LF-2026-1T-0015', 'Earbuds', 'Electronics', 'Classroom C-305', '2026-02-04', 'Unclaimed', 'Apple AirPods with charging case'),
+('LF-2026-1T-0016', 'Sports Medal', 'Personal Items', 'Gym', '2026-02-03', 'Unclaimed', 'Gold medal from 2026 Sports Festival');
 
 -- ============================================
 -- INSERT WATCH LIST ENTRIES
@@ -806,48 +827,48 @@ VALUES
 INSERT INTO case_sanctions (case_id, sanction_id, applied_date, is_completed, completion_date, notes)
 VALUES
 -- 2026 ON GOING CASES (Incomplete sanctions)
-('C-2026011', 1, '2026-01-10', 0, NULL, 'Written warning issued. Counseling in progress'),
-('C-2026012', 1, '2026-01-14', 0, NULL, 'Written warning issued. Behavioral intervention ongoing'),
-('C-2026013', 4, '2026-01-20', 0, NULL, 'Corrective reinforcement pending. Academic dishonesty review ongoing'),
-('C-2026014', 2, '2026-01-28', 0, NULL, 'Community service and restitution plan being prepared'),
-('C-2026015', 1, '2026-02-02', 0, NULL, 'Written warning issued. Monitoring compliance'),
-('C-2026016', 1, '2026-02-06', 0, NULL, 'Counseling and mediation being scheduled'),
-('C-2026017', 1, '2026-02-10', 0, NULL, 'Written warning issued. Educational discussion pending'),
-('C-2026018', 4, '2026-02-15', 0, NULL, 'Academic integrity investigation ongoing. Sanction pending'),
-('C-2026019', 3, '2026-02-17', 0, NULL, 'Restitution for equipment damage pending'),
-('C-2026020', 6, '2026-02-20', 0, NULL, 'Investigation ongoing. Suspension decision pending'),
+('2026-1T-0011', 1, '2026-01-10', 0, NULL, 'Written warning issued. Counseling in progress'),
+('2026-1T-0012', 1, '2026-01-14', 0, NULL, 'Written warning issued. Behavioral intervention ongoing'),
+('2026-1T-0013', 4, '2026-01-20', 0, NULL, 'Corrective reinforcement pending. Academic dishonesty review ongoing'),
+('2026-1T-0014', 2, '2026-01-28', 0, NULL, 'Community service and restitution plan being prepared'),
+('2026-1T-0015', 1, '2026-02-02', 0, NULL, 'Written warning issued. Monitoring compliance'),
+('2026-1T-0016', 1, '2026-02-06', 0, NULL, 'Counseling and mediation being scheduled'),
+('2026-1T-0017', 1, '2026-02-10', 0, NULL, 'Written warning issued. Educational discussion pending'),
+('2026-1T-0018', 4, '2026-02-15', 0, NULL, 'Academic integrity investigation ongoing. Sanction pending'),
+('2026-1T-0019', 3, '2026-02-17', 0, NULL, 'Restitution for equipment damage pending'),
+('2026-1T-0020', 6, '2026-02-20', 0, NULL, 'Investigation ongoing. Suspension decision pending'),
 -- 2026 RESOLVED CASES (Completed sanctions)
-('C-2026021', 1, '2026-01-08', 1, '2026-01-08', 'Student acknowledged warning and committed to improvement'),
-('C-2026022', 3, '2026-01-12', 1, '2026-01-12', 'Written reprimand issued and filed'),
-('C-2026023', 1, '2026-01-16', 1, '2026-01-16', 'Verbal warning issued and documented'),
-('C-2026024', 1, '2026-01-24', 1, '2026-01-25', 'Counseling completed with both students'),
-('C-2026025', 2, '2026-01-30', 1, '2026-01-30', 'Values education session completed'),
-('C-2026026', 1, '2026-02-03', 1, '2026-02-03', 'Safety rules explained and acknowledged'),
-('C-2026027', 3, '2026-02-07', 1, '2026-02-07', 'Lab safety protocols reviewed'),
-('C-2026028', 1, '2026-02-11', 1, '2026-02-11', 'Verbal warning issued. Minor violation corrected'),
-('C-2026029', 1, '2026-02-16', 1, '2026-02-16', 'Student counseled. Committed to classroom attentiveness'),
-('C-2026030', 1, '2026-02-19', 1, '2026-02-19', 'Library rules reviewed with student'),
+('2026-1T-0021', 1, '2026-01-08', 1, '2026-01-08', 'Student acknowledged warning and committed to improvement'),
+('2026-1T-0022', 3, '2026-01-12', 1, '2026-01-12', 'Written reprimand issued and filed'),
+('2026-1T-0023', 1, '2026-01-16', 1, '2026-01-16', 'Verbal warning issued and documented'),
+('2026-1T-0024', 1, '2026-01-24', 1, '2026-01-25', 'Counseling completed with both students'),
+('2026-1T-0025', 2, '2026-01-30', 1, '2026-01-30', 'Values education session completed'),
+('2026-1T-0026', 1, '2026-02-03', 1, '2026-02-03', 'Safety rules explained and acknowledged'),
+('2026-1T-0027', 3, '2026-02-07', 1, '2026-02-07', 'Lab safety protocols reviewed'),
+('2026-1T-0028', 1, '2026-02-11', 1, '2026-02-11', 'Verbal warning issued. Minor violation corrected'),
+('2026-1T-0029', 1, '2026-02-16', 1, '2026-02-16', 'Student counseled. Committed to classroom attentiveness'),
+('2026-1T-0030', 1, '2026-02-19', 1, '2026-02-19', 'Library rules reviewed with student'),
 -- 2025 Case Sanctions (All Resolved)
-('C-2025001', 1, '2025-03-15', 1, '2025-03-15', 'Verbal warning issued. Student committed to punctuality'),
-('C-2025002', 3, '2025-04-20', 1, '2025-04-20', 'Written reprimand issued and filed'),
-('C-2025003', 3, '2025-05-10', 1, '2025-05-12', 'Written warning issued after conference'),
-('C-2025004', 4, '2025-06-14', 1, '2025-06-20', '3-day corrective reinforcement completed'),
-('C-2025005', 3, '2025-07-01', 1, '2025-07-01', 'Written warning issued for third ID violation'),
-('C-2025006', 6, '2025-08-10', 1, '2025-08-17', '7-day suspension completed. Major offense documented'),
-('C-2025007', 1, '2025-09-20', 1, '2025-09-20', 'Counseling session completed with both students'),
-('C-2025008', 2, '2025-10-02', 1, '2025-10-15', 'Community service and restitution completed'),
-('C-2025009', 1, '2025-11-15', 1, '2025-11-15', 'Educational discussion conducted about campus policies'),
-('C-2025010', 6, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
+('2025-1T-0001', 1, '2025-03-15', 1, '2025-03-15', 'Verbal warning issued. Student committed to punctuality'),
+('2025-1T-0002', 3, '2025-04-20', 1, '2025-04-20', 'Written reprimand issued and filed'),
+('2025-1T-0003', 3, '2025-05-10', 1, '2025-05-12', 'Written warning issued after conference'),
+('2025-1T-0004', 4, '2025-06-14', 1, '2025-06-20', '3-day corrective reinforcement completed'),
+('2025-1T-0005', 3, '2025-07-01', 1, '2025-07-01', 'Written warning issued for third ID violation'),
+('2025-1T-0006', 6, '2025-08-10', 1, '2025-08-17', '7-day suspension completed. Major offense documented'),
+('2025-1T-0007', 1, '2025-09-20', 1, '2025-09-20', 'Counseling session completed with both students'),
+('2025-1T-0008', 2, '2025-10-02', 1, '2025-10-15', 'Community service and restitution completed'),
+('2025-1T-0009', 1, '2025-11-15', 1, '2025-11-15', 'Educational discussion conducted about campus policies'),
+('2025-1T-0010', 6, '2025-12-01', 1, '2025-12-10', '5-day suspension completed. Mediation successful');
 
 -- ============================================
 -- INSERT SAMPLE NOTIFICATIONS
 -- ============================================
 INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
 VALUES
-(2, 'New Case Reported', 'New cyberbullying case C-2026008 requires immediate attention', 'case_update', 'C-2026008', 0),
-(2, 'Major Violation', 'Case C-2026007 (Vaping on Campus) requires decision on sanctions', 'case_update', 'C-2026007', 0),
-(2, 'Active Investigation', 'Case C-2026005 (Cheating) is currently under investigation', 'case_update', 'C-2026005', 1),
-(2, 'Pending Action', 'Case C-2026010 (ID Violation) awaits disciplinary action', 'case_update', 'C-2026010', 0);
+(2, 'New Case Reported', 'New cyberbullying case 2026-1T-0008 requires immediate attention', 'case_update', '2026-1T-0008', 0),
+(2, 'Major Violation', 'Case 2026-1T-0007 (Vaping on Campus) requires decision on sanctions', 'case_update', '2026-1T-0007', 0),
+(2, 'Active Investigation', 'Case 2026-1T-0005 (Cheating) is currently under investigation', 'case_update', '2026-1T-0005', 1),
+(2, 'Pending Action', 'Case 2026-1T-0010 (ID Violation) awaits disciplinary action', 'case_update', '2026-1T-0010', 0);
 
 -- ============================================
 -- FINAL VERIFICATION & SUMMARY
@@ -885,13 +906,13 @@ SELECT
     '2026 Cases', 
     COUNT(*) 
 FROM cases 
-WHERE case_id LIKE 'C-2026%'
+WHERE case_id LIKE '2026-1T-%'
 UNION ALL
 SELECT 
     '2025 Cases', 
     COUNT(*) 
 FROM cases 
-WHERE case_id LIKE 'C-2025%'
+WHERE case_id LIKE '2025-1T-%'
 UNION ALL
 SELECT 
     'Offense Types', 
@@ -941,7 +962,7 @@ SELECT
     status AS 'Status',
     date_reported AS 'Date'
 FROM cases
-WHERE case_id LIKE 'C-2026%'
+WHERE case_id LIKE '2026-1T-%'
 ORDER BY date_reported;
 SELECT 
     case_id AS 'Case ID',
@@ -951,7 +972,7 @@ SELECT
     status AS 'Status',
     date_reported AS 'Date'
 FROM cases
-WHERE case_id LIKE 'C-2025%'
+WHERE case_id LIKE '2025-1T-%'
 ORDER BY date_reported;
 SELECT 
     s.student_id AS 'Student ID',

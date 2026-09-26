@@ -68,6 +68,7 @@ function setupLostFoundFilters() {
     const searchInput = document.getElementById('lostFoundSearchFilter');
     const statusSelect = document.getElementById('lostFoundStatusFilter');
     const categorySelect = document.getElementById('lostFoundCategoryFilter');
+    const dateSortSelect = document.getElementById('lostFoundDateSortFilter');
 
     if (!form || lostFoundFilterBound) {
         return;
@@ -111,6 +112,7 @@ function setupLostFoundFilters() {
         const searchValue = (searchInput?.value || '').trim();
         const statusValue = statusSelect?.value || '';
         const categoryValue = categorySelect?.value || '';
+        const dateSortValue = dateSortSelect?.value || 'newest';
 
         if (searchValue) {
             url.searchParams.set('search', searchValue);
@@ -130,6 +132,12 @@ function setupLostFoundFilters() {
             url.searchParams.delete('category');
         }
 
+        if (dateSortValue === 'oldest') {
+            url.searchParams.set('date_sort', dateSortValue);
+        } else {
+            url.searchParams.delete('date_sort');
+        }
+
         window.location.href = url.toString();
     });
 
@@ -137,6 +145,7 @@ function setupLostFoundFilters() {
         control?.addEventListener('change', applyFilters);
         control?.addEventListener('input', applyFilters);
     });
+    dateSortSelect?.addEventListener('change', () => form.requestSubmit());
 
     lostFoundFilterBound = true;
     applyFilters();
