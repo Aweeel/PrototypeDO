@@ -85,15 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Redirect based on role
             if ($user['role'] === 'super_admin') {
-                header('Location: /PrototypeDO/modules/super-admin/systemControl.php');
+                header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
             } elseif ($user['role'] === 'discipline_office') {
-                header('Location: /PrototypeDO/modules/do/doDashboard.php');
+                header('Location: ' . BASE_URL . '/modules/do/doDashboard.php');
             } elseif ($user['role'] === 'student') {
-                header('Location: /PrototypeDO/modules/student/studentDashboard.php');
+                header('Location: ' . BASE_URL . '/modules/student/studentDashboard.php');
             } elseif ($user['role'] === 'teacher' || $user['role'] === 'security') {
-                header('Location: /PrototypeDO/modules/teacher-guard/studentReport.php');
+                header('Location: ' . BASE_URL . '/modules/teacher-guard/studentReport.php');
             } else {
-                header('Location: /PrototypeDO/modules/do/doDashboard.php');
+                header('Location: ' . BASE_URL . '/modules/do/doDashboard.php');
             }
             exit;
             
@@ -104,18 +104,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Log failed login attempt to audit_logs
             logFailedLogin($username, 'Invalid credentials');
             
-            header('Location: /PrototypeDO/modules/login/login.php?error=invalid');
+            header('Location: ' . BASE_URL . '/modules/login/login.php?error=invalid');
             exit;
         }
         
     } else {
         write_log("LOGIN FAILED: Missing fields from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
-        header('Location: /PrototypeDO/modules/login/login.php?error=empty');
+            header('Location: ' . BASE_URL . '/modules/login/login.php?error=empty');
         exit;
     }
 } else {
     write_log("INVALID ACCESS to login_handler.php from IP: " . $_SERVER['REMOTE_ADDR'], 'system');
-    header('Location: /PrototypeDO/modules/login/login.php');
+    header('Location: ' . BASE_URL . '/modules/login/login.php');
     exit;
 }
 ?>

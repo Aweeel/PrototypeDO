@@ -2,11 +2,14 @@
 // includes/db_connect.php
 // MySQL connection using PDO.
 
-define('DB_HOST', getenv('MYSQL_HOST') ?: '127.0.0.1');
-define('DB_PORT', getenv('MYSQL_PORT') ?: '3306');
-define('DB_USER', getenv('MYSQL_USER') ?: 'root');
-define('DB_PASS', getenv('MYSQL_PASSWORD') ?: '');
-define('DB_NAME', getenv('MYSQL_DATABASE') ?: 'PrototypeDO_DB');
+define('DB_HOST', getenv('MYSQL_HOST') ?: getenv('MYSQLHOST') ?: 'domsdb.mysql.database.azure.com');
+define('DB_PORT', getenv('MYSQL_PORT') ?: getenv('MYSQLPORT') ?: '3306');
+define('DB_USER', getenv('MYSQL_USER') ?: getenv('MYSQLUSER') ?: 'domsadmin');
+define('DB_PASS', getenv('MYSQL_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: 'PA$$worddiscipline');
+define('DB_NAME', getenv('MYSQL_DATABASE') ?: getenv('MYSQLDATABASE') ?: 'PrototypeDO_DB');
+$configuredSslCa = getenv('MYSQL_SSL_CA') ?: '';
+$systemSslCa = '/etc/ssl/certs/ca-certificates.crt';
+define('DB_SSL_CA', $configuredSslCa !== '' ? $configuredSslCa : (is_file($systemSslCa) ? $systemSslCa : ''));
 
 // Global connection variable
 $conn = null;
@@ -21,13 +24,19 @@ function getDBConnection() {
     
     try {
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-        $conn = new PDO($dsn, DB_USER, DB_PASS);
-        
-        // Set error mode to exceptions
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Set default fetch mode to associative array
-        $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+        ];
+
+        // Azure Database for MySQL requires encrypted transport.
+        if (DB_SSL_CA !== '') {
+            $options[PDO::MYSQL_ATTR_SSL_CA] = DB_SSL_CA;
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+            $options[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
+        }
+
+        $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
         
         return $conn;
         
