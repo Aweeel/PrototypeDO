@@ -184,15 +184,15 @@ ORDER BY role;</pre>
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                 <h2 class="text-xl font-semibold text-blue-900 mb-3">🔗 Quick Actions</h2>
                 <div class="space-y-2">
-                    <a href="/PrototypeDO/modules/do/lostAndFound.php" 
+                    <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/do/lostAndFound.php"
                        class="block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-center">
                         Try Accessing Lost & Found Page
                     </a>
-                    <a href="/PrototypeDO/modules/do/doDashboard.php" 
+                    <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/do/doDashboard.php"
                        class="block px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-center">
                         Go to Dashboard
                     </a>
-                    <a href="/PrototypeDO/logout.php" 
+                    <a href="<?= htmlspecialchars(BASE_URL) ?>/logout.php"
                        class="block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-center">
                         Logout and Re-login
                     </a>

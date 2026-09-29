@@ -2,7 +2,7 @@
 const TABS        = ['incident','statistics','lostfound','student'];
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let ADMIN_NAME  = '';
-const PAGE_URL    = '/PrototypeDO/modules/do/reports.php';
+const PAGE_URL    = window.appUrl('/modules/do/reports.php');
 const reportCache = {};
 
 // Initialize on page load

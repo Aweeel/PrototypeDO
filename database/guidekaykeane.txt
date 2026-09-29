@@ -28,6 +28,6 @@ Extract to C:\xampp\php (backup old php folder first!)
 
 Run database/schema.sql in MySQL Workbench or the MySQL client.
 
-localhost/PrototypeDO/test_db-connection.php <-------- check sa browser pag may error
+Open the app's deployed base URL followed by /test_db-connection.php to verify the connection.
 
 Use test_db-connection.php to verify the connection in a browser.

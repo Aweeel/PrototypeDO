@@ -748,10 +748,10 @@ table.w-full th, table.w-full td {
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/audit_log/main.js"></script>
-    <script src="/PrototypeDO/assets/js/audit_log/filters.js"></script>
-    <script src="/PrototypeDO/assets/js/audit_log/modals.js"></script>
-    <script src="/PrototypeDO/assets/js/audit_log/metrics.js"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/filters.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/modals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/metrics.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

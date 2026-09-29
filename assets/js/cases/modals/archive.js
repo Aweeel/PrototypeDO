@@ -62,7 +62,7 @@ async function confirmArchiveCase(caseId) {
   formData.append("caseId", caseId);
 
   try {
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });
@@ -141,7 +141,7 @@ async function confirmUnarchiveCase(caseId) {
   formData.append("caseId", caseId);
 
   try {
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });
@@ -233,7 +233,7 @@ async function confirmBulkRestore(caseIds) {
   });
 
   try {
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });

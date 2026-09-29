@@ -46,7 +46,7 @@ $_SESSION['password_warning_modal_shown'] = true;
                 class="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                 Dismiss
             </button>
-            <a href="/PrototypeDO/modules/shared/userProfile.php#change-password" 
+            <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/shared/userProfile.php#change-password" 
                 class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-center">
                 Change Password
             </a>
@@ -54,4 +54,4 @@ $_SESSION['password_warning_modal_shown'] = true;
     </div>
 </div>
 
-<script src="/PrototypeDO/assets/js/terms_password/password_warning.js"></script>
+<script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/terms_password/password_warning.js"></script>

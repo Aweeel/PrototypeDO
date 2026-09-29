@@ -489,5 +489,5 @@ function exportStatistics() {
     if (offenseType) params.append('offenseType', offenseType);
     
     // Redirect to reports.php with current filters
-    window.location.href = '/PrototypeDO/modules/do/reports.php?' + params.toString();
+    window.location.href = window.appUrl('/modules/do/reports.php?') + params.toString();
 }

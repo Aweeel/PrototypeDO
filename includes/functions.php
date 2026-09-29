@@ -2358,38 +2358,38 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'System Settings',
-                'path' => '/PrototypeDO/modules/super-admin/systemControl.php',
+                'path' => BASE_URL . '/modules/super-admin/systemControl.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
                 'label' => 'Case Rules',
-                'path' => '/PrototypeDO/modules/super-admin/violationMatrix.php',
+                'path' => BASE_URL . '/modules/super-admin/violationMatrix.php',
                 'icon' => 'Cases-icon.png',
                 'tooltip' => 'Configure violation types, categories, and escalation rules'
             ],
             [
                 'label' => 'User Management',
-                'path' => '/PrototypeDO/modules/super-admin/adminUsers.php',
+                'path' => BASE_URL . '/modules/super-admin/adminUsers.php',
                 'icon' => 'users-icon.png'
             ],
             [
                 'label' => 'Data Recovery',
-                'path' => '/PrototypeDO/modules/super-admin/dataRecovery.php',
+                'path' => BASE_URL . '/modules/super-admin/dataRecovery.php',
                 'icon' => 'Audit-log-icon.png'
             ],
             [
                 'label' => 'Student Handbook',
-                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => BASE_URL . '/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
             [
                 'label' => 'Terms & Conditions',
-                'path' => '/PrototypeDO/modules/super-admin/adminTerms.php',
+                'path' => BASE_URL . '/modules/super-admin/adminTerms.php',
                 'icon' => 'Terms-icon.png'
             ],
             [
                 'label' => 'Audit Log',
-                'path' => '/PrototypeDO/modules/do/auditLog.php',
+                'path' => BASE_URL . '/modules/do/auditLog.php',
                 'icon' => 'Audit-log-icon.png'
             ]
         ];
@@ -2397,47 +2397,47 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/do/doDashboard.php',
+                'path' => BASE_URL . '/modules/do/doDashboard.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
                 'label' => 'Minor Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php?severity=Minor',
+                'path' => BASE_URL . '/modules/do/cases.php?severity=Minor',
                 'icon' => 'cases-icon.png'
             ],
             [
                 'label' => 'Major Cases',
-                'path' => '/PrototypeDO/modules/do/cases.php?severity=Major',
+                'path' => BASE_URL . '/modules/do/cases.php?severity=Major',
                 'icon' => 'cases-icon.png'
             ],
             [
                 'label' => 'Statistics & Reports',
-                'path' => '/PrototypeDO/modules/do/statistics.php',
+                'path' => BASE_URL . '/modules/do/statistics.php',
                 'icon' => 'statistics-icon.png'
             ],
             [
                 'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/do/lostAndFound.php',
+                'path' => BASE_URL . '/modules/do/lostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
                 'label' => 'Student List',
-                'path' => '/PrototypeDO/modules/do/studentHistory.php',
+                'path' => BASE_URL . '/modules/do/studentHistory.php',
                 'icon' => 'student-history-icon.png'
             ],
             [
                 'label' => 'Calendar',
-                'path' => '/PrototypeDO/modules/do/calendar.php',
+                'path' => BASE_URL . '/modules/do/calendar.php',
                 'icon' => 'calendar-icon.png'
             ],
             [
                 'label' => 'Handbook',
-                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => BASE_URL . '/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
             [
                 'label' => 'Audit Log',
-                'path' => '/PrototypeDO/modules/do/auditLog.php',
+                'path' => BASE_URL . '/modules/do/auditLog.php',
                 'icon' => 'Audit-log-icon.png'
             ]
         ];
@@ -2445,22 +2445,22 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'Dashboard',
-                'path' => '/PrototypeDO/modules/student/studentDashboard.php',
+                'path' => BASE_URL . '/modules/student/studentDashboard.php',
                 'icon' => 'dashboard-icon.png'
             ],
             [
                 'label' => 'My Cases',
-                'path' => '/PrototypeDO/modules/student/studentCases.php',
+                'path' => BASE_URL . '/modules/student/studentCases.php',
                 'icon' => 'cases-icon.png'
             ],  
             [
                 'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
+                'path' => BASE_URL . '/modules/shared/searchLostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
                 'label' => 'Handbook',
-                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => BASE_URL . '/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
@@ -2468,17 +2468,17 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'Report Student',
-                'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
+                'path' => BASE_URL . '/modules/teacher-guard/studentReport.php',
                 'icon' => 'Reports-icon.png'
             ],
             [
                 'label' => 'Lost & Found',
-                'path' => '/PrototypeDO/modules/shared/searchLostAndFound.php',
+                'path' => BASE_URL . '/modules/shared/searchLostAndFound.php',
                 'icon' => 'Lost-and-found-icon.png'
             ],
             [
                 'label' => 'Handbook',
-                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => BASE_URL . '/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
@@ -2486,7 +2486,7 @@ function get_sidebar_items($role) {
         if ($teacherSubrole === 'department_head') {
             $items[] = [
                 'label' => 'Calendar',
-                'path' => '/PrototypeDO/modules/do/calendar.php?calendar_view=personal',
+                'path' => BASE_URL . '/modules/do/calendar.php?calendar_view=personal',
                 'icon' => 'calendar-icon.png'
             ];
         }
@@ -2494,12 +2494,12 @@ function get_sidebar_items($role) {
         $items = [
             [
                 'label' => 'Report Student',
-                'path' => '/PrototypeDO/modules/teacher-guard/studentReport.php',
+                'path' => BASE_URL . '/modules/teacher-guard/studentReport.php',
                 'icon' => 'Reports-icon.png'
             ],
             [
                 'label' => 'Handbook',
-                'path' => '/PrototypeDO/modules/shared/studentHandbook.php',
+                'path' => BASE_URL . '/modules/shared/studentHandbook.php',
                 'icon' => 'Student-handbook-icon.png'
             ],
         ];
@@ -3212,7 +3212,7 @@ function saveAttachmentForCase($caseId, $file) {
     }
     
     // Return relative path for storage in database
-    return '/PrototypeDO/assets/case_attachments/' . $filename;
+    return ASSETS_URL . '/case_attachments/' . $filename;
 }
 
 function addCaseAttachments($caseId, $attachmentPaths) {

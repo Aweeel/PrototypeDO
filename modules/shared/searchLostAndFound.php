@@ -264,6 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
     </script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

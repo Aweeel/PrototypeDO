@@ -122,7 +122,7 @@ if ($pdo) {
             // Load terms content from JSON when modal is shown
             async function loadTermsContent() {
                 try {
-                    const response = await fetch('/PrototypeDO/modules/shared/termsHandler.php', {
+                    const response = await fetch('<?= BASE_URL ?>/modules/shared/termsHandler.php', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
@@ -200,7 +200,7 @@ if ($pdo) {
             </p>
             <div class="flex gap-3">
                 <!-- Decline → logs the user out -->
-                <a href="/PrototypeDO/modules/login/logout.php"
+                <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php"
                    class="px-4 py-2 text-sm border border-gray-300 dark:border-slate-600
                           rounded-lg text-gray-700 dark:text-gray-300
                           hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
@@ -219,5 +219,5 @@ if ($pdo) {
     </div>
 </div>
 
-<script src="/PrototypeDO/assets/js/terms_password/terms.js"></script>
+<script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/terms_password/terms.js"></script>
 

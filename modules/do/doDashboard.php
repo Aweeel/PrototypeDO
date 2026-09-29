@@ -100,7 +100,7 @@ function buildCaseDetailsUrl($caseId, $status = null, $isArchived = false, $seve
         $tab = 'resolved';
     }
 
-    return '/PrototypeDO/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&caseId=' . urlencode((string) $caseId) . '&viewCase=1&tab=' . urlencode($tab);
+    return BASE_URL . '/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&caseId=' . urlencode((string) $caseId) . '&viewCase=1&tab=' . urlencode($tab);
 }
 
 function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false, $severity = 'Major') {
@@ -112,19 +112,19 @@ function buildCaseHighlightUrl($caseId, $status = null, $isArchived = false, $se
         $tab = 'resolved';
     }
 
-    return '/PrototypeDO/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&highlightCase=1&highlightCaseId=' . urlencode((string) $caseId) . '&tab=' . urlencode($tab);
+    return BASE_URL . '/modules/do/cases.php?severity=' . urlencode($severity === 'Minor' ? 'Minor' : 'Major') . '&highlightCase=1&highlightCaseId=' . urlencode((string) $caseId) . '&tab=' . urlencode($tab);
 }
 
 function buildLostFoundHighlightUrl($itemId) {
-    return '/PrototypeDO/modules/do/lostAndFound.php?highlightItemId=' . urlencode((string) $itemId);
+    return BASE_URL . '/modules/do/lostAndFound.php?highlightItemId=' . urlencode((string) $itemId);
 }
 
 function buildLostFoundDetailsUrl($itemId) {
-    return '/PrototypeDO/modules/do/lostAndFound.php?item_id=' . urlencode((string) $itemId);
+    return BASE_URL . '/modules/do/lostAndFound.php?item_id=' . urlencode((string) $itemId);
 }
 
 function buildCalendarEventUrl($eventId, $eventDate = null) {
-    $url = '/PrototypeDO/modules/do/calendar.php?event_id=' . urlencode((string) $eventId);
+    $url = BASE_URL . '/modules/do/calendar.php?event_id=' . urlencode((string) $eventId);
 
     if (!empty($eventDate)) {
         $url .= '&event_date=' . urlencode((string) $eventDate);
@@ -439,7 +439,7 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 
 </html>

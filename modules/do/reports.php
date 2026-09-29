@@ -485,7 +485,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         <?php endforeach; ?>
                     </div>
 
-                    <a id="back-to-statistics" href="/PrototypeDO/modules/do/statistics.php"
+                    <a id="back-to-statistics" href="<?= htmlspecialchars(BASE_URL) ?>/modules/do/statistics.php"
                         class="shrink-0 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-colors border border-gray-300 dark:border-slate-600 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -662,9 +662,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/reports/main.js"></script>
-    <script src="/PrototypeDO/assets/js/reports/filters.js"></script>
-    <script src="/PrototypeDO/assets/js/reports/modals.js"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/filters.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/modals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

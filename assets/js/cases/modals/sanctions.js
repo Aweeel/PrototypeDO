@@ -16,7 +16,7 @@ async function manageSanctions(caseId) {
     // Fetch student data for offense history
     let studentOffenseData = null;
     try {
-        const studentResponse = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const studentResponse = await fetch(window.appUrl('/modules/do/cases.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `ajax=1&action=getStudentByNumber&studentNumber=${caseData.studentId}`
@@ -24,7 +24,7 @@ async function manageSanctions(caseId) {
         const studentResult = await studentResponse.json();
         if (studentResult.success && studentResult.student) {
             // Fetch full student details including offense counts
-            const detailResponse = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
+            const detailResponse = await fetch(window.appUrl('/modules/do/studentHistory.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `ajax=1&action=getStudents`
@@ -495,7 +495,7 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
     if (scheduleNotes) formData.append('scheduleNotes', scheduleNotes);
 
     try {
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), {
             method: 'POST',
             body: formData
         });
@@ -974,7 +974,7 @@ async function saveScheduleToCalendar(caseId, date, time, endTime, notes, forceN
         formData.append('description', notes || `Scheduled hearing for case ${caseId}`);
         formData.append('location', 'Discipline Office');
 
-        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+        const response = await fetch(window.appUrl('/modules/do/calendar.php'), {
             method: 'POST',
             body: formData
         });
@@ -998,7 +998,7 @@ async function loadSavedSchedule(caseId) {
         formData.append('action', 'getCaseSchedule');
         formData.append('caseId', caseId);
 
-        const response = await fetch('/PrototypeDO/modules/do/calendar.php', {
+        const response = await fetch(window.appUrl('/modules/do/calendar.php'), {
             method: 'POST',
             body: formData
         });
@@ -1283,7 +1283,7 @@ async function checkScheduleConflicts() {
             const eventId = document.getElementById('sanctionScheduleEventId')?.value || '';
             if (eventId) formData.append('scheduleEventId', eventId);
             
-            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            const response = await fetch(window.appUrl('/modules/do/cases.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -1407,7 +1407,7 @@ async function checkPopupConflicts() {
             const eventId = document.getElementById('sanctionScheduleEventId')?.value || '';
             if (eventId) formData.append('scheduleEventId', eventId);
             
-            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            const response = await fetch(window.appUrl('/modules/do/cases.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -1446,7 +1446,7 @@ async function loadAppliedSanctions(caseId) {
         formData.append('action', 'getCaseSanctions');
         formData.append('caseId', caseId);
 
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), {
             method: 'POST',
             body: formData
         });
@@ -1612,7 +1612,7 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
         formData.append('notes', notes);
 
         try {
-            const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+            const response = await fetch(window.appUrl('/modules/do/cases.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -1696,7 +1696,7 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
     formData.append('caseSanctionId', caseSanctionId);
 
     try {
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), {
             method: 'POST',
             body: formData
         });

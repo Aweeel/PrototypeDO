@@ -2,7 +2,7 @@
 
 // Get all students for dropdown
 function loadStudents() {
-  return fetch("/PrototypeDO/modules/do/cases.php", {
+  return fetch(window.appUrl("/modules/do/cases.php"), {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -25,7 +25,7 @@ async function loadOffenseTypes(category = "") {
     formData.append("action", "getOffenseTypes");
     if (category) formData.append("category", category);
 
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });
@@ -44,7 +44,7 @@ async function loadSanctions() {
     formData.append("ajax", "1");
     formData.append("action", "getSanctions");
 
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });
@@ -65,7 +65,7 @@ async function lookupStudentByNumber(studentNumber) {
     formData.append("action", "getStudentByNumber");
     formData.append("studentNumber", studentNumber);
 
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });

@@ -582,7 +582,7 @@ $offenseTypes = getAllOffenseTypes();
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/statistics/main.js"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/statistics/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>
