@@ -7,7 +7,9 @@ define('DB_PORT', getenv('MYSQL_PORT') ?: getenv('MYSQLPORT') ?: '3306');
 define('DB_USER', getenv('MYSQL_USER') ?: getenv('MYSQLUSER') ?: 'domsadmin');
 define('DB_PASS', getenv('MYSQL_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: 'PA$$worddiscipline');
 define('DB_NAME', getenv('MYSQL_DATABASE') ?: getenv('MYSQLDATABASE') ?: 'PrototypeDO_DB');
-define('DB_SSL_CA', getenv('MYSQL_SSL_CA') ?: '');
+$configuredSslCa = getenv('MYSQL_SSL_CA') ?: '';
+$systemSslCa = '/etc/ssl/certs/ca-certificates.crt';
+define('DB_SSL_CA', $configuredSslCa !== '' ? $configuredSslCa : (is_file($systemSslCa) ? $systemSslCa : ''));
 
 // Global connection variable
 $conn = null;
@@ -28,10 +30,10 @@ function getDBConnection() {
         ];
 
         // Azure Database for MySQL requires encrypted transport.
-        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = DB_SSL_CA !== '';
-        $options[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
         if (DB_SSL_CA !== '') {
             $options[PDO::MYSQL_ATTR_SSL_CA] = DB_SSL_CA;
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+            $options[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
         }
 
         $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
