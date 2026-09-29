@@ -131,7 +131,11 @@ if ($pdo) {
                     });
                     
                     const data = await response.json();
-                    if (data.success && data.content) {
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || `Request failed (${response.status})`);
+                    }
+
+                    if (data.content) {
                         const termsContainer = document.getElementById('termsContent');
                         termsContainer.innerHTML = '';
                         
@@ -171,7 +175,7 @@ if ($pdo) {
                     }
                 } catch (error) {
                     console.error('Error loading terms content:', error);
-                    document.getElementById('termsContent').innerHTML = '<p>Error loading terms content. Please refresh the page.</p>';
+                    document.getElementById('termsContent').innerHTML = `<p>${error.message}</p>`;
                 }
             }
 
