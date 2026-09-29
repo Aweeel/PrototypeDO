@@ -13,8 +13,13 @@ if (!empty($_SESSION['tos_accepted'])) {
 // Get database connection
 require_once __DIR__ . '/db_connect.php';
 
-// Check if user has already accepted ToS in database
-$pdo = getDBConnection();
+try {
+    $pdo = getDBConnection();
+} catch (Throwable $e) {
+    error_log('Terms acceptance lookup skipped: ' . $e->getMessage());
+    $pdo = null;
+}
+
 if ($pdo) {
     try {
         // First, ensure the required columns exist

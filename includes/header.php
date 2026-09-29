@@ -43,7 +43,11 @@ if (isset($_SESSION['user_id']) && (($_SESSION['user_role'] ?? '') === 'student'
 
 $unreadNotifications = [];
 if (isset($_SESSION['user_id'])) {
-    $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
+    try {
+        $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
+    } catch (Throwable $e) {
+        error_log('Notification lookup failed while rendering header: ' . $e->getMessage());
+    }
 }
 $unreadCount = count($unreadNotifications);
 $globalBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled') === 'enabled';

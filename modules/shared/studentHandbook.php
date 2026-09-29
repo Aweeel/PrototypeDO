@@ -1,4 +1,5 @@
-﻿<?php
+﻿<!DOCTYPE html>
+<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
@@ -22,7 +23,6 @@ function getHandbookSection($sectionId, $defaultContent) {
 }
 ?>
 
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -307,41 +307,6 @@ function getHandbookSection($sectionId, $defaultContent) {
             }
           }
 
-          async function loadHandbookContent() {
-            try {
-              const formData = new FormData();
-              formData.append('action', 'getAllContent');
-              
-              const response = await fetch('handbookHandler.php', {
-                method: 'POST',
-                body: formData
-              });
-              
-              const data = await response.json();
-              if (!response.ok || !data.success) {
-                throw new Error(data.error || `Request failed (${response.status})`);
-              }
-
-              if (data.content) {
-                Object.entries(data.content).forEach(([sectionId, content]) => {
-                  const section = document.getElementById(sectionId);
-                  if (section) {
-                    const contentDiv = section.querySelector('.handbook-content');
-                    if (contentDiv) {
-                      if (!contentDiv.hasAttribute('data-original-html')) {
-                        contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
-                      }
-                      contentDiv.innerHTML = content;
-                    }
-                  }
-                });
-              }
-            } catch (error) {
-              console.error('Error loading handbook content:', error);
-            }
-          }
-
-          loadHandbookContent();
     </script>
 
 <style>
@@ -3777,44 +3742,6 @@ learning environment and of the STI Community.</p>
 <!-- Handbook Edit Modal -->
 <?php if ($isSuperAdmin): ?>
 <script>
-function loadSavedHandbookContent() {
-  const formData = new FormData();
-  formData.append('action', 'getAllContent');
-  
-  fetch('handbookHandler.php', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success && data.content) {
-      Object.keys(data.content).forEach(sectionId => {
-        const section = document.getElementById(sectionId);
-        if (section) {
-          let contentWrapper = section.querySelector(':scope > .handbook-content');
-          
-          if (!contentWrapper) {
-            contentWrapper = document.createElement('div');
-            contentWrapper.className = 'handbook-content';
-            
-            const children = Array.from(section.children);
-            for (let i = 1; i < children.length; i++) {
-              contentWrapper.appendChild(children[i]);
-            }
-            section.appendChild(contentWrapper);
-          }
-          
-          contentWrapper.innerHTML = data.content[sectionId];
-        }
-      });
-      console.log('Handbook content loaded from database');
-    }
-  })
-  .catch(error => {
-    console.log('No saved content found or error loading:', error.message);
-  });
-}
-
 function createContentWrappers() {
   const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
   if (!innerContent) return;
@@ -4046,7 +3973,6 @@ async function saveSectionEdit(sectionId) {
 
 document.addEventListener('DOMContentLoaded', function() {
   createContentWrappers();
-  loadSavedHandbookContent();
   initializeHandbookSections();
 });
 </script>
