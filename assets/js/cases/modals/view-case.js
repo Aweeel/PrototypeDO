@@ -5,7 +5,7 @@ async function viewCase(caseId) {
   if (!caseData) return;
 
   if (caseData.severity === 'Minor' && caseData.offenseNumber >= 3 && !caseData.escalationSeen) {
-    fetch('/PrototypeDO/modules/do/cases.php', {
+    fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=markMinorCaseOpened&caseId=${encodeURIComponent(caseId)}`
@@ -220,7 +220,7 @@ async function loadAppliedSanctionsForView(caseId) {
     formData.append("action", "getCaseSanctions");
     formData.append("caseId", caseId);
 
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });
@@ -305,7 +305,7 @@ async function confirmMarkResolved(caseId) {
   formData.append("caseId", caseId);
 
   try {
-    const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+    const response = await fetch(window.appUrl("/modules/do/cases.php"), {
       method: "POST",
       body: formData,
     });

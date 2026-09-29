@@ -51,7 +51,7 @@ switch ($role) {
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">
-        <img src="/PrototypeDO/assets/images/logos/STI-logo.png" alt="STI Logo" class="w-30 h-auto" />
+        <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/logos/STI-logo.png" alt="STI Logo" class="w-30 h-auto" />
     </div>
 
     <!-- Department Badge -->
@@ -77,7 +77,7 @@ switch ($role) {
                       <?= $isActive
                           ? 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white'
                           : 'text-gray-300 hover:bg-[#33475F] dark:hover:bg-slate-700' ?>">
-                <img src="/PrototypeDO/assets/images/icons/<?= htmlspecialchars($item['icon']) ?>"
+                <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/icons/<?= htmlspecialchars($item['icon']) ?>"
                     alt="<?= htmlspecialchars($item['label']) ?> icon" class="w-5 h-5 flex-shrink-0" />
                 <span class="px-3"><?= htmlspecialchars($item['label']) ?></span>
             </a>
@@ -86,12 +86,12 @@ switch ($role) {
 
     <!-- Log Out Button -->
     <div class="p-4 border-t border-[#374151] dark:border-gray-800">
-        <a href="/PrototypeDO/modules/login/logout.php" class="w-full flex items-center justify-center space-x-2 
+        <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php" class="w-full flex items-center justify-center space-x-2 
                   bg-[#33475F] hover:bg-[#991B1B] 
                   dark:bg-[#111827] dark:hover:bg-[#7F1D1D] 
                   text-white font-medium py-2 px-4 rounded-lg 
                   transition-all duration-200 active:scale-95 hover:shadow-sm">
-            <img src="/PrototypeDO/assets/images/icons/Log-Out-icon.png" alt="Logout icon" class="w-5 h-5" />
+            <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/icons/Log-Out-icon.png" alt="Logout icon" class="w-5 h-5" />
             <span>Log Out</span>
         </a>
     </div>

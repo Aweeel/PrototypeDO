@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../includes/lostAndFoundFunctions.php';
 
 // FIXED: Use user_role instead of role
 if (!in_array($_SESSION['user_role'], ['discipline_office', 'super_admin'])) {
-    header('Location: /PrototypeDO/index.php');
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 
@@ -633,7 +633,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
-    <script src="/PrototypeDO/assets/js/lostAndFound.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/lostAndFound.js"></script>
 </body>
 </html>

@@ -283,7 +283,7 @@ function getStatusText($status) {
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
                     <div class="p-4 md:p-6 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
                         <h2 class="text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Cases</h2>
-                        <a href="/PrototypeDO/modules/student/studentCases.php" class="text-xs md:text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all cases</a>
+                        <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/student/studentCases.php" class="text-xs md:text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all cases</a>
                     </div>
 
                     <div class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -298,7 +298,7 @@ function getStatusText($status) {
                         <?php else: ?>
                             <?php foreach ($recentCases as $case): ?>
                                 <?php $isArchived = isset($case['is_archived']) && $case['is_archived'] == 1; ?>
-                                <a href="/PrototypeDO/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-4 md:p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400 <?php echo $isArchived ? 'opacity-70' : ''; ?>">
+                                <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/student/studentCases.php?case_id=<?php echo $case['case_id']; ?>" class="block p-4 md:p-6 hover:bg-blue-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-blue-600 dark:hover:border-blue-400 <?php echo $isArchived ? 'opacity-70' : ''; ?>">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div class="flex-1 min-w-0">
                                             <h3 class="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 mb-1 hover:text-blue-600 dark:hover:text-blue-400 truncate">
@@ -345,6 +345,6 @@ function getStatusText($status) {
             }
         }
     </script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

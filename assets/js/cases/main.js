@@ -64,7 +64,7 @@ async function openPendingCheckInFromUrl() {
             await openCheckInModal(caseId, sanctionType);
         }
 
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `ajax=1&action=getCheckInHistory&caseId=${encodeURIComponent(caseId)}`
@@ -394,7 +394,7 @@ function loadCasesFromDB() {
     
     console.log('Filters:', { searchTerm, typeFilter, statusFilter, archived, currentTab });
     
-    fetch('/PrototypeDO/modules/do/cases.php', {
+    fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -605,14 +605,14 @@ async function escalateMinorCase(caseId) {
     formData.append('caseId', caseId);
 
     try {
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', { method: 'POST', body: formData });
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), { method: 'POST', body: formData });
         const data = await response.json();
         if (!data.success) {
             showNotification(data.error || 'Unable to escalate case.', 'error');
             return;
         }
 
-        window.location.href = '/PrototypeDO/modules/do/cases.php?severity=Major&caseId=' + encodeURIComponent(caseId);
+        window.location.href = window.appUrl('/modules/do/cases.php?severity=Major&caseId=') + encodeURIComponent(caseId);
     } catch (error) {
         console.error('Error escalating minor case:', error);
         showNotification('Unable to escalate case.', 'error');

@@ -1,5 +1,5 @@
 //----------------LAGAY SA DULO NG INSIDE PAGES/MODULES------------------
-//<script src="/PrototypeDO/assets/js/protect_pages.js"></script>    <-------ETO
+// Include this script with the PHP ASSETS_URL helper.
 
 // Force reload if back button tries to show cached page
 window.addEventListener('pageshow', function (event) {

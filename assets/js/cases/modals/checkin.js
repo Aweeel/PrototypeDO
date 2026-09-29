@@ -424,7 +424,7 @@ async function saveSuspensionStartDate(caseId, caseSanctionId) {
   }
 
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=setSuspensionStartDate&caseSanctionId=${caseSanctionId}&startDate=${encodeURIComponent(startDate)}`
@@ -624,7 +624,7 @@ function getCommunityServiceSubmissionsButtonHTML(caseId, caseSanctionId, submis
 
 async function markCommunityServiceSubmissionsViewed(caseId, caseSanctionId, sanctionType = 'corrective') {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=markCommunityServiceSubmissionsViewed&caseId=${encodeURIComponent(caseId)}&caseSanctionId=${encodeURIComponent(caseSanctionId)}`
@@ -762,7 +762,7 @@ const reviewStatusClasses = {
       }
 
       try {
-        const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+        const response = await fetch(window.appUrl('/modules/do/cases.php'), {
           method: 'POST',
           body: payload
         });
@@ -812,7 +812,7 @@ function closePortfolioSubmissionsModal() {
 
 async function fetchPortfolioSubmissionList(caseId, caseSanctionId) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=getCheckInHistory&caseId=${encodeURIComponent(caseId)}`
@@ -918,7 +918,7 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
   }
 
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=reviewCommunityServiceSubmission&caseId=${encodeURIComponent(caseId)}&submissionId=${encodeURIComponent(submissionId)}&decision=${encodeURIComponent(decision)}&reviewNotes=${encodeURIComponent(notes)}`
@@ -964,7 +964,7 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
     if (!suspensionSanction) return;
 
     try {
-      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      const response = await fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
@@ -1007,7 +1007,7 @@ async function refreshCheckInModalContent(caseId, sanctionType = 'corrective') {
   }
 
   // Load check-in history
-  const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+  const response = await fetch(window.appUrl('/modules/do/cases.php'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`  
@@ -1120,7 +1120,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
     const activeSanction = findSanctionByType(selectedTypeSanctions, 'suspension') || selectedTypeSanctions[0];
 
     try {
-      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      const response = await fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
@@ -1176,7 +1176,7 @@ async function openCheckInModal(caseId, sanctionType = 'corrective') {
     `;
   } else {
     // Load real check-in data
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
@@ -1651,7 +1651,7 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
   try {
     // Save check-in time if provided
     if (checkInValue) {
-      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      const response = await fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `ajax=1&action=correctTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=check_in&correctedTime=${checkInValue}`
@@ -1666,7 +1666,7 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     
     // Save check-out time if provided
     if (checkOutValue) {
-      const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+      const response = await fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `ajax=1&action=correctTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=check_out&correctedTime=${checkOutValue}`
@@ -1876,7 +1876,7 @@ async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
 // Helper function to perform the actual revert
 async function performRevert(dayNumber, timeType, caseSanctionId, caseId, updateUI = true) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=revertTime&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}&timeType=${timeType}`
@@ -1913,7 +1913,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
   const actionLabel = isCheckedIn ? 'Check Out' : 'Check In';
   
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=${action}&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
@@ -2032,7 +2032,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
 // Manual check-in
 async function performCheckIn(dayNumber, caseId, caseSanctionId) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=manualCheckIn&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
@@ -2060,7 +2060,7 @@ async function performCheckIn(dayNumber, caseId, caseSanctionId) {
 // Manual check-out
 async function performCheckOut(dayNumber, caseId, caseSanctionId) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=manualCheckOut&caseSanctionId=${caseSanctionId}&dayNumber=${dayNumber}`
@@ -2097,7 +2097,7 @@ async function exportCheckInCSV(caseId, studentName, sanctionName) {
       studentName: studentName,
       sanctionName: sanctionName
     });
-    const url = `/PrototypeDO/modules/do/cases.php?${params.toString()}`;
+    const url = window.appUrl(`/modules/do/cases.php?${params.toString()}`);
     console.log('Exporting Check-In CSV for Case:', caseId);
     window.location.href = url;
   } catch (e) {
@@ -2110,7 +2110,7 @@ async function exportCheckInCSV(caseId, studentName, sanctionName) {
 async function printCheckInReport(caseId, studentName, sanctionName, sanctionType = 'corrective') {
   try {
     // Load the check-in data
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=getCheckInHistory&caseId=${caseId}`
@@ -2392,7 +2392,7 @@ async function submitDeadlineAction(caseSanctionId, actionType) {
 
 async function handleExtendDeadline(caseSanctionId, daysToAdd = 7) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=extendSanctionDeadline&caseSanctionId=${caseSanctionId}&daysToAdd=${daysToAdd}`
@@ -2419,7 +2419,7 @@ async function handleExtendDeadline(caseSanctionId, daysToAdd = 7) {
 
 async function handleIncreaseHours(caseSanctionId, additionalHours = 8) {
   try {
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `ajax=1&action=increaseSanctionDuration&caseSanctionId=${caseSanctionId}&additionalHours=${additionalHours}`

@@ -93,7 +93,7 @@ function handleLostFoundImageUpload($file, $item_id) {
     // Move uploaded file
     if (move_uploaded_file($file['tmp_name'], $filepath)) {
         // Return relative path for database storage
-        $relativePath = '/PrototypeDO/assets/case_attachments/lost_found/' . $filename;
+        $relativePath = ASSETS_URL . '/case_attachments/lost_found/' . $filename;
         return ['success' => true, 'path' => $relativePath];
     } else {
         error_log("Failed to move uploaded file: " . $file['tmp_name'] . " to " . $filepath);

@@ -194,7 +194,7 @@ async function editCase(caseId) {
       formData.append("notes", document.getElementById("editNotes").value);
 
       try {
-        const response = await fetch("/PrototypeDO/modules/do/cases.php", {
+        const response = await fetch(window.appUrl("/modules/do/cases.php"), {
           method: "POST",
           body: formData,
         });

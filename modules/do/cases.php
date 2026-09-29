@@ -1323,7 +1323,7 @@ if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
         exit;
     }
 
-    $publicPath = '/PrototypeDO/assets/community_service_submissions/'
+    $publicPath = ASSETS_URL . '/community_service_submissions/'
         . rawurlencode(preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId))
         . '/' . rawurlencode($generatedFileName);
 
@@ -2254,21 +2254,21 @@ $adminName = getFormattedUserName() ?? 'User';
 
     <!-- Load Scripts -->
     <script>window.caseSeverity = <?= json_encode($caseSeverity) ?>;</script>
-    <script src="/PrototypeDO/assets/js/notifications.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/data.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/filters.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/core-utils.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/advanced-filters.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/view-case.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/edit-case.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/add-case.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/sanctions.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/archive.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/notifications-and-recommendations.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/modals/checkin.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/pagination.js"></script>
-    <script src="/PrototypeDO/assets/js/cases/main.js"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/notifications.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/data.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/filters.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/core-utils.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/advanced-filters.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/view-case.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/edit-case.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/add-case.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/sanctions.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/archive.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/notifications-and-recommendations.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/checkin.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/pagination.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
     
     <!-- Auto-open case from notification -->
     <script>
@@ -2284,7 +2284,7 @@ $adminName = getFormattedUserName() ?? 'User';
                         viewCase(caseId);
                         clearInterval(checkInterval);
                         // Clean URL
-                        window.history.replaceState({}, document.title, '/PrototypeDO/modules/do/cases.php');
+                        window.history.replaceState({}, document.title, '<?= BASE_URL ?>/modules/do/cases.php');
                     }
                 }, 100);
                 

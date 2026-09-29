@@ -680,7 +680,7 @@ function viewEvent(event) {
                     </button>
                     <div class="flex gap-2">
                         ${linkedCaseId ? `
-                            <a href="/PrototypeDO/modules/do/cases.php?highlightCaseId=${encodeURIComponent(linkedCaseId)}&highlightCase=1" class="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors inline-flex items-center gap-1.5">
+                            <a href="${window.appUrl(`/modules/do/cases.php?highlightCaseId=${encodeURIComponent(linkedCaseId)}&highlightCase=1`)}" class="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors inline-flex items-center gap-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                                 </svg>

@@ -212,7 +212,7 @@ document.getElementById('addItemForm')?.addEventListener('submit', async functio
     formData.append('action', 'add');
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });
@@ -234,7 +234,7 @@ document.getElementById('addItemForm')?.addEventListener('submit', async functio
 // View item details
 async function viewItem(itemId) {
     try {
-        const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`);
+        const response = await fetch(window.appUrl(`/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`));
         const result = await response.json();
         
         if (result.success) {
@@ -427,7 +427,7 @@ function closeViewModal() {
 // Edit item
 async function editItem(itemId) {
     try {
-        const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`);
+        const response = await fetch(window.appUrl(`/modules/do/lostAndFoundAPI.php?action=get&item_id=${itemId}`));
         const result = await response.json();
         
         if (result.success) {
@@ -534,7 +534,7 @@ function showEditModal(item) {
         formData.append('action', 'update');
         
         try {
-            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -621,7 +621,7 @@ function markClaimed(itemId) {
         }
         
         try {
-            const response = await fetch(`/PrototypeDO/modules/do/lostAndFoundAPI.php?action=lookup_claimer_id&claimer_id=${encodeURIComponent(claimerId)}`);
+            const response = await fetch(window.appUrl(`/modules/do/lostAndFoundAPI.php?action=lookup_claimer_id&claimer_id=${encodeURIComponent(claimerId)}`));
             const result = await response.json();
             
             if (result.success) {
@@ -642,7 +642,7 @@ function markClaimed(itemId) {
         formData.append('action', 'mark_claimed');
         
         try {
-            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+            const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -717,7 +717,7 @@ async function confirmMarkUnclaimed(itemId) {
     formData.append('item_id', itemId);
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });
@@ -825,7 +825,7 @@ function setupArchiveRangeForm() {
         formData.append('end_date', endDate);
 
         try {
-            const response = await fetch('/PrototypeDO/modules/do/lostAndFoundapi.php', {
+            const response = await fetch(window.appUrl('/modules/do/lostAndFoundapi.php'), {
                 method: 'POST',
                 body: formData
             });
@@ -858,7 +858,7 @@ async function confirmArchiveItem(itemId) {
     formData.append('item_id', itemId);
 
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });
@@ -883,7 +883,7 @@ async function restoreItem(itemId) {
     formData.append('item_id', itemId);
 
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });
@@ -1047,7 +1047,7 @@ async function createNewCategory() {
     formData.append('description', newCategoryDescription.value.trim());
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });
@@ -1178,7 +1178,7 @@ async function executeCategoryDelete() {
     }
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/lostAndFoundAPI.php', {
+        const response = await fetch(window.appUrl('/modules/do/lostAndFoundAPI.php'), {
             method: 'POST',
             body: formData
         });

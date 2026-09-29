@@ -9,7 +9,7 @@ $userId = $_SESSION['user_id'] ?? null;
 $userRole = $_SESSION['user_role'] ?? null;
 
 if (!$userId) {
-    header('Location: /PrototypeDO/modules/login/login.php');
+    header('Location: ' . BASE_URL . '/modules/login/login.php');
     exit;
 }
 
@@ -130,7 +130,7 @@ if ($user) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile - PrototypeDO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/PrototypeDO/assets/js/globals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globals.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased min-h-screen">
     <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
@@ -490,7 +490,7 @@ if ($user) {
                     this.style.borderColor = '#eab308'; // Loading state
                     
                     try {
-                        const response = await fetch('/PrototypeDO/includes/validate_password.php', {
+                        const response = await fetch(`${window.APP_BASE_URL}/includes/validate_password.php`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'

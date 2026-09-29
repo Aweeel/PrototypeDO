@@ -760,6 +760,6 @@ $caseTypeDescriptionMap = array_combine(
         } 
     </script> 
 
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script> 
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body> 
 </html>

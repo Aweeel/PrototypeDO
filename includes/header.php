@@ -56,6 +56,13 @@ if (!isset($adminName) || empty($adminName)) {
 ?>
 
 <?php initializeGlobalTheme(); ?>
+<script>
+    window.APP_BASE_URL = <?= json_encode(BASE_URL) ?>;
+    window.ASSETS_URL = <?= json_encode(ASSETS_URL) ?>;
+    window.appUrl = function (path) {
+        return window.APP_BASE_URL + path;
+    };
+</script>
 
 <header
     class="fixed top-0 left-0 md:left-64 right-0 z-30
@@ -65,8 +72,8 @@ if (!isset($adminName) || empty($adminName)) {
            transition-all duration-300">
     
     <!-- Global Notifications System -->
-    <script src="/PrototypeDO/assets/js/notifications.js"></script>
-    <script src="/PrototypeDO/assets/js/preventDoubleTap.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/notifications.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
         
         <!-- Left Side: Mobile Hamburger & Page Title -->
@@ -156,7 +163,7 @@ if (!isset($adminName) || empty($adminName)) {
             </div>
 
             <!-- Admin Info - Profile Link -->
-            <a href="/PrototypeDO/modules/shared/userProfile.php" 
+            <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/shared/userProfile.php" 
                class="flex items-center space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
                 <span class="hidden sm:inline text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                     <?php echo isset($adminName) ? htmlspecialchars($adminName) : 'User'; ?>
@@ -208,7 +215,7 @@ if (!isset($adminName) || empty($adminName)) {
             formData.append('action', 'markNotificationAsRead');
             formData.append('notificationId', notificationId);
 
-            const response = await fetch('/PrototypeDO/modules/do/doDashboard.php', {
+            const response = await fetch('<?= BASE_URL ?>/modules/do/doDashboard.php', {
                 method: 'POST',
                 body: formData
             });
@@ -247,14 +254,14 @@ if (!isset($adminName) || empty($adminName)) {
                         if (relatedId.startsWith('password_reset:')) {
                             const userIdParts = relatedId.split(':');
                             const userId = userIdParts.length > 1 ? userIdParts[1] : null;
-                            const url = userId ? `/PrototypeDO/modules/super-admin/adminUsers.php?resetUser=${encodeURIComponent(userId)}` : `/PrototypeDO/modules/super-admin/adminUsers.php`;
+                            const url = userId ? `${window.APP_BASE_URL}/modules/super-admin/adminUsers.php?resetUser=${encodeURIComponent(userId)}` : `${window.APP_BASE_URL}/modules/super-admin/adminUsers.php`;
                             window.location.href = url;
                         } else if (relatedId.startsWith('hearing:')) {
                             const hearingParts = relatedId.split(':');
                             const hearingCaseId = hearingParts.length > 1 ? hearingParts[1] : null;
                             const hearingEventId = hearingParts.length > 2 ? hearingParts[2] : null;
                             const hearingDate = hearingParts.length > 3 ? hearingParts[3] : null;
-                            const url = new URL('/PrototypeDO/modules/do/calendar.php', window.location.origin);
+                            const url = new URL(`${window.APP_BASE_URL}/modules/do/calendar.php`, window.location.origin);
                             url.searchParams.set('calendar_view', 'personal');
                             if (hearingEventId) {
                                 url.searchParams.set('event_id', hearingEventId);
@@ -266,11 +273,11 @@ if (!isset($adminName) || empty($adminName)) {
                             }
                             window.location.href = url.toString();
                         } else if (isPortfolioNotification) {
-                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
                         } else if (userRole === 'student') {
-                            window.location.href = `/PrototypeDO/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}`;
                         } else {
-                            window.location.href = `/PrototypeDO/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}`;
                         }
                     }, 100);
                 } else {

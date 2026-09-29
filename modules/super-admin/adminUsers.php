@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 // Check if user is super admin
 if ($_SESSION['user_role'] !== 'super_admin') {
-    header('Location: /PrototypeDO/index.php');
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 
@@ -1223,9 +1223,9 @@ $adminName = getFormattedUserName();
         </form>
     </div>
 </div>
-    <script src="/PrototypeDO/assets/js/users/main.js"></script>
-    <script src="/PrototypeDO/assets/js/users/modals.js"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/modals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 
     <script>
         // User CSV Import Functions
@@ -1259,7 +1259,7 @@ $adminName = getFormattedUserName();
             document.getElementById('importUsersBtn').disabled = true;
 
             try {
-                const response = await fetch('/PrototypeDO/modules/super-admin/adminUsers.php', {
+                const response = await fetch(`${window.APP_BASE_URL}/modules/super-admin/adminUsers.php`, {
                     method: 'POST',
                     body: formData
                 });

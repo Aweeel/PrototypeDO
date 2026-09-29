@@ -28,7 +28,7 @@ async function loadStudents() {
     console.log('Filters:', { searchTerm, gradeFilter, statusFilter });
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
+        const response = await fetch(window.appUrl('/modules/do/studentHistory.php'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -178,7 +178,7 @@ function openCaseDetails(caseId, isArchived = false, caseStatus = '', severity =
     }
 
     const caseSeverity = severity === 'Minor' ? 'Minor' : 'Major';
-    window.location.href = `/PrototypeDO/modules/do/cases.php?severity=${encodeURIComponent(caseSeverity)}&highlightCase=1&highlightCaseId=${encodeURIComponent(caseId)}&tab=${encodeURIComponent(targetTab)}`;
+    window.location.href = window.appUrl(`/modules/do/cases.php?severity=${encodeURIComponent(caseSeverity)}&highlightCase=1&highlightCaseId=${encodeURIComponent(caseId)}&tab=${encodeURIComponent(targetTab)}`);
 }
 
 // ====== Helper Functions ======
@@ -369,7 +369,7 @@ async function handleCsvImport(e) {
     formData.append('import_csv', '1');
     
     try {
-        const response = await fetch('/PrototypeDO/modules/do/studentHistory.php', {
+        const response = await fetch(window.appUrl('/modules/do/studentHistory.php'), {
             method: 'POST',
             body: formData
         });

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 // Verify user is a student
 if ($_SESSION['user_role'] !== 'student') {
-    header('Location: /PrototypeDO/index.php');
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 
@@ -465,7 +465,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        $publicPath = '/PrototypeDO/assets/community_service_submissions/'
+        $publicPath = ASSETS_URL . '/community_service_submissions/'
             . rawurlencode(preg_replace('/[^A-Za-z0-9_-]/', '_', $caseId))
             . '/' . rawurlencode($generatedFileName);
 
@@ -1417,7 +1417,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             });
         }
     </script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 
 </html>

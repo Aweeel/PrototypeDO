@@ -24,9 +24,40 @@ if (!headers_sent()) {
     header("Expires: 0");
 }
 
-// Base URL configuration: local XAMPP uses /PrototypeDO; Azure usually serves from /.
-$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
-$baseUrl = (strpos($requestPath, '/PrototypeDO/') === 0 || $requestPath === '/PrototypeDO') ? '/PrototypeDO' : '';
+// Resolve the correct public base URL for both local subfolder installs and root/Azure deployments.
+$uriPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
+$forwardedPrefix = $_SERVER['HTTP_X_FORWARDED_PREFIX'] ?? $_SERVER['X_FORWARDED_PREFIX'] ?? '';
+
+$baseUrl = '';
+
+if (!empty($forwardedPrefix)) {
+    $baseUrl = rtrim($forwardedPrefix, '/');
+} elseif (!empty($scriptName)) {
+    $scriptDir = dirname($scriptName);
+    $scriptDir = rtrim($scriptDir, '/');
+
+    if ($scriptDir !== '' && $scriptDir !== '.' && $scriptDir !== '/') {
+        $withoutModulesPath = preg_replace('#/modules(?:/.*)?$#', '', $scriptDir);
+        if ($withoutModulesPath !== '' && $withoutModulesPath !== '/') {
+            $baseUrl = $withoutModulesPath;
+        }
+    }
+
+}
+
+if ($baseUrl === '/' || $baseUrl === '\\') {
+    $baseUrl = '';
+}
+
+if ($baseUrl === '' && !empty($uriPath)) {
+    $segments = explode('/', trim($uriPath, '/'));
+    $modulesIndex = array_search('modules', $segments, true);
+    if ($modulesIndex !== false && $modulesIndex > 0) {
+        $baseUrl = '/' . implode('/', array_slice($segments, 0, $modulesIndex));
+    }
+}
+
 define('BASE_URL', $baseUrl);
 define('ASSETS_URL', BASE_URL . '/assets');
 
@@ -41,8 +72,6 @@ if (isset($_SESSION['user'])) {
     }
     $_SESSION['last_activity'] = time();
 }
-
-define('ASSETS_URL', BASE_URL . '/assets');
 
 // File upload configuration
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');

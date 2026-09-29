@@ -41,7 +41,7 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 // Redirect to login page with success flag
-$redirectUrl = '/PrototypeDO/modules/login/login.php?logout=success&remember_me=1';
+$redirectUrl = BASE_URL . '/modules/login/login.php?logout=success&remember_me=1';
 if (!empty($userEmail)) {
     $redirectUrl .= '&email=' . urlencode($userEmail);
 }

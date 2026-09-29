@@ -81,7 +81,7 @@ async function fetchRecommendedSanction(studentId, caseType, severity, caseId = 
       formData.append('caseId', caseId);
     }
 
-    const response = await fetch('/PrototypeDO/modules/do/cases.php', {
+    const response = await fetch(window.appUrl('/modules/do/cases.php'), {
       method: 'POST',
       body: formData
     });

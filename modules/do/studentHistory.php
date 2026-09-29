@@ -326,11 +326,11 @@ $adminName = getFormattedUserName();
         </div>
     </div>
 
-    <script src="/PrototypeDO/assets/js/students/filters.js?v=<?php echo time(); ?>"></script>
-    <script src="/PrototypeDO/assets/js/students/modals.js?v=<?php echo time(); ?>"></script>
-    <script src="/PrototypeDO/assets/js/students/pagination.js?v=<?php echo time(); ?>"></script>
-    <script src="/PrototypeDO/assets/js/students/main.js?v=<?php echo time(); ?>"></script>
-    <script src="/PrototypeDO/assets/js/protect_pages.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/students/filters.js?v=<?php echo time(); ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/students/modals.js?v=<?php echo time(); ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/students/pagination.js?v=<?php echo time(); ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/students/main.js?v=<?php echo time(); ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 
 </html>
