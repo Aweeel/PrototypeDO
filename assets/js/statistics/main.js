@@ -6,8 +6,8 @@ let casesByGradeChart = null;
 let monthlyTrendsChart = null;
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    populateFilters();
+document.addEventListener('DOMContentLoaded', async function() {
+    await populateFilters();
     updateStatistics();
     initializeCasesByTypeChart();
     initializeCasesByGradeChart();

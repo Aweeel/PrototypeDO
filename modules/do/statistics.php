@@ -166,10 +166,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $where = "WHERE c.is_archived = 0";
             $params = [];
 
-            if ($dateRange === 'custom' && $customDateRange) {
-                $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
-                $params[] = $customDateRange['start'];
-                $params[] = $customDateRange['end'];
+            switch ($dateRange) {
+                case 'this_month':
+                    $where .= " AND MONTH(c.date_reported) = MONTH(CURRENT_DATE) AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
+                    break;
+                case 'last_month':
+                    $where .= " AND MONTH(c.date_reported) = MONTH(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH)) AND YEAR(c.date_reported) = YEAR(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH))";
+                    break;
+                case 'this_year':
+                    $where .= " AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
+                    break;
+                case 'first_semester':
+                case 'second_semester':
+                    $termDates = getAcademicTermDates($dateRange);
+                    if ($termDates) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $termDates['start'];
+                        $params[] = $termDates['end'];
+                    }
+                    break;
+                case 'custom':
+                    if ($customDateRange) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $customDateRange['start'];
+                        $params[] = $customDateRange['end'];
+                    }
+                    break;
             }
             
             if ($gradeLevel) {
@@ -224,13 +246,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $where = "WHERE c.is_archived = 0";
             $params = [];
 
-            if ($dateRange === 'custom' && $customDateRange) {
-                $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
-                $params[] = $customDateRange['start'];
-                $params[] = $customDateRange['end'];
-            } else {
-                $where .= " AND YEAR(c.date_reported) = ?";
-                $params[] = $year;
+            switch ($dateRange) {
+                case 'this_month':
+                    $where .= " AND MONTH(c.date_reported) = MONTH(CURRENT_DATE) AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
+                    break;
+                case 'last_month':
+                    $where .= " AND MONTH(c.date_reported) = MONTH(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH)) AND YEAR(c.date_reported) = YEAR(DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH))";
+                    break;
+                case 'this_year':
+                    $where .= " AND YEAR(c.date_reported) = YEAR(CURRENT_DATE)";
+                    break;
+                case 'first_semester':
+                case 'second_semester':
+                    $termDates = getAcademicTermDates($dateRange);
+                    if ($termDates) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $termDates['start'];
+                        $params[] = $termDates['end'];
+                    }
+                    break;
+                case 'custom':
+                    if ($customDateRange) {
+                        $where .= " AND c.date_reported >= ? AND c.date_reported <= ?";
+                        $params[] = $customDateRange['start'];
+                        $params[] = $customDateRange['end'];
+                    }
+                    break;
+                default:
+                    $where .= " AND YEAR(c.date_reported) = ?";
+                    $params[] = $year;
             }
             
             if ($gradeLevel || $yearLevel || $strand || $course) {

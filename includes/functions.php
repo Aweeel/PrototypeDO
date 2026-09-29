@@ -270,27 +270,31 @@ function getFormattedUserName($userId = null) {
         return 'User';
     }
     
-    // Check if user is a student and get their name from students table
-    $role = $_SESSION['user_role'] ?? null;
-    if ($role === 'student') {
-        $sql = "SELECT first_name, middle_name, last_name FROM students WHERE user_id = ?";
-        $student = fetchOne($sql, [$userId]);
-        if ($student) {
-            return trim(implode(' ', array_filter([
-                $student['first_name'],
-                $student['middle_name'] ?? null,
-                $student['last_name']
-            ], static fn($name) => trim((string)$name) !== '')));
+    try {
+        // Check if user is a student and get their name from students table
+        $role = $_SESSION['user_role'] ?? null;
+        if ($role === 'student') {
+            $sql = "SELECT first_name, middle_name, last_name FROM students WHERE user_id = ?";
+            $student = fetchOne($sql, [$userId]);
+            if ($student) {
+                return trim(implode(' ', array_filter([
+                    $student['first_name'],
+                    $student['middle_name'] ?? null,
+                    $student['last_name']
+                ], static fn($name) => trim((string)$name) !== '')));
+            }
         }
+
+        // Preserve middle names and initials for non-students as well.
+        $user = getUserById($userId);
+        if ($user && !empty($user['full_name'])) {
+            return trim($user['full_name']);
+        }
+    } catch (Throwable $e) {
+        error_log('User name lookup failed: ' . $e->getMessage());
     }
 
-    // Preserve middle names and initials for non-students as well.
-    $user = getUserById($userId);
-    if ($user && !empty($user['full_name'])) {
-        return trim($user['full_name']);
-    }
-    
-    return 'User';
+    return trim((string)($_SESSION['admin_name'] ?? 'User')) ?: 'User';
 }
 
 function getStudentRecordForUser($userId = null, $linkIfFound = true) {
