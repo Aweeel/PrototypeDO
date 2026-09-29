@@ -505,7 +505,7 @@ $offenseTypes = getAllOffenseTypes();
                         <div class="flex items-start justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Cases</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="totalCases">152</p>
+                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="totalCases">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-red-600 dark:text-red-400">-17</span> This Month
                                 </p>
@@ -523,7 +523,7 @@ $offenseTypes = getAllOffenseTypes();
                         <div class="flex items-start justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Resolved Cases</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="resolvedCases">74</p>
+                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="resolvedCases">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-red-600 dark:text-red-400">-3</span> This Month
                                 </p>
@@ -541,7 +541,7 @@ $offenseTypes = getAllOffenseTypes();
                         <div class="flex items-start justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Repeat Offenders</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="repeatOffenders">18</p>
+                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="repeatOffenders">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-green-600 dark:text-green-400">+3</span> This Month
                                 </p>
@@ -559,7 +559,7 @@ $offenseTypes = getAllOffenseTypes();
                         <div class="flex items-start justify-between">
                             <div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Lost Items Claimed</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="lostItemsClaimed">74<span class="text-lg">%</span></p>
+                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="lostItemsClaimed">0<span class="text-lg">%</span></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-green-600 dark:text-green-400">+8%</span> This Month
                                 </p>
