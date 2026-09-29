@@ -318,7 +318,11 @@ function getHandbookSection($sectionId, $defaultContent) {
               });
               
               const data = await response.json();
-              if (data.success && data.content) {
+              if (!response.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${response.status})`);
+              }
+
+              if (data.content) {
                 Object.entries(data.content).forEach(([sectionId, content]) => {
                   const section = document.getElementById(sectionId);
                   if (section) {
