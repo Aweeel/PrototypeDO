@@ -386,7 +386,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'totalCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.is_archived = 0 $dateFilter", $params),
                 'resolvedCases' => fetchValue("SELECT COUNT(*) FROM cases c $studentFilter WHERE c.status = 'Resolved' AND c.is_archived = 0 $dateFilter", $params),
                 'repeatOffenders' => fetchValue("SELECT COUNT(DISTINCT c.student_id) FROM cases c $studentFilter WHERE c.student_id IN (SELECT student_id FROM cases WHERE is_archived = 0 GROUP BY student_id HAVING COUNT(*) > 1) AND c.is_archived = 0 $dateFilter", $params),
-                'lostItemsClaimed' => fetchValue("SELECT CAST(COUNT(CASE WHEN status = 'Claimed' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) AS INT) FROM lost_found_items WHERE is_archived = 0", [])
+                'lostItemsClaimed' => fetchValue("SELECT CAST(COUNT(CASE WHEN status = 'Claimed' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) AS SIGNED) FROM lost_found_items WHERE is_archived = 0", [])
             ];
             
             echo json_encode(['success' => true, 'stats' => $stats]);
