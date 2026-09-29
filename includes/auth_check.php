@@ -69,19 +69,19 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
             session_unset();
             session_destroy();
-            header("Location: /PrototypeDO/modules/login/login.php?session=expired");
+            header("Location: " . BASE_URL . "/modules/login/login.php?session=expired");
             exit;
         }
     } else {
         // Database error, redirect to login
-        header("Location: /PrototypeDO/modules/login/login.php?error=db");
+        header("Location: " . BASE_URL . "/modules/login/login.php?error=db");
         exit;
     }
 } else {
     // No valid session or remember me cookie, redirect to login
     session_unset();
     session_destroy();
-    header("Location: /PrototypeDO/modules/login/login.php");
+    header("Location: " . BASE_URL . "/modules/login/login.php");
     exit;
 }
 

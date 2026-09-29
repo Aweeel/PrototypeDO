@@ -13,13 +13,13 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $role = $_SESSION['user_role'] ?? 'do';
     
     if ($role === 'super_admin') {
-        header('Location: /PrototypeDO/modules/super-admin/systemControl.php');
+        header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
     } elseif ($role === 'discipline_office' || $role === 'do') {
-        header('Location: /PrototypeDO/modules/do/doDashboard.php');
+        header('Location: ' . BASE_URL . '/modules/do/doDashboard.php');
     } elseif ($role === 'student') {
-        header('Location: /PrototypeDO/modules/student/studentDashboard.php');
+        header('Location: ' . BASE_URL . '/modules/student/studentDashboard.php');
     } elseif ($role === 'teacher' || $role === 'security') {
-        header('Location: /PrototypeDO/modules/teacher/teacherDashboard.php');
+        header('Location: ' . BASE_URL . '/modules/teacher-guard/studentReport.php');
     }
     exit;
 }
