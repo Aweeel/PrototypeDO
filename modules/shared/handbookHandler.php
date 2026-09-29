@@ -1,19 +1,23 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
-
-// Only super admins can access this
-if ($_SESSION['user_role'] !== 'super_admin') {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
-    exit;
-}
 
 header('Content-Type: application/json');
 
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Your session has expired. Please sign in again.']);
+    exit;
+}
+
 // Handle PDF Upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'uploadPDF') {
+    if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
+        exit;
+    }
+
     try {
         if (!isset($_FILES['pdf_file']) || $_FILES['pdf_file']['error'] !== UPLOAD_ERR_OK) {
             echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error occurred']);
@@ -84,6 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle content updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'updateContent') {
+    if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
+        exit;
+    }
+
     try {
         // Support both single section and multiple sections
         $sectionsData = [];
