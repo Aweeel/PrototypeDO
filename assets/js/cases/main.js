@@ -1,7 +1,6 @@
 // ====== Main Initialization ======
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Cases page loaded');
     
     // Load cases from database via AJAX
     loadCasesFromDB();
@@ -372,7 +371,6 @@ function renderTableRows() {
 
 // Load cases from database
 function loadCasesFromDB() {
-    console.log('Loading cases from database...');
     
     const searchTerm = document.getElementById('searchInput')?.value || '';
     const typeFilter = document.getElementById('typeFilter')?.value || '';
@@ -392,7 +390,6 @@ function loadCasesFromDB() {
         }
     }
     
-    console.log('Filters:', { searchTerm, typeFilter, statusFilter, archived, currentTab });
     
     fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
@@ -402,17 +399,14 @@ function loadCasesFromDB() {
         body: `ajax=1&action=getCases&search=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(typeFilter)}&status=${encodeURIComponent(statusFilter)}&severity=${encodeURIComponent(caseSeverity)}&archived=${archived}`
     })
     .then(response => {
-        console.log('Response status:', response.status);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.text();
     })
     .then(text => {
-        console.log('Raw response:', text);
         try {
             const data = JSON.parse(text);
-            console.log('Parsed data:', data);
             
             if (data.success) {
                 try {
@@ -425,7 +419,6 @@ function loadCasesFromDB() {
                     openCaseDetailsFromUrl();
                     highlightCaseFromUrl();
 
-                    console.log('Loaded cases:', allCases.length, 'Filtered:', filteredCases.length);
                 } catch (renderError) {
                     console.error('Render error:', renderError);
                     const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);

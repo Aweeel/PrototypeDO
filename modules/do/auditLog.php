@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $filters = [
                 'search' => $_POST['search'] ?? '',
                 'action_type' => $_POST['actionType'] ?? '',
-                'user' => $_POST['user'] ?? '',
+                'user_id' => $_POST['user'] ?? '',
                 'date_from' => $_POST['dateFrom'] ?? '',
                 'date_to' => $_POST['dateTo'] ?? '',
             ];
@@ -34,11 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $params = [];
 
-            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
-            // EXCEPT for reporting actions from those roles
+            // DO/Discipline Office audit logs only contain non-authentication actions
+            // performed by DO/Discipline Office accounts.
             if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
-                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
-                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+                $sql .= " AND u.role IN ('do', 'discipline_office')";
+                $sql .= " AND al.action NOT IN ('Login', 'Logout', 'Failed Login', 'Notification Read')";
             }
 
             if (!empty($filters['search'])) {
@@ -52,9 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params[] = $filters['action_type'];
             }
 
-            if (!empty($filters['user'])) {
-                $sql .= " AND u.role = ?";
-                $params[] = $filters['user'];
+            if (!empty($filters['user_id'])) {
+                $sql .= " AND al.user_id = ?";
+                $params[] = $filters['user_id'];
             }
 
             if (!empty($filters['date_from'])) {
@@ -99,32 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Get distinct user roles
+        // Get DO users for the audit-log user filter.
         if ($_POST['action'] === 'getUsers') {
-            $sql = "SELECT DISTINCT role FROM users WHERE role IS NOT NULL";
-            
-            // DO/Discipline Office users cannot see super_admin, teacher, or security roles in filter options
-            if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
-                $sql .= " AND role NOT IN ('super_admin', 'teacher', 'security')";
-            }
-            
-            $sql .= " ORDER BY role";
-            $roles = fetchAll($sql, []) ?? [];
-            
-            // Format roles for display
-            $formattedRoles = array_map(function($row) {
-                $role = $row['role'];
-                $display = match($role) {
-                    'super_admin' => 'Super Admin',
-                    'do' => 'Discipline Office',
-                    'discipline_office' => 'Discipline Office',
-                    'teacher' => 'Teacher',
-                    'student' => 'Student',
-                    default => ucwords(str_replace('_', ' ', $role))
-                };
-                return ['role' => $role, 'display' => $display];
-            }, $roles);
-            echo json_encode(['success' => true, 'users' => $formattedRoles]);
+            $sql = "SELECT user_id, full_name FROM users
+                    WHERE role IN ('do', 'discipline_office')
+                    ORDER BY full_name";
+            $users = fetchAll($sql, []) ?? [];
+            echo json_encode(['success' => true, 'users' => $users]);
             exit;
         }
 
@@ -134,10 +115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     LEFT JOIN users u ON al.user_id = u.user_id 
                     WHERE al.action IS NOT NULL";
             
-            // DO/Discipline Office users cannot see actions from super_admin, teacher, or security
-            // EXCEPT for report-related actions
+            // Match the log list: only non-authentication actions by DO accounts.
             if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
-                $sql .= " AND ((u.role IS NOT NULL AND u.role NOT IN ('super_admin', 'teacher', 'security')) OR al.action LIKE '%Report%')";
+                $sql .= " AND u.role IN ('do', 'discipline_office')";
+                $sql .= " AND al.action NOT IN ('Login', 'Logout', 'Failed Login', 'Notification Read')";
             }
             
             $sql .= " ORDER BY al.action";
@@ -165,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $filters = [
                 'search' => $_POST['search'] ?? '',
                 'action_type' => $_POST['actionType'] ?? '',
-                'user' => $_POST['user'] ?? '',
+                'user_id' => $_POST['user'] ?? '',
                 'date_from' => $_POST['dateFrom'] ?? '',
                 'date_to' => $_POST['dateTo'] ?? '',
                 'table_name' => $_POST['tableName'] ?? ''
@@ -179,11 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $params = [];
 
-            // DO/Discipline Office users cannot see super_admin actions, or teacher/security actions
-            // EXCEPT for reporting actions from those roles
+            // Match the on-screen log list: only non-authentication actions
+            // performed by DO/Discipline Office accounts.
             if (in_array($_SESSION['user_role'], ['do', 'discipline_office'])) {
-                $sql .= " AND (u.user_id IS NOT NULL AND u.role != 'super_admin')";
-                $sql .= " AND (u.role NOT IN ('teacher', 'security') OR al.action LIKE '%Report%')";
+                $sql .= " AND u.role IN ('do', 'discipline_office')";
+                $sql .= " AND al.action NOT IN ('Login', 'Logout', 'Failed Login', 'Notification Read')";
             }
 
             if (!empty($filters['search'])) {
@@ -197,9 +178,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params[] = $filters['action_type'];
             }
 
-            if (!empty($filters['user'])) {
-                $sql .= " AND u.role = ?";
-                $params[] = $filters['user'];
+            if (!empty($filters['user_id'])) {
+                $sql .= " AND al.user_id = ?";
+                $params[] = $filters['user_id'];
             }
 
             if (!empty($filters['table_name'])) {
@@ -486,10 +467,10 @@ table.w-full th, table.w-full td {
                             <!-- Populated by JS -->
                         </select>
 
-                        <!-- Role Filter -->
+                        <!-- User Filter -->
                         <select id="userFilter" onchange="filterLogs()"
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                            <option value="">All Roles</option>
+                            <option value="">All Users</option>
                             <!-- Populated by JS -->
                         </select>
 

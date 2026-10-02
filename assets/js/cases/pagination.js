@@ -1,15 +1,12 @@
 // ====== Pagination Functions ======
 
 function renderCases() {
-    console.log('Rendering cases...');
-    console.log('Filtered cases:', filteredCases.length);
     
     const tbody = document.getElementById('casesTableBody');
     const startIndex = (currentPage - 1) * casesPerPage;
     const endIndex = startIndex + casesPerPage;
     const paginatedCases = filteredCases.slice(startIndex, endIndex);
 
-    console.log('Paginated cases:', paginatedCases.length);
 
     if (paginatedCases.length === 0) {
         const message = currentTab === 'archived' ? 'No archived cases found.' : 'No cases found.';
@@ -26,7 +23,7 @@ function renderCases() {
     }
 
     tbody.innerHTML = paginatedCases.map(c => `
-        <tr class="hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+        <tr data-case-id="${c.id}" class="hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
             <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">${c.id}</td>
             <td class="px-6 py-4 text-sm">
                 <div class="flex items-center gap-2.5">

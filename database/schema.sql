@@ -36,6 +36,7 @@ CREATE TABLE users (
     is_active TINYINT(1) DEFAULT 1,
     is_archived TINYINT(1) NOT NULL DEFAULT 0,
     last_login DATETIME,
+    active_session_id VARCHAR(128) NULL,
     remember_token VARCHAR(64) NULL,
     remember_token_expiry DATETIME NULL,
     terms_accepted_version INT DEFAULT 0,

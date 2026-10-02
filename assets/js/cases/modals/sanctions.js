@@ -1455,11 +1455,9 @@ async function loadAppliedSanctions(caseId) {
         
         const listDiv = document.getElementById('appliedSanctionsList');
         
-        console.log('Applied Sanctions Data:', data); // Debug log
         
         if (data.success && data.sanctions && data.sanctions.length > 0) {
             listDiv.innerHTML = data.sanctions.map(s => {
-                console.log('Sanction:', s.sanction_name, 'Scheduled by:', s.scheduled_by_name); // Debug log
                 // Format scheduled time range if available
                 let scheduledInfo = '';
                 if (s.scheduled_date) {

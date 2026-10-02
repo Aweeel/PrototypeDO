@@ -138,16 +138,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 $pageTitle = "Report Student Incident"; 
 $adminName = getFormattedUserName(); 
 
-// Fetch top 5 most common case types with their severity categories and descriptions 
-$sql = "SELECT case_type,
-    COALESCE((SELECT category FROM offense_types WHERE offense_name = cases.case_type LIMIT 1), 'Minor') as severity,
-    COALESCE((SELECT description FROM offense_types WHERE offense_name = cases.case_type LIMIT 1), '') as description,
-        COUNT(*) as count 
-        FROM cases 
-        WHERE is_archived = 0 
-        GROUP BY case_type 
-        ORDER BY count DESC 
-    LIMIT 5";
+// Fetch active case types with their catalog severity categories and descriptions.
+$sql = "SELECT offense_name AS case_type, category AS severity, description
+        FROM offense_types
+        WHERE is_active = 1 AND offense_name <> 'Others'
+        ORDER BY category, offense_name";
 $topCaseTypes = fetchAll($sql); 
 $caseTypesList = array_column($topCaseTypes, 'case_type'); 
 $caseTypeSeverityMap = array_combine( 
@@ -181,41 +176,6 @@ $caseTypeDescriptionMap = array_combine(
 </head> 
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]"> 
-
-    <!-- Image Upload Consent Modal --> 
-    <div id="imageConsentModal" class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4 hidden"> 
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700"> 
-            <div class="p-6 border-b border-gray-200 dark:border-slate-700"> 
-                <div class="flex gap-3"> 
-                    <div class="flex-shrink-0 pt-0.5"> 
-                        <svg class="h-6 w-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20"> 
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/> 
-                        </svg> 
-                    </div> 
-                    <div> 
-                        <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100"> 
-                            Consent Required 
-                        </h2> 
-                    </div> 
-                </div> 
-            </div> 
-            <div class="p-6"> 
-                <p class="text-sm text-gray-700 dark:text-gray-300 mb-6 leading-relaxed"> 
-                    Before capturing or uploading any photos related to an incident report, ensure that <strong>written or verbal consent has been obtained from all individuals who appear in the image.</strong> 
-                </p> 
-                <p class="text-xs text-gray-600 dark:text-gray-400 mb-6"> 
-                    Uploading photos without proper consent may violate privacy laws and institutional policies. By clicking "I Understand," you acknowledge this requirement. 
-                </p> 
-            </div> 
-            <div class="p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end"> 
-                <button type="button"  
-                        onclick="acknowledgeImageConsent()" 
-                        class="w-full sm:w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-center"> 
-                    I Understand 
-                </button> 
-            </div> 
-        </div> 
-    </div> 
 
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?> 
 
@@ -335,7 +295,8 @@ $caseTypeDescriptionMap = array_combine(
                             <textarea id="description"  
                                       rows="4" 
                                       placeholder="Describe the incident in detail..." 
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none"></textarea> 
+                                      disabled
+                                      class="w-full min-h-[82px] rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/60 px-3 py-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300 resize-none disabled:cursor-not-allowed"></textarea> 
                         </div> 
 
                         <!-- Additional Notes --> 
@@ -353,21 +314,12 @@ $caseTypeDescriptionMap = array_combine(
                         <div> 
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"> 
                                 Attach Images 
-                                <span class="relative inline-block ml-1 group"> 
-                                    <button type="button" class="inline-flex items-center justify-center w-3 h-3 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 rounded-full transition-colors" title="Consent information"> 
-                                        i 
-                                    </button> 
-                                    <div class="absolute hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg py-2 px-3 whitespace-normal w-48 top-full left-1/2 transform -translate-x-1/2 mt-2 z-10 pointer-events-none shadow-lg"> 
-                                        Written or verbal consent required from all people in photos 
-                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-gray-900 dark:border-b-gray-800"></div> 
-                                    </div> 
-                                </span> 
                             </label> 
 
                             <!-- Drag and Drop Area --> 
                             <div id="uploadDropZone"  
                                  class="relative w-full p-4 md:p-8 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" 
-                                 ondrop="handleDropWithConsent(event)" 
+                                 ondrop="handleDrop(event)" 
                                  ondragover="handleDragOver(event)" 
                                  ondragleave="handleDragLeave(event)"> 
 
@@ -376,7 +328,7 @@ $caseTypeDescriptionMap = array_combine(
                                        multiple  
                                        accept="image/*" 
                                        capture="environment" 
-                                       onchange="handleImageSelectWithConsent()" 
+                                       onchange="handleImageSelect()" 
                                        class="hidden"> 
 
                                 <div class="text-center"> 
@@ -387,7 +339,7 @@ $caseTypeDescriptionMap = array_combine(
                                     </svg> 
                                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300"> 
                                         <button type="button"  
-                                                onclick="openImageConsentModal(event)" 
+                                                onclick="document.getElementById('imageAttachments').click()" 
                                                 class="text-blue-600 dark:text-blue-400 hover:underline"> 
                                             Click to upload 
                                         </button> 
@@ -456,7 +408,6 @@ $caseTypeDescriptionMap = array_combine(
         const submitBtn = document.querySelector('button[type="submit"]'); 
         if (submitBtn) { 
             submitBtn.addEventListener('click', function(e) { 
-                console.log('Submit button clicked'); 
             }); 
         } 
 
@@ -604,6 +555,7 @@ $caseTypeDescriptionMap = array_combine(
                 severityDisplay.textContent = 'Select a case type...'; 
                 severityBadge.classList.add('hidden'); 
                 description.value = ''; 
+                description.disabled = true; 
                 description.required = false; 
                 descRequired.style.display = 'none'; 
             } else if (caseType === 'Other') { 
@@ -613,6 +565,7 @@ $caseTypeDescriptionMap = array_combine(
                 severityBadge.className = 'px-3 py-2 rounded-lg font-semibold text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'; 
                 severityBadge.classList.remove('hidden'); 
                 description.value = ''; 
+                description.disabled = false; 
                 description.required = true; 
                 descRequired.style.display = 'inline'; 
             } else if (caseTypeSeverityMap[caseType]) { 
@@ -629,9 +582,8 @@ $caseTypeDescriptionMap = array_combine(
                 } 
                 severityBadge.classList.remove('hidden'); 
 
-                if (caseTypeDescriptionMap[caseType]) { 
-                    description.value = caseTypeDescriptionMap[caseType]; 
-                } 
+                description.value = caseTypeDescriptionMap[caseType] || ''; 
+                description.disabled = true; 
 
                 description.required = false; 
                 descRequired.style.display = 'none'; 
@@ -724,40 +676,6 @@ $caseTypeDescriptionMap = array_combine(
             handleImageSelect(); 
         } 
 
-        // Modal Consent
-        function openImageConsentModal(e) { 
-            e.preventDefault(); 
-            if (!sessionStorage.getItem('imageConsentAcknowledged')) { 
-                document.getElementById('imageConsentModal').classList.remove('hidden'); 
-            } else { 
-                document.getElementById('imageAttachments').click(); 
-            } 
-        } 
-
-        function acknowledgeImageConsent() { 
-            sessionStorage.setItem('imageConsentAcknowledged', 'true'); 
-            document.getElementById('imageConsentModal').classList.add('hidden'); 
-            document.getElementById('imageAttachments').click(); 
-        } 
-
-        function handleImageSelectWithConsent() { 
-            if (!sessionStorage.getItem('imageConsentAcknowledged')) { 
-                document.getElementById('imageConsentModal').classList.remove('hidden'); 
-                document.getElementById('imageAttachments').value = ''; 
-                return; 
-            } 
-            handleImageSelect(); 
-        } 
-
-        function handleDropWithConsent(event) { 
-            if (!sessionStorage.getItem('imageConsentAcknowledged')) { 
-                event.preventDefault(); 
-                event.stopPropagation(); 
-                document.getElementById('imageConsentModal').classList.remove('hidden'); 
-                return; 
-            } 
-            handleDrop(event); 
-        } 
     </script> 
 
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>

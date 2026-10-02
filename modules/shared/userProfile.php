@@ -402,7 +402,7 @@ if ($user) {
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 gap-1">
                             <span class="text-gray-600 dark:text-gray-400 font-semibold text-sm sm:text-base">Last Login</span>
                             <span class="text-gray-900 dark:text-white text-sm sm:text-base">
-                                <?php echo date('F j, Y H:i', strtotime($user['last_login'])); ?>
+                                <?php echo date('F j, Y g:i A', strtotime($user['last_login'])); ?>
                             </span>
                         </div>
                     <?php endif; ?>

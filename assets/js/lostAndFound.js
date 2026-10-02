@@ -3,6 +3,18 @@
 let lostFoundImageUploadBound = false;
 let lostFoundFilterBound = false;
 
+function formatLostFoundTime(timeValue) {
+    if (!timeValue) return '';
+
+    const match = String(timeValue).match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return String(timeValue);
+
+    const date = new Date(2000, 0, 1, Number(match[1]), Number(match[2]));
+    return Number.isNaN(date.getTime())
+        ? String(timeValue)
+        : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 // Image upload handling
 function setupImageUpload() {
     const dropZone = document.getElementById('imageDropZone');
@@ -359,7 +371,7 @@ function showViewModal(item) {
             ${item.time_found ? `
                 <div>
                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Time Found</label>
-                    <p class="text-gray-900 dark:text-gray-100">${item.time_found}</p>
+                    <p class="text-gray-900 dark:text-gray-100">${formatLostFoundTime(item.time_found)}</p>
                 </div>
             ` : ''}
             

@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Authentication successful
             session_regenerate_id(true);
 
+            if (!isSimultaneousLoginExempt($user['username'])) {
+                registerActiveSession($user['user_id'], session_id());
+            }
+
             $_SESSION['user'] = [
                 'user_id' => $user['user_id'],
                 'username' => $user['username'],

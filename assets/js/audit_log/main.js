@@ -15,7 +15,6 @@ let currentFilters = {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     ADMIN_NAME = window.ADMIN_NAME || document.querySelector('meta[data-admin-name]')?.content || 'User';
-    console.log('Final ADMIN_NAME:', ADMIN_NAME);
     loadUsers();
     loadActionTypes();
     loadLogs();
@@ -31,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Load user roles for filter dropdown
+// Load DO users for the user filter dropdown
 async function loadUsers() {
     try {
         const formData = new FormData();
@@ -40,22 +39,20 @@ async function loadUsers() {
 
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
         const data = await response.json();
-        
-        console.log('Users/Roles response:', data);
-        
+
         if (data.success) {
             const userFilter = document.getElementById('userFilter');
             data.users.forEach(user => {
                 const option = document.createElement('option');
-                option.value = user.role;
-                option.textContent = user.display;
+                option.value = user.user_id;
+                option.textContent = user.full_name;
                 userFilter.appendChild(option);
             });
         } else {
-            console.error('Failed to load roles:', data.error);
+            console.error('Failed to load users:', data.error);
         }
     } catch (error) {
-        console.error('Error loading roles:', error);
+        console.error('Error loading users:', error);
     }
 }
 
@@ -68,8 +65,6 @@ async function loadActionTypes() {
 
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
         const data = await response.json();
-        
-        console.log('Action types response:', data);
         
         if (data.success) {
             const actionFilter = document.getElementById('actionTypeFilter');
@@ -106,8 +101,6 @@ async function loadLogs() {
         }
         
         const data = await response.json();
-        
-        console.log('Audit logs response:', data);
         
         if (data.success && data.logs) {
             allLogs = data.logs;
@@ -196,7 +189,6 @@ function filterLogs() {
     currentFilters.search = document.getElementById('searchInput').value.trim();
     currentFilters.actionType = document.getElementById('actionTypeFilter').value;
     currentFilters.user = document.getElementById('userFilter').value;
-
     // Always reload logs from backend to apply PHP-side filters
     loadLogs();
 }
@@ -332,7 +324,7 @@ function exportLogs() {
                     const filters = [];
                     if (currentFilters.search) filters.push(`Search: "${currentFilters.search}"`);
                     if (currentFilters.actionType) filters.push(`Action: ${currentFilters.actionType}`);
-                    if (currentFilters.user) filters.push(`Role: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
+                    if (currentFilters.user) filters.push(`User: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
                     if (currentFilters.dateFrom) filters.push(`From: ${currentFilters.dateFrom}`);
                     if (currentFilters.dateTo) filters.push(`To: ${currentFilters.dateTo}`);
                     
@@ -474,7 +466,6 @@ function printAuditReport() {
             </div>
             <div class="preview-wrap">${previewContent}</div>`;
 
-        console.log('Print preview ready for audit logs');
         window.print();
     } catch (e) {
         console.error('Print Report Error:', e);

@@ -8,7 +8,7 @@
 function filterLogs() {
     currentFilters.search = document.getElementById('searchInput').value.trim();
     currentFilters.actionType = document.getElementById('actionTypeFilter').value;
-    currentFilters.user = document.getElementById('userFilter').value;  // This contains the role now
+    currentFilters.user = document.getElementById('userFilter').value;
     currentPage = 1;
     loadLogs();
 }

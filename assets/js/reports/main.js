@@ -9,7 +9,6 @@ const reportCache = {};
 document.addEventListener('DOMContentLoaded', () => {
     // Use window.ADMIN_NAME if set by PHP, otherwise read from meta tag, otherwise default
     ADMIN_NAME = window.ADMIN_NAME || document.querySelector('meta[data-admin-name]')?.content || 'User';
-    console.log('Final ADMIN_NAME:', ADMIN_NAME);
     populateAjaxSelects();
 
     const activeTab = document.querySelector('.tab-active')?.id?.replace('tab-', '') || 'incident';

@@ -18,7 +18,15 @@ header("Expires: 0");
 
 // Check if user has a valid session
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
-    // Session is valid, continue
+    $sessionUsername = $_SESSION['user']['username'] ?? '';
+    if (!isSimultaneousLoginExempt($sessionUsername)
+        && hasActiveSessionChanged($_SESSION['user_id'], session_id())) {
+        setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
+        session_unset();
+        session_destroy();
+        header('Location: ' . BASE_URL . '/modules/login/simultaneous_logins_detected.php');
+        exit;
+    }
 } elseif (isset($_COOKIE['remember_me_token'])) {
     // No session but remember me cookie exists - try to restore session
     $rememberToken = $_COOKIE['remember_me_token'];
@@ -34,6 +42,10 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
         if ($user) {
             // Token is valid, restore session
             session_regenerate_id(true);
+
+            if (!isSimultaneousLoginExempt($user['username'])) {
+                registerActiveSession($user['user_id'], session_id());
+            }
             
             $_SESSION['user'] = [
                 'user_id' => $user['user_id'],

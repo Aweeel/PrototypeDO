@@ -6,7 +6,6 @@ function exportCSV(type) {
         const filters = getFilters(type);
         const params = new URLSearchParams({ export: 'csv', type, ...filters });
         const url = `${PAGE_URL}?${params.toString()}`;
-        console.log('Exporting CSV for:', type);
         window.location.href = url;
     } catch (e) {
         console.error('CSV Export Error:', e);
@@ -38,7 +37,6 @@ function printReport(type) {
             </div>
             <div class="preview-wrap">${buildHTML(type, cached.data)}</div>`;
 
-        console.log('Print preview ready for:', type);
         window.print();
     } catch (e) {
         console.error('Print Report Error:', e);

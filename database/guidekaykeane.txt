@@ -28,6 +28,4 @@ Extract to C:\xampp\php (backup old php folder first!)
 
 Run database/schema.sql in MySQL Workbench or the MySQL client.
 
-Open the app's deployed base URL followed by /test_db-connection.php to verify the connection.
-
-Use test_db-connection.php to verify the connection in a browser.
+For a controlled diagnostic, set `DB_DIAGNOSTIC_ENABLED=true`, sign in as a `super_admin`, then open `/test_db-connection.php`. Set it back to `false` immediately after testing.

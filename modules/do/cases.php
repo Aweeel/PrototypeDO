@@ -74,7 +74,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
 
     // Header rows
     fputcsv($out, ['STI Discipline Office – Community Service Check-In Report']);
-    fputcsv($out, ['Generated:', date('F d, Y H:i')]);
+    fputcsv($out, ['Generated:', date('F d, Y g:i A')]);
     fputcsv($out, []);
     fputcsv($out, ['Case ID:', $caseId]);
     fputcsv($out, ['Student:', $studentName]);
@@ -1427,7 +1427,7 @@ if ($_POST['action'] === 'recordCheckIn') {
     }
 
     $now = date('Y-m-d H:i:s');
-    $displayTime = date('H:i'); // Format as HH:MM for display
+    $displayTime = date('g:i A');
 
     // Check if record exists for this day (latest by update time, regardless of date)
     $checkSql = "SELECT * FROM case_checkins 
@@ -1501,10 +1501,10 @@ if ($_POST['action'] === 'recordCheckOut') {
         executeQuery($sql, [$now, $now, $existing['checkin_id']]);
         notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_out', [
             'dayNumber' => $dayNumber,
-            'time' => date('H:i')
+            'time' => date('g:i A')
         ]);
-        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('H:i'), $now);
-        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('g:i A'), $now);
+        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('g:i A')]);
     } else {
         // Record doesn't exist - this shouldn't happen if check-in was recorded, but create one anyway
         $sql = "INSERT INTO case_checkins (case_sanction_id, day_number, check_in_time, check_out_time, check_in_date) 
@@ -1512,10 +1512,10 @@ if ($_POST['action'] === 'recordCheckOut') {
         executeQuery($sql, [$caseSanctionId, $dayNumber, $now, date('Y-m-d')]);
         notifyStudentOnCommunityServiceEvent($caseSanctionId, 'checked_out', [
             'dayNumber' => $dayNumber,
-            'time' => date('H:i')
+            'time' => date('g:i A')
         ]);
-        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('H:i'), $now);
-        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('H:i')]);
+        $logCommunityServiceEventAudit($caseSanctionId, 'checked_out', $dayNumber, date('g:i A'), $now);
+        echo json_encode(['success' => true, 'message' => 'Check-out recorded', 'time' => date('g:i A')]);
     }
     exit;
 }
@@ -1541,7 +1541,7 @@ if ($_POST['action'] === 'manualCheckIn') {
     }
 
     $now = date('Y-m-d H:i:s');
-    $displayTime = date('H:i');
+    $displayTime = date('g:i A');
 
     // Check if record exists for this day (latest by update time, regardless of date)
     $checkSql = "SELECT * FROM case_checkins 
@@ -1593,7 +1593,7 @@ if ($_POST['action'] === 'manualCheckOut') {
     }
 
     $now = date('Y-m-d H:i:s');
-    $displayTime = date('H:i');
+    $displayTime = date('g:i A');
 
     // Check if record exists for this day (latest by update time, regardless of date)
     $checkSql = "SELECT * FROM case_checkins 

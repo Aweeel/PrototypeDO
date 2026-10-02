@@ -1,14 +1,12 @@
 // ====== Filter Functions ======
 
 function filterStudents() {
-    console.log('Filtering students...');
     // Reload from database with current filters
     loadStudents();
 }
 
 // Filter by status (for button toggles if needed)
 function filterByStatus(status) {
-    console.log('Filter by status:', status);
     
     // Update all status buttons (if you add them later)
     document.querySelectorAll('[onclick^="filterByStatus"]').forEach(btn => {
@@ -35,7 +33,6 @@ function filterByStatus(status) {
 
 // Toggle filters modal (for future advanced filters)
 function toggleFilters() {
-    console.log('Toggle advanced filters');
     // Implement advanced filters modal if needed
     showNotification('Advanced filters coming soon', 'info');
 }

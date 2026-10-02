@@ -202,7 +202,7 @@ ORDER BY role;</pre>
 
         <div class="mt-8 text-center text-gray-500 text-sm">
             <p>Debug file created: <?php echo __FILE__; ?></p>
-            <p>Current time: <?php echo date('Y-m-d H:i:s'); ?></p>
+            <p>Current time: <?php echo date('F j, Y g:i:s A'); ?></p>
         </div>
     </div>
 </body>
