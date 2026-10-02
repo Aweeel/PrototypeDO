@@ -501,8 +501,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'program' => $user['program'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
-                    'last_login' => $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never',
-                    'created_at' => date('M d, Y', strtotime($user['created_at'])),
+                    'last_login' => $user['last_login'] ? formatDatabaseDateTime($user['last_login']) : 'Never',
+                    'created_at' => formatDatabaseDateTime($user['created_at'], 'M d, Y'),
                     'has_pending_reset' => (bool)$user['has_pending_reset']
                 ];
             }, $users);

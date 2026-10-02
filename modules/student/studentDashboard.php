@@ -305,7 +305,7 @@ function getStatusText($status) {
                                                 Case #<?php echo htmlspecialchars($case['case_id']); ?> - <?php echo htmlspecialchars(str_replace('_', ' ', ucwords($case['case_type'], '_'))); ?>
                                             </h3>
                                             <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                                <?php echo date('M d, Y', strtotime($case['created_at'])); ?>
+                                                <?php echo htmlspecialchars(formatDatabaseDateTime($case['created_at'], 'M d, Y')); ?>
                                             </p>
                                         </div>
                                         <div class="flex items-center justify-between sm:justify-end gap-2 md:gap-3 flex-shrink-0">

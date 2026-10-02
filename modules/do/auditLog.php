@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'action' => $log['action'],
                     'table' => $log['table_name'],
                     'recordId' => $log['record_id'],
-                    'timestamp' => date('M d, Y h:i A', strtotime($log['timestamp'])),
+                    'timestamp' => formatDatabaseDateTime($log['timestamp']),
                     'ipAddress' => $log['ip_address'] ?? 'N/A',
                     'userAgent' => $log['user_agent'] ?? 'N/A',
                     'oldValues' => $log['old_values'],
@@ -136,6 +136,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $activeSessions = fetchValue("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)");
             $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CURRENT_DATE");
             $failedLogins = fetchAll("SELECT ip_address, timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.reason')) AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 10");
+            foreach ($failedLogins as &$failedLogin) {
+                $failedLogin['timestamp'] = formatDatabaseDateTime($failedLogin['timestamp']);
+            }
+            unset($failedLogin);
             $peakHours = fetchAll("SELECT HOUR(timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY HOUR(timestamp) ORDER BY activity_count DESC LIMIT 5");
             echo json_encode(['success' => true, 'metrics' => compact('databaseSize', 'activeSessions', 'auditEventsToday', 'failedLogins', 'peakHours')]);
             exit;
@@ -224,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $log['action'],
                     $log['table_name'],
                     $log['record_id'],
-                    $log['timestamp'],
+                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s'),
                     $log['ip_address'] ?? 'N/A'
                 ]);
             }
