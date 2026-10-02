@@ -1,27 +1,26 @@
 <?php
 // includes/db_connect.php
-// MySQL connection using PDO.
 
-define('DB_HOST', getenv('MYSQL_HOST') ?: getenv('MYSQLHOST') ?: 'domsdb.mysql.database.azure.com');
+// Default to local XAMPP settings if environment variables are not set on Azure
+define('DB_HOST', getenv('MYSQL_HOST') ?: getenv('MYSQLHOST') ?: '127.0.0.1');
 define('DB_PORT', getenv('MYSQL_PORT') ?: getenv('MYSQLPORT') ?: '3306');
-define('DB_USER', getenv('MYSQL_USER') ?: getenv('MYSQLUSER') ?: 'domsadmin');
-define('DB_PASS', getenv('MYSQL_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: 'PA$$worddiscipline');
-define('DB_NAME', getenv('MYSQL_DATABASE') ?: getenv('MYSQLDATABASE') ?: 'PrototypeDO_DB');
+define('DB_USER', getenv('MYSQL_USER') ?: getenv('MYSQLUSER') ?: 'root');
+define('DB_PASS', getenv('MYSQL_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: '');
+define('DB_NAME', getenv('MYSQL_DATABASE') ?: getenv('MYSQLDATABASE') ?: 'prototypedo_db');
+
 $configuredSslCa = getenv('MYSQL_SSL_CA') ?: '';
 $systemSslCa = '/etc/ssl/certs/ca-certificates.crt';
 define('DB_SSL_CA', $configuredSslCa !== '' ? $configuredSslCa : (is_file($systemSslCa) ? $systemSslCa : ''));
 
-// Global connection variable
 $conn = null;
 
 function getDBConnection() {
     global $conn;
-    
-    // Return existing connection if already established
+
     if ($conn !== null) {
         return $conn;
     }
-    
+
     try {
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
         $options = [
@@ -29,7 +28,7 @@ function getDBConnection() {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ];
 
-        // Azure Database for MySQL requires encrypted transport.
+        // SSL is only required for Azure MySQL, not local XAMPP
         if (DB_SSL_CA !== '') {
             $options[PDO::MYSQL_ATTR_SSL_CA] = DB_SSL_CA;
             $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
@@ -37,11 +36,9 @@ function getDBConnection() {
         }
 
         $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
-        
         return $conn;
-        
+
     } catch(PDOException $e) {
-        // Log error
         error_log("Database Connection Error: " . $e->getMessage());
         throw new RuntimeException('Database connection failed', 0, $e);
     }
