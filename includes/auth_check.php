@@ -91,26 +91,64 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
 $currentRole = $_SESSION['user_role'] ?? ($_SESSION['user']['role'] ?? '');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
-$operationalPrefixes = [
-    '/modules/do/',
-    '/modules/teacher-guard/',
-    '/modules/student/'
+$basePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '';
+if ($basePath !== '' && $basePath !== '/' && strpos($currentPath, $basePath) === 0) {
+    $currentPath = substr($currentPath, strlen($basePath));
+}
+$currentPath = '/' . ltrim($currentPath, '/');
+
+// Authorization is enforced here because every protected module includes this file.
+$roleModulePrefixes = [
+    'super_admin' => [
+        '/modules/super-admin/',
+        '/modules/shared/',
+        '/modules/do/auditLog.php'
+    ],
+    'discipline_office' => [
+        '/modules/do/',
+        '/modules/shared/'
+    ],
+    'do' => [
+        '/modules/do/',
+        '/modules/shared/'
+    ],
+    'teacher' => [
+        '/modules/teacher-guard/',
+        '/modules/shared/'
+    ],
+    'security' => [
+        '/modules/teacher-guard/',
+        '/modules/shared/'
+    ],
+    'student' => [
+        '/modules/student/',
+        '/modules/shared/'
+    ]
 ];
-$isOperationalPage = false;
-foreach ($operationalPrefixes as $prefix) {
-    if (strpos($currentPath, $prefix) === 0) {
-        $isOperationalPage = true;
+
+$hasModuleAccess = false;
+foreach ($roleModulePrefixes[$currentRole] ?? [] as $prefix) {
+    $matchesPrefix = $prefix === '/modules/do/auditLog.php'
+        ? $currentPath === $prefix
+        : strpos($currentPath, $prefix) === 0;
+
+    if ($matchesPrefix) {
+        $hasModuleAccess = true;
         break;
     }
 }
 
-if ($currentRole === 'super_admin' && $isOperationalPage && basename($currentPath) !== 'auditLog.php') {
-    header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
-    exit;
-}
+if (!$hasModuleAccess && strpos($currentPath, '/modules/') === 0) {
+    $isAjaxRequest = $_SERVER['REQUEST_METHOD'] === 'POST'
+        && (isset($_POST['ajax']) || isset($_POST['action']));
 
-if ($currentRole !== 'super_admin' && strpos($currentPath, '/modules/super-admin/') === 0) {
-    header('Location: ' . BASE_URL . '/index.php');
+    if ($isAjaxRequest) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Access denied']);
+    } else {
+        header('Location: ' . BASE_URL . '/index.php?error=access_denied');
+    }
     exit;
 }
 
