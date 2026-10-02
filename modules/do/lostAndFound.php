@@ -288,7 +288,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                                 <?php if ($view === 'archived'): ?>
                                                     <span class="text-gray-700 dark:text-gray-300">
-                                                        <?php echo !empty($item['archived_at']) ? date('M d, Y', strtotime($item['archived_at'])) : '—'; ?>
+                                                        <?php echo !empty($item['archived_at']) ? htmlspecialchars(formatDatabaseDateTime($item['archived_at'], 'M d, Y')) : '—'; ?>
                                                     </span>
                                                 <?php elseif ($item['status'] === 'Claimed'): ?>
                                                     <span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">

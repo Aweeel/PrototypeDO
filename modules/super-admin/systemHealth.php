@@ -8,6 +8,10 @@ $databaseSize = healthRows("SELECT ROUND(SUM(data_length + index_length) / 1024 
 $activeSessions = healthRows("SELECT COUNT(*) AS total FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")[0]['total'] ?? 0;
 $auditToday = healthRows("SELECT COUNT(*) AS total FROM audit_log WHERE timestamp >= CURRENT_DATE")[0]['total'] ?? 0;
 $failedLogins = healthRows("SELECT ip_address, timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 25");
+foreach ($failedLogins as &$failedLogin) {
+	$failedLogin['timestamp'] = formatDatabaseDateTime($failedLogin['timestamp']);
+}
+unset($failedLogin);
 $peakHours = healthRows("SELECT HOUR(timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY HOUR(timestamp) ORDER BY activity_count DESC LIMIT 5");
 $pageTitle = 'System Health'; $adminName = getFormattedUserName();
 ?>

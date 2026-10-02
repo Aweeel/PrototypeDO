@@ -160,7 +160,7 @@ if (!isset($adminName) || empty($adminName)) {
                                                 <?php echo htmlspecialchars(substr($notification['message'], 0, 100)) . (strlen($notification['message']) > 100 ? '...' : ''); ?>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                                                <?php echo date('M d, g:i A', strtotime($notification['created_at'])); ?>
+                                                <?php echo htmlspecialchars(formatDatabaseDateTime($notification['created_at'], 'M d, g:i A')); ?>
                                             </p>
                                         </div>
                                         <div class="w-2 h-2 bg-blue-500 rounded-full mt-1 ml-2 flex-shrink-0"></div>

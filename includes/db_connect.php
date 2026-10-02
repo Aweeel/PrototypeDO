@@ -14,6 +14,28 @@ define('DB_SSL_CA', $configuredSslCa !== '' ? $configuredSslCa : (is_file($syste
 
 $conn = null;
 
+define('DATABASE_TIMEZONE', 'UTC');
+define('APPLICATION_TIMEZONE', 'Asia/Manila');
+
+function databaseNow() {
+    return gmdate('Y-m-d H:i:s');
+}
+
+function formatDatabaseDateTime($value, $format = 'M d, Y h:i A') {
+    if (empty($value)) {
+        return '';
+    }
+
+    if ($value instanceof DateTimeInterface) {
+        $dateTime = DateTimeImmutable::createFromInterface($value);
+        $dateTime = $dateTime->setTimezone(new DateTimeZone(DATABASE_TIMEZONE));
+    } else {
+        $dateTime = new DateTimeImmutable((string)$value, new DateTimeZone(DATABASE_TIMEZONE));
+    }
+
+    return $dateTime->setTimezone(new DateTimeZone(APPLICATION_TIMEZONE))->format($format);
+}
+
 function getDBConnection() {
     global $conn;
 
@@ -36,6 +58,7 @@ function getDBConnection() {
         }
 
         $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
+        $conn->exec("SET time_zone = '+00:00'");
         return $conn;
 
     } catch(PDOException $e) {
