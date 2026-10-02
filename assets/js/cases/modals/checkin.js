@@ -31,6 +31,7 @@ function convertTo24Hour(timeStr) {
 
 function convertTo12Hour(timeStr) {
   if (!timeStr || timeStr === 'Not recorded yet' || timeStr === 'Awaiting checkout') return timeStr;
+  if (/\s?(AM|PM)$/i.test(timeStr)) return timeStr;
   
   const match = timeStr.match(/^(\d{2}):(\d{2})/);
   if (match) {
@@ -1840,11 +1841,9 @@ async function revertTime(dayNumber, timeType, caseSanctionId, caseId) {
     async () => {
       if (subsequentDays.length > 0) {
         // Confirmed: revert this day and all subsequent days with data
-        console.log('Confirming cascade revert for days:', dayNumber, subsequentDays);
         await performRevert(dayNumber, timeType, caseSanctionId, caseId, false);
         for (let day of subsequentDays) {
           // Revert both check_in and check_out for subsequent days
-          console.log('Reverting cascade day:', day);
           await performRevert(day, 'check_in', caseSanctionId, caseId, false);
           await performRevert(day, 'check_out', caseSanctionId, caseId, false);
         }
@@ -2098,7 +2097,6 @@ async function exportCheckInCSV(caseId, studentName, sanctionName) {
       sanctionName: sanctionName
     });
     const url = window.appUrl(`/modules/do/cases.php?${params.toString()}`);
-    console.log('Exporting Check-In CSV for Case:', caseId);
     window.location.href = url;
   } catch (e) {
     console.error('CSV Export Error:', e);
@@ -2136,7 +2134,6 @@ async function printCheckInReport(caseId, studentName, sanctionName, sanctionTyp
     let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy, sanctionType);
     printRoot.innerHTML = checkInHTML;
 
-    console.log('Print preview ready for Check-In Case:', caseId);
     window.print();
   } catch (e) {
     console.error('Print Report Error:', e);

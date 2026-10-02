@@ -15,8 +15,48 @@ function getUserById($userId) {
 
 function getUserByUsername($username) {
     ensureUsersArchiveColumn();
+    ensureUsersActiveSessionColumn();
     $sql = "SELECT * FROM users WHERE username = ? AND COALESCE(is_archived, 0) = 0";
     return fetchOne($sql, [$username]);
+}
+
+function ensureUsersActiveSessionColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'active_session_id'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE users ADD COLUMN active_session_id VARCHAR(128) NULL");
+    }
+
+    $initialized = true;
+}
+
+function isSimultaneousLoginExempt($username) {
+    $exemptUsernames = ['admin', 'teacher', 'security', 'student', 'do_staff'];
+    return in_array(strtolower(trim((string)$username)), $exemptUsernames, true);
+}
+
+function registerActiveSession($userId, $sessionId) {
+    ensureUsersActiveSessionColumn();
+    executeQuery("UPDATE users SET active_session_id = ? WHERE user_id = ?", [$sessionId, $userId]);
+}
+
+function hasActiveSessionChanged($userId, $sessionId) {
+    ensureUsersActiveSessionColumn();
+    $user = fetchOne("SELECT active_session_id FROM users WHERE user_id = ?", [$userId]);
+    $activeSessionId = (string)($user['active_session_id'] ?? '');
+
+    return $activeSessionId !== '' && !hash_equals($activeSessionId, (string)$sessionId);
 }
 
 function ensureUsersTeacherSubroleColumn() {
@@ -1630,8 +1670,8 @@ function syncStudentCommunityServiceOverdueNotifications($studentId) {
  */
 function notifyDOOnNewReport($caseId, $studentName, $caseType, $severity) {
     try {
-        // Get all DO and super_admin users
-        $sql = "SELECT user_id, full_name FROM users WHERE (role = 'discipline_office' OR role = 'do' OR role = 'super_admin') AND is_active = 1";
+        // Case report notifications are for the DO team only.
+        $sql = "SELECT user_id, full_name FROM users WHERE (role = 'discipline_office' OR role = 'do') AND is_active = 1";
         $doUsers = fetchAll($sql);
         
         if (empty($doUsers)) {
@@ -2854,7 +2894,7 @@ function notifyDOOnCommunityServicePortfolioSubmission($caseId, $studentName, $o
             "SELECT user_id
              FROM users
              WHERE is_active = 1
-               AND (role = 'discipline_office' OR role = 'do' OR role = 'super_admin')"
+                             AND (role = 'discipline_office' OR role = 'do')"
         );
 
         if (empty($doUsers)) {

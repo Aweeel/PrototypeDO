@@ -7,7 +7,6 @@ let currentStudentId = null;
 
 // ====== Initialization ======
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('Student History page loaded');
     loadStudents();
     
     // Setup CSV import form handler
@@ -19,13 +18,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ====== Load Students from Database ======
 async function loadStudents() {
-    console.log('Loading students from database...');
     
     const searchTerm = document.getElementById('searchInput')?.value || '';
     const gradeFilter = document.getElementById('gradeFilter')?.value || '';
     const statusFilter = document.getElementById('statusFilter')?.value || '';
     
-    console.log('Filters:', { searchTerm, gradeFilter, statusFilter });
     
     try {
         const response = await fetch(window.appUrl('/modules/do/studentHistory.php'), {
@@ -36,22 +33,18 @@ async function loadStudents() {
             body: `ajax=1&action=getStudents&search=${encodeURIComponent(searchTerm)}&grade=${encodeURIComponent(gradeFilter)}&status=${encodeURIComponent(statusFilter)}`
         });
 
-        console.log('Response status:', response.status);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const text = await response.text();
-        console.log('Raw response:', text);
         
         const data = JSON.parse(text);
-        console.log('Parsed data:', data);
 
         if (data.success) {
             allStudents = data.students;
             filteredStudents = [...allStudents];
-            console.log('Loaded students:', allStudents.length);
             renderStudents();
         } else {
             console.error('Failed to load students:', data.error);
@@ -65,15 +58,12 @@ async function loadStudents() {
 
 // ====== Render Students Grid ======
 function renderStudents() {
-    console.log('Rendering students...');
-    console.log('Filtered students:', filteredStudents.length);
     
     const grid = document.getElementById('studentsGrid');
     const start = (currentPage - 1) * studentsPerPage;
     const end = start + studentsPerPage;
     const pageStudents = filteredStudents.slice(start, end);
 
-    console.log('Page students:', pageStudents.length);
 
     if (pageStudents.length === 0) {
         showEmptyState('No students found');
@@ -173,7 +163,7 @@ function openCaseDetails(caseId, isArchived = false, caseStatus = '', severity =
 
     if (isArchived) {
         targetTab = 'archived';
-    } else if (normalizedStatus === 'resolved') {
+    } else if (normalizedStatus === 'resolved' || (severity === 'Minor' && normalizedStatus === 'recorded')) {
         targetTab = 'resolved';
     }
 

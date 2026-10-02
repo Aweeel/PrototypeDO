@@ -48,9 +48,9 @@ try {
         exit;
     }
     
-    // Get all admin users (super_admin and discipline_office roles)
+    // Password reset notifications are handled by super admins only.
     $adminSql = "SELECT user_id, email, full_name FROM users 
-                 WHERE role IN ('super_admin', 'discipline_office') AND is_active = 1";
+                 WHERE role = 'super_admin' AND is_active = 1";
     $admins = fetchAll($adminSql);
     
     if (empty($admins)) {

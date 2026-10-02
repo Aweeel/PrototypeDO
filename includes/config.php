@@ -4,6 +4,8 @@
 // Include database connection
 require_once __DIR__ . '/db_connect.php';
 
+date_default_timezone_set('Asia/Manila');
+
 // Secure session setup — must happen before output
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([

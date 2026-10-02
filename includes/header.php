@@ -41,8 +41,13 @@ if (isset($_SESSION['user_id']) && (($_SESSION['user_role'] ?? '') === 'student'
     }
 }
 
+$headerRole = $_SESSION['user_role'] ?? ($_SESSION['user']['role'] ?? '');
+$headerTeacherSubrole = $_SESSION['teacher_subrole'] ?? ($_SESSION['user']['teacher_subrole'] ?? null);
+$showNotifications = $headerRole !== 'security'
+    && ($headerRole !== 'teacher' || $headerTeacherSubrole === 'department_head');
+
 $unreadNotifications = [];
-if (isset($_SESSION['user_id'])) {
+if ($showNotifications && isset($_SESSION['user_id'])) {
     try {
         $unreadNotifications = getUnreadNotifications($_SESSION['user_id']) ?? [];
     } catch (Throwable $e) {
@@ -111,6 +116,7 @@ if (!isset($adminName) || empty($adminName)) {
                 </div>
             </button>
 
+            <?php if ($showNotifications): ?>
             <!-- Notifications -->
             <div class="relative">
                 <button
@@ -154,7 +160,7 @@ if (!isset($adminName) || empty($adminName)) {
                                                 <?php echo htmlspecialchars(substr($notification['message'], 0, 100)) . (strlen($notification['message']) > 100 ? '...' : ''); ?>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                                                <?php echo date('M d, H:i', strtotime($notification['created_at'])); ?>
+                                                <?php echo date('M d, g:i A', strtotime($notification['created_at'])); ?>
                                             </p>
                                         </div>
                                         <div class="w-2 h-2 bg-blue-500 rounded-full mt-1 ml-2 flex-shrink-0"></div>
@@ -165,6 +171,7 @@ if (!isset($adminName) || empty($adminName)) {
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Admin Info - Profile Link -->
             <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/shared/userProfile.php" 

@@ -211,7 +211,7 @@ function buildCSVData($type, $params) {
     $exportedBy = $_SESSION['admin_name'] ?? 'User';
     
     $rows  = [];
-    $today = date('F d, Y H:i');
+    $today = date('F d, Y g:i A');
 
     switch ($type) {
         case 'incident':

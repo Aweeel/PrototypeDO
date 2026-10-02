@@ -106,10 +106,22 @@ async function loadUsers() {
 
 function setArchiveMode(isArchived) {
     archiveMode = isArchived;
-    document.getElementById('activeAccountsTab')?.classList.toggle('bg-blue-600', !isArchived);
-    document.getElementById('activeAccountsTab')?.classList.toggle('text-white', !isArchived);
-    document.getElementById('archivedAccountsTab')?.classList.toggle('bg-blue-600', isArchived);
-    document.getElementById('archivedAccountsTab')?.classList.toggle('text-white', isArchived);
+    const activeAccountsTab = document.getElementById('activeAccountsTab');
+    const archivedAccountsTab = document.getElementById('archivedAccountsTab');
+
+    activeAccountsTab?.classList.toggle('bg-blue-600', !isArchived);
+    activeAccountsTab?.classList.toggle('text-white', !isArchived);
+    activeAccountsTab?.classList.toggle('bg-white', isArchived);
+    activeAccountsTab?.classList.toggle('text-gray-700', isArchived);
+    activeAccountsTab?.classList.toggle('dark:bg-slate-700', isArchived);
+    activeAccountsTab?.classList.toggle('dark:text-gray-300', isArchived);
+
+    archivedAccountsTab?.classList.toggle('bg-blue-600', isArchived);
+    archivedAccountsTab?.classList.toggle('text-white', isArchived);
+    archivedAccountsTab?.classList.toggle('bg-white', !isArchived);
+    archivedAccountsTab?.classList.toggle('text-gray-700', !isArchived);
+    archivedAccountsTab?.classList.toggle('dark:bg-slate-700', !isArchived);
+    archivedAccountsTab?.classList.toggle('dark:text-gray-300', !isArchived);
     document.getElementById('bulkArchiveButton')?.classList.toggle('hidden', isArchived);
     document.getElementById('bulkRestoreButton')?.classList.toggle('hidden', !isArchived);
     loadUsers();
@@ -235,7 +247,9 @@ function renderUsers() {
                     <button data-action="${archiveMode ? 'restore' : 'archive'}" data-user-id="${user.user_id}" 
                         class="p-2 ${archiveMode ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'} rounded-lg transition-colors cursor-pointer" title="${archiveMode ? 'Restore User' : 'Archive User'}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            ${archiveMode
+                                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h10M7 7l-3 3 3 3m10-6l3 3-3 3M4 10h16m-4 4v4m-4-4v4m-4-4v4" />'
+                                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l2-4h14l2 4M4 8h16v12H4V8zm4 4h8" />'}
                         </svg>
                     </button>
                 </div>
@@ -268,6 +282,20 @@ function renderUsers() {
     updatePaginationInfo();
     updatePaginationButtons();
     syncCheckboxStates();
+}
+
+function removeUserFromCurrentView(userId) {
+    allUsers = allUsers.filter(user => user.user_id != userId);
+    filteredUsers = filteredUsers.filter(user => user.user_id != userId);
+    selectedUserIds.delete(userId);
+
+    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
+
+    renderUsers();
+    updateBulkActionBar();
 }
 
 // ====== Sync Checkbox States ======
@@ -366,17 +394,14 @@ function goToPage(page) {
 
 // ====== User Actions ======
 function editUser(userId) {
-    console.log('editUser called:', userId, 'allUsers:', allUsers.length);
     const user = allUsers.find(u => u.user_id == userId);
     if (!user) {
         console.error('User not found:', userId);
         return;
     }
-    console.log('Found user:', user);
 
     const modal = document.getElementById('editModal');
     if (!modal) {
-        console.log('Creating editModal...');
         createEditModal();
     }
 
@@ -410,7 +435,6 @@ function editUser(userId) {
             handleRoleChange('edit');
         }
         document.getElementById('editModal').classList.remove('hidden');
-        console.log('Modal opened');
     } catch(e) {
         console.error('Error in editUser:', e);
     }
@@ -513,7 +537,7 @@ function archiveUser(userId) {
         .then(data => {
             if (data.success) {
                 showMessage('User archived successfully', 'success');
-                loadUsers();
+                removeUserFromCurrentView(userId);
             } else {
                 showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
             }
@@ -547,7 +571,7 @@ function restoreUser(userId) {
             .then(data => {
                 if (data.success) {
                     showMessage('User restored successfully', 'success');
-                    loadUsers();
+                    removeUserFromCurrentView(userId);
                 } else {
                     showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
                 }

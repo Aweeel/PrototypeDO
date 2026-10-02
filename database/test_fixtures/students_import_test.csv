@@ -1,0 +1,7 @@
+student_id,first_name,last_name,middle_name,grade_year,track_course,section,student_type,guardian_name,guardian_contact
+02000990001,Test,Senior,High,11,STEM,TEST-A,SHS,Guardian Senior,09170000011
+02000990002,Test,Senior,High,12,ABM,TEST-B,SHS,Guardian Senior,09170000012
+02000990003,Test,College,One,1st Year,BSIT,TEST-1,College,Guardian College,09170000013
+02000990004,Test,College,Two,2nd Year,BSCS,TEST-2,College,Guardian College,09170000014
+02000990005,Test,College,Three,3rd Year,BSBA,TEST-3,College,Guardian College,09170000015
+02000990006,Test,College,Four,4th Year,BSTM,TEST-4,College,Guardian College,09170000016

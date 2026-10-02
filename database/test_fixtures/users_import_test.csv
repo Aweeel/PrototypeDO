@@ -1,0 +1,7 @@
+role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role
+01000990001,test.departmenthead@example.com,department_head,BSCS,Test,Departmenthead,Sample,09170000001,teacher
+01000990002,test.teacher@example.com,,,Test,Teacher,Regular,09170000002,teacher
+03000990003,test.discipline@example.com,,,Test,Discipline,Office,09170000003,discipline_office
+02000990004,test.student@example.com,,,Test,Student,Import,09170000004,student
+,test.security@example.com,,,Test,Security,Staff,09170000005,security
+,test.superadmin@example.com,,,Test,Superadmin,Account,09170000006,super_admin

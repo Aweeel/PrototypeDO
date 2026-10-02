@@ -3743,7 +3743,7 @@ learning environment and of the STI Community.</p>
 <?php if ($isSuperAdmin): ?>
 <script>
 function createContentWrappers() {
-  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
+  const innerContent = document.querySelector('main .flex-1.bg-white, main .flex-1.dark\\:bg-\\[\\#111827\\]');
   if (!innerContent) return;
   
   const allSectionDivs = innerContent.querySelectorAll('div[id]');
@@ -3772,7 +3772,7 @@ function createContentWrappers() {
 }
 
 function initializeHandbookSections() {
-  const innerContent = document.querySelector('main .flex-1 .bg-white, main .flex-1 .dark\\:bg-\\[\\#111827\\]');
+  const innerContent = document.querySelector('main .flex-1.bg-white, main .flex-1.dark\\:bg-\\[\\#111827\\]');
   if (!innerContent) return;
   
   const allSectionDivs = innerContent.querySelectorAll('div[id]');
@@ -3789,21 +3789,18 @@ function initializeHandbookSections() {
   });
   
   const editableSectionsCount = document.querySelectorAll('.editable-handbook-section').length;
-  console.log(`Handbook initialized: ${editableSectionsCount} sections ready for editing`);
   
   initializeEditIcons();
 }
 
 function initializeEditIcons() {
   const editableSections = document.querySelectorAll('.editable-handbook-section');
-  console.log('Editable sections found:', editableSections.length);
   
   editableSections.forEach(section => {
     const sectionId = section.getAttribute('data-section-id');
     const heading = section.querySelector('h4');
     
     if (!heading) {
-      console.log('No h4 found in section:', sectionId);
       return;
     }
     
@@ -3855,7 +3852,6 @@ function initializeEditIcons() {
     headerWrapper.appendChild(buttonsContainer);
     
     heading.replaceWith(headerWrapper);
-    console.log('Added header wrapper to section:', sectionId);
   });
 }
 
