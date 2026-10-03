@@ -4,6 +4,19 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 header('Content-Type: application/json');
 
+function finishHandbookResponse(array $payload): void
+{
+    echo json_encode($payload);
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+}
+
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Your session has expired. Please sign in again.']);
@@ -65,18 +78,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
 
-        // Audit log
-        logAudit($_SESSION['user_id'], 'Student Handbook PDF Updated', 'handbook', 0, null, [
-            'action' => 'PDF file uploaded',
-            'file_name' => $fileName,
-            'file_size' => $file['size']
-        ]);
-
-        echo json_encode([
+        $response = [
             'success' => true,
             'message' => 'PDF uploaded successfully',
             'file_name' => $fileName
-        ]);
+        ];
+        finishHandbookResponse($response);
+
+        try {
+            logAudit($_SESSION['user_id'], 'Student Handbook PDF Updated', 'handbook', 0, null, [
+                'action' => 'PDF file uploaded',
+                'file_name' => $fileName,
+                'file_size' => $file['size']
+            ]);
+        } catch (Throwable $e) {
+            error_log('PDF upload audit failed: ' . $e->getMessage());
+        }
         exit;
 
     } catch (Exception $e) {
@@ -173,19 +190,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
         
-        // Log audit once with all changes instead of per-section (much faster)
-        if (!empty($changedSections)) {
+        $response = [
+            'success' => true,
+            'message' => 'Content updated successfully',
+            'sections_updated' => array_keys($sectionsData)
+        ];
+        finishHandbookResponse($response);
+
+        try {
             logAudit($_SESSION['user_id'], 'Student Handbook Content Updated', 'handbook', 0, null, [
                 'total_sections_updated' => count($changedSections),
                 'sections' => $changedSections
             ]);
+        } catch (Throwable $e) {
+            error_log('Handbook content audit failed: ' . $e->getMessage());
         }
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Content updated successfully',
-            'sections_updated' => array_keys($sectionsData)
-        ]);
         exit;
 
     } catch (Exception $e) {
