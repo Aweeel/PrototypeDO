@@ -146,8 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($oldContent !== $content) {
                 $changedSections[] = [
                     'section_id' => $sectionId,
-                    'old_content' => $oldContent ?? '',
-                    'new_content' => $content
+                    'old_length' => strlen((string) ($oldContent ?? '')),
+                    'new_length' => strlen((string) $content),
+                    'old_sha256' => hash('sha256', (string) ($oldContent ?? '')),
+                    'new_sha256' => hash('sha256', (string) $content)
                 ];
             }
 
@@ -155,8 +157,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $handbookData[$sectionId] = $content;
         }
 
+        if (empty($changedSections)) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'No changes to save',
+                'sections_updated' => []
+            ]);
+            exit;
+        }
+
         // Write to file
-        if (!file_put_contents($configFile, json_encode($handbookData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))) {
+        $encodedHandbookData = json_encode($handbookData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($encodedHandbookData === false || file_put_contents($configFile, $encodedHandbookData, LOCK_EX) === false) {
             echo json_encode(['success' => false, 'error' => 'Failed to save content']);
             exit;
         }
