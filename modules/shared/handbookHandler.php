@@ -146,8 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($oldContent !== $content) {
                 $changedSections[] = [
                     'section_id' => $sectionId,
-                    'old_content' => $oldContent ?? '',
-                    'new_content' => $content
+                    'old_length' => strlen((string) ($oldContent ?? '')),
+                    'new_length' => strlen((string) $content),
+                    'old_sha256' => hash('sha256', (string) ($oldContent ?? '')),
+                    'new_sha256' => hash('sha256', (string) $content)
                 ];
             }
 
