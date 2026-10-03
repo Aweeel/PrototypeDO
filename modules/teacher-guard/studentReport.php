@@ -138,11 +138,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 $pageTitle = "Report Student Incident"; 
 $adminName = getFormattedUserName(); 
 
-// Fetch active case types with their catalog severity categories and descriptions.
-$sql = "SELECT offense_name AS case_type, category AS severity, description
-        FROM offense_types
-        WHERE is_active = 1 AND offense_name <> 'Others'
-        ORDER BY category, offense_name";
+// Fetch the ten most common active minor case types and their descriptions.
+$sql = "SELECT ot.offense_name AS case_type, ot.category AS severity, ot.description,
+           COUNT(c.case_id) AS usage_count
+    FROM offense_types ot
+    LEFT JOIN cases c
+        ON c.case_type = ot.offense_name
+        AND c.severity = 'Minor'
+        AND c.is_archived = 0
+    WHERE ot.is_active = 1
+      AND ot.category = 'Minor'
+      AND ot.offense_name <> 'Others'
+    GROUP BY ot.offense_id, ot.offense_name, ot.category, ot.description
+    ORDER BY usage_count DESC, ot.offense_name
+    LIMIT 10";
 $topCaseTypes = fetchAll($sql); 
 $caseTypesList = array_column($topCaseTypes, 'case_type'); 
 $caseTypeSeverityMap = array_combine( 

@@ -22,28 +22,6 @@ try {
 
 if ($pdo) {
     try {
-        // First, ensure the required columns exist
-        try {
-            $checkColSql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-                          WHERE TABLE_NAME = 'users' AND COLUMN_NAME IN ('terms_accepted_version', 'terms_accepted_date')";
-            $result = $pdo->query($checkColSql)->fetchAll();
-            
-            if (count($result) < 2) {
-                // One or both columns missing, add them
-                if (!in_array('terms_accepted_version', array_column($result, 'COLUMN_NAME'))) {
-                    $pdo->exec("ALTER TABLE users ADD COLUMN terms_accepted_version INT DEFAULT 0");
-                    error_log("Added missing terms_accepted_version column to users table");
-                }
-                if (!in_array('terms_accepted_date', array_column($result, 'COLUMN_NAME'))) {
-                    $pdo->exec("ALTER TABLE users ADD COLUMN terms_accepted_date DATETIME NULL");
-                    error_log("Added missing terms_accepted_date column to users table");
-                }
-            }
-        } catch (Exception $e) {
-            error_log("Warning: Could not check/add terms columns: " . $e->getMessage());
-            // Continue anyway
-        }
-        
         $stmt = $pdo->prepare("SELECT terms_accepted_version FROM users WHERE user_id = ?");
         
         // Explicitly bind parameter with type hint

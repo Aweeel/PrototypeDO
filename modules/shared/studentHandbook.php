@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
-$adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
+$adminName = trim((string) ($_SESSION['admin_name'] ?? '')) ?: 'Admin';
 $isSuperAdmin = ($_SESSION['user_role'] ?? '') === 'super_admin';
 
 // Load saved handbook content from JSON file

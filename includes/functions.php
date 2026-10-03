@@ -52,7 +52,6 @@ function registerActiveSession($userId, $sessionId) {
 }
 
 function hasActiveSessionChanged($userId, $sessionId) {
-    ensureUsersActiveSessionColumn();
     $user = fetchOne("SELECT active_session_id FROM users WHERE user_id = ?", [$userId]);
     $activeSessionId = (string)($user['active_session_id'] ?? '');
 
