@@ -29,20 +29,14 @@ function getHandbookSection($sectionId, $defaultContent) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script>
+    tailwind = window.tailwind || {};
+    tailwind.config = { darkMode: 'class' };
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Quill WYSIWYG Editor -->
-  <?php if ($isSuperAdmin): ?>
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-  <?php endif; ?>
-  
     <script>
-        // Ensure tailwind uses class-based dark mode
-        tailwind.config = {
-            darkMode: 'class'
-        }
-
         // Restore saved theme on page load
         if (localStorage.getItem("theme") === "dark") {
             document.documentElement.classList.add("dark");
@@ -55,8 +49,35 @@ function getHandbookSection($sectionId, $defaultContent) {
         }
 
         let quillEditors = {};
+        let quillLoadPromise = null;
         let editMode = false;
         let handbookUnsavedChanges = {};
+
+        function loadQuill() {
+          if (window.Quill) return Promise.resolve(window.Quill);
+          if (quillLoadPromise) return quillLoadPromise;
+
+          quillLoadPromise = new Promise((resolve, reject) => {
+            if (!document.querySelector('link[data-handbook-quill-style]')) {
+              const stylesheet = document.createElement('link');
+              stylesheet.rel = 'stylesheet';
+              stylesheet.href = 'https://cdn.quilljs.com/1.3.6/quill.snow.css';
+              stylesheet.dataset.handbookQuillStyle = 'true';
+              document.head.appendChild(stylesheet);
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.quilljs.com/1.3.6/quill.js';
+            script.onload = () => resolve(window.Quill);
+            script.onerror = () => {
+              quillLoadPromise = null;
+              reject(new Error('The editor could not be loaded. Please check your connection and try again.'));
+            };
+            document.head.appendChild(script);
+          });
+
+          return quillLoadPromise;
+        }
 
         function createPencilIcon() {
           const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -125,11 +146,18 @@ function getHandbookSection($sectionId, $defaultContent) {
           if (headerWrapper) headerWrapper.style.marginBottom = isEditing ? '1.5rem' : '';
         }
 
-        function startHandbookEditing(sectionId) {
+        async function startHandbookEditing(sectionId) {
           if (quillEditors[sectionId]) return;
 
           const { contentDiv } = getHandbookSectionElements(sectionId);
           if (!contentDiv) return;
+
+          try {
+            await loadQuill();
+          } catch (error) {
+            alert(error.message);
+            return;
+          }
 
           contentDiv.setAttribute('data-original-html', contentDiv.innerHTML);
           const editorWrapper = resetHandbookEditorHost(sectionId, contentDiv.innerHTML);
@@ -321,6 +349,12 @@ function getHandbookSection($sectionId, $defaultContent) {
     scroll-margin-top: 7rem;
   }
 
+  /* Defer layout and paint work for handbook sections below the viewport. */
+  main > div > div > div > section {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 1200px;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
   }
@@ -504,7 +538,7 @@ function getHandbookSection($sectionId, $defaultContent) {
         <br>The STI Academic Seal is designed to signify the institution’s commitment to its vision and mission.<br><br>
         <div class="flex justify-center my-6">
             <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm max-w-full">
-                <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" class="w-40 h-40 max-w-full object-contain"/>
+                <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" loading="lazy" decoding="async" class="w-40 h-40 max-w-full object-contain"/>
             </div>
         </div>
         The seal embodies the academic character of the institution through the following four (4) elements: <br><br>
@@ -3968,8 +4002,16 @@ async function saveSectionEdit(sectionId) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  createContentWrappers();
-  initializeHandbookSections();
+  const initializeEditing = () => {
+    createContentWrappers();
+    initializeHandbookSections();
+  };
+
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(initializeEditing, { timeout: 1000 });
+  } else {
+    window.setTimeout(initializeEditing, 0);
+  }
 });
 </script>
 <?php endif; ?>

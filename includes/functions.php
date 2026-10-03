@@ -748,6 +748,9 @@ function updateCase($caseId, $data) {
     if ($severity === 'Minor' && isset($data['status']) && !in_array($data['status'], ['Recorded', 'Unrecorded'], true)) {
         throw new Exception('Minor cases can only have Recorded or Unrecorded status.');
     }
+    if ($severity === 'Major' && isset($data['status']) && in_array($data['status'], ['Recorded', 'Unrecorded'], true)) {
+        $data['status'] = 'Pending';
+    }
 
     // Validate: If status is being changed to 'On Going' or 'Resolved', verify sanction exists
     if (isset($data['status']) && in_array($data['status'], ['On Going', 'Resolved'])) {
