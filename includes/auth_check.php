@@ -5,11 +5,6 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/functions.php';
-try {
-    ensureUsersArchiveColumn();
-} catch (Throwable $e) {
-    error_log('User archive column check skipped: ' . $e->getMessage());
-}
 
 // Prevent caching so back button won't load protected page
 header("Cache-Control: no-cache, no-store, must-revalidate");
