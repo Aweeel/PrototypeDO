@@ -238,8 +238,19 @@ const BADGE_MAP = {
 };
 
 function badge(text) {
-    const s = BADGE_MAP[text] ? `background:#${BADGE_MAP[text]}` : 'background:#f3f4f6;color:#374151';
-    return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap" style="${s}">${esc(text)}</span>`;
+    const statusTextClasses = {
+        Major: 'text-red-600 dark:text-red-400',
+        Pending: 'text-amber-600 dark:text-amber-400',
+        'On Going': 'text-blue-600 dark:text-blue-400',
+        Resolved: 'text-green-600 dark:text-green-400',
+        Recorded: 'text-green-600 dark:text-green-400',
+        Unrecorded: 'text-orange-600 dark:text-orange-400',
+    };
+    const isTransparent = Boolean(statusTextClasses[text]);
+    const s = isTransparent
+        ? 'background:transparent'
+        : BADGE_MAP[text] ? `background:#${BADGE_MAP[text]}` : 'background:#f3f4f6;color:#374151';
+    return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${statusTextClasses[text] ?? ''}" style="${s}">${esc(text)}</span>`;
 }
 
 function esc(v) {

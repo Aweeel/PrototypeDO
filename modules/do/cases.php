@@ -2181,8 +2181,35 @@ $adminName = getFormattedUserName() ?? 'User';
     <style>
         #print-root { display: none; }
         @media print {
+            body { margin: 0; }
             body > * { display: none !important; }
-            #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
+            #print-root {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-family: Arial, sans-serif;
+                font-size: 9pt;
+                color: #111827;
+            }
+            #print-root #print-content {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                box-sizing: border-box;
+            }
+            #print-root #print-content > div[style*="overflow-x:auto"] {
+                width: 100% !important;
+                max-width: none !important;
+                overflow: visible !important;
+            }
+            #print-root #print-content table {
+                display: table !important;
+                width: 100% !important;
+                max-width: none !important;
+                table-layout: fixed;
+            }
             @page { margin: 15mm 10mm; size: A4; }
         }
     </style>
