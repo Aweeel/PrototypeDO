@@ -1,5 +1,4 @@
-﻿<!DOCTYPE html>
-<?php
+﻿<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
@@ -23,6 +22,7 @@ function getHandbookSection($sectionId, $defaultContent) {
 }
 ?>
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
