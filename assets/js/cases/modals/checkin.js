@@ -2221,7 +2221,7 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
     : (totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0);
 
   return `
-    <div id="print-content" style="font-family: Arial, sans-serif; color: #111827;padding:20px;">
+    <div id="print-content" style="font-family: Arial, sans-serif; color: #111827; box-sizing:border-box; width:100%; padding:20px;">
       <div class="flex justify-between items-center border-b-2 border-blue-700 pb-2 mb-4 font-sans" style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e3a8a;padding-bottom:0.5rem;margin-bottom:1rem;font-family:Arial,sans-serif;">
         <div>
           <span class="font-bold text-blue-700 text-sm" style="font-weight:bold;color:#1e40af;">STI Discipline Office</span><br>
@@ -2266,8 +2266,8 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
       </div>
 
       <h3 style="font-size:0.875rem;font-weight:bold;color:#1e3a8a;border-left:4px solid #1e3a8a;padding-left:0.625rem;margin:1.25rem 0 0.625rem 0;">Check-In Details</h3>
-      <div style="overflow-x:auto;margin-bottom:1rem;">
-        <table style="page-break-inside:auto;width:100%;border-collapse:collapse;border:1px solid #e5e7eb;margin-bottom:0.5rem;font-size:0.75rem;">
+      <div style="width:100%;overflow-x:auto;margin-bottom:1rem;">
+        <table style="page-break-inside:auto;width:100%;max-width:none;border-collapse:collapse;border:1px solid #e5e7eb;margin-bottom:0.5rem;font-size:0.75rem;table-layout:fixed;">
           <thead>
             <tr>
               <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Day</th>
