@@ -100,49 +100,49 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
 
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen">
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-6">
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Unclaimed</p>
-                                <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400"><?php echo $stats['unclaimed']; ?></p>
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-3 sm:p-4 lg:p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-center justify-between gap-1">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Unclaimed</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-yellow-600 dark:text-yellow-400"><?php echo $stats['unclaimed']; ?></p>
                             </div>
-                            <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                                <i class="fas fa-exclamation-circle text-yellow-600 dark:text-yellow-400 text-2xl"></i>
+                            <div class="p-2 sm:p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-yellow-600 dark:text-yellow-400 text-lg sm:text-2xl"></i>
                             </div>
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Claimed</p>
-                                <p class="text-3xl font-bold text-green-600 dark:text-green-400"><?php echo $stats['claimed']; ?></p>
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-3 sm:p-4 lg:p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-center justify-between gap-1">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Claimed</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400"><?php echo $stats['claimed']; ?></p>
                             </div>
-                            <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                                <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-2xl"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-lg sm:text-2xl"></i>
                             </div>
                         </div>
                     </div>
 
                     
 
-                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Last 7 Days</p>
-                                <p class="text-3xl font-bold text-purple-600 dark:text-purple-400"><?php echo $stats['recent']; ?></p>
+                    <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-3 sm:p-4 lg:p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-center justify-between gap-1">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Last 7 Days</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400"><?php echo $stats['recent']; ?></p>
                             </div>
-                            <div class="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                                <i class="fas fa-clock text-purple-600 dark:text-purple-400 text-2xl"></i>
+                            <div class="p-2 sm:p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+                                <i class="fas fa-clock text-purple-600 dark:text-purple-400 text-lg sm:text-2xl"></i>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- View Tabs -->
-                <div class="flex gap-2 mt-6">
+                <div class="flex gap-2 mt-4 sm:mt-6 overflow-x-auto">
                     <a href="?view=active"
                        class="px-4 py-2 rounded-lg text-sm font-medium transition <?php echo $view === 'active' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-[#111827] border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'; ?>">
                         <i class="fas fa-box-open mr-2"></i>Active Items
@@ -154,22 +154,22 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                 </div>
 
                 <!-- Main Content -->
-                <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm mt-6">
+                <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm mt-4 sm:mt-6 min-w-0">
                     <!-- Header with Actions -->
-                    <div class="p-6 border-b border-gray-200 dark:border-slate-700">
-                        <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+                    <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-slate-700">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+                            <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-100 break-words">
                                 <i class="fas fa-box-open mr-2 text-blue-600 dark:text-blue-400"></i>
                                 <?php echo $view === 'archived' ? 'Archived Items' : 'Lost & Found Items'; ?>
                             </h2>
                             <?php if ($view === 'active'): ?>
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                                     <button type="button" onclick="openArchiveRangeModal()"
-                                            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+                                            class="px-3 sm:px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm">
                                         <i class="fas fa-box-archive"></i>Archive Items by Date
                                     </button>
                                     <button type="button" onclick="openAddModal()"
-                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md">
+                                            class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition shadow-md text-sm">
                                         <i class="fas fa-plus mr-2"></i>Add Item
                                     </button>
                                 </div>
@@ -229,7 +229,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                     </div>
 
                     <!-- Items Table -->
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto max-w-full">
                         <table class="w-full">
                             <thead class="bg-gray-50 dark:bg-[#0F1623] border-b border-gray-200 dark:border-slate-700">
                                 <tr>
