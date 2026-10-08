@@ -254,13 +254,13 @@ $adminName = getFormattedUserName();
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
-                <div class="mb-6 flex items-center justify-between">
+                <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div class="relative flex-1 max-w-md">
                         <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +272,7 @@ $adminName = getFormattedUserName();
                             oninput="filterStudents()">
                     </div>
 
-                    <div class="ml-4 flex gap-3 items-center">
+                    <div class="flex w-full flex-wrap gap-3 items-center sm:w-auto">
                         <!-- Grade Filter -->
                         <select id="gradeFilter" onchange="filterStudents()"
                             class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
@@ -298,7 +298,7 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Pagination -->
-                <div class="mt-6 flex items-center justify-between">
+                <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Showing 1-6 of 248 students</p>
                     <div id="paginationButtons" class="flex gap-2">
                         <!-- Populated by JavaScript -->
@@ -311,7 +311,7 @@ $adminName = getFormattedUserName();
     <!-- View Student History Modal -->
     <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 flex items-center justify-between">
+            <div class="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-4 sm:p-6 flex items-center justify-between gap-3">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Student History</h3>
                 <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +320,7 @@ $adminName = getFormattedUserName();
                 </button>
             </div>
 
-            <div id="historyContent" class="p-6">
+            <div id="historyContent" class="p-4 sm:p-6">
                 <!-- Populated by JavaScript -->
             </div>
         </div>

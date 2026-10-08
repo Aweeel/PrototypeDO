@@ -7,6 +7,8 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $globalBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled') === 'enabled';
 $globalBannerText = getSystemSetting('global_banner_text', '');
+$maintenanceModeEnabled = isMaintenanceModeEnabled();
+$termsLastUpdated = 'April 23, 2026';
 
 // Redirect if already logged in
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
@@ -191,22 +193,12 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                 <!-- System Information (Hidden on screens smaller than lg) -->
                 <div class="hidden lg:block mt-12 pt-8 border-t border-gray-200">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">System Information</h3>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span class="text-sm text-gray-600">System Online</span>
-                            <div class="ml-auto">
-                                <div class="w-2 h-2 bg-purple-500 rounded-full inline-block"></div>
-                                <span class="text-sm text-gray-600 ml-2">Version 0.0.1</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 <?= $maintenanceModeEnabled ? 'bg-amber-500' : 'bg-green-500' ?> rounded-full"></div>
+                        <span class="text-sm text-gray-600"><?= $maintenanceModeEnabled ? 'System Maintenance' : 'System Online' ?></span>
+                        <div class="ml-auto flex items-center gap-2">
                             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span class="text-sm text-gray-600">Last Update: 11/15/2025</span>
-                            <div class="ml-auto">
-                                <div class="w-2 h-2 bg-pink-500 rounded-full inline-block"></div>
-                                <span class="text-sm text-gray-600 ml-2">Support: STIhelp.edu</span>
-                            </div>
+                            <span class="text-sm text-gray-600">Last Update: <?= htmlspecialchars($termsLastUpdated) ?></span>
                         </div>
                     </div>
                 </div>
@@ -221,7 +213,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                     <div>
                         <h4 class="text-sm font-semibold text-gray-800 mb-1">Need assistance?</h4>
                         <p class="text-xs text-gray-600 leading-relaxed">If you're having trouble accessing your account, please contact
-                            the IT Helpdesk at <span class="text-blue-600 font-medium">support@sti.edu</span>
+                            the IT Helpdesk at <span class="text-sm font-semibold text-gray-800">support@sti.edu</span>
                         </p>
                     </div>
                 </div>

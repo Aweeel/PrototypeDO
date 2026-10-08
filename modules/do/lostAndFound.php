@@ -94,11 +94,11 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
 
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-            <main class="p-8 pt-28 min-h-screen">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen">
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

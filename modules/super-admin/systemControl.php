@@ -19,13 +19,23 @@ $settingKeys = [
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1' && ($_POST['action'] ?? '') === 'save_banner') {
-        setSystemSetting('global_banner_text', trim($_POST['global_banner_text'] ?? ''));
+        $bannerText = trim($_POST['global_banner_text'] ?? '');
+        setSystemSetting('global_banner_text', $bannerText);
+        logAudit($_SESSION['user_id'] ?? null, 'Global Banner Updated', 'system_settings', null, null, [
+            'setting' => 'global_banner_text',
+            'text_length' => strlen($bannerText)
+        ]);
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
         exit;
     }
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1' && ($_POST['action'] ?? '') === 'toggle_banner') {
-        setSystemSetting('global_banner_enabled', ($_POST['enabled'] ?? '') === '1' ? 'enabled' : 'disabled');
+        $bannerEnabled = ($_POST['enabled'] ?? '') === '1' ? 'enabled' : 'disabled';
+        setSystemSetting('global_banner_enabled', $bannerEnabled);
+        logAudit($_SESSION['user_id'] ?? null, 'Global Banner Toggled', 'system_settings', null, null, [
+            'setting' => 'global_banner_enabled',
+            'value' => $bannerEnabled
+        ]);
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'enabled' => getSystemSetting('global_banner_enabled') === 'enabled']);
         exit;
@@ -33,13 +43,16 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'] ?? '';
         if ($action === 'save_settings') {
+            $changedSettings = [];
             foreach ($settingKeys as $key) {
                 $value = $_POST[$key] ?? '';
                 if ($key === 'archive_after_days') {
                     $value = max(0, (int)$value);
                 }
                 setSystemSetting($key, $value);
+                $changedSettings[$key] = $value;
             }
+            logAudit($_SESSION['user_id'] ?? null, 'System Settings Updated', 'system_settings', null, null, $changedSettings);
             $message = 'Academic and announcement settings saved.';
         } elseif ($action === 'archive_preview') {
             $days = (int)getSystemSetting('archive_after_days', 30);
@@ -47,6 +60,10 @@ try {
             $message = 'Dry run found ' . count($archivePreview) . ' eligible records' . (count($archivePreview) === 100 ? ' (showing the first 100).' : '.');
         } elseif ($action === 'archive_now') {
             $stmt = executeQuery("UPDATE cases SET is_archived = 1, archived_at = NOW() WHERE is_archived = 0 AND status IN ('Resolved', 'Dismissed') AND resolved_date IS NOT NULL AND resolved_date <= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)", [(int)getSystemSetting('archive_after_days', 30)]);
+            logAudit($_SESSION['user_id'] ?? null, 'Cases Bulk Archived', 'cases', null, null, [
+                'archived_count' => $stmt->rowCount(),
+                'archive_after_days' => (int)getSystemSetting('archive_after_days', 30)
+            ]);
             $message = $stmt->rowCount() . ' cases were soft-archived.';
         }
     }
@@ -73,10 +90,10 @@ $adminName = getFormattedUserName();
 </head>
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
 <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
-<div class="flex h-screen">
-<div class="flex-1 overflow-y-auto ml-64">
+<div class="flex h-screen overflow-hidden">
+<div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
 <?php include __DIR__ . '/../../includes/header.php'; ?>
-<main class="p-8 pt-28 min-h-screen transition-colors duration-300 space-y-6">
+<main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300 space-y-6">
     <?php if ($message): ?><div class="admin-alert admin-alert-success"><?= htmlspecialchars($message) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="admin-alert admin-alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
     <?php if ($archivePreview): ?><div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"><div class="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-lg bg-white dark:bg-[#111827] shadow-xl"><div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 p-6"><h2 class="text-xl font-bold">Archive term preview</h2><a href="<?= BASE_URL ?>/modules/super-admin/systemControl.php" aria-label="Close preview" class="text-2xl text-gray-400">&times;</a></div><div class="overflow-x-auto p-6"><table class="w-full" style="table-layout: fixed"><thead class="bg-gray-100 dark:bg-slate-800"><tr><th class="px-4 py-3 text-left text-xs uppercase">Case</th><th class="px-4 py-3 text-left text-xs uppercase">Student</th><th class="px-4 py-3 text-left text-xs uppercase">Status</th><th class="px-4 py-3 text-left text-xs uppercase">Resolved</th></tr></thead><tbody class="divide-y divide-gray-200 dark:divide-slate-700"><?php foreach ($archivePreview as $record): ?><tr><td class="px-4 py-3 text-sm"><?= htmlspecialchars($record['case_id']) ?></td><td class="px-4 py-3 text-sm"><?= htmlspecialchars($record['student_name'] ?? 'Unknown') ?></td><td class="px-4 py-3 text-sm"><?= htmlspecialchars($record['status']) ?></td><td class="px-4 py-3 text-sm"><?= htmlspecialchars($record['resolved_date']) ?></td></tr><?php endforeach; ?></tbody></table></div><div class="flex justify-end gap-3 border-t border-gray-200 dark:border-slate-700 p-6"><a class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg" href="<?= BASE_URL ?>/modules/super-admin/systemControl.php">Cancel</a><form method="post"><input type="hidden" name="action" value="archive_now"><button class="px-4 py-2.5 bg-amber-600 text-white rounded-lg font-medium">Soft-archive records</button></form></div></div></div><?php endif; ?>

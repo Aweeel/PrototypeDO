@@ -97,3 +97,46 @@ switch ($role) {
     </div>
 
 </aside>
+
+<div id="globalSidebarOverlay"
+     onclick="toggleSidebar()"
+     class="fixed inset-0 z-30 hidden bg-black/50 md:hidden transition-opacity"
+     aria-hidden="true"></div>
+
+<style>
+    @media (max-width: 767px) {
+        .ml-64 {
+            margin-left: 0 !important;
+        }
+
+        main.p-8 {
+            padding: 5rem 1rem 1rem !important;
+        }
+
+        table {
+            display: block;
+            width: max-content;
+            min-width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            table-layout: auto !important;
+            white-space: nowrap;
+        }
+    }
+</style>
+
+<script>
+    window.toggleSidebar = window.toggleSidebar || function () {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('globalSidebarOverlay');
+        if (!sidebar) return;
+
+        const isOpen = sidebar.classList.toggle('translate-x-0');
+        sidebar.classList.toggle('-translate-x-full', !isOpen);
+        if (overlay) {
+            overlay.classList.toggle('hidden', !isOpen);
+            overlay.setAttribute('aria-hidden', String(!isOpen));
+        }
+        document.body.classList.toggle('overflow-hidden', isOpen);
+    };
+</script>

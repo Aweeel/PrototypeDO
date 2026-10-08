@@ -504,24 +504,24 @@ if (!$isSuperAdmin) {
   <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
   <!-- Fixed Header -->
-  <header class="fixed top-0 left-64 right-0 z-50 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm">
+  <header class="fixed top-0 left-0 md:left-64 right-0 z-50 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
   </header>
 
   <!-- Main Container -->
-  <div class="ml-64 h-screen flex">
+  <div class="ml-0 md:ml-64 h-screen flex transition-all duration-300">
     <!-- Main Content Area (Scrollable) -->
     <main class="flex-1 overflow-hidden custom-scrollbar">
-      <div class="w-full h-full pt-28 px-8">
+      <div class="w-full h-full pt-20 md:pt-28 px-4 md:px-8">
         <!-- Content Column -->
         <div class="w-full h-full">
           <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 
-                rounded-lg shadow-sm pl-20 pb-20 pr-20 pt-8
+                rounded-lg shadow-sm p-4 md:pl-20 md:pb-20 md:pr-20 md:pt-8
                 overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar">
 
             <!-- Header title -->
             <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-              <h2 class="text-5xl font-bold text-gray-800 dark:text-gray-100">
+              <h2 class="text-2xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
                 <?php echo htmlspecialchars($pageTitle); ?>
               </h2>
             </div>

@@ -97,7 +97,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 }
 
 $currentRole = $_SESSION['user_role'] ?? ($_SESSION['user']['role'] ?? '');
-$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+$currentPath = parse_url($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '', PHP_URL_PATH) ?: '';
 $basePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '';
 if ($basePath !== '' && $basePath !== '/' && strpos($currentPath, $basePath) === 0) {
     $currentPath = substr($currentPath, strlen($basePath));

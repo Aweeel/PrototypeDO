@@ -73,8 +73,8 @@ function renderStudents() {
     }
 
     grid.innerHTML = pageStudents.map(student => `
-        <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg p-5 hover:shadow-md transition-all duration-200 h-[100px]">
-            <div class="flex items-center justify-between h-full">
+        <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-200 min-h-[100px]">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <!-- Student Info -->
                 <div class="flex items-center gap-4 flex-1">
                     <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
@@ -89,7 +89,7 @@ function renderStudents() {
                 </div>
 
                 <!-- Grade & Strand -->
-                <div class="flex items-start gap-8 px-4">
+                <div class="grid grid-cols-2 gap-4 sm:flex sm:items-start sm:gap-8 sm:px-4">
                     <div class="min-w-[80px]">
                         <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Grade</p>
                         <p class="font-semibold text-gray-900 dark:text-gray-100">${student.grade}</p>
@@ -101,14 +101,14 @@ function renderStudents() {
                 </div>
 
                 <!-- Incidents -->
-                <div class="px-4 min-w-[90px]">
+                <div class="min-w-0 sm:min-w-[90px] sm:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Incidents</p>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${student.incidents}</p>
                     ${student.archivedCases > 0 ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${student.archivedCases} archived</p>` : ''}
                 </div>
 
                 <!-- Last Incident -->
-                <div class="px-4 min-w-[120px]">
+                <div class="min-w-0 sm:min-w-[120px] sm:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Last Incident</p>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">
                         ${student.lastIncident ? formatDate(student.lastIncident) : '-'}
@@ -116,15 +116,15 @@ function renderStudents() {
                 </div>
 
                 <!-- Status -->
-                <div class="px-4 min-w-[140px]">
+                <div class="min-w-0 sm:min-w-[140px] sm:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Status</p>
                     ${getStatusBadge(student.status)}
                 </div>
 
                 <!-- Actions -->
-                <div class="flex gap-2">
+                <div class="flex w-full gap-2 sm:w-auto">
                     <button onclick="viewHistory('${student.id}')" 
-                        class="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                        class="w-full px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors sm:w-auto">
                         View Full History
                     </button>
                 </div>
@@ -225,7 +225,7 @@ async function viewHistory(studentId) {
             
             content.innerHTML = `
                 <div class="mb-6">
-                    <div class="flex items-center gap-4 mb-4">
+                    <div class="flex flex-col items-start gap-4 mb-4 sm:flex-row sm:items-center">
                         <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
                             <span class="text-2xl font-semibold text-white">
                                 ${student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
@@ -239,7 +239,7 @@ async function viewHistory(studentId) {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
                         <div class="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-lg">
                             <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Incidents</p>
                             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${student.incidents}</p>
