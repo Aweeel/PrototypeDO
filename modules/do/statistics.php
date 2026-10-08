@@ -435,10 +435,10 @@ $offenseTypes = getAllOffenseTypes();
 
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Controls -->
-                <div class="mb-6 flex items-center justify-between">
-                    <div class="flex gap-3 flex-wrap">
+                <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex gap-2 sm:gap-3 flex-wrap min-w-0">
                         <select id="dateRangeFilter" onchange="handleDateRangeChange()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="all">All Time</option>
                             <option value="this_year" selected>This Year</option>
                             <option value="this_month">This Month</option>
@@ -448,7 +448,7 @@ $offenseTypes = getAllOffenseTypes();
                             <option value="custom">Custom Range</option>
                         </select>
 
-                        <div id="customDateRange" class="hidden flex items-center gap-2">
+                        <div id="customDateRange" class="hidden flex-wrap items-center gap-2">
                             <label for="customStartDate" class="sr-only">Start date</label>
                             <input type="date" id="customStartDate" onchange="handleCustomDateChange()"
                                 class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
@@ -459,22 +459,22 @@ $offenseTypes = getAllOffenseTypes();
                         </div>
 
                         <select id="gradeLevelFilter" onchange="updateAllCharts()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Grade Level</option>
                         </select>
 
                         <select id="yearLevelFilter" onchange="updateAllCharts()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Year Level</option>
                         </select>
 
                         <select id="strandFilter" onchange="updateAllCharts()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Strands</option>
                         </select>
 
                         <select id="courseFilter" onchange="updateAllCharts()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Courses</option>
                         </select>
 
@@ -490,7 +490,7 @@ $offenseTypes = getAllOffenseTypes();
                     </div>
 
                     <button onclick="exportStatistics()"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                        class="w-full lg:w-auto justify-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
@@ -499,18 +499,18 @@ $offenseTypes = getAllOffenseTypes();
                 </div>
 
                 <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
                     <!-- Total Cases -->
-                    <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Cases</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="totalCases">0</p>
+                    <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Total Cases</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="totalCases">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-red-600 dark:text-red-400">-17</span> This Month
                                 </p>
                             </div>
-                            <div class="bg-blue-100 dark:bg-[#1E3A8A] p-3 rounded-lg">
+                            <div class="bg-blue-100 dark:bg-[#1E3A8A] p-2 sm:p-3 rounded-lg flex-shrink-0">
                                 <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
@@ -519,16 +519,16 @@ $offenseTypes = getAllOffenseTypes();
                     </div>
 
                     <!-- Resolved Cases -->
-                    <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Resolved Cases</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="resolvedCases">0</p>
+                    <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Total Resolved Cases</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="resolvedCases">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-red-600 dark:text-red-400">-3</span> This Month
                                 </p>
                             </div>
-                            <div class="bg-green-100 dark:bg-[#14532D] p-3 rounded-lg">
+                            <div class="bg-green-100 dark:bg-[#14532D] p-2 sm:p-3 rounded-lg flex-shrink-0">
                                 <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -537,16 +537,16 @@ $offenseTypes = getAllOffenseTypes();
                     </div>
 
                     <!-- Repeat Offenders -->
-                    <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Repeat Offenders</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="repeatOffenders">0</p>
+                    <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Repeat Offenders</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="repeatOffenders">0</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-green-600 dark:text-green-400">+3</span> This Month
                                 </p>
                             </div>
-                            <div class="bg-orange-100 dark:bg-[#7C2D12] p-3 rounded-lg">
+                            <div class="bg-orange-100 dark:bg-[#7C2D12] p-2 sm:p-3 rounded-lg flex-shrink-0">
                                 <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
@@ -555,16 +555,16 @@ $offenseTypes = getAllOffenseTypes();
                     </div>
 
                     <!-- Lost Items Claimed -->
-                    <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Lost Items Claimed</p>
-                                <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="lostItemsClaimed">0<span class="text-lg">%</span></p>
+                    <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Lost Items Claimed</p>
+                                <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="lostItemsClaimed">0<span class="text-lg">%</span></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     <span class="text-green-600 dark:text-green-400">+8%</span> This Month
                                 </p>
                             </div>
-                            <div class="bg-purple-100 dark:bg-[#581C87] p-3 rounded-lg">
+                            <div class="bg-purple-100 dark:bg-[#581C87] p-2 sm:p-3 rounded-lg flex-shrink-0">
                                 <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                                 </svg>
@@ -574,12 +574,12 @@ $offenseTypes = getAllOffenseTypes();
                 </div>
 
                 <!-- Charts Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 sm:mb-8">
                     <!-- Cases by Type -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
-                        <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 sm:p-6 min-w-0">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Cases by Type</h3>
-                            <select id="casesByTypeDateRangeFilter" onchange="updateAllCharts()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <select id="casesByTypeDateRangeFilter" onchange="updateAllCharts()" class="w-full sm:w-auto text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                                 <option value="last_30_days">Last 30 Days</option>
                                 <option value="last_3_months">Last 3 Months</option>
                                 <option value="last_6_months">Last 6 Months</option>
@@ -588,29 +588,29 @@ $offenseTypes = getAllOffenseTypes();
                                 <option value="second_semester">2nd Semester</option>
                             </select>
                         </div>
-                        <div class="h-80">
+                        <div class="h-64 sm:h-80">
                             <canvas id="casesByTypeChart"></canvas>
                         </div>
                     </div>
 
                     <!-- Cases by Grade Level -->
-                    <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
-                        <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 sm:p-6 min-w-0">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Cases by Grade Level</h3>
-                            <select id="gradesGroupByFilter" onchange="updateAllCharts()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <select id="gradesGroupByFilter" onchange="updateAllCharts()" class="w-full sm:w-auto text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                                 <option value="grade_year">By Grade/Year Level</option>
                                 <option value="track_course">By Strand/Course</option>
                             </select>
                         </div>
-                        <div class="h-80">
+                        <div class="h-64 sm:h-80">
                             <canvas id="casesByGradeChart"></canvas>
                         </div>
                     </div>
                 </div>
 
                 <!-- Monthly Trends -->
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-8">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 sm:p-6 mb-6 sm:mb-8 min-w-0">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Monthly Trends</h3>
                         <select id="yearFilter" onchange="updateMonthlyTrends()" class="text-sm px-3 py-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                             <option value="2026">This Year</option>
@@ -618,7 +618,7 @@ $offenseTypes = getAllOffenseTypes();
                             <option value="2024">2024</option>
                         </select>
                     </div>
-                    <div class="h-80">
+                    <div class="h-64 sm:h-80">
                         <canvas id="monthlyTrendsChart"></canvas>
                     </div>
                 </div>

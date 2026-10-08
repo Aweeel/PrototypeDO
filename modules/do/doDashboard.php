@@ -180,75 +180,75 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                     <!-- Dashboard Content -->
                     <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                         <!-- Metrics Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
                             <!-- Active Cases -->
-                            <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 
+                            <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
                                 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                                <div class="flex items-start justify-between">
-                                    <div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Cases</p>
-                                        <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="activeCases">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Active Cases</p>
+                                        <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="activeCases">
                                             <?php echo $stats['total_active']; ?>
                                         </p>
                                     </div>
-                                    <div class="bg-blue-100 dark:bg-[#1E3A8A] p-5 rounded-full transition-colors duration-300">
-                                        <img src="../../assets/images/icons/active-icon.png" alt="Active icon" />
+                                    <div class="bg-blue-100 dark:bg-[#1E3A8A] p-2.5 sm:p-3 lg:p-5 rounded-full transition-colors duration-300 flex-shrink-0">
+                                        <img class="w-6 h-6 sm:w-8 sm:h-8 lg:w-auto lg:h-auto" src="../../assets/images/icons/active-icon.png" alt="Active icon" />
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Pending Review -->
-                            <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
+                            <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
                                 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                                <div class="flex items-start justify-between">
-                                    <div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Pending Review</p>
-                                        <p class="text-3xl font-bold text-gray-800 dark:text-gray-100"
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Pending Review</p>
+                                        <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100"
                                             id="pendingReview"><?php echo $stats['pending_review']; ?></p>
                                     </div>
-                                    <div class="bg-yellow-100 dark:bg-[#713F12] p-5 rounded-full transition-colors duration-300">
-                                        <img src="../../assets/images/icons/pending-icon.png" alt="Pending icon" />
+                                    <div class="bg-yellow-100 dark:bg-[#713F12] p-2.5 sm:p-3 lg:p-5 rounded-full transition-colors duration-300 flex-shrink-0">
+                                        <img class="w-6 h-6 sm:w-8 sm:h-8 lg:w-auto lg:h-auto" src="../../assets/images/icons/pending-icon.png" alt="Pending icon" />
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Urgent Cases -->
-                            <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
+                            <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
                                 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                                <div class="flex items-start justify-between">
-                                    <div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Urgent Cases</p>
-                                        <p class="text-3xl font-bold text-gray-800 dark:text-gray-100" id="urgentCases">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Urgent Cases</p>
+                                        <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100" id="urgentCases">
                                             <?php echo $stats['urgent_cases']; ?>
                                         </p>
                                     </div>
-                                    <div class="bg-red-100 dark:bg-[#7F1D1D] p-5 rounded-full transition-colors duration-300">
-                                        <img src="../../assets/images/icons/urgent-icon.png" alt="Urgent icon" />
+                                    <div class="bg-red-100 dark:bg-[#7F1D1D] p-2.5 sm:p-3 lg:p-5 rounded-full transition-colors duration-300 flex-shrink-0">
+                                        <img class="w-6 h-6 sm:w-8 sm:h-8 lg:w-auto lg:h-auto" src="../../assets/images/icons/urgent-icon.png" alt="Urgent icon" />
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Unclaimed Items -->
-                            <div class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
+                            <div class="bg-white dark:bg-[#111827] p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700
                                 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                                <div class="flex items-start justify-between">
-                                    <div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Unclaimed Items</p>
-                                        <p class="text-3xl font-bold text-gray-800 dark:text-gray-100"
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1 leading-tight">Unclaimed Items</p>
+                                        <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100"
                                             id="unresolvedItems"><?php echo $lostFoundStats['total_unclaimed']; ?>
                                         </p>
                                     </div>
-                                    <div class="bg-gray-300 dark:bg-[#6B7280] p-5 rounded-full transition-colors duration-300">
-                                        <img src="../../assets/images/icons/unclaimed-icon.png" alt="Unclaimed icon" />
+                                    <div class="bg-gray-300 dark:bg-[#6B7280] p-2.5 sm:p-3 lg:p-5 rounded-full transition-colors duration-300 flex-shrink-0">
+                                        <img class="w-6 h-6 sm:w-8 sm:h-8 lg:w-auto lg:h-auto" src="../../assets/images/icons/unclaimed-icon.png" alt="Unclaimed icon" />
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Row 1: Recent Cases and Case Types -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-6 sm:mb-8">
                             <!-- Recent Cases -->
-                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-6 transition-colors duration-300">
+                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-[#E5E7EB] dark:border-slate-700 p-4 sm:p-6 transition-colors duration-300 min-w-0">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Recent Cases</h2>
                                 </div>
@@ -264,8 +264,8 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                                                 'red' => 'bg-red-100 text-red-800 dark:bg-[#7F1D1D] dark:text-red-100'
                                             ];
                                         ?>
-                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block">
-                                            <div class="flex items-center space-x-3 flex-1">
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg block min-w-0 w-full">
+                                            <div class="flex items-center space-x-3 min-w-0 w-full sm:flex-1">
                                                 <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
                                                     <span class="text-xs font-bold text-white"><?php 
                                                         $names = explode(' ', $case['student_name']);
@@ -277,13 +277,13 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                                                     ?></span>
                                                 </div>
                                                 <div class="flex-1 min-w-0">
-                                                    <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
-                                                    <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_id'] ?? $case['student_number'] ?? ''); ?></p>
+                                                    <p class="font-medium text-gray-800 dark:text-gray-100 truncate"><?php echo htmlspecialchars($case['student_name']); ?></p>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400 truncate"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_id'] ?? $case['student_number'] ?? ''); ?></p>
                                                 </div>
                                             </div>
-                                            <div class="flex items-center space-x-4">
-                                                <span class="px-3 py-1 text-xs font-medium rounded-full <?php echo $statusColors[$statusColor]; ?>"><?php echo htmlspecialchars($case['status']); ?></span>
-                                                <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
+                                            <div class="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4 min-w-0 w-full sm:w-auto sm:flex-shrink-0">
+                                                <span class="px-2 sm:px-3 py-1 text-xs font-medium rounded-full max-w-full text-center break-words <?php echo $statusColors[$statusColor]; ?>"><?php echo htmlspecialchars($case['status']); ?></span>
+                                                <span class="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"><?php echo formatDate($case['date_reported']); ?></span>
                                             </div>
                                         </a>
                                         <?php endforeach; ?>
@@ -296,7 +296,7 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                             </div>
 
                             <!-- Case Types -->
-                            <div class="lg:col-span-1 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                            <div class="lg:col-span-1 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 sm:p-6 transition-colors duration-300 min-w-0">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Case Types</h2>
                                     <a href="../do/statistics.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
@@ -326,9 +326,9 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                         </div>
 
                         <!-- Row 2: Lost & Found, Pending Cases, Calendar Events -->
-                        <div class="grid grid-cols-1 lg:grid-cols-6 gap-6 mb-8">
+                        <div class="grid grid-cols-1 lg:grid-cols-6 gap-4 lg:gap-6 mb-6 sm:mb-8">
                             <!-- Lost & Found Items -->
-                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 transition-colors duration-300">
+                            <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 sm:p-6 transition-colors duration-300 min-w-0">
                                 <div class="flex items-center justify-between mb-3">
                                     <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">Lost & Found Items</h2>
                                     <a href="../do/lostAndFound.php" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-all duration-200 active:scale-95">View All</a>
