@@ -5,9 +5,13 @@ if (!function_exists('initializeGlobalTheme')) {
     function initializeGlobalTheme() {
         echo '<script>
             (function () {
-                if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+                document.documentElement.classList.toggle(
+                    "dark",
+                    localStorage.getItem("theme") === "dark"
+                );
                 window.toggleDarkMode = window.toggleDarkMode || function () {
-                    const isDark = document.documentElement.classList.toggle("dark");
+                    const isDark = !document.documentElement.classList.contains("dark");
+                    document.documentElement.classList.toggle("dark", isDark);
                     localStorage.setItem("theme", isDark ? "dark" : "light");
                 };
             })();

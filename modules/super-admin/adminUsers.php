@@ -1004,11 +1004,11 @@ $adminName = getFormattedUserName();
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
                 <div class="mb-6 flex items-center justify-between gap-4">
                     <div class="relative flex-1 max-w-md">
@@ -1150,17 +1150,7 @@ $adminName = getFormattedUserName();
                 <div class="mt-6 flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
-                        <div class="flex items-center gap-2">
-                            <label for="itemsPerPageSelect" class="text-sm text-gray-600 dark:text-gray-400">Show:</label>
-                            <select id="itemsPerPageSelect" onchange="changeItemsPerPage(this.value)" 
-                                class="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer text-sm">
-                                <option value="7" selected>7</option>
-                                <option value="10">10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
-                            <span class="text-sm text-gray-600 dark:text-gray-400">per page</span>
+                        <div class="flex items-center gap-2">   
                         </div>
                     </div>
                     <div id="paginationButtons" class="flex gap-2">

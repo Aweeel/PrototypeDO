@@ -30,23 +30,23 @@ function getHandbookSection($sectionId, $defaultContent) {
   <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
   <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind = window.tailwind || {};
     tailwind.config = { darkMode: 'class' };
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
   
     <script>
-        // Restore saved theme on page load
-        if (localStorage.getItem("theme") === "dark") {
-            document.documentElement.classList.add("dark");
-        }
+        (function initializeHandbookTheme() {
+          const html = document.documentElement;
+          const savedTheme = localStorage.getItem("theme");
+          html.classList.toggle("dark", savedTheme === "dark");
 
-        function toggleDarkMode() {
-            const html = document.documentElement;
-            const isDark = html.classList.toggle("dark");
+          window.toggleDarkMode = function () {
+            const isDark = !html.classList.contains("dark");
+            html.classList.toggle("dark", isDark);
             localStorage.setItem("theme", isDark ? "dark" : "light");
-        }
+          };
+        })();
 
         let quillEditors = {};
         let quillLoadPromise = null;
@@ -345,6 +345,14 @@ function getHandbookSection($sectionId, $defaultContent) {
 
   html { scroll-behavior: smooth; }
 
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   [id] {
     scroll-margin-top: 7rem;
   }
@@ -372,6 +380,30 @@ function getHandbookSection($sectionId, $defaultContent) {
   }
   .dark .active-toc-link {
     color: #60a5fa !important;
+  }
+
+  .handbook-content,
+  .handbook-content p,
+  .handbook-content li,
+  .handbook-content h1,
+  .handbook-content h2,
+  .handbook-content h3,
+  .handbook-content h4,
+  .handbook-content h5,
+  .handbook-content h6 {
+    color: inherit;
+  }
+
+  .handbook-content [style*="color"],
+  .handbook-content [color],
+  .ql-editor [style*="color"],
+  .ql-editor [color] {
+    color: inherit !important;
+  }
+
+  .handbook-content [style*="background-color"],
+  .ql-editor [style*="background-color"] {
+    background-color: transparent !important;
   }
 
   .ql-container.ql-snow {
@@ -537,7 +569,7 @@ function getHandbookSection($sectionId, $defaultContent) {
       <div>
         <br>The STI Academic Seal is designed to signify the institution’s commitment to its vision and mission.<br><br>
         <div class="flex justify-center my-6">
-            <div class="p-4 rounded-xl dark:bg-white/90 bg-transparent shadow-sm max-w-full">
+            <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 shadow-sm max-w-full">
                 <img src="../../assets/images/logos/Sti-Academic-Seal.png" alt="STI Academic Seal" loading="lazy" decoding="async" class="w-40 h-40 max-w-full object-contain"/>
             </div>
         </div>

@@ -271,6 +271,13 @@ function getActionColor($action) {
         'User Deactivated (Bulk)' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
         'Student Imported' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
         'Bulk Import' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Global Banner Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Global Banner Toggled' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        'System Settings Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Cases Bulk Archived' => 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+        'Maintenance Mode Toggled' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Maintenance Mode Updated' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+        'Database Backup Created' => 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
         
         // Students
         'Student Created' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
@@ -316,6 +323,12 @@ function getActionColor($action) {
         'Lost Item Restored' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
         'Lost Item Claimed' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
         'Lost Item Unclaimed' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        'Lost Item Unarchived' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Lost & Found Category Added' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        'Lost & Found Category Updated' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Lost & Found Category Deactivated' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        'Lost & Found Category Reactivated' => 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Lost & Found Category Deleted' => 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
         
         // Portfolio & Submissions
         'Portfolio Submitted' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
@@ -428,16 +441,16 @@ table.w-full th, table.w-full td {
     <div id="print-root" aria-hidden="true"></div>
     
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php
             $pageTitle = "Audit Logs";
             $adminName = getFormattedUserName();
             include __DIR__ . '/../../includes/header.php';
             ?>
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
-                <div class="mb-6 flex items-center justify-between">
+                <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div class="relative flex-1 max-w-md">
                         <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,7 +462,7 @@ table.w-full th, table.w-full td {
                             oninput="filterLogs()">
                     </div>
 
-                    <div class="ml-4 flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                     <?php if (($_SESSION['user_role'] ?? '') === 'super_admin'): ?><button onclick="openSystemMetrics()" class="px-4 py-2.5 bg-slate-700 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">System Metrics</button><?php endif; ?>
                     <button onclick="exportLogs()"
                         class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
@@ -510,8 +523,8 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Table -->
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                    <table class="w-full">
+                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
+                    <table class="w-full min-w-[720px]">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Log ID</th>

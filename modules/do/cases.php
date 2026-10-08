@@ -2131,16 +2131,16 @@ $adminName = getFormattedUserName() ?? 'User';
     
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
-    <div class="flex h-screen">
-        <div class="flex-1 overflow-y-auto ml-64">
+    <div class="flex h-screen overflow-hidden">
+        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php
             $pageTitle = "Cases Management - " . $caseSeverity;
             include __DIR__ . '/../../includes/header.php';
             ?>
 
-            <main class="p-8 pt-28 min-h-screen transition-colors duration-300">
+            <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
-                <div class="mb-6 flex items-center justify-between">
+                <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div class="relative flex-1 max-w-md">
                         <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2152,7 +2152,7 @@ $adminName = getFormattedUserName() ?? 'User';
                             oninput="filterCases()">
                     </div>
 
-                    <div class="ml-4 flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                         <!-- Bulk Restore Button (Hidden by default, shown when cases are selected) -->
                         <button id="bulkRestoreBtn" onclick="bulkRestoreCases()" 
                             class="hidden px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
@@ -2218,8 +2218,8 @@ $adminName = getFormattedUserName() ?? 'User';
 
                 <!-- Table -->
                 <div
-                    class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                    <table class="w-full table-fixed">
+                    class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
+                    <table class="w-full min-w-[900px] table-fixed">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Case ID</th>

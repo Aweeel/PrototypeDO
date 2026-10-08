@@ -29,12 +29,20 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'] ?? '';
         if ($action === 'toggle_maintenance' && ($_POST['ajax'] ?? '') === '1') {
-            setSystemSetting('maintenance_mode', ($_POST['enabled'] ?? '') === '1' ? 'enabled' : 'disabled');
+            $maintenanceMode = ($_POST['enabled'] ?? '') === '1' ? 'enabled' : 'disabled';
+            setSystemSetting('maintenance_mode', $maintenanceMode);
+            logAudit($_SESSION['user_id'] ?? null, 'Maintenance Mode Toggled', 'system_settings', null, null, [
+                'value' => $maintenanceMode
+            ]);
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'enabled' => getSystemSetting('maintenance_mode') === 'enabled']);
             exit;
         } elseif ($action === 'save_maintenance') {
-            setSystemSetting('maintenance_mode', isset($_POST['maintenance_mode']) ? 'enabled' : 'disabled');
+            $maintenanceMode = isset($_POST['maintenance_mode']) ? 'enabled' : 'disabled';
+            setSystemSetting('maintenance_mode', $maintenanceMode);
+            logAudit($_SESSION['user_id'] ?? null, 'Maintenance Mode Updated', 'system_settings', null, null, [
+                'value' => $maintenanceMode
+            ]);
             $message = 'Maintenance mode setting saved.';
         } elseif ($action === 'download_backup') {
             $filename = 'PrototypeDO_snapshot_' . date('Ymd_His') . '.sql';
@@ -43,6 +51,10 @@ try {
             $history = json_decode(getSystemSetting('backup_history', '[]'), true) ?: [];
             array_unshift($history, ['filename' => $filename, 'created_at' => date('Y-m-d H:i:s'), 'size' => filesize($path)]);
             setSystemSetting('backup_history', json_encode(array_slice($history, 0, 25)));
+            logAudit($_SESSION['user_id'] ?? null, 'Database Backup Created', 'system_backup', null, null, [
+                'filename' => $filename,
+                'size' => filesize($path)
+            ]);
             header('Content-Type: application/sql');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
             header('Content-Length: ' . filesize($path));

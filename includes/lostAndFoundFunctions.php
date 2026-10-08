@@ -3,6 +3,7 @@
 // Handles all database operations for lost and found items
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/functions.php';
 
 /**
  * Generate unique item ID
@@ -624,19 +625,10 @@ function unarchiveItem($item_id) {
  */
 function auditLostItemUnarchived($item_id, $item_name) {
     $userId = $_SESSION['user_id'] ?? null;
-
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found', 'UNARCHIVE_ITEM', ?, ?)";
-
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Archived',
-            'Item: ' . $item_name . ' (' . $item_id . ')'
-        ]);
-    } catch (Exception $e) {
-        error_log("auditLostItemUnarchived error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost Item Unarchived', 'lost_found_items', $item_id,
+        ['status' => 'Archived'],
+        ['status' => 'Active', 'item_name' => $item_name]
+    );
 }
 
 /**
@@ -866,19 +858,10 @@ function getCategoryById($categoryId) {
  */
 function auditCategoryAdded($categoryName, $description = null) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value, notes)
-            VALUES (?, 'Lost & Found Categories', 'ADD_CATEGORY', NULL, ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            $categoryName,
-            $description ?? ''
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryAdded error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Added', 'lost_found_categories', null, null, [
+        'category_name' => $categoryName,
+        'description' => $description
+    ]);
 }
 
 /**
@@ -886,19 +869,9 @@ function auditCategoryAdded($categoryName, $description = null) {
  */
 function auditCategoryUpdated($categoryId, $categoryName) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found Categories', 'UPDATE_CATEGORY', ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Category ID: ' . $categoryId,
-            $categoryName
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryUpdated error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Updated', 'lost_found_categories', $categoryId, null, [
+        'category_name' => $categoryName
+    ]);
 }
 
 /**
@@ -906,19 +879,9 @@ function auditCategoryUpdated($categoryId, $categoryName) {
  */
 function auditCategoryDeactivated($categoryId) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found Categories', 'DEACTIVATE_CATEGORY', ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Category ID: ' . $categoryId,
-            'Deactivated'
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryDeactivated error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Deactivated', 'lost_found_categories', $categoryId,
+        ['is_active' => 1], ['is_active' => 0]
+    );
 }
 
 /**
@@ -986,19 +949,9 @@ function deleteCategory($categoryId) {
  */
 function auditCategoryDeleted($categoryId) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found Categories', 'DELETE_CATEGORY', ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Category ID: ' . $categoryId,
-            'Deleted'
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryDeleted error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Deleted', 'lost_found_categories', $categoryId,
+        ['category_id' => $categoryId], ['status' => 'Deleted']
+    );
 }
 
 /**
@@ -1075,19 +1028,9 @@ function deleteCategoryByName($categoryName) {
  */
 function auditCategoryDeletedByName($categoryId, $categoryName) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found Categories', 'DELETE_CATEGORY', ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Category: ' . $categoryName . ' (ID: ' . $categoryId . ')',
-            'Deleted'
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryDeletedByName error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Deleted', 'lost_found_categories', $categoryId,
+        ['category_name' => $categoryName], ['status' => 'Deleted']
+    );
 }
 
 /**
@@ -1095,19 +1038,9 @@ function auditCategoryDeletedByName($categoryId, $categoryName) {
  */
 function auditCategoryReactivated($categoryId) {
     $userId = $_SESSION['user_id'] ?? null;
-    
-    $sql = "INSERT INTO audit_logs (user_id, module, action, old_value, new_value)
-            VALUES (?, 'Lost & Found Categories', 'REACTIVATE_CATEGORY', ?, ?)";
-    
-    try {
-        executeQuery($sql, [
-            $userId,
-            'Category ID: ' . $categoryId,
-            'Reactivated'
-        ]);
-    } catch (Exception $e) {
-        error_log("auditCategoryReactivated error: " . $e->getMessage());
-    }
+    logAudit($userId, 'Lost & Found Category Reactivated', 'lost_found_categories', $categoryId,
+        ['is_active' => 0], ['is_active' => 1]
+    );
 }
 
 /**
