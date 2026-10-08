@@ -1479,7 +1479,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
         </div>
         <div class="flex gap-2 flex-shrink-0">
           ${getCommunityServiceSubmissionsButtonHTML(caseId, activeSanction.case_sanction_id, portfolioSubmissions, newPortfolioSubmissionCount)}
-          <button onclick="exportCheckInCSV('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}')" title="Export check-in report as CSV file" class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium">
+          <button onclick="exportCheckInCSV('${caseId}', '${caseData.student.replace(/'/g, "\\'")}', '${activeSanction.sanction_name.replace(/'/g, "\\'")}'${sanctionType === 'suspension' ? ", 'suspension'" : ''})" title="Export check-in report as CSV file" class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors font-medium">
             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
@@ -2087,14 +2087,15 @@ async function performCheckOut(dayNumber, caseId, caseSanctionId) {
 // ====== EXPORT & PRINT FUNCTIONS ======
 
 // Export Check-In data as CSV
-async function exportCheckInCSV(caseId, studentName, sanctionName) {
+async function exportCheckInCSV(caseId, studentName, sanctionName, sanctionType = 'corrective') {
   try {
     const params = new URLSearchParams({ 
       export: 'csv', 
       type: 'checkin',
       caseId: caseId,
       studentName: studentName,
-      sanctionName: sanctionName
+      sanctionName: sanctionName,
+      sanctionType: sanctionType
     });
     const url = window.appUrl(`/modules/do/cases.php?${params.toString()}`);
     window.location.href = url;
@@ -2116,12 +2117,17 @@ async function printCheckInReport(caseId, studentName, sanctionName, sanctionTyp
     
     const result = await response.json();
     
-    if (!result.success || !result.sanctions.length) {
+    if (!result.success || !Array.isArray(result.sanctions) || !result.sanctions.length) {
       showNotification('No check-in data available to print', 'error');
       return;
     }
 
-    const sanction = result.sanctions[0];
+    const sanction = result.sanctions.find((item) => matchesSanctionTypeByName(item.sanction_name, sanctionType));
+    if (!sanction) {
+      showNotification('No progress data available for this sanction', 'error');
+      return;
+    }
+
     const totalDays = sanction.duration_days;
     const totalHours = getRequiredCorrectiveHours(sanction);
     const days = sanction.days;
@@ -2131,7 +2137,7 @@ async function printCheckInReport(caseId, studentName, sanctionName, sanctionTyp
     const generatedBy = document.querySelector('[data-user-name]')?.content || window.ADMIN_NAME || 'User';
     const printRoot = document.getElementById('print-root') || createPrintRoot();
 
-    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy, sanctionType);
+    let checkInHTML = buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy, sanctionType, sanction.applied_date);
     printRoot.innerHTML = checkInHTML;
 
     window.print();
@@ -2151,19 +2157,44 @@ function createPrintRoot() {
 }
 
 // Build HTML for print report
-function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy = 'User', sanctionType = 'corrective') {
+function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, totalHours, days, today, generatedBy = 'User', sanctionType = 'corrective', appliedDate = '') {
   let rowsHTML = '';
   let completedCount = 0;
   let completedHours = 0;
+  const suspensionCompletedDays = sanctionType === 'suspension'
+    ? calculateElapsedSuspensionDays(appliedDate, Number(totalDays))
+    : 0;
+  const reportDays = sanctionType === 'suspension'
+    ? Array.from({ length: Number(totalDays) }, (_, index) => [index + 1, days?.[index + 1] || {}])
+    : Object.entries(days || {});
+  const getSuspensionDate = (dayNumber) => {
+    const startDate = parseSqlDateTimeValue(appliedDate);
+    if (!startDate) return '—';
+
+    const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    let schoolDay = 0;
+    while (schoolDay < dayNumber) {
+      if (currentDate.getDay() !== 0) {
+        schoolDay++;
+      }
+      if (schoolDay < dayNumber) {
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    return currentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
   
   // Determine report title based on sanction type
   const reportTitle = sanctionType === 'suspension' ? 'Suspension from Class Check-In Report' : 'Community Service Check-In Report';
 
-  Object.entries(days).forEach(([dayNum, dayData]) => {
+  reportDays.forEach(([dayNum, dayData]) => {
     const day = parseInt(dayNum);
     const inTime = dayData.check_in_time ? formatSqlDateTimeToTime(dayData.check_in_time, '—') : '—';
     const outTime = dayData.check_out_time ? formatSqlDateTimeToTime(dayData.check_out_time, '—') : '—';
-    const status = dayData.check_in_time && dayData.check_out_time ? 'Completed' : (dayData.check_in_time ? 'In Progress' : 'Pending');
+    const status = sanctionType === 'suspension' && day <= suspensionCompletedDays
+      ? 'Completed'
+      : (dayData.check_in_time && dayData.check_out_time ? 'Completed' : (dayData.check_in_time ? 'In Progress' : 'Pending'));
     
     if (status === 'Completed') {
       completedCount++;
@@ -2177,14 +2208,16 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
 
     rowsHTML += `<tr>
       <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${day}</td>
-      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${inTime}</td>
-      <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${outTime}</td>
+      ${sanctionType === 'suspension'
+        ? `<td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${getSuspensionDate(day)}</td>`
+        : `<td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${inTime}</td>
+           <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700">${outTime}</td>`}
       <td class="px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${status === 'Completed' ? 'bg-green-50 text-green-700' : (status === 'In Progress' ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700')}">${status}</span></td>
     </tr>`;
   });
 
   const progressPercent = sanctionType === 'suspension'
-    ? Math.round((completedCount / totalDays) * 100)
+    ? (totalDays > 0 ? Math.round((suspensionCompletedDays / totalDays) * 100) : 0)
     : (totalHours > 0 ? Math.min(100, Math.round((completedHours / totalHours) * 100)) : 0);
 
   return `
@@ -2223,7 +2256,7 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
         <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e5e7eb;">
           <div style="margin-bottom:0.5rem;display:flex;justify-content:space-between;">
             <span style="font-size:0.75rem;font-weight:500;color:#6b7280;">Progress</span>
-            <span style="font-size:0.875rem;font-weight:600;color:#111827;">${sanctionType === 'suspension' ? `${completedCount} / ${totalDays} days completed` : `${formatHourValue(completedHours)} / ${formatHourValue(totalHours)} hours completed`}</span>
+            <span style="font-size:0.875rem;font-weight:600;color:#111827;">${sanctionType === 'suspension' ? `${suspensionCompletedDays} / ${totalDays} days completed` : `${formatHourValue(completedHours)} / ${formatHourValue(totalHours)} hours completed`}</span>
           </div>
           <div style="width:100%;background-color:#e5e7eb;border-radius:9999px;height:0.625rem;overflow:hidden;">
             <div style="background-color:#2563eb;height:0.625rem;border-radius:9999px;width:${progressPercent}%;"></div>
@@ -2238,8 +2271,9 @@ function buildCheckInPrintHTML(caseId, studentName, sanctionName, totalDays, tot
           <thead>
             <tr>
               <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Day</th>
-              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check In</th>
-              <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check Out</th>
+              ${sanctionType === 'suspension'
+                ? '<th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Actual Date</th>'
+                : '<th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check In</th><th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Check Out</th>'}
               <th style="background:#1e3a8a;color:white;padding:0.4rem 0.375rem;font-size:0.5rem;font-weight:600;text-align:left;">Status</th>
             </tr>
           </thead>

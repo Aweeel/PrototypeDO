@@ -24,6 +24,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     $caseId = $_GET['caseId'] ?? '';
     $studentName = $_GET['studentName'] ?? 'Student';
     $sanctionName = $_GET['sanctionName'] ?? 'Community Service';
+    $sanctionType = $_GET['sanctionType'] ?? 'corrective';
     
     if (empty($caseId)) {
         header('Content-Type: application/json');
@@ -42,6 +43,18 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     if (empty($sanctions)) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => 'No check-in data found']);
+        exit;
+    }
+
+    if ($sanctionType === 'suspension') {
+        $sanctions = array_values(array_filter($sanctions, static function ($candidate) {
+            return stripos((string)($candidate['sanction_name'] ?? ''), 'suspension from class') !== false;
+        }));
+    }
+
+    if (empty($sanctions)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'No matching sanction data found']);
         exit;
     }
 
@@ -72,21 +85,47 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
     // BOM for Excel UTF-8 compatibility
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
+    $reportTitle = $sanctionType === 'suspension'
+        ? 'STI Discipline Office – Suspension from Class Progress Report'
+        : 'STI Discipline Office – Community Service Check-In Report';
     // Header rows
-    fputcsv($out, ['STI Discipline Office – Community Service Check-In Report']);
+    fputcsv($out, [$reportTitle]);
     fputcsv($out, ['Generated:', date('F d, Y g:i A')]);
     fputcsv($out, []);
     fputcsv($out, ['Case ID:', $caseId]);
     fputcsv($out, ['Student:', $studentName]);
     fputcsv($out, ['Sanction Type:', $sanctionName]);
-    fputcsv($out, ['Duration:', $totalHours . ' hours']);
+    fputcsv($out, ['Duration:', $sanctionType === 'suspension' ? $totalDays . ' days' : $totalHours . ' hours']);
     fputcsv($out, []);
 
     // Data headers
-    fputcsv($out, ['Day Number', 'Check-In Time', 'Check-Out Time', 'Status']);
+    fputcsv($out, $sanctionType === 'suspension'
+        ? ['Day Number', 'Actual Date', 'Status']
+        : ['Day Number', 'Check-In Time', 'Check-Out Time', 'Status']);
 
     // Data rows
     $completedHours = 0;
+    $completedDays = 0;
+    $suspensionDate = $sanction['applied_date'] ?? null;
+    $suspensionDate = $suspensionDate ? new DateTime($suspensionDate) : null;
+    if ($suspensionDate) {
+        $suspensionDate->setTime(0, 0, 0);
+    }
+    if ($sanctionType === 'suspension' && $suspensionDate) {
+        $yesterday = new DateTime('yesterday');
+        $yesterday->setTime(0, 0, 0);
+        if ($suspensionDate <= $yesterday) {
+            $elapsedDate = clone $suspensionDate;
+            $elapsedDays = 0;
+            while ($elapsedDate <= $yesterday) {
+                if (intval($elapsedDate->format('w')) !== 0) {
+                    $elapsedDays++;
+                }
+                $elapsedDate->modify('+1 day');
+            }
+            $completedDays = min($totalDays, $elapsedDays);
+        }
+    }
     for ($day = 1; $day <= $totalDays; $day++) {
         $dayData = null;
         foreach ($checkIns as $record) {
@@ -100,7 +139,24 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
         $outTime = '—';
         $status = 'Pending';
 
-        if ($dayData) {
+        if ($sanctionType === 'suspension' && $suspensionDate) {
+            $schoolDay = 0;
+            $actualDate = clone $suspensionDate;
+            while ($schoolDay < $day) {
+                if (intval($actualDate->format('w')) !== 0) {
+                    $schoolDay++;
+                }
+                if ($schoolDay < $day) {
+                    $actualDate->modify('+1 day');
+                }
+            }
+            $inTime = $actualDate->format('M j, Y');
+            if ($day <= $completedDays) {
+                $status = 'Completed';
+            }
+        }
+
+        if ($dayData && $sanctionType !== 'suspension') {
             if ($dayData['check_in_time']) {
                 $inTime = date('h:i A', strtotime($dayData['check_in_time']));
             }
@@ -122,15 +178,23 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && isset($_GET['type']) 
             }
         }
 
-        fputcsv($out, [$day, $inTime, $outTime, $status]);
+        fputcsv($out, $sanctionType === 'suspension'
+            ? [$day, $inTime, $status]
+            : [$day, $inTime, $outTime, $status]);
     }
 
     // Summary
     fputcsv($out, []);
     fputcsv($out, ['Summary']);
-    fputcsv($out, ['Total Hours:', $totalHours]);
-    fputcsv($out, ['Completed Hours:', number_format($completedHours, 2)]);
-    fputcsv($out, ['Progress:', $totalHours > 0 ? round(($completedHours / $totalHours) * 100) . '%' : '0%']);
+    if ($sanctionType === 'suspension') {
+        fputcsv($out, ['Total Days:', $totalDays]);
+        fputcsv($out, ['Completed Days:', $completedDays]);
+        fputcsv($out, ['Progress:', $totalDays > 0 ? round(($completedDays / $totalDays) * 100) . '%' : '0%']);
+    } else {
+        fputcsv($out, ['Total Hours:', $totalHours]);
+        fputcsv($out, ['Completed Hours:', number_format($completedHours, 2)]);
+        fputcsv($out, ['Progress:', $totalHours > 0 ? round(($completedHours / $totalHours) * 100) . '%' : '0%']);
+    }
 
     fclose($out);
     exit;
@@ -1078,6 +1142,7 @@ if ($_POST['action'] === 'getCheckInHistory') {
         $result[] = [
             'case_sanction_id' => $csId,
             'sanction_name' => $sanction['sanction_name'],
+            'applied_date' => $sanction['applied_date'],
             'duration_days' => $totalDays,
             'duration_extra_hours' => intval($sanction['duration_extra_hours'] ?? 0),
             'deadline' => $sanction['deadline'],

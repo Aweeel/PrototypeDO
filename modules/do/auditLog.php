@@ -433,6 +433,21 @@ table.w-full th, table.w-full td {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Keep the PDF export from clipping the final IP address column. */
+@media print {
+    table.w-full {
+        table-layout: auto;
+    }
+
+    table.w-full th,
+    table.w-full td {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}
 </style>
 </head>
 
