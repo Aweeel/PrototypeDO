@@ -355,13 +355,13 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                 </div>
 
                         <!-- Pagination (moved outside the table card) -->
-                        <div class="mt-4 flex items-center justify-between px-6 py-2">
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-4 px-6 py-2">
                             <div id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">
                                 Showing <?php echo $startIndex + 1; ?>-<?php echo min($startIndex + $perPage, $totalItems); ?> of <?php echo $totalItems; ?> items
                             </div>
-                            <div id="paginationButtons" class="flex gap-2 text-sm">
+                            <div id="paginationButtons" class="flex flex-wrap gap-2 text-sm">
                                 <?php
-                                $maxButtons = 7;
+                                $maxButtons = 3;
                                 $queryParams = $_GET;
                                 $queryParams['view'] = $view;
 
@@ -388,25 +388,16 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                         else echo '<button onclick="window.location.href=\'' . $buildUrl($i) . '\'" class="' . $btnBase . '">' . $i . '</button>';
                                     }
                                 } else {
-                                    $innerCount = $maxButtons - 2;
-                                    $start = max(2, $lfCurrentPage - floor($innerCount / 2));
-                                    $end = min($totalPages - 1, $start + $innerCount - 1);
-                                    if ($end - $start + 1 < $innerCount) {
-                                        $start = max(2, $end - $innerCount + 1);
-                                    }
-
                                     // First
                                     if (1 == $lfCurrentPage) echo '<span class="' . $active . '">1</span>';
                                     else echo '<button onclick="window.location.href=\'' . $buildUrl(1) . '\'" class="' . $btnBase . '">1</button>';
 
-                                    if ($start > 2) echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
-
-                                    for ($i = $start; $i <= $end; $i++) {
+                                    for ($i = 2; $i <= $maxButtons; $i++) {
                                         if ($i == $lfCurrentPage) echo '<span class="' . $active . '">' . $i . '</span>';
                                         else echo '<button onclick="window.location.href=\'' . $buildUrl($i) . '\'" class="' . $btnBase . '">' . $i . '</button>';
                                     }
 
-                                    if ($end < $totalPages - 1) echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
+                                    echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
 
                                     // Last
                                     if ($totalPages == $lfCurrentPage) echo '<span class="' . $active . '">' . $totalPages . '</span>';

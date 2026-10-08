@@ -1005,13 +1005,13 @@ $adminName = getFormattedUserName();
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
     <div class="flex h-screen overflow-hidden">
-        <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
+        <div class="min-w-0 flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php include __DIR__ . '/../../includes/header.php'; ?>
 
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 <!-- Top Bar -->
-                <div class="mb-6 flex items-center justify-between gap-4">
-                    <div class="relative flex-1 max-w-md">
+                <div class="mb-6 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
+                    <div class="relative min-w-0 flex-1 sm:max-w-md">
                         <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1022,9 +1022,9 @@ $adminName = getFormattedUserName();
                             oninput="filterUsers()">
                     </div>
 
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                         <button onclick="openImportUsersModal()"
-                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            class="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors sm:w-auto">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -1033,7 +1033,7 @@ $adminName = getFormattedUserName();
                         </button>
 
                         <button onclick="openAddModal()"
-                            class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            class="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors sm:w-auto">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
@@ -1043,13 +1043,13 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Filters -->
-                <div class="mb-6 flex items-center gap-3">
-                    <div class="flex items-center border border-gray-300 dark:border-slate-600 rounded-lg overflow-hidden">
-                        <button id="activeAccountsTab" onclick="setArchiveMode(false)" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white">Active Accounts</button>
-                        <button id="archivedAccountsTab" onclick="setArchiveMode(true)" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
+                <div class="mb-6 flex flex-wrap items-center gap-3">
+                    <div class="flex max-w-full items-center overflow-hidden rounded-lg border border-gray-300 dark:border-slate-600">
+                        <button id="activeAccountsTab" onclick="setArchiveMode(false)" class="whitespace-nowrap px-4 py-2 text-sm font-medium bg-blue-600 text-white">Active Accounts</button>
+                        <button id="archivedAccountsTab" onclick="setArchiveMode(true)" class="whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
                     </div>
                     <select id="roleFilter" onchange="filterUsers()"
-                        class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                        class="min-w-0 max-w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                         <option value="">All Roles</option>
                         <option value="super_admin">Super Admin</option>
                         <option value="discipline_office">Discipline Office</option>
@@ -1059,7 +1059,7 @@ $adminName = getFormattedUserName();
                     </select>
 
                     <select id="statusFilter" onchange="filterUsers()"
-                        class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                        class="min-w-0 max-w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                         <option value="">All Status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
@@ -1077,9 +1077,9 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Bulk Actions Bar -->
-                <div id="bulkActionsBar" class="hidden mb-4 bg-transparent border border-blue-400 dark:border-blue-600 rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 flex items-center justify-between">
-                            <div class="flex items-center gap-6">
+                <div id="bulkActionsBar" class="hidden mb-4 overflow-hidden rounded-lg border border-blue-400 bg-transparent dark:border-blue-600">
+                        <div class="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="flex flex-wrap items-center gap-4 sm:gap-6">
                                 <span id="selectedCount" class="text-blue-900 dark:text-blue-300 font-semibold text-sm">0 users selected</span>
                                 <div class="h-6 w-px bg-blue-300 dark:bg-blue-500"></div>
                                 <div class="flex gap-2">
@@ -1097,7 +1097,7 @@ $adminName = getFormattedUserName();
                                     </button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
                                 <button onclick="selectAllPages()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium transition-colors">
                                     Select All
                                 </button>
@@ -1116,8 +1116,8 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Users Table -->
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                    <table class="w-full" style="table-layout: fixed;">
+                <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#111827]">
+                    <table class="w-full min-w-[1100px]" style="table-layout: fixed;">
                         <colgroup>
                             <col style="width: 20%;">
                             <col style="width: 20%;">
@@ -1147,13 +1147,13 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Pagination -->
-                <div class="mt-6 flex items-center justify-between">
+                <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex items-center gap-4">
                         <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
                         <div class="flex items-center gap-2">   
                         </div>
                     </div>
-                    <div id="paginationButtons" class="flex gap-2">
+                    <div id="paginationButtons" class="flex flex-wrap gap-2">
                         <!-- Populated by JavaScript -->
                     </div>
                 </div>
@@ -1163,7 +1163,7 @@ $adminName = getFormattedUserName();
 
 <!-- Import Users Modal -->
 <div id="importUsersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-6">
+    <div class="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Users from CSV</h3>
             <button onclick="closeImportUsersModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -1202,7 +1202,7 @@ $adminName = getFormattedUserName();
                 </div>
             </div>
             <div id="importUsersResult" class="hidden mb-4"></div>
-            <div class="flex gap-3">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row">
                 <button type="submit" id="importUsersBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
                     Upload and Import
                 </button>

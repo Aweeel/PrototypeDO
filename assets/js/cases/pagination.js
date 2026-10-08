@@ -82,7 +82,7 @@ function updatePaginationButtons() {
         const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
         const disabledClass = 'opacity-50 cursor-not-allowed';
         const ellipsis = 'px-2';
-        const maxButtons = 7;
+        const maxButtons = 3;
 
         container.innerHTML = '';
         // Always render pagination controls even if there's only one page
@@ -102,17 +102,13 @@ function updatePaginationButtons() {
         if (totalPages <= maxButtons) {
             for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
         } else {
-            const innerCount = maxButtons - 2;
-            let start = Math.max(2, currentPage - Math.floor(innerCount / 2));
-            let end = Math.min(totalPages - 1, start + innerCount - 1);
-            if (end - start + 1 < innerCount) start = Math.max(2, end - innerCount + 1);
+            for (let i = 1; i <= maxButtons; i++) appendBtn(String(i), true, i, i === currentPage);
 
-            appendBtn('1', true, 1, currentPage === 1);
-            if (start > 2) { const s = document.createElement('span'); s.className = btnBase + ' ' + disabledClass; s.textContent = '…'; container.appendChild(s); }
+            const s = document.createElement('span');
+            s.className = btnBase + ' ' + disabledClass;
+            s.textContent = '…';
+            container.appendChild(s);
 
-            for (let i = start; i <= end; i++) appendBtn(String(i), true, i, i === currentPage);
-
-            if (end < totalPages - 1) { const s = document.createElement('span'); s.className = btnBase + ' ' + disabledClass; s.textContent = '…'; container.appendChild(s); }
             appendBtn(String(totalPages), true, totalPages, currentPage === totalPages);
         }
 

@@ -300,7 +300,7 @@ $adminName = getFormattedUserName();
                 <!-- Pagination -->
                 <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Showing 1-6 of 248 students</p>
-                    <div id="paginationButtons" class="flex gap-2">
+                    <div id="paginationButtons" class="flex flex-wrap gap-2">
                         <!-- Populated by JavaScript -->
                     </div>
                 </div>

@@ -18,14 +18,10 @@ bannerButton?.addEventListener('click', async () => {
     formData.append('ajax', '1');
     formData.append('action', 'toggle_banner');
     formData.append('enabled', enabled);
+    formData.append('global_banner_text', bannerText.value);
     const response = await fetch(window.location.href, { method: 'POST', body: formData });
     const data = await response.json();
     if (data.success) {
-        bannerButton.dataset.enabled = data.enabled ? '1' : '0';
-        bannerButton.textContent = data.enabled ? 'Enabled' : 'Disabled';
-        bannerButton.classList.toggle('bg-green-600', data.enabled);
-        bannerButton.classList.toggle('hover:bg-green-700', data.enabled);
-        bannerButton.classList.toggle('bg-red-600', !data.enabled);
-        bannerButton.classList.toggle('hover:bg-red-700', !data.enabled);
+        window.location.reload();
     }
 });
