@@ -439,16 +439,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         @media print {
             body > * { display: none !important; }
             #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
-            .overflow-x-auto { overflow: visible !important; }
-            table { page-break-inside: auto; width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; margin-bottom: 0.5rem; font-size: 8pt; }
+            #print-root .preview-wrap { width: 100%; }
+            #print-root .overflow-x-auto { display: block; overflow: visible !important; page-break-inside: auto; }
+            #print-root table { display: table; page-break-inside: auto; break-inside: auto; width: auto !important; max-width: 100%; table-layout: auto; border-collapse: collapse; border: 1px solid #e5e7eb; margin-bottom: 0.5rem; font-size: 8pt; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
-            th { background: #1e3a8a !important; color: white !important; padding: 4px 6px; font-size: 8pt; font-weight: 600; text-align: left; white-space: normal; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th, td { white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }
+            th { background: #1e3a8a !important; color: white !important; padding: 4px 6px; font-size: 8pt; font-weight: 600; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             td { color: #111827 !important; padding: 4px 6px; font-size: 8pt; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
             tr:nth-child(even) td { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .page-break-inside { page-break-inside: avoid; }
             h1, h2, h3 { page-break-after: avoid; margin: 0.25rem 0; }
-            @page { margin: 15mm 10mm; size: A4; }
+            @page { margin: 10mm; size: A4 landscape; }
         }
     </style>
 </head>
