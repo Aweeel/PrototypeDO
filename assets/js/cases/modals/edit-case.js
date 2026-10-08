@@ -13,6 +13,7 @@ async function editCase(caseId) {
   const modal = document.createElement("div");
   modal.className =
     "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4";
+  modal.dataset.editCaseModal = "true";
   modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
@@ -263,10 +264,9 @@ function handleEditCaseTypeChange() {
 // Archive case from edit modal
 async function archiveCaseFromEdit(caseId) {
   // Close edit modal first
-  const editModal = document.querySelector(".fixed.inset-0");
+  const editModal = document.querySelector('[data-edit-case-modal="true"]');
   if (editModal) editModal.remove();
 
   // Show confirmation modal
   archiveCaseConfirm(caseId);
 }
-

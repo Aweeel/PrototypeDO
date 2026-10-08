@@ -3123,11 +3123,33 @@ function markCaseAsResolved($caseId) {
 
 function getCaseResolutionEligibility($caseId) {
     $correctiveSql = "SELECT cs.duration_days,
-                             (SELECT COUNT(DISTINCT cci.day_number)
+                             cs.duration_extra_hours,
+                             s.sanction_name,
+                             (SELECT COALESCE(SUM(
+                                  CASE
+                                      WHEN TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 480 THEN 480
+                                      WHEN TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time) > 0
+                                          THEN TIMESTAMPDIFF(MINUTE, cci.check_in_time, cci.check_out_time)
+                                      ELSE 0
+                                  END
+                              ), 0)
                               FROM case_checkins cci
                               WHERE cci.case_sanction_id = cs.case_sanction_id
                                 AND cci.check_in_time IS NOT NULL
-                                AND cci.check_out_time IS NOT NULL) AS completed_days
+                                AND cci.check_out_time IS NOT NULL
+                                AND NOT EXISTS (
+                                    SELECT 1
+                                    FROM case_checkins newer
+                                    WHERE newer.case_sanction_id = cci.case_sanction_id
+                                      AND newer.day_number = cci.day_number
+                                      AND (
+                                          COALESCE(newer.updated_at, newer.created_at) > COALESCE(cci.updated_at, cci.created_at)
+                                          OR (
+                                              COALESCE(newer.updated_at, newer.created_at) = COALESCE(cci.updated_at, cci.created_at)
+                                              AND newer.checkin_id > cci.checkin_id
+                                          )
+                                      )
+                                )) AS completed_minutes
                       FROM case_sanctions cs
                       JOIN sanctions s ON cs.sanction_id = s.sanction_id
                       WHERE cs.case_id = ?
@@ -3136,8 +3158,12 @@ function getCaseResolutionEligibility($caseId) {
     $correctiveRows = fetchAll($correctiveSql, [$caseId]);
 
     foreach ($correctiveRows as $row) {
-        $required = intval($row['duration_days']);
-        $done = intval($row['completed_days']);
+        $durationDays = max(0, intval($row['duration_days'] ?? 0));
+        $extraHours = max(0, intval($row['duration_extra_hours'] ?? 0));
+        $required = $extraHours > 0
+            ? (($durationDays - 1) * 8) + $extraHours
+            : ($durationDays * 8);
+        $done = floatval($row['completed_minutes'] ?? 0) / 60;
         if ($required > 0 && $done < $required) {
             return [
                 'can_resolve' => false,

@@ -245,6 +245,7 @@ async function markCaseResolved(caseId) {
   const modal = document.createElement("div");
   modal.className =
     "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200";
+  modal.dataset.resolveConfirmation = "true";
   modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0">
             <div class="flex items-center gap-3 mb-4">
@@ -293,9 +294,9 @@ async function confirmMarkResolved(caseId) {
     return;
   }
 
-  // Close confirmation modal
-  const modal = document.querySelector(".fixed.inset-0");
-  if (modal) modal.remove();
+  // Close the confirmation modal, not an underlying case modal.
+  const confirmationModal = document.querySelector('[data-resolve-confirmation="true"]');
+  if (confirmationModal) confirmationModal.remove();
 
   showLoadingToast("Marking case as resolved...");
 
@@ -337,6 +338,7 @@ async function confirmMarkResolved(caseId) {
       }
       
       showNotification("Case marked as resolved successfully!", "success");
+      document.querySelector('[data-view-case-modal="true"]')?.remove();
     } else {
       showNotification("Failed to mark case as resolved: " + (data.error || "Unknown error"), "error");
     }
@@ -346,4 +348,3 @@ async function confirmMarkResolved(caseId) {
     showNotification("Error marking case as resolved. Please try again.", "error");
   }
 }
-

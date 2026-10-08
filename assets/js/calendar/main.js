@@ -434,6 +434,7 @@ function openUpcomingEventsModal() {
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.dataset.calendarModal = 'upcoming-events';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
@@ -486,6 +487,7 @@ function openAddEventModal(preselectedDate = null) {
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.dataset.calendarModal = 'add-event';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-4">
@@ -612,6 +614,7 @@ function viewEvent(event) {
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.dataset.calendarModal = 'view-event';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <div class="flex items-start justify-between mb-4">
@@ -719,7 +722,7 @@ async function deleteEvent(eventId) {
         const data = await response.json();
 
         if (data.success) {
-            document.querySelector('.fixed.inset-0').remove();
+            document.querySelector('[data-calendar-modal="view-event"]')?.remove();
             showToast('Event deleted successfully', 'success');
             loadEvents();
             loadCategories();
@@ -735,7 +738,7 @@ async function deleteEvent(eventId) {
 // Edit event - FIXED VERSION
 function editEvent(event) {
     // Close view modal
-    document.querySelector('.fixed.inset-0').remove();
+    document.querySelector('[data-calendar-modal="view-event"]')?.remove();
 
     // FIX: Ensure time is in correct format for time input (HH:MM)
     // Parse time range "9:00 AM - 10:30 AM" into start and end times
@@ -797,6 +800,7 @@ function editEvent(event) {
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.dataset.calendarModal = 'edit-event';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-4">

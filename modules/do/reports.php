@@ -96,7 +96,7 @@ function fetchIncidentData($p) {
         LEFT JOIN users   ua  ON c.assigned_to  = ua.user_id
         $where ORDER BY c.date_reported DESC", $params);
 
-    if (($p['reportType'] ?? '') === 'detailed' && !empty($cases)) {
+    if (!empty($cases)) {
         foreach ($cases as &$case) {
             $case['sanctions'] = fetchAll(
                 "SELECT cs.*, s.sanction_name, s.severity_level
@@ -433,7 +433,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         #print-root { display: none; }
         .preview-wrap { font-family: Arial, sans-serif; color: #111827; }
         .dark .preview-wrap { color: #f1f5f9; }
-        .tab-panel > div > div:last-child { height: calc(100vh - 280px); overflow-y: auto; overflow-x: hidden; }
+        .tab-panel > div > div:last-child { min-width: 0; }
 
         /* Print styles */
         @media print {
@@ -548,10 +548,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $isFirst = $panelId === 'incident';
                 ?>
                 <div id="tab-panel-<?= $panelId ?>" class="tab-panel <?= $isFirst?'':'hidden' ?>">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 items-start">
 
                         <!-- Filters -->
-                        <div class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 p-6 h-fit sticky top-28">
+                        <div class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 p-4 sm:p-6 h-fit self-start lg:sticky lg:top-28 min-w-0">
                             <h3 class="text-sm font-semibold mb-5 flex items-center gap-2 text-gray-700 dark:text-gray-300">
                                 <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
@@ -605,9 +605,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         </div>
 
                         <!-- Preview -->
-                        <div class="lg:col-span-2">
+                        <div class="lg:col-span-2 min-w-0">
                             <div id="<?= $panelId ?>-preview"
-                                 class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 h-[900px] overflow-y-auto flex flex-col">
+                                 class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 min-h-[520px] lg:min-h-[700px] h-auto overflow-visible flex flex-col">
 
                                 <!-- empty state -->
                                 <div id="<?= $panelId ?>-empty" class="flex items-center justify-center min-h-[420px]">
@@ -622,12 +622,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                                 <!-- action bar -->
                                 <div id="<?= $panelId ?>-actions"
-                                     class="hidden items-center justify-between px-5 py-3
+                                     class="hidden flex-wrap gap-2 items-center justify-between px-4 sm:px-5 py-3
                                             border-b border-gray-200 dark:border-slate-700
                                             bg-gray-50 dark:bg-slate-800/50 rounded-t-xl
-                                            sticky top-0 z-10">
+                                            lg:sticky lg:top-28 z-10">
                                     <span id="<?= $panelId ?>-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
-                                    <div class="flex gap-2">
+                                    <div class="flex flex-wrap gap-2">
                                         <button onclick="exportCSV('<?= $cfg['type'] ?>')"
                                             class="flex items-center gap-1.5 px-3 py-1.5 text-sm border
                                                    border-gray-300 dark:border-slate-600 rounded-lg
