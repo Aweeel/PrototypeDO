@@ -191,7 +191,7 @@ function clearAllFilters() {
 
     filterByOffenseType('');
 
-    const modal = document.querySelector('.fixed.inset-0');
+    const modal = document.querySelector('[data-advanced-filters-modal="true"]');
     if (modal) modal.remove();
 
     loadCasesFromDB();

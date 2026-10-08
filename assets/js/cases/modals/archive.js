@@ -7,6 +7,7 @@ function archiveCaseConfirm(caseId) {
   const modal = document.createElement("div");
   modal.className =
     "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 transition-opacity duration-200 archive-confirm-modal";
+  modal.dataset.archiveConfirmation = "true";
   modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0">
             <div class="flex items-center gap-3 mb-4">
@@ -130,7 +131,7 @@ async function unarchiveCase(caseId) {
 }
 
 async function confirmUnarchiveCase(caseId) {
-  const modal = document.querySelector(".fixed.inset-0");
+  const modal = document.querySelector('[data-archive-confirmation="true"]');
   if (modal) modal.remove();
 
   showLoadingToast("Restoring case...");
@@ -218,7 +219,7 @@ async function bulkRestoreCases() {
 }
 
 async function confirmBulkRestore(caseIds) {
-  const modal = document.querySelector(".fixed.inset-0");
+  const modal = document.querySelector('[data-archive-confirmation="true"]');
   if (modal) modal.remove();
 
   showLoadingToast(`Restoring ${caseIds.length} case(s)...`);
@@ -259,4 +260,3 @@ async function confirmBulkRestore(caseIds) {
     showErrorToast("Error restoring cases. Please try again.");
   }
 }
-

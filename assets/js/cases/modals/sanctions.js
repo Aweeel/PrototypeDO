@@ -139,6 +139,7 @@ async function manageSanctions(caseId) {
     
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4';
+    modal.dataset.manageSanctionsModal = 'true';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
             <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
@@ -434,6 +435,7 @@ async function manageSanctions(caseId) {
         
         const confirmModal = document.createElement('div');
         confirmModal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+        confirmModal.dataset.sanctionConfirmation = 'apply';
         confirmModal.innerHTML = `
             <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
                 <div class="flex items-center gap-3 mb-4">
@@ -475,7 +477,7 @@ async function manageSanctions(caseId) {
 
 // Confirm apply sanction
 async function confirmApplySanction(caseId, sanctionId, duration, notes, scheduleDate, scheduleTime, scheduleEndTime, scheduleNotes, deadlineDate = null) {
-    const confirmModal = document.querySelectorAll('.fixed.inset-0')[1];
+    const confirmModal = document.querySelector('[data-sanction-confirmation="apply"]');
     if (confirmModal) confirmModal.remove();
 
     const caseData = allCases.find(c => c.id === caseId);
@@ -527,16 +529,16 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
             } else if (typeof renderCases === 'function') {
                 renderCases();
             }
+
+            if (typeof loadCasesFromDB === 'function') {
+                loadCasesFromDB();
+            }
             
             showSuccessToast(allCases[caseIndex]?.severity === 'Minor'
                 ? 'Case marked as recorded!'
                 : 'Sanction applied and status updated to On Going!');
             
-            // Close the sanctions modal after successful apply
-            setTimeout(() => {
-              const confirmModal = document.querySelectorAll('.fixed.inset-0')[0];
-              if (confirmModal) confirmModal.remove();
-            }, 500);
+            document.querySelector('[data-manage-sanctions-modal="true"]')?.remove();
         } else {
             showErrorToast('Failed to apply sanction: ' + (data.error || 'Unknown error'));
         }
@@ -949,6 +951,7 @@ async function saveSchedule(forceNew = false) {
     
     // Close popup
     closeSchedulePopup();
+    document.getElementById('schedulePopupModal')?.remove();
     
     showNotification('Schedule saved successfully', 'success');
 }
@@ -1521,6 +1524,7 @@ async function loadAppliedSanctions(caseId) {
 async function editSanction(caseId, caseSanctionId, sanctionName, currentDuration, currentNotes) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+    modal.dataset.editSanctionModal = 'true';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-4">
@@ -1638,7 +1642,7 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
 // Remove sanction from edit modal
 async function removeSanctionFromEdit(caseId, caseSanctionId) {
     // Close edit modal first
-    const editModal = document.querySelectorAll('.fixed.inset-0')[1];
+    const editModal = document.querySelector('[data-edit-sanction-modal="true"]');
     if (editModal) editModal.remove();
     
     // Show confirmation modal
@@ -1648,6 +1652,7 @@ async function removeSanctionFromEdit(caseId, caseSanctionId) {
 async function removeSanction(caseId, caseSanctionId) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-4';
+    modal.dataset.sanctionConfirmation = 'remove';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <div class="flex items-center gap-3 mb-4">
@@ -1683,8 +1688,8 @@ async function removeSanction(caseId, caseSanctionId) {
 
 async function confirmRemoveSanction(caseId, caseSanctionId) {
     // Close confirmation modal
-    const modals = document.querySelectorAll('.fixed.inset-0');
-    if (modals.length > 0) modals[modals.length - 1].remove();
+    const confirmationModal = document.querySelector('[data-sanction-confirmation="remove"]');
+    if (confirmationModal) confirmationModal.remove();
 
     showLoadingToast("Removing sanction...");
 
@@ -1710,6 +1715,9 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
             if (typeof loadCasesFromDB === 'function') {
                 loadCasesFromDB();
             }
+
+            document.querySelector('[data-edit-sanction-modal="true"]')?.remove();
+            document.querySelector('[data-manage-sanctions-modal="true"]')?.remove();
             
             // If the status changed, update it in real-time
             if (data.statusChanged && data.newStatus) {

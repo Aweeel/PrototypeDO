@@ -581,6 +581,7 @@ function openMinorEscalation(caseId) {
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[80] p-4';
+    modal.dataset.escalateCaseModal = 'true';
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <p class="text-base text-gray-900 dark:text-gray-100 mb-6">
@@ -603,7 +604,7 @@ function openMinorEscalation(caseId) {
 }
 
 async function escalateMinorCase(caseId) {
-    const modal = document.querySelector('.fixed.inset-0');
+    const modal = document.querySelector('[data-escalate-case-modal="true"]');
     if (modal) modal.remove();
 
     const formData = new FormData();
