@@ -207,6 +207,7 @@ function renderPagination() {
     const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center mx-1';
     const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center mx-1';
     const disabledClass = 'opacity-50 cursor-not-allowed';
+    const maxButtons = 3;
 
     const appendBtn = (text, enabled, page, isActive) => {
         const tag = enabled ? 'button' : 'span';
@@ -220,8 +221,21 @@ function renderPagination() {
 
     appendBtn('« Prev', currentPage > 1, Math.max(1, currentPage - 1), false);
 
-    for (let i = 1; i <= totalPages; i++) {
-        appendBtn(String(i), true, i, i === currentPage);
+    if (totalPages <= maxButtons) {
+        for (let i = 1; i <= totalPages; i++) {
+            appendBtn(String(i), true, i, i === currentPage);
+        }
+    } else {
+        for (let i = 1; i <= maxButtons; i++) {
+            appendBtn(String(i), true, i, i === currentPage);
+        }
+
+        const ellipsis = document.createElement('span');
+        ellipsis.className = btnBase + ' ' + disabledClass;
+        ellipsis.textContent = '…';
+        paginationContainer.appendChild(ellipsis);
+
+        appendBtn(String(totalPages), true, totalPages, currentPage === totalPages);
     }
 
     appendBtn('Next »', currentPage < totalPages, Math.min(totalPages, currentPage + 1), false);

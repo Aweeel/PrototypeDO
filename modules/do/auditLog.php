@@ -543,9 +543,9 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Pagination -->
-                <div class="mt-6 flex items-center justify-between">
+                <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
                     <p id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
-                    <div id="paginationButtons" class="flex gap-2">
+                    <div id="paginationButtons" class="flex flex-wrap gap-2">
                     </div>
                 </div>
             </main>
