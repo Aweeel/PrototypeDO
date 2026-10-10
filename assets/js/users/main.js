@@ -196,20 +196,23 @@ function renderUsers() {
                 details.push('Teacher ID: ' + escapeHtml(user.teacher_id));
             }
 
-            if (user.role === 'teacher' && user.teacher_subrole) {
-                details.push('Subrole: ' + escapeHtml(formatTeacherSubrole(user.teacher_subrole)));
-            }
-
             if (user.role === 'discipline_office' && user.do_id) {
                 details.push('DO ID: ' + escapeHtml(user.do_id));
             }
+
+            const detailsMarkup = [
+                details.length ? `<span>${details.join(' • ')}</span>` : '',
+                user.role === 'teacher' && user.teacher_subrole
+                    ? `<span class="block">Subrole: ${escapeHtml(formatTeacherSubrole(user.teacher_subrole))}</span>`
+                    : ''
+            ].join('');
 
             return `
         <tr class="group h-[72px] overflow-hidden hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 border-l-4 transition-colors ${selectedUserIds.has(user.user_id) ? 'bg-blue-50 dark:bg-slate-800 border-l-blue-600' : 'border-l-transparent'}">
             <td class="px-6 py-4">
                 <div>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">${details.join(' • ')}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${detailsMarkup}</p>
                 </div>
             </td>
             <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">${escapeHtml(user.email)}</td>
@@ -362,14 +365,17 @@ function updatePaginationButtons() {
         if (totalPages <= maxButtons) {
             for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
         } else {
-            for (let i = 1; i <= maxButtons; i++) appendBtn(String(i), true, i, i === currentPage);
+            const visiblePages = [...new Set([1, 2, 3, currentPage, totalPages])].sort((a, b) => a - b);
 
-            const s = document.createElement('span');
-            s.className = ellipsis;
-            s.textContent = '…';
-            container.appendChild(s);
-
-            appendBtn(String(totalPages), true, totalPages, currentPage === totalPages);
+            visiblePages.forEach((page, index) => {
+                if (index > 0 && page - visiblePages[index - 1] > 1) {
+                    const s = document.createElement('span');
+                    s.className = ellipsis;
+                    s.textContent = '…';
+                    container.appendChild(s);
+                }
+                appendBtn(String(page), true, page, page === currentPage);
+            });
         }
 
         appendBtn('Next »', currentPage < totalPages, currentPage + 1, false);

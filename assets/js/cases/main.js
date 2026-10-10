@@ -226,16 +226,17 @@ function renderPagination() {
             appendBtn(String(i), true, i, i === currentPage);
         }
     } else {
-        for (let i = 1; i <= maxButtons; i++) {
-            appendBtn(String(i), true, i, i === currentPage);
-        }
+        const visiblePages = [...new Set([1, 2, 3, currentPage, totalPages])].sort((a, b) => a - b);
 
-        const ellipsis = document.createElement('span');
-        ellipsis.className = btnBase + ' ' + disabledClass;
-        ellipsis.textContent = '…';
-        paginationContainer.appendChild(ellipsis);
-
-        appendBtn(String(totalPages), true, totalPages, currentPage === totalPages);
+        visiblePages.forEach((page, index) => {
+            if (index > 0 && page - visiblePages[index - 1] > 1) {
+                const ellipsis = document.createElement('span');
+                ellipsis.className = btnBase + ' ' + disabledClass;
+                ellipsis.textContent = '…';
+                paginationContainer.appendChild(ellipsis);
+            }
+            appendBtn(String(page), true, page, page === currentPage);
+        });
     }
 
     appendBtn('Next »', currentPage < totalPages, Math.min(totalPages, currentPage + 1), false);
