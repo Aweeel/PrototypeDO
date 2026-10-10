@@ -5,6 +5,10 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 ensureCalendarTargetUserColumn();
 
+$isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher')
+    && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
+$currentUserId = $_SESSION['user_id'] ?? null;
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -17,6 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     }
 
     if (isset($_POST['action']) && $_POST['action'] === 'getUsers') {
+        if ($isDepartmentHead) {
+            echo json_encode(['success' => true, 'users' => []]);
+            exit;
+        }
+
         $users = fetchAll("SELECT user_id, full_name FROM users WHERE is_active = 1 AND role = 'discipline_office' ORDER BY full_name");
         echo json_encode(['success' => true, 'users' => $users]);
         exit;
@@ -27,10 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 if ($_POST['action'] === 'getEvents') {
     $startDate = $_POST['startDate'] ?? null;
     $endDate = $_POST['endDate'] ?? null;
-    $calendarView = $_POST['calendarView'] ?? 'shared';
     $selectedUserId = $_POST['selectedUserId'] ?? null;
-    $currentUserId = $_SESSION['user_id'] ?? null;
-    $isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher') && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
 
     if ($startDate && $endDate) {
         // Preferred path: exact date range, covers whatever the grid actually shows
@@ -42,6 +48,10 @@ if ($_POST['action'] === 'getEvents') {
                 LEFT JOIN users u ON ce.created_by = u.user_id
                 WHERE ce.event_date >= ? AND ce.event_date <= ?";
         $params = [$startDate, $endDate];
+        if ($isDepartmentHead) {
+            $sql .= " AND ce.target_user_id = ?";
+            $params[] = $currentUserId;
+        }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
             $params[] = $selectedUserId;
@@ -60,6 +70,10 @@ if ($_POST['action'] === 'getEvents') {
                 LEFT JOIN users u ON ce.created_by = u.user_id
                 WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?";
         $params = [$month, $year];
+        if ($isDepartmentHead) {
+            $sql .= " AND ce.target_user_id = ?";
+            $params[] = $currentUserId;
+        }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
             $params[] = $selectedUserId;
@@ -68,12 +82,6 @@ if ($_POST['action'] === 'getEvents') {
         $events = fetchAll($sql, $params);
     }
 
-    if ($calendarView === 'personal' && $isDepartmentHead && $currentUserId) {
-        $events = array_values(array_filter($events, function($event) use ($currentUserId) {
-            return !empty($event['target_user_id']) && (int)$event['target_user_id'] === (int)$currentUserId;
-        }));
-    }
-    
     // Format events
     $formattedEvents = array_map(function($event) {
         $timeDisplay = null;
@@ -113,10 +121,16 @@ if ($_POST['action'] === 'getEvents') {
 
             $sql = "SELECT event_id, event_name, event_date, event_time, event_end_time, description
                     FROM calendar_events
-                    WHERE category = 'Hearing' AND event_name LIKE ?
+                    WHERE category = 'Hearing' AND event_name LIKE ?";
+            $params = ["%Case {$caseId}%"];
+            if ($isDepartmentHead) {
+                $sql .= " AND target_user_id = ?";
+                $params[] = $currentUserId;
+            }
+            $sql .= "
                     ORDER BY event_date DESC, event_id DESC LIMIT 1";
 
-            $schedule = fetchOne($sql, ["%Case {$caseId}%"]);
+            $schedule = fetchOne($sql, $params);
 
             if (!$schedule) {
                 echo json_encode(['success' => true, 'schedule' => null]);
@@ -136,6 +150,12 @@ if ($_POST['action'] === 'getEvents') {
 
         // Create event
         if ($_POST['action'] === 'createEvent') {
+            if ($isDepartmentHead) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Department heads can only view invited calendar events']);
+                exit;
+            }
+
             error_log("Creating event - Received data: " . print_r($_POST, true));
             
             $eventName = $_POST['eventName'] ?? '';
@@ -249,6 +269,12 @@ if ($_POST['action'] === 'getEvents') {
 
         // Update event
         if ($_POST['action'] === 'updateEvent') {
+            if ($isDepartmentHead) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Department heads can only view invited calendar events']);
+                exit;
+            }
+
             $eventId = $_POST['eventId'] ?? null;
             $eventName = $_POST['eventName'] ?? '';
             $eventDate = $_POST['eventDate'] ?? '';
@@ -335,6 +361,12 @@ if ($_POST['action'] === 'getEvents') {
 
         // Delete event
         if ($_POST['action'] === 'deleteEvent') {
+            if ($isDepartmentHead) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Department heads can only view invited calendar events']);
+                exit;
+            }
+
             $eventId = $_POST['eventId'] ?? null;
             
             if (empty($eventId)) {
@@ -369,8 +401,14 @@ if ($_POST['action'] === 'getEvents') {
             ];
             
             // Get counts
-            $sql = "SELECT category, COUNT(*) as count FROM calendar_events GROUP BY category";
-            $counts = fetchAll($sql) ?? [];
+            $sql = "SELECT category, COUNT(*) as count FROM calendar_events";
+            $params = [];
+            if ($isDepartmentHead) {
+                $sql .= " WHERE target_user_id = ?";
+                $params[] = $currentUserId;
+            }
+            $sql .= " GROUP BY category";
+            $counts = fetchAll($sql, $params) ?? [];
             
             foreach ($counts as $count) {
                 foreach ($categories as &$cat) {
@@ -410,7 +448,7 @@ function getCategoryColor($category) {
 
 $pageTitle = "Calendar";
 $adminName = getFormattedUserName();
-$calendarView = $_GET['calendar_view'] ?? 'shared';
+$calendarView = $isDepartmentHead ? 'personal' : ($_GET['calendar_view'] ?? 'shared');
 ?>
 
 <!DOCTYPE html>
@@ -419,6 +457,7 @@ $calendarView = $_GET['calendar_view'] ?? 'shared';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STI Discipline Office - Calendar</title>
+    <script>(function(){if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}})();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' };
@@ -487,7 +526,7 @@ $calendarView = $_GET['calendar_view'] ?? 'shared';
 
                     <!-- Right Sidebar -->
                     <div class="space-y-6">
-                        <!-- Quick Add Event -->
+                        <?php if (!$isDepartmentHead) : ?>
                         <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Quick Add Event</h3>
                             <button onclick="openAddEventModal()" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
@@ -497,6 +536,7 @@ $calendarView = $_GET['calendar_view'] ?? 'shared';
                                 Add Event
                             </button>
                         </div>
+                        <?php endif; ?>
 
                         <!-- Event Categories -->
                         <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
@@ -533,6 +573,9 @@ $calendarView = $_GET['calendar_view'] ?? 'shared';
         </div>
     </div>
 
+    <script>
+        window.CALENDAR_VIEW = <?= json_encode($calendarView) ?>;
+    </script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/calendar/main.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>

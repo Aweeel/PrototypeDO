@@ -30,6 +30,7 @@ function getHandbookSection($sectionId, $defaultContent) {
   <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
   <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <script>(function(){if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}})();</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { darkMode: 'class' };

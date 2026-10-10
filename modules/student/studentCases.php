@@ -523,6 +523,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STI Discipline Office - <?php echo htmlspecialchars($pageTitle); ?></title>
 
+    <script>(function(){if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}})();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' };
