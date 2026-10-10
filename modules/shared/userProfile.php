@@ -129,6 +129,7 @@ if ($user) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile - PrototypeDO</title>
+    <script>(function(){if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}})();</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globals.js"></script>
 </head>

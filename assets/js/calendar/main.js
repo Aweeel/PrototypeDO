@@ -42,7 +42,7 @@ function initializeCalendarFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     pendingEventId = urlParams.get('event_id');
     const eventDate = urlParams.get('event_date');
-    currentCalendarView = urlParams.get('calendar_view') || window.CALENDAR_VIEW || 'shared';
+    currentCalendarView = window.CALENDAR_VIEW || urlParams.get('calendar_view') || 'shared';
 
     if (eventDate) {
         const parsedDate = new Date(`${eventDate}T00:00:00`);
@@ -205,7 +205,9 @@ function createDayCell(day, isOtherMonth, date) {
     cell.appendChild(eventsContainer);
 
     // FIX: Pass the date object directly
-    cell.onclick = () => openAddEventModal(date);
+    if (window.CALENDAR_VIEW !== 'personal') {
+        cell.onclick = () => openAddEventModal(date);
+    }
 
     return cell;
 }

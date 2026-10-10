@@ -121,7 +121,8 @@ $roleModulePrefixes = [
     ],
     'teacher' => [
         '/modules/teacher-guard/',
-        '/modules/shared/'
+        '/modules/shared/',
+        '/modules/do/calendar.php'
     ],
     'security' => [
         '/modules/teacher-guard/',
@@ -143,6 +144,13 @@ foreach ($roleModulePrefixes[$currentRole] ?? [] as $prefix) {
         $hasModuleAccess = true;
         break;
     }
+}
+
+if ($hasModuleAccess
+    && $currentRole === 'teacher'
+    && $currentPath === '/modules/do/calendar.php'
+    && ($_SESSION['teacher_subrole'] ?? ($_SESSION['user']['teacher_subrole'] ?? null)) !== 'department_head') {
+    $hasModuleAccess = false;
 }
 
 if (!$hasModuleAccess && strpos($currentPath, '/modules/') === 0) {
