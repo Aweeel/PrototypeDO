@@ -413,8 +413,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
 
                 if (!empty($role)) {
-                    $sql .= " AND COALESCE(u.role, 'student') = ?";
-                    $params[] = $role;
+                    if ($role === 'department_head') {
+                        $sql .= " AND u.role = 'teacher' AND u.teacher_subrole = 'department_head'";
+                    } else {
+                        $sql .= " AND COALESCE(u.role, 'student') = ?";
+                        $params[] = $role;
+                    }
                 }
 
                 if ($status !== '') {
@@ -469,8 +473,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
 
                 if (!empty($role)) {
-                    $sql .= " AND role = ?";
-                    $params[] = $role;
+                    if ($role === 'department_head') {
+                        $sql .= " AND role = 'teacher' AND teacher_subrole = 'department_head'";
+                    } else {
+                        $sql .= " AND role = ?";
+                        $params[] = $role;
+                    }
                 }
 
                 if ($status !== '') {
@@ -1055,6 +1063,7 @@ $adminName = getFormattedUserName();
                         <option value="super_admin">Super Admin</option>
                         <option value="discipline_office">Discipline Office</option>
                         <option value="teacher">Teacher</option>
+                        <option value="department_head">Department Head</option>
                         <option value="security">Security</option>
                         <option value="student">Student</option>
                     </select>

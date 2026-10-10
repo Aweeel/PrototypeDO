@@ -389,20 +389,20 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                         else echo '<button onclick="window.location.href=\'' . $buildUrl($i) . '\'" class="' . $btnBase . '">' . $i . '</button>';
                                     }
                                 } else {
-                                    // First
-                                    if (1 == $lfCurrentPage) echo '<span class="' . $active . '">1</span>';
-                                    else echo '<button onclick="window.location.href=\'' . $buildUrl(1) . '\'" class="' . $btnBase . '">1</button>';
+                                    $visiblePages = array_unique([1, 2, 3, $lfCurrentPage, $totalPages]);
+                                    sort($visiblePages);
 
-                                    for ($i = 2; $i <= $maxButtons; $i++) {
-                                        if ($i == $lfCurrentPage) echo '<span class="' . $active . '">' . $i . '</span>';
-                                        else echo '<button onclick="window.location.href=\'' . $buildUrl($i) . '\'" class="' . $btnBase . '">' . $i . '</button>';
+                                    foreach ($visiblePages as $index => $page) {
+                                        if ($index > 0 && $page - $visiblePages[$index - 1] > 1) {
+                                            echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
+                                        }
+
+                                        if ($page == $lfCurrentPage) {
+                                            echo '<span class="' . $active . '">' . $page . '</span>';
+                                        } else {
+                                            echo '<button onclick="window.location.href=\'' . $buildUrl($page) . '\'" class="' . $btnBase . '">' . $page . '</button>';
+                                        }
                                     }
-
-                                    echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
-
-                                    // Last
-                                    if ($totalPages == $lfCurrentPage) echo '<span class="' . $active . '">' . $totalPages . '</span>';
-                                    else echo '<button onclick="window.location.href=\'' . $buildUrl($totalPages) . '\'" class="' . $btnBase . '">' . $totalPages . '</button>';
                                 }
 
                                 // Next (always rendered)
