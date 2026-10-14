@@ -17,10 +17,10 @@ function getUserByUsername($username) {
     ensureUsersArchiveColumn();
     ensureUsersActiveSessionColumn();
     $sql = "SELECT * FROM users
-            WHERE username = ?
+            WHERE (username = ? OR email = ?)
               AND COALESCE(is_active, 0) = 1
               AND COALESCE(is_archived, 0) = 0";
-    return fetchOne($sql, [$username]);
+    return fetchOne($sql, [$username, $username]);
 }
 
 function ensureUsersActiveSessionColumn() {
@@ -279,7 +279,10 @@ function authenticateUser($username, $password) {
 function authenticateUserWithStatus($username, $password) {
     ensureUsersArchiveColumn();
     ensureUsersActiveSessionColumn();
-    $user = fetchOne("SELECT * FROM users WHERE username = ?", [$username]);
+    $user = fetchOne(
+        "SELECT * FROM users WHERE username = ? OR email = ?",
+        [$username, $username]
+    );
     
     if ($user && password_verify($password, $user['password_hash'])) {
         if ((int)($user['is_active'] ?? 0) !== 1 || (int)($user['is_archived'] ?? 0) !== 0) {
