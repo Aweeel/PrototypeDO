@@ -2,6 +2,8 @@
 -- Discipline Office Management System
 -- Recreates the database from scratch; existing data in this database is removed.
 
+SET FOREIGN_KEY_CHECKS = 0;
+
 DROP DATABASE IF EXISTS PrototypeDO_DB;
 CREATE DATABASE IF NOT EXISTS PrototypeDO_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE PrototypeDO_DB;
@@ -578,6 +580,77 @@ VALUES
 ('02000000039', (SELECT user_id FROM users WHERE username = 'lim.000039@sti.edu'), 'Jasper', 'Lim', 'Torres', '1st Year', 'BSCRIM', 'BSCRIM-101', 'College', 'Good Standing', 'Henry Lim', '09191234024');
 
 -- ============================================
+-- INSERT ALPHA TEST ACCOUNTS
+-- Each alpha test account has a distinct strong password.
+-- Usernames use the requested role abbreviations; emails use a valid STI domain.
+-- ============================================
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
+VALUES
+-- Super Admin (3)
+('test1SA', '$2y$10$F4QgBalAg1GU7Ku1ucMpMO4YMM2lcBYr3YjUO14OcWLIJPlXBOdre', 'test1SA@sti.edu', 'Isabella Rivera', NULL, NULL, NULL, NULL, 'super_admin', '09990000001', 1),
+('test2SA', '$2y$10$cJjwLOLeHPJKNDHTDwt50e.7VflC1PyjyEjKzBBlh9uz11TOAayJy', 'test2SA@sti.edu', 'Gabriel Santos', NULL, NULL, NULL, NULL, 'super_admin', '09990000002', 1),
+('test3SA', '$2y$10$nk0CJ985N950zyV2uaC40OVf5mYNaApr8.KHT6tVCWHum7WEBmv6S', 'test3SA@sti.edu', 'Mateo Cruz', NULL, NULL, NULL, NULL, 'super_admin', '09990000003', 1),
+-- Discipline Office (3)
+('test1DO', '$2y$10$PDw3RFdUeggxnfPxyur1o.HtrHQelcLazuZH5bIN1RVb10YMvH1BC', 'test1DO@sti.edu', 'Camille Navarro', NULL, '03000000004', NULL, NULL, 'discipline_office', '09990000004', 1),
+('test2DO', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2DO@sti.edu', 'Alpha Test Discipline Office 2', NULL, '03000000005', NULL, NULL, 'discipline_office', '09990000005', 1),
+('test3DO', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/igi', 'test3DO@sti.edu', 'Alpha Test Discipline Office 3', NULL, '03000000006', NULL, NULL, 'discipline_office', '09990000006', 1),
+-- Teacher (3)
+('test1T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1T@sti.edu', 'Alpha Test Teacher 1', '01000000013', NULL, NULL, NULL, 'teacher', '09990000007', 1),
+('test2T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2T@sti.edu', 'Alpha Test Teacher 2', '01000000014', NULL, NULL, NULL, 'teacher', '09990000008', 1),
+('test3T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3T@sti.edu', 'Alpha Test Teacher 3', '01000000015', NULL, NULL, NULL, 'teacher', '09990000009', 1),
+-- Teacher (Department Head) (3)
+('test1TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1TDH@sti.edu', 'Alpha Test Teacher Department Head 1', '01000000016', NULL, 'department_head', 'Information Technology', 'teacher', '09990000010', 1),
+('test2TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2TDH@sti.edu', 'Alpha Test Teacher Department Head 2', '01000000017', NULL, 'department_head', 'Business & Management', 'teacher', '09990000011', 1),
+('test3TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3TDH@sti.edu', 'Alpha Test Teacher Department Head 3', '01000000018', NULL, 'department_head', 'Hospitality Management', 'teacher', '09990000012', 1),
+-- Security (3)
+('test1Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1Sec@sti.edu', 'Alpha Test Security 1', NULL, NULL, NULL, NULL, 'security', '09990000013', 1),
+('test2Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2Sec@sti.edu', 'Alpha Test Security 2', NULL, NULL, NULL, NULL, 'security', '09990000014', 1),
+('test3Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3Sec@sti.edu', 'Alpha Test Security 3', NULL, NULL, NULL, NULL, 'security', '09990000015', 1),
+-- Student (3)
+('test1Stu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1Stu@sti.edu', 'Alpha Test Student 1', NULL, NULL, NULL, NULL, 'student', '09990000016', 1),
+('test2Stu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2Stu@sti.edu', 'Alpha Test Student 2', NULL, NULL, NULL, NULL, 'student', '09990000017', 1),
+('test3Stu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3Stu@sti.edu', 'Alpha Test Student 3', NULL, NULL, NULL, NULL, 'student', '09990000018', 1);
+
+-- Replace placeholder alpha values with realistic identities and unique credentials.
+UPDATE users
+SET password_hash = CASE username
+    WHEN 'test1SA' THEN '$2y$10$F4QgBalAg1GU7Ku1ucMpMO4YMM2lcBYr3YjUO14OcWLIJPlXBOdre'
+    WHEN 'test2SA' THEN '$2y$10$cJjwLOLeHPJKNDHTDwt50e.7VflC1PyjyEjKzBBlh9uz11TOAayJy'
+    WHEN 'test3SA' THEN '$2y$10$nk0CJ985N950zyV2uaC40OVf5mYNaApr8.KHT6tVCWHum7WEBmv6S'
+    WHEN 'test1DO' THEN '$2y$10$PDw3RFdUeggxnfPxyur1o.HtrHQelcLazuZH5bIN1RVb10YMvH1BC'
+    WHEN 'test2DO' THEN '$2y$10$EXaM7d7fxW0l3pY2n9hEcO5Li1HtZUxxDJQ1HOl9CyTa4kCrTub2W'
+    WHEN 'test3DO' THEN '$2y$10$6stz.tiWOqIFxk0GYlK9feEFokwLVkRR7NqiZ.fXyZItjMo3xunLe'
+    WHEN 'test1T' THEN '$2y$10$Ia3XNoICRtKVza0seD9D5uOOCujazhQRuMvwYPeq6BOgJ1J24lIqe'
+    WHEN 'test2T' THEN '$2y$10$.use6sp.DI3VT4AovZW/Q.NaC/5jbCMm9AizVSRkjECNQy2Zl1nse'
+    WHEN 'test3T' THEN '$2y$10$iVBfezXHaH/sBOiIPJW6pOP4Jm8A2Ongd4y.3GkElGqrjJeDmJOF.'
+    WHEN 'test1TDH' THEN '$2y$10$TMTrx2aJAsLvbyTqk5d2.u2Ou8u5rbKvN9pX4IBeMYZzsMR8vpRc2'
+    WHEN 'test2TDH' THEN '$2y$10$JGrZqaIqnBTc4atSjr2cYeZqapkE0my7RTPBex0hWynb8eLlXaE9i'
+    WHEN 'test3TDH' THEN '$2y$10$BceR8C0yxVVb.4Tfbvurf.bMu0DiVFAbo038bf4gszLwBKzal5e.W'
+    WHEN 'test1Sec' THEN '$2y$10$DvkLJOPOgr5EHX0LJiOwb.ErUBPXwYQtTTFjh4ih0cZnPHkwdjjtK'
+    WHEN 'test2Sec' THEN '$2y$10$v8h7h/ZPp4/5CB1Js2pSw.YIQ.Ndl8CmKdIPwZRRMZETl5790jE8G'
+    WHEN 'test3Sec' THEN '$2y$10$92Wo5.e9ldBtpaBZM3Ki8eqO9L4gKbjrbGM5vmWTodOTY6/GE7pOa'
+    WHEN 'test1Stu' THEN '$2y$10$WJxJNDQcRx8gYrFU96XcAO6nEkRMyAfWW.fksEy7wpv8Kdy0VsrYu'
+    WHEN 'test2Stu' THEN '$2y$10$GrLxQzJXp/drqOg0Tu1lE.o1SMYBBewHArl/dN4tXotKEintcy76y'
+    WHEN 'test3Stu' THEN '$2y$10$Yr5DU8T2LJ8KmGm9EBedsOQ2kBF7TiOEglM9fF4De2LTNqZN/U.va'
+END,
+full_name = CASE username
+    WHEN 'test1SA' THEN 'Isabella Rivera' WHEN 'test2SA' THEN 'Gabriel Santos' WHEN 'test3SA' THEN 'Mateo Cruz'
+    WHEN 'test1DO' THEN 'Camille Navarro' WHEN 'test2DO' THEN 'Nathan Mendoza' WHEN 'test3DO' THEN 'Leah Reyes'
+    WHEN 'test1T' THEN 'Althea Garcia' WHEN 'test2T' THEN 'Julian Morales' WHEN 'test3T' THEN 'Nina Lopez'
+    WHEN 'test1TDH' THEN 'Bianca Dela Cruz' WHEN 'test2TDH' THEN 'Ethan Villanueva' WHEN 'test3TDH' THEN 'Sofia Castillo'
+    WHEN 'test1Sec' THEN 'Marco Bautista' WHEN 'test2Sec' THEN 'Rafael Flores' WHEN 'test3Sec' THEN 'Diego Diaz'
+    WHEN 'test1Stu' THEN 'Liam Lim' WHEN 'test2Stu' THEN 'Mia Torres' WHEN 'test3Stu' THEN 'Chloe Ramos'
+END,
+program = CASE WHEN username IN ('test1TDH', 'test2TDH', 'test3TDH') THEN 'Information Technology' ELSE program END
+WHERE username IN ('test1SA', 'test2SA', 'test3SA', 'test1DO', 'test2DO', 'test3DO', 'test1T', 'test2T', 'test3T', 'test1TDH', 'test2TDH', 'test3TDH', 'test1Sec', 'test2Sec', 'test3Sec', 'test1Stu', 'test2Stu', 'test3Stu');
+
+INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status)
+VALUES
+('02000000040', (SELECT user_id FROM users WHERE username = 'test1Stu'), 'Liam', 'Lim', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing'),
+('02000000041', (SELECT user_id FROM users WHERE username = 'test2Stu'), 'Mia', 'Torres', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing'),
+('02000000042', (SELECT user_id FROM users WHERE username = 'test3Stu'), 'Chloe', 'Ramos', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing');
+
+-- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)
 -- ============================================
 INSERT INTO offense_types (offense_name, category, description) VALUES
@@ -987,4 +1060,4 @@ FROM students s
 WHERE s.total_offenses > 0
 ORDER BY s.total_offenses DESC, s.major_offenses DESC;
 
-
+SET FOREIGN_KEY_CHECKS = 1;
