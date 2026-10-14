@@ -525,7 +525,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                             ['id'=>'stat-offenseType','label'=>'Offense Type','type'=>'ajax','action'=>'getOffenseTypes','vk'=>'case_type','all'=>'All Offenses'],
                             ['id'=>'stat-severity',   'label'=>'Severity',    'type'=>'select','opts'=>[''=>'All','Major'=>'Major','Minor'=>'Minor']],
                             ['id'=>'stat-gradeLevel', 'label'=>'Grade Level', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
-                            ['id'=>'stat-course',     'label'=>'Course',      'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses'],
+                            ['id'=>'stat-course',     'label'=>'Course',      'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses','depends'=>'stat-gradeLevel'],
                         ],
                     ],
                     'lostfound' => [
@@ -542,7 +542,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         'fields' => [
                             ['id'=>'stu-studentId', 'label'=>'Student Name/ID (Optional)', 'type'=>'search','placeholder'=>'Search by Student ID or Name'],
                             ['id'=>'stu-gradeLevel','label'=>'Grade / Year', 'type'=>'ajax','action'=>'getGradeLevels','vk'=>'grade_year','all'=>'All Levels'],
-                            ['id'=>'stu-course',    'label'=>'Track / Course', 'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses'],
+                            ['id'=>'stu-course',    'label'=>'Track / Course', 'type'=>'ajax','action'=>'getAvailableCourses','vk'=>'track_course','all'=>'All Courses','depends'=>'stu-gradeLevel'],
                             ['id'=>'stu-status',    'label'=>'Standing',     'type'=>'select','opts'=>[''=>'All','Good Standing'=>'Good Standing','On Watch'=>'On Watch','On Probation'=>'On Probation']],
                         ],
                     ],
@@ -586,7 +586,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                                 data-ajax="<?= $f['action'] ?>"
                                                 data-vk="<?= $f['vk'] ?>"
                                                 data-lk="<?= $f['lk'] ?? $f['vk'] ?>"
-                                                data-all="<?= $f['all'] ?? 'All' ?>">
+                                                data-all="<?= $f['all'] ?? 'All' ?>"
+                                                <?= !empty($f['depends']) ? 'data-depends-on="' . htmlspecialchars($f['depends'], ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
                                                 <option value=""><?= $f['all'] ?? 'All' ?></option>
                                             </select>
                                         <?php endif; ?>
@@ -666,7 +667,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     </div>
 
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/main.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/filters.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/modals.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>

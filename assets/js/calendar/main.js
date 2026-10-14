@@ -4,6 +4,7 @@ let currentDate = new Date();
 let selectedCategoryFilter = '';
 let selectedUserFilter = '';
 let pendingEventId = null;
+let pendingCaseId = null;
 let pendingEventOpened = false;
 let currentCalendarView = 'shared';
 
@@ -41,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeCalendarFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     pendingEventId = urlParams.get('event_id');
+    pendingCaseId = urlParams.get('case_id');
     const eventDate = urlParams.get('event_date');
     currentCalendarView = window.CALENDAR_VIEW || urlParams.get('calendar_view') || 'shared';
 
@@ -291,6 +293,8 @@ async function loadEvents() {
         formData.append('endDate', endDate);
         formData.append('calendarView', currentCalendarView);
         formData.append('selectedUserId', selectedUserFilter || '');
+        formData.append('pendingEventId', pendingEventId || '');
+        formData.append('pendingCaseId', pendingCaseId || '');
 
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -312,21 +316,32 @@ async function loadEvents() {
 
 function openPendingEventFromUrl() {
     if (!pendingEventId || pendingEventOpened) {
-        return;
+        if (!pendingCaseId || pendingEventOpened) {
+            return;
+        }
     }
 
-    const event = allEvents.find(item => String(item.id) === String(pendingEventId));
+    const event = pendingEventId
+        ? allEvents.find(item => String(item.id) === String(pendingEventId))
+        : null;
+    const fallbackEvent = pendingCaseId
+        ? allEvents.find(item =>
+            item.category === 'Hearing'
+            && item.name.includes(`Case ${pendingCaseId}`)
+        )
+        : null;
 
-    if (!event) {
+    if (!event && !fallbackEvent) {
         return;
     }
 
     pendingEventOpened = true;
-    viewEvent(event);
+    viewEvent(event || fallbackEvent);
 
     const url = new URL(window.location.href);
     url.searchParams.delete('event_id');
     url.searchParams.delete('event_date');
+    url.searchParams.delete('case_id');
     window.history.replaceState({}, document.title, url.pathname + url.search);
 }
 
