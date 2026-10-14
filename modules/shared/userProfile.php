@@ -85,13 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] !== 'change_password')) {
-    $contactNumber = $_POST['contact_number'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_profile') {
+    $contactNumber = trim((string)($_POST['contact_number'] ?? ''));
     
     if ($contactNumber !== '') {
         try {
             $stmt = $pdo->prepare("
-                UPDATE users 
+                UPDATE users
                 SET contact_number = ?, updated_at = NOW()
                 WHERE user_id = ?
             ");
@@ -198,6 +198,8 @@ if ($user) {
                 <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h2>
                 
                 <form method="POST" class="space-y-4">
+                    <input type="hidden" name="action" value="update_profile">
+
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Full Name
@@ -220,7 +222,7 @@ if ($user) {
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Contact Number *
                         </label>
-                        <input type="tel" name="contact_number" 
+                        <input type="tel" name="contact_number" required
                                value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>"
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
                     </div>

@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($username) && !empty($password)) {
         
         // Authenticate user against database
-        $user = authenticateUser($username, $password);
+        $authentication = authenticateUserWithStatus($username, $password);
+        $user = $authentication['user'];
         
         if ($user) {
             // Authentication successful
@@ -103,12 +104,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         } else {
             // Authentication failed
-            write_log("LOGIN FAILED: Invalid credentials for '$username' from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
+            $errorCode = $authentication['error'] === 'deactivated' ? 'deactivated' : 'invalid';
+            $failureReason = $errorCode === 'deactivated' ? 'Account deactivated or archived' : 'Invalid credentials';
+            write_log("LOGIN FAILED: {$failureReason} for '$username' from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
             
             // Log failed login attempt to audit_logs
-            logFailedLogin($username, 'Invalid credentials');
+            logFailedLogin($username, $failureReason);
             
-            header('Location: ' . BASE_URL . '/modules/login/login.php?error=invalid');
+            header('Location: ' . BASE_URL . '/modules/login/login.php?error=' . $errorCode);
             exit;
         }
         

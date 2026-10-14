@@ -16,7 +16,10 @@ function getUserById($userId) {
 function getUserByUsername($username) {
     ensureUsersArchiveColumn();
     ensureUsersActiveSessionColumn();
-    $sql = "SELECT * FROM users WHERE username = ? AND COALESCE(is_archived, 0) = 0";
+    $sql = "SELECT * FROM users
+            WHERE username = ?
+              AND COALESCE(is_active, 0) = 1
+              AND COALESCE(is_archived, 0) = 0";
     return fetchOne($sql, [$username]);
 }
 
@@ -269,17 +272,28 @@ function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate,
 }
 
 function authenticateUser($username, $password) {
-    $user = getUserByUsername($username);
+    $authentication = authenticateUserWithStatus($username, $password);
+    return $authentication['user'];
+}
+
+function authenticateUserWithStatus($username, $password) {
+    ensureUsersArchiveColumn();
+    ensureUsersActiveSessionColumn();
+    $user = fetchOne("SELECT * FROM users WHERE username = ?", [$username]);
     
     if ($user && password_verify($password, $user['password_hash'])) {
+        if ((int)($user['is_active'] ?? 0) !== 1 || (int)($user['is_archived'] ?? 0) !== 0) {
+            return ['user' => false, 'error' => 'deactivated'];
+        }
+
         // Update last login
-            $sql = "UPDATE users SET last_login = NOW() WHERE user_id = ?";
+        $sql = "UPDATE users SET last_login = NOW() WHERE user_id = ?";
         executeQuery($sql, [$user['user_id']]);
         
-        return $user;
+        return ['user' => $user, 'error' => null];
     }
     
-    return false;
+    return ['user' => false, 'error' => 'invalid'];
 }
 
 /**

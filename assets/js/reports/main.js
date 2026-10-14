@@ -38,6 +38,8 @@ function updateBackButtonVisibility(activeTab) {
 async function populateAjaxSelects() {
     const selects = document.querySelectorAll('[data-ajax]');
     for (const el of selects) {
+        // Dependent selects are populated when their parent changes.
+        if (el.dataset.dependsOn) continue;
         await populateSelect(el);
     }
     setupDependentFilters();
@@ -66,23 +68,18 @@ async function populateSelect(el) {
 
 // ── Dependent Filters (Grade > Courses) ──────────────────
 function setupDependentFilters() {
-    // Statistics Tab Dependent Filter
-    const statGrade = document.getElementById('stat-gradeLevel');
-    const statCourse = document.getElementById('stat-course');
-    if (statGrade && statCourse) {
-        statGrade.addEventListener('change', async () => {
-            await updateCoursesByGradeLevel(statGrade, statCourse);
-        });
-    }
+    document.querySelectorAll('select[data-depends-on]').forEach(courseSelect => {
+        const gradeSelect = document.getElementById(courseSelect.dataset.dependsOn);
+        if (!gradeSelect) return;
 
-    // Student Behavior Tab Dependent Filter
-    const stuGrade = document.getElementById('stu-gradeLevel');
-    const stuCourse = document.getElementById('stu-course');
-    if (stuGrade && stuCourse) {
-        stuGrade.addEventListener('change', async () => {
-            await updateCoursesByGradeLevel(stuGrade, stuCourse);
+        gradeSelect.addEventListener('change', () => {
+            updateCoursesByGradeLevel(gradeSelect, courseSelect);
         });
-    }
+
+        // Populate the initial list too, so every dependent filter has a
+        // consistent state even when the page is restored from browser state.
+        updateCoursesByGradeLevel(gradeSelect, courseSelect);
+    });
 }
 
 async function updateCoursesByGradeLevel(gradeSelectEl, courseSelectEl) {
@@ -90,7 +87,7 @@ async function updateCoursesByGradeLevel(gradeSelectEl, courseSelectEl) {
     
     const gradeLevel = gradeSelectEl.value;
     
-    // Remove all options except the first one ("All Courses")
+    // Remove all options except the first one ("All Courses").
     while (courseSelectEl.options.length > 1) {
         courseSelectEl.remove(1);
     }
@@ -103,17 +100,13 @@ async function updateCoursesByGradeLevel(gradeSelectEl, courseSelectEl) {
         fd.append('action', 'getAvailableCourses');
         try {
             const res = await fetch(PAGE_URL, {method:'POST', body:fd});
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (data.success) {
-                data.data.forEach(row => {
-                    const o = document.createElement('option');
-                    o.value = row.track_course;
-                    o.textContent = row.track_course;
-                    courseSelectEl.appendChild(o);
-                });
+                appendCourseOptions(courseSelectEl, data.data);
             }
         } catch(e) {
-            console.warn('Failed to fetch all courses:', e);
+            console.error('Failed to fetch all courses:', e);
         }
         return;
     }
@@ -126,18 +119,25 @@ async function updateCoursesByGradeLevel(gradeSelectEl, courseSelectEl) {
     
     try {
         const res = await fetch(PAGE_URL, {method:'POST', body:fd});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.success) {
-            data.data.forEach(row => {
-                const o = document.createElement('option');
-                o.value = row.track_course;
-                o.textContent = row.track_course;
-                courseSelectEl.appendChild(o);
-            });
+            appendCourseOptions(courseSelectEl, data.data);
         }
     } catch(e) {
-        console.warn('Failed to fetch courses for grade level:', e);
+        console.error('Failed to fetch courses for grade level:', e);
     }
+}
+
+function appendCourseOptions(selectEl, rows) {
+    rows.forEach(row => {
+        const course = row.track_course;
+        if (!course) return;
+        const option = document.createElement('option');
+        option.value = course;
+        option.textContent = course;
+        selectEl.appendChild(option);
+    });
 }
 
 // ── Collect filter values ────────────────────────────────

@@ -237,8 +237,7 @@ if (!isset($adminName) || empty($adminName)) {
 
             const data = await response.json();
             
-            if (data.success) {
-                if (relatedId) {
+            if (relatedId) {
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
                     const isPortfolioNotification = relatedId.startsWith('community_service_submission:');
                     const isCommunityServiceEvent = relatedId.startsWith('community_service_deadline_extended:') || 
@@ -278,12 +277,13 @@ if (!isset($adminName) || empty($adminName)) {
                             const hearingDate = hearingParts.length > 3 ? hearingParts[3] : null;
                             const url = new URL(`${window.APP_BASE_URL}/modules/do/calendar.php`, window.location.origin);
                             url.searchParams.set('calendar_view', 'personal');
-                            if (hearingEventId) {
+                            if (hearingEventId && hearingEventId !== 'new') {
                                 url.searchParams.set('event_id', hearingEventId);
                             }
                             if (hearingDate) {
                                 url.searchParams.set('event_date', hearingDate);
-                            } else if (hearingCaseId) {
+                            }
+                            if (hearingCaseId) {
                                 url.searchParams.set('case_id', hearingCaseId);
                             }
                             window.location.href = url.toString();
@@ -295,12 +295,26 @@ if (!isset($adminName) || empty($adminName)) {
                             window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}`;
                         }
                     }, 100);
-                } else {
-                    setTimeout(() => location.reload(), 300);
-                }
+            } else if (data.success) {
+                setTimeout(() => location.reload(), 300);
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
+            if (relatedId && relatedId.startsWith('hearing:')) {
+                const hearingParts = relatedId.split(':');
+                const fallbackUrl = new URL(`${window.APP_BASE_URL}/modules/do/calendar.php`, window.location.origin);
+                fallbackUrl.searchParams.set('calendar_view', 'personal');
+                if (hearingParts[2] && hearingParts[2] !== 'new') {
+                    fallbackUrl.searchParams.set('event_id', hearingParts[2]);
+                }
+                if (hearingParts[3]) {
+                    fallbackUrl.searchParams.set('event_date', hearingParts[3]);
+                }
+                if (hearingParts[1]) {
+                    fallbackUrl.searchParams.set('case_id', hearingParts[1]);
+                }
+                window.location.href = fallbackUrl.toString();
+            }
         }
     }
 </script>

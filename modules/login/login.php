@@ -141,7 +141,9 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                             <h4 class="text-sm font-semibold text-red-800 mb-1">Login Failed</h4>
                             <p class="text-sm text-red-700">
                                 <?php
-                                if ($error === 'invalid') {
+                                if ($error === 'deactivated') {
+                                    echo 'Account Deactivated, Please contact support if this is a mistake';
+                                } elseif ($error === 'invalid') {
                                     echo 'Wrong username or password. Please try again.';
                                 } elseif ($error === 'empty') {
                                     echo 'Please enter both username and password.';

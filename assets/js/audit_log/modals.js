@@ -108,6 +108,23 @@ function stripHtml(html) {
     return tmp.textContent || tmp.innerText || '';
 }
 
+function parseAuditValues(values) {
+    if (values === null || values === undefined || values === '' || values === 'null') {
+        return null;
+    }
+
+    if (typeof values !== 'string') {
+        return values;
+    }
+
+    let parsed = JSON.parse(values);
+    // Some legacy entries contain a JSON string encoded inside JSON.
+    if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+    }
+    return parsed;
+}
+
 // Audit Log Detail Modal Functions
 
 let selectedLog = null;
@@ -133,28 +150,28 @@ function openLogDetailModal(log) {
     
     // Populate old values
     const oldValuesSection = document.getElementById('oldValuesSection');
-    if (log.oldValues && log.oldValues !== 'null') {
-        try {
-            const oldData = JSON.parse(log.oldValues);
+    try {
+        const oldData = parseAuditValues(log.oldValues);
+        if (oldData !== null && typeof oldData === 'object') {
             oldValuesSection.innerHTML = formatDataSection(oldData, 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800');
-        } catch (e) {
-            oldValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
+        } else {
+            oldValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>`;
         }
-    } else {
-        oldValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>`;
+    } catch (e) {
+        oldValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
     }
     
     // Populate new values
     const newValuesSection = document.getElementById('newValuesSection');
-    if (log.newValues && log.newValues !== 'null') {
-        try {
-            const newData = JSON.parse(log.newValues);
+    try {
+        const newData = parseAuditValues(log.newValues);
+        if (newData !== null && typeof newData === 'object') {
             newValuesSection.innerHTML = formatDataSection(newData, 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800');
-        } catch (e) {
-            newValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
+        } else {
+            newValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No new values</p>`;
         }
-    } else {
-        newValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No new values</p>`;
+    } catch (e) {
+        newValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
     }
     
     // Show modal
@@ -237,13 +254,46 @@ function exportDetailAsCSV() {
 function printDetailAsPDF() {
     if (!selectedLog) return;
 
-    // Helper to render a value for print (strips HTML tags to plain text)
+    // Render values using the same data source as the detail modal.
     function printValue(val) {
         if (val === null || val === undefined) return 'N/A';
-        if (typeof val === 'object') return JSON.stringify(val, null, 2);
+        if (typeof val === 'object') {
+            return JSON.stringify(val, function(key, value) {
+                if (typeof value === 'string' && /<[^>]+>/.test(value)) {
+                    return stripHtml(value).replace(/\s+/g, ' ').trim();
+                }
+                return value;
+            }, 2);
+        }
         const str = String(val);
-        if (str.trimStart().startsWith('<')) return stripHtml(str);
+        if (/<[^>]+>/.test(str)) return stripHtml(str).replace(/\s+/g, ' ').trim();
         return str;
+    }
+
+    function printDataRows(data) {
+        if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+            return '<tr><td colspan="2" style="padding: 6px;"><em>No data</em></td></tr>';
+        }
+
+        return Object.entries(data).map(([key, value]) => `
+            <tr>
+                <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555; vertical-align: top;">${escapeHtml(formatLabel(key))}</td>
+                <td style="padding: 6px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top;">${escapeHtml(printValue(value))}</td>
+            </tr>
+        `).join('');
+    }
+
+    let oldData;
+    let newData;
+    try {
+        oldData = parseAuditValues(selectedLog.oldValues);
+    } catch (e) {
+        oldData = null;
+    }
+    try {
+        newData = parseAuditValues(selectedLog.newValues);
+    } catch (e) {
+        newData = null;
     }
     
     // Build HTML content for printing
@@ -256,30 +306,34 @@ function printDetailAsPDF() {
             
             <div style="margin-bottom: 25px;">
                 <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Audit Log Details</h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
                     <tr>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Log ID</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 25%; color: #555;">Log ID</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">#${selectedLog.id}</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">User</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 25%; color: #555;">User</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.user || 'System')}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Role</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Role</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.role || 'N/A')}</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Action</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Action</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;"><span style="padding: 3px 8px; background-color: #e5e7eb; color: #333; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">${escapeHtml(selectedLog.action)}</span></td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Timestamp</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Timestamp</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.timestamp)}</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Table</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Table</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.table || 'N/A')}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">Record ID</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Record ID</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.recordId || 'N/A')}</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">IP Address</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">IP Address</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.ipAddress || 'N/A')}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">User Agent</td>
+                        <td colspan="3" style="padding: 6px; border-bottom: 1px solid #ddd; overflow-wrap: anywhere;">${escapeHtml(selectedLog.userAgent || 'N/A')}</td>
                     </tr>
                 </table>
             </div>
@@ -289,40 +343,14 @@ function printDetailAsPDF() {
     printContent += `<div style="margin-bottom: 25px;">
         <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Previous Values</h3>`;
     
-    if (selectedLog.oldValues && selectedLog.oldValues !== 'null') {
-        try {
-            const oldData = JSON.parse(selectedLog.oldValues);
-            printContent += `<div style="background-color: #fee2e2; padding: 10px; border-radius: 4px; border-left: 4px solid #dc2626;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">`;
-            for (const [key, value] of Object.entries(oldData)) {
-                printContent += `<tr><td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">${escapeHtml(formatLabel(key))}</td><td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(printValue(value))}</td></tr>`;
-            }
-            printContent += `</table></div>`;
-        } catch (e) {
-            printContent += `<p>Error parsing data: ${escapeHtml(e.message)}</p>`;
-        }
-    } else {
-        printContent += `<p><em>No previous values</em></p>`;
-    }
+    printContent += `<div style="background-color: #fee2e2; padding: 10px; border-radius: 4px; border-left: 4px solid #dc2626;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(oldData)}</table></div>`;
     printContent += `</div>`;
     
     // New Values
     printContent += `<div style="margin-bottom: 25px;">
         <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">New Values</h3>`;
     
-    if (selectedLog.newValues && selectedLog.newValues !== 'null') {
-        try {
-            const newData = JSON.parse(selectedLog.newValues);
-            printContent += `<div style="background-color: #dcfce7; padding: 10px; border-radius: 4px; border-left: 4px solid #16a34a;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">`;
-            for (const [key, value] of Object.entries(newData)) {
-                printContent += `<tr><td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555;">${escapeHtml(formatLabel(key))}</td><td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(printValue(value))}</td></tr>`;
-            }
-            printContent += `</table></div>`;
-        } catch (e) {
-            printContent += `<p>Error parsing data: ${escapeHtml(e.message)}</p>`;
-        }
-    } else {
-        printContent += `<p><em>No new values</em></p>`;
-    }
+    printContent += `<div style="background-color: #dcfce7; padding: 10px; border-radius: 4px; border-left: 4px solid #16a34a;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(newData)}</table></div>`;
     printContent += `</div></div>`;
     
     // Create temporary print container

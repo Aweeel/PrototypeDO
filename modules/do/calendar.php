@@ -37,6 +37,8 @@ if ($_POST['action'] === 'getEvents') {
     $startDate = $_POST['startDate'] ?? null;
     $endDate = $_POST['endDate'] ?? null;
     $selectedUserId = $_POST['selectedUserId'] ?? null;
+    $pendingEventId = trim((string)($_POST['pendingEventId'] ?? ''));
+    $pendingCaseId = trim((string)($_POST['pendingCaseId'] ?? ''));
 
     if ($startDate && $endDate) {
         // Preferred path: exact date range, covers whatever the grid actually shows
@@ -46,8 +48,17 @@ if ($_POST['action'] === 'getEvents') {
                        u.full_name as created_by_name
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
-                WHERE ce.event_date >= ? AND ce.event_date <= ?";
+                WHERE (ce.event_date >= ? AND ce.event_date <= ?";
         $params = [$startDate, $endDate];
+        if ($pendingEventId !== '' && ctype_digit($pendingEventId)) {
+            $sql .= " OR ce.event_id = ?";
+            $params[] = (int)$pendingEventId;
+        }
+        if ($pendingCaseId !== '') {
+            $sql .= " OR (ce.category = 'Hearing' AND ce.event_name LIKE ?)";
+            $params[] = "%Case {$pendingCaseId}%";
+        }
+        $sql .= ")";
         if ($isDepartmentHead) {
             $sql .= " AND ce.target_user_id = ?";
             $params[] = $currentUserId;
@@ -239,31 +250,33 @@ if ($_POST['action'] === 'getEvents') {
             
             error_log("SQL: $sql");
             error_log("Params: " . print_r($params, true));
-            
-            executeQuery($sql, $params);
 
-                        $eventIdSql = "SELECT event_id
-                                                     FROM calendar_events
-                                                     WHERE event_name = ?
-                                                         AND event_date = ?
-                                                         AND created_by = ?
-                                                       ORDER BY event_id DESC LIMIT 1";
-                        $eventRow = fetchOne($eventIdSql, [$eventName, $eventDate, $createdBy]);
-            
-            // 🧾 Audit Log - Use specialized calendar audit function
-            auditCalendarEventCreated($eventName, $eventName, [
-                'event_date' => $eventDate,
-                'event_time' => $eventTime,
-                'category' => $category,
-                'description' => $description,
-                'location' => $location
-            ]);
+            $eventId = insertAndGetId($sql, $params);
+            $eventId = $eventId !== '' ? (int)$eventId : null;
+
+            // Audit and notifications must not turn a successful event insert into a
+            // misleading scheduling error if either non-critical operation fails.
+            try {
+                auditCalendarEventCreated($eventId, $eventName, [
+                    'event_date' => $eventDate,
+                    'event_time' => $eventTime,
+                    'category' => $category,
+                    'description' => $description,
+                    'location' => $location
+                ]);
+            } catch (Throwable $e) {
+                error_log("Calendar event audit failed for {$eventId}: " . $e->getMessage());
+            }
 
             if ($category === 'Hearing' && in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office', 'super_admin'], true)) {
-                notifyDepartmentHeadTeachersOfHearing($eventRow['event_id'] ?? null, $eventName, $eventDate, $eventTime, $eventEndTime, $description, $location);
+                try {
+                    notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime, $eventEndTime, $description, $location);
+                } catch (Throwable $e) {
+                    error_log("Hearing notification failed for {$eventId}: " . $e->getMessage());
+                }
             }
             
-            echo json_encode(['success' => true, 'message' => 'Event created successfully', 'event_id' => $eventRow['event_id'] ?? null]);
+            echo json_encode(['success' => true, 'message' => 'Event created successfully', 'event_id' => $eventId]);
             exit;
         }
 
