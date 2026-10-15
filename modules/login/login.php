@@ -144,9 +144,9 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                                 if ($error === 'deactivated') {
                                     echo 'Account Deactivated, Please contact support if this is a mistake';
                                 } elseif ($error === 'invalid') {
-                                    echo 'Wrong username or password. Please try again.';
+                                    echo 'Wrong email or password. Please try again.';
                                 } elseif ($error === 'empty') {
-                                    echo 'Please enter both username and password.';
+                                    echo 'Please enter both email and password.';
                                 } else {
                                     echo 'An error occurred during login. Please try again.';
                                 }
@@ -159,8 +159,8 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                 <form method="POST" action="login_handler.php">
                     <!-- Username or Email Address -->
                     <div class="mb-6">
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Username or Email Address</label>
-                        <input type="text" name="username" placeholder="username or nameid@sti.edu" required
+                        <label class="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
+                        <input type="text" name="username" placeholder="Email Address" required
                             value="<?php echo isset($_GET['email']) ? htmlspecialchars($_GET['email']) : ''; ?>"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>

@@ -1,0 +1,7 @@
+role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role
+02000990021,alvarez.990021@sti.edu,,,Patricia,Alvarez,Manansala,09170000021,student
+01000990022,tan.teacher@sti.edu,,,Roberto,Tan,Co,09170000022,teacher
+02000990023,fernandez.990023@sti.edu,,,Nina,Fernandez,Laurel,09170000023,student
+02000990024,miranda.990024@sti.edu,,,Jerome,Miranda,Arellano,09170000024,student
+,rosales.security1@sti.edu,,,Sylvia,Rosales,Salonga,09170000025,security
+02000990026,abad.990026@sti.edu,,,Miguel,Abad,Del Rosario,09170000026,student

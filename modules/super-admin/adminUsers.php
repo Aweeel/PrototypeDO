@@ -278,14 +278,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                     $data['contact_number'] ?? null
                 ]);
 
+                $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
+
                 if ($role === 'student') {
-                    $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
                     $middleName = trim($data['middle_name'] ?? '');
                     executeQuery(
                         "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         [$studentId, $newUserId, trim($data['first_name']), trim($data['last_name']), $middleName !== '' ? $middleName : null, 'N/A', 'College']
                     );
                 }
+
+                auditCreate('users', $newUserId, [
+                    'email' => $email,
+                    'full_name' => $fullName,
+                    'role' => $role,
+                    'source' => 'csv_import',
+                    'student_id' => $studentId !== '' ? $studentId : null,
+                    'teacher_id' => $teacherId !== '' ? $teacherId : null,
+                    'do_id' => $doId !== '' ? $doId : null,
+                    'teacher_subrole' => $teacherSubrole !== '' ? $teacherSubrole : null,
+                    'program' => $program !== '' ? $program : null
+                ]);
 
                 $imported++;
             } catch (Exception $e) {

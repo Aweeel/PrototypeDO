@@ -1,0 +1,7 @@
+role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role
+02000990011,lim.990011@sti.edu,,,Elena,Lim,Diaz,09170000011,student
+01000990012,flores.teacher@sti.edu,,,Jonathan,Flores,Salazar,09170000012,teacher
+02000990013,natividad.990013@sti.edu,,,Camille,Natividad,Soriano,09170000013,student
+02000990014,villanueva.990014@sti.edu,,,Marco,Villanueva,Domingo,09170000014,student
+,pascual.security1@sti.edu,,,Teresa,Pascual,Encarnacion,09170000015,security
+02000990016,aguilar.990016@sti.edu,,,Victor,Aguilar,Macapagal,09170000016,student
