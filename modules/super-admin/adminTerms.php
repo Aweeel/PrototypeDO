@@ -49,56 +49,6 @@ if (!$isSuperAdmin) {
       let editingSections = new Set();
       let hasUnsavedChanges = {};
 
-        function showConfirmDialog(options = {}) {
-          const {
-            title = 'Confirm',
-            message = '',
-            confirmText = 'Confirm',
-            cancelText = 'Cancel',
-            confirmClass = 'bg-blue-600 hover:bg-blue-700',
-          } = options;
-
-          return new Promise((resolve) => {
-            const existing = document.getElementById('termsConfirmDialog');
-            if (existing) {
-              existing.remove();
-            }
-
-            const modal = document.createElement('div');
-            modal.id = 'termsConfirmDialog';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
-            modal.innerHTML = `
-              <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
-                <div class="p-6 border-b border-gray-200 dark:border-slate-700">
-                  <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
-                </div>
-                <div class="p-6">
-                  <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
-                </div>
-                <div class="flex gap-3 p-6 pt-0 justify-end">
-                  <button type="button" data-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">${cancelText}</button>
-                  <button type="button" data-confirm class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">${confirmText}</button>
-                </div>
-              </div>
-            `;
-
-            const finish = (value) => {
-              modal.remove();
-              resolve(value);
-            };
-
-            modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
-            modal.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
-            modal.addEventListener('click', (event) => {
-              if (event.target === modal) {
-                finish(false);
-              }
-            });
-
-            document.body.appendChild(modal);
-          });
-        }
-
       // Track unsaved changes
       window.addEventListener('beforeunload', (e) => {
           if (Object.values(hasUnsavedChanges).some(v => v)) {
@@ -279,7 +229,7 @@ if (!$isSuperAdmin) {
                   });
               }
           } catch (error) {
-              alert('Error loading terms content. Please refresh the page.');
+              showNotification('Unable to load terms content. The server did not return a valid response. Refresh the page and try again.', 'error');
           }
       }
 
@@ -319,7 +269,7 @@ if (!$isSuperAdmin) {
 
       async function saveSectionChanges(sectionId) {
           if (!editingSections.has(sectionId)) {
-              alert('Section not in edit mode');
+              showNotification('Section not in edit mode', 'error');
               return;
           }
 
@@ -329,8 +279,7 @@ if (!$isSuperAdmin) {
 
               if (hasUnsavedChanges[sectionId]) {
               const confirmed = await showConfirmDialog({
-                title: 'Save Changes',
-                message: 'Save the changes you made to this section?',
+                message: 'Save changes?',
                 confirmText: 'Save',
                 confirmClass: 'bg-green-600 hover:bg-green-700'
               });
@@ -363,10 +312,10 @@ if (!$isSuperAdmin) {
                   // Exit edit mode
                   stopTermsEditing(sectionId);
               } else {
-                  alert('Error saving section: ' + (data.message || 'Unknown error'));
+                  showNotification('Unable to save section: ' + (data.message || 'The server did not provide a reason. Check the section content and try again.'), 'error');
               }
           } catch (error) {
-              alert('Error saving section: ' + error.message);
+              showNotification('Unable to save section: ' + error.message, 'error');
           }
       }
 
@@ -385,8 +334,7 @@ if (!$isSuperAdmin) {
           return new Promise(async (resolve) => {
             if (hasUnsavedChanges[sectionId]) {
               const confirmed = await showConfirmDialog({
-                title: 'Discard Changes',
-                message: 'You have unsaved changes. Are you sure you want to cancel?',
+                message: 'Discard changes?',
                 confirmText: 'Discard',
                 confirmClass: 'bg-red-600 hover:bg-red-700'
               });

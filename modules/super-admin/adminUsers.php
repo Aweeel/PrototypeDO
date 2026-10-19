@@ -885,7 +885,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " activated successfully";
             if (!empty($errors)) {
-                $message .= ". " . count($errors) . " error(s) occurred";
+                $message .= ". " . count($errors) . " account(s) could not be processed: " . implode('; ', $errors);
             }
 
             echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
@@ -936,7 +936,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " deactivated successfully";
             if (!empty($errors)) {
-                $message .= ". " . count($errors) . " error(s) occurred";
+                $message .= ". " . count($errors) . " account(s) could not be processed: " . implode('; ', $errors);
             }
 
             echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
@@ -976,14 +976,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                     $successCount++;
                 } catch (Exception $e) {
-                    $errors[] = "Error deleting user $userId: " . $e->getMessage();
+                    $errors[] = "User $userId could not be processed: " . $e->getMessage();
                 }
             }
 
             $actionLabel = $isArchiving ? 'archived' : 'restored';
             $message = "$successCount user" . ($successCount !== 1 ? 's' : '') . " $actionLabel successfully";
             if (!empty($errors)) {
-                $message .= ". " . count($errors) . " error(s) occurred";
+                $message .= ". " . count($errors) . " account(s) could not be processed: " . implode('; ', $errors);
             }
 
             echo json_encode(['success' => true, 'message' => $message, 'count' => $successCount]);
@@ -1259,7 +1259,7 @@ $adminName = getFormattedUserName();
 
             const fileInput = document.getElementById('usersCsvFile');
             if (!fileInput.files.length) {
-                alert('Please select a file');
+                showNotification('Please select a file', 'error');
                 return;
             }
 

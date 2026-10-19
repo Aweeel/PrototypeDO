@@ -288,9 +288,7 @@ function renderTableRows() {
             <td class="pl-2 pr-4 py-4 text-sm text-gray-700 dark:text-gray-300 w-28"><div class="truncate">${caseItem.date}</div></td>
             <td class="pl-4 pr-4 py-4 text-sm text-gray-700 dark:text-gray-300 w-36"><div class="truncate">${caseItem.assignedTo || 'Unassigned'}</div></td>
             <td class="pl-4 pr-1 py-4 w-32">
-                <div class="truncate inline-block">
-                    <span class="inline-block px-2.5 py-1 text-xs font-medium rounded ${statusColors[caseItem.statusColor]}">${caseItem.status}</span>
-                </div>
+                <span class="inline-flex whitespace-nowrap px-2.5 py-1 text-xs font-medium rounded ${statusColors[caseItem.statusColor]}">${caseItem.status}</span>
             </td>
             <td class="pl-0 pr-2 py-2 whitespace-nowrap w-56">
                 <div class="flex items-center gap-0.5 -ml-3">
@@ -439,7 +437,7 @@ function loadCasesFromDB() {
                     const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
                     document.getElementById('casesTableBody').innerHTML = `
                         <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
-                            Error rendering cases table: ${renderError.message}
+                            Unable to display cases table: ${renderError.message}
                         </td></tr>
                     `;
                 }
@@ -448,7 +446,7 @@ function loadCasesFromDB() {
                 const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
                 document.getElementById('casesTableBody').innerHTML = `
                     <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
-                        Error loading cases: ${data.error || 'Unknown error'}
+                        Unable to load cases: ${data.error || 'The server did not provide a reason. Check your connection and try again.'}
                     </td></tr>
                 `;
             }
@@ -458,7 +456,7 @@ function loadCasesFromDB() {
             const colSpan = (currentTab === 'archived' ? 8 : 7) + (caseSeverity === 'Minor' ? 1 : 0);
             document.getElementById('casesTableBody').innerHTML = `
                 <tr><td colspan="${colSpan}" class="px-6 py-8 text-center text-red-500">
-                    Error: Invalid response from server. Check console for details.
+                    Unable to load cases because the server returned an invalid response. Check your connection and try again.
                 </td></tr>
             `;
         }
@@ -624,6 +622,6 @@ async function escalateMinorCase(caseId) {
         window.location.href = window.appUrl('/modules/do/cases.php?severity=Major&caseId=') + encodeURIComponent(caseId);
     } catch (error) {
         console.error('Error escalating minor case:', error);
-        showNotification('Unable to escalate case.', 'error');
+        showNotification('The case could not be escalated because the server did not return a valid response. Check your connection and try again.', 'error');
     }
 }

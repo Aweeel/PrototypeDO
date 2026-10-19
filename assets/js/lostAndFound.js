@@ -69,7 +69,7 @@ function setupImageUpload() {
                 fileInput.files = e.dataTransfer.files;
                 displayImagePreview(file);
             } else {
-                showNotification('Error', 'Please drop an image file', 'error');
+                showNotification('Unable', 'Please drop an image file', 'error');
             }
         }
     });
@@ -235,11 +235,11 @@ document.getElementById('addItemForm')?.addEventListener('submit', async functio
             showNotification('Success!', 'Item added successfully', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            showNotification('Error', result.message, 'error');
+            showNotification('Unable to add item', result.message, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to add item', 'error');
+        showNotification('Unable to add item', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 });
 
@@ -252,11 +252,11 @@ async function viewItem(itemId) {
         if (result.success) {
             showViewModal(result.data);
         } else {
-            showNotification('Error', 'Failed to load item details', 'error');
+            showNotification('Unable to load item details', 'The server did not return a valid response. Check your connection and try again.', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to load item details', 'error');
+        showNotification('Unable to load item details', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -445,11 +445,11 @@ async function editItem(itemId) {
         if (result.success) {
             showEditModal(result.data);
         } else {
-            showNotification('Error', 'Failed to load item details', 'error');
+            showNotification('Unable to load item details', 'The server did not return a valid response. Check your connection and try again.', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to load item details', 'error');
+        showNotification('Unable to load item details', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -557,11 +557,11 @@ function showEditModal(item) {
                 showNotification('Success!', 'Item updated successfully', 'success');
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                showNotification('Error', result.message, 'error');
+                showNotification('Unable to update item', result.message, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            showNotification('Error', 'Failed to update item', 'error');
+            showNotification('Unable to update item', 'The server did not return a valid response. Check your connection and try again.', 'error');
         }
     });
 }
@@ -665,11 +665,11 @@ function markClaimed(itemId) {
                 showNotification('Success!', 'Item marked as claimed', 'success');
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                showNotification('Error', result.message, 'error');
+                showNotification('Unable to mark item as claimed', result.message, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            showNotification('Error', 'Failed to mark item as claimed', 'error');
+            showNotification('Unable to mark item as claimed', 'The server did not return a valid response. Check your connection and try again.', 'error');
         }
     });
 }
@@ -740,11 +740,11 @@ async function confirmMarkUnclaimed(itemId) {
             showNotification('Success!', 'Item marked as unclaimed', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            showNotification('Error', result.message, 'error');
+            showNotification('Unable to mark item as unclaimed', result.message, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to mark item as unclaimed', 'error');
+        showNotification('Unable to mark item as unclaimed', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -880,11 +880,11 @@ async function confirmArchiveItem(itemId) {
             showNotification('Success!', 'Item archived', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            showNotification('Error', result.message, 'error');
+            showNotification('Unable to archive item', result.message, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to archive item', 'error');
+        showNotification('Unable to archive item', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -905,49 +905,17 @@ async function restoreItem(itemId) {
             showNotification('Success!', 'Item restored', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            showNotification('Error', result.message, 'error');
+            showNotification('Unable to restore item', result.message, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to restore item', 'error');
+        showNotification('Unable to restore item', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
 // Notification system
 function showNotification(title, message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-[1000] p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
-    
-    const colors = {
-        success: 'bg-green-500',
-        error: 'bg-red-500',
-        info: 'bg-blue-500'
-    };
-    
-    const icons = {
-        success: 'fa-check-circle',
-        error: 'fa-exclamation-circle',
-        info: 'fa-info-circle'
-    };
-    
-    notification.className += ` ${colors[type]} text-white`;
-    notification.innerHTML = `
-        <div class="flex items-start gap-3">
-            <i class="fas ${icons[type]} text-2xl"></i>
-            <div>
-                <div class="font-semibold">${title}</div>
-                <div class="text-sm">${message}</div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => notification.classList.remove('translate-x-full'), 100);
-    setTimeout(() => {
-        notification.classList.add('translate-x-full');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    showNotificationModal(`${title}: ${message}`, type);
 }
 
 // Initialize image upload when page loads
@@ -1048,7 +1016,7 @@ async function createNewCategory() {
     const categoryName = newCategoryInput.value.trim();
     
     if (!categoryName) {
-        alert('Please enter a category name');
+        showNotificationModal('Please enter a category name', 'error');
         newCategoryInput.focus();
         return;
     }
@@ -1120,11 +1088,11 @@ async function createNewCategory() {
             
             showNotification('Success!', `Category "${canonicalName}" created successfully`, 'success');
         } else {
-            showNotification('Error', result.message, 'error');
+            showNotification('Unable to create category', result.message, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to create category', 'error');
+        showNotification('Unable to create category', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -1243,12 +1211,12 @@ async function executeCategoryDelete() {
             if (result.code === 'HAS_ITEMS') {
                 showCannotDeleteModal(deleteContext.categoryName, result.itemCount);
             } else {
-                showNotification('Error', result.message, 'error');
+                showNotification('Unable to delete category', result.message, 'error');
             }
         }
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error', 'Failed to delete category', 'error');
+        showNotification('Unable to delete category', 'The server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 

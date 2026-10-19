@@ -20,7 +20,6 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('global_banner_text', ''),
 ('archive_after_days', '30'),
 ('archived_case_retention_days', '365'),
-('lost_found_retention_days', '365'),
 ('audit_log_retention_days', '730'),
 ('escalation_minor_count', '3');
 CREATE TABLE users (

@@ -209,11 +209,11 @@ async function editCase(caseId) {
           }
           showNotification("Case updated successfully!", "success");
         } else {
-          showNotification("Error: " + (data.error || "Failed to update case"), "error");
+          showNotification("Unable to update case: " + (data.error || "The server did not provide a reason. Check your case details and try again."), "error");
         }
       } catch (error) {
         console.error("Error updating case:", error);
-        showNotification("Error updating case. Please try again.", "error");
+        showNotification("The case could not be updated because the server did not return a valid response. Check your connection and try again.", "error");
       }
     });
 }

@@ -96,11 +96,11 @@ async function loadUsers() {
             }
         } else {
             console.error('Failed to load users:', data.error);
-            showMessage('Error loading users: ' + (data.error || 'Unknown error'), 'error');
+            showMessage('Unable to load users: ' + (data.error || 'The server did not provide a reason. Check your connection and try again.'), 'error');
         }
     } catch (error) {
         console.error('Error loading users:', error);
-        showMessage('Error loading users. Please try again.', 'error');
+        showMessage('Users could not be loaded because the server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -346,8 +346,7 @@ function updatePaginationButtons() {
         const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
         const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold';
         const disabledClass = 'opacity-50 cursor-not-allowed';
-        const ellipsis = 'px-2';
-        const pageWindow = 1;
+        const maxButtons = 3;
 
         container.innerHTML = '';
         if (totalPages <= 1) return;
@@ -362,86 +361,26 @@ function updatePaginationButtons() {
 
         appendBtn('« Prev', currentPage > 1, currentPage - 1, false);
 
-        if (totalPages <= 2 * pageWindow + 5) {
+        if (totalPages <= maxButtons) {
             for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
         } else {
-            const visiblePages = [...new Set([
-                1,
-                totalPages,
-                ...Array.from(
-                    { length: pageWindow * 2 + 1 },
-                    (_, offset) => currentPage - pageWindow + offset
-                ).filter(page => page > 1 && page < totalPages)
-            ])].sort((a, b) => a - b);
+            const visiblePages = [...new Set([1, 2, 3, currentPage, totalPages])].sort((a, b) => a - b);
 
             visiblePages.forEach((page, index) => {
                 if (index > 0 && page - visiblePages[index - 1] > 1) {
-                    const firstPage = visiblePages[index - 1] + 1;
-                    const lastPage = page - 1;
-                    const ellipsisWrapper = document.createElement('div');
-                    ellipsisWrapper.className = 'relative inline-flex';
-
-                    const ellipsisButton = document.createElement('button');
-                    ellipsisButton.type = 'button';
-                    ellipsisButton.className = ellipsis + ' rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
-                    ellipsisButton.textContent = '…';
-                    ellipsisButton.title = `Go to a page between ${firstPage} and ${lastPage}`;
-                    ellipsisButton.setAttribute('aria-label', ellipsisButton.title);
-
-                    const jumpPanel = document.createElement('form');
-                    jumpPanel.className = 'absolute right-0 top-full z-10 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg dark:border-slate-600 dark:bg-slate-800';
-                    jumpPanel.setAttribute('aria-label', `Jump to page ${firstPage} to ${lastPage}`);
-                    jumpPanel.innerHTML = `
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300" for="page-jump-${firstPage}-${lastPage}">
-                            Go to page
-                        </label>
-                        <div class="mt-2 flex items-center gap-2">
-                            <input id="page-jump-${firstPage}-${lastPage}" type="number" min="${firstPage}" max="${lastPage}" step="1"
-                                class="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100"
-                                placeholder="${firstPage}-${lastPage}" required>
-                            <button type="submit" class="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
-                                Go
-                            </button>
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter a page from ${firstPage} to ${lastPage}.</p>
-                        <p class="hidden mt-2 text-xs text-red-600 dark:text-red-400" role="alert"></p>
-                    `;
-
-                    jumpPanel.classList.add('hidden');
-                    const pageInput = jumpPanel.querySelector('input');
-                    const errorMessage = jumpPanel.querySelector('[role="alert"]');
-
-                    ellipsisButton.addEventListener('click', () => {
-                        const isOpen = !jumpPanel.classList.contains('hidden');
-                        container.querySelectorAll('form[aria-label^="Jump to page"]').forEach(panel => {
-                            panel.classList.add('hidden');
-                        });
-                        if (!isOpen) {
-                            jumpPanel.classList.remove('hidden');
-                            pageInput.focus();
+                    const s = document.createElement('button');
+                    s.type = 'button';
+                    s.className = btnBase;
+                    s.textContent = '…';
+                    s.title = 'Jump to page';
+                    s.setAttribute('aria-label', 'Jump to page');
+                    s.addEventListener('click', () => {
+                        const requestedPage = Number(window.prompt(`Enter a page number from 1 to ${totalPages}:`, String(currentPage)));
+                        if (Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= totalPages) {
+                            onPageChange(requestedPage);
                         }
                     });
-
-                    jumpPanel.addEventListener('submit', (event) => {
-                        event.preventDefault();
-                        const destinationPage = Number(pageInput.value);
-                        if (!Number.isInteger(destinationPage) || destinationPage < firstPage || destinationPage > lastPage) {
-                            errorMessage.textContent = `Enter a whole number from ${firstPage} to ${lastPage}.`;
-                            errorMessage.classList.remove('hidden');
-                            pageInput.focus();
-                            return;
-                        }
-
-                        jumpPanel.classList.add('hidden');
-                        goToPage(destinationPage);
-                    });
-
-                    pageInput.addEventListener('input', () => {
-                        errorMessage.classList.add('hidden');
-                    });
-
-                    ellipsisWrapper.append(ellipsisButton, jumpPanel);
-                    container.appendChild(ellipsisWrapper);
+                    container.appendChild(s);
                 }
                 appendBtn(String(page), true, page, page === currentPage);
             });
@@ -551,8 +490,7 @@ function toggleUserStatus(userId, currentStatus) {
     const userLabel = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: currentStatus ? 'Deactivate User' : 'Activate User',
-        message: `Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} ${userLabel}?`,
+        message: `${currentStatus ? 'Deactivate' : 'Activate'} ${userLabel}?`,
         confirmText: currentStatus ? 'Deactivate' : 'Activate',
         confirmClass: currentStatus ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'
     }).then((confirmed) => {
@@ -573,12 +511,12 @@ function toggleUserStatus(userId, currentStatus) {
                 showMessage('User status updated successfully', 'success');
                 loadUsers();
             } else {
-                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                showMessage('Unable to update user: ' + (data.error || 'The server did not provide a reason. Check the user details and try again.'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('Error updating status', 'error');
+            showMessage('The user status could not be updated because the server did not return a valid response. Check your connection and try again.', 'error');
         });
     });
 }
@@ -588,8 +526,7 @@ function archiveUser(userId) {
     const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: 'Archive User',
-        message: `Are you sure you want to archive ${identifier}? The account can be restored later.`,
+        message: `Archive ${identifier}?`,
         confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
@@ -610,12 +547,12 @@ function archiveUser(userId) {
                 showMessage('User archived successfully', 'success');
                 removeUserFromCurrentView(userId);
             } else {
-                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                showMessage('Unable to archive user: ' + (data.error || 'The server did not provide a reason. Check the user account and try again.'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('Error archiving user', 'error');
+            showMessage('The user could not be archived because the server did not return a valid response. Check your connection and try again.', 'error');
         });
     });
 }
@@ -625,8 +562,7 @@ function restoreUser(userId) {
     const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: 'Restore User',
-        message: `Restore ${identifier} to the active accounts?`,
+        message: `Restore ${identifier}?`,
         confirmText: 'Restore',
         confirmClass: 'bg-green-600 hover:bg-green-700'
     }).then((confirmed) => {
@@ -644,12 +580,12 @@ function restoreUser(userId) {
                     showMessage('User restored successfully', 'success');
                     removeUserFromCurrentView(userId);
                 } else {
-                    showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                    showMessage('Unable to restore user: ' + (data.error || 'The server did not provide a reason. Check the user account and try again.'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showMessage('Error restoring user', 'error');
+                showMessage('The user could not be restored because the server did not return a valid response. Check your connection and try again.', 'error');
             });
     });
 }
@@ -678,19 +614,7 @@ async function loadStats() {
 
 // ====== Message Display ======
 function showMessage(message, type = 'info') {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-[1000] ${
-        type === 'success' ? 'bg-green-500' :
-        type === 'error' ? 'bg-red-500' :
-        'bg-blue-500'
-    } shadow-lg`;
-    messageDiv.textContent = message;
-    
-    document.body.appendChild(messageDiv);
-    
-    setTimeout(() => {
-        messageDiv.remove();
-    }, 3000);
+    showNotification(message, type);
 }
 
 // ====== Selection Management ======
@@ -808,7 +732,6 @@ function bulkSetActive() {
     }
 
     showConfirmDialog({
-        title: 'Activate Users',
         message: `Activate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Activate',
         confirmClass: 'bg-green-600 hover:bg-green-700'
@@ -824,7 +747,6 @@ function bulkSetInactive() {
     }
 
     showConfirmDialog({
-        title: 'Deactivate Users',
         message: `Deactivate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Deactivate',
         confirmClass: 'bg-yellow-600 hover:bg-yellow-700'
@@ -840,8 +762,7 @@ function bulkArchive() {
     }
 
     showConfirmDialog({
-        title: 'Archive Users',
-        message: `Archive ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? They can be restored later.`,
+        message: `Archive ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
@@ -856,7 +777,6 @@ function bulkRestore() {
     }
 
     showConfirmDialog({
-        title: 'Restore Users',
         message: `Restore ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Restore',
         confirmClass: 'bg-green-600 hover:bg-green-700'
@@ -884,11 +804,11 @@ async function performBulkAction(action, userIds) {
             selectedUserIds.clear();
             loadUsers(); // This already resets everything and handles re-rendering
         } else {
-            showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+            showMessage('Unable to update users: ' + (data.error || 'The server did not provide a reason. Check the selected accounts and try again.'), 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Error performing bulk action', 'error');
+        showMessage('The bulk action could not be completed because the server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 

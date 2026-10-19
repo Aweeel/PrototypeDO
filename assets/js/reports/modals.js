@@ -9,7 +9,7 @@ function exportCSV(type) {
         window.location.href = url;
     } catch (e) {
         console.error('CSV Export Error:', e);
-        alert('Failed to export CSV: ' + e.message);
+        showNotificationModal('Failed to export CSV: ' + e.message, 'error');
     }
 }
 
@@ -18,7 +18,7 @@ function printReport(type) {
     try {
         const cached = reportCache[type];
         if (!cached) {
-            alert('Please generate a report first before printing');
+            showNotificationModal('Please generate a report first before printing', 'warning');
             return;
         }
 
@@ -40,6 +40,6 @@ function printReport(type) {
         window.print();
     } catch (e) {
         console.error('Print Report Error:', e);
-        alert('Failed to prepare print: ' + e.message);
+        showNotificationModal('Failed to prepare print: ' + e.message, 'error');
     }
 }

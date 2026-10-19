@@ -12,6 +12,12 @@ async function manageSanctions(caseId) {
     
     const sanctions = await loadSanctions();
     if (modalState.manageSanctions !== openToken) return;
+    const sanctionsForCase = isMinor
+        ? sanctions.filter(s =>
+            (Number(s.severity_level) === 1 || Number(s.severity_level) === 2) &&
+            !/^conference with (the )?discipline committee$/i.test(String(s.sanction_name || '').trim())
+        )
+        : sanctions;
     
     // Fetch student data for offense history
     let studentOffenseData = null;
@@ -242,7 +248,7 @@ async function manageSanctions(caseId) {
                                         <select id="sanctionSelect" required onchange="handleSanctionChange()" 
                                             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                                             <option value="">Choose...</option>
-                                            ${sanctions.map(s => `
+                                            ${sanctionsForCase.map(s => `
                                                 <option value="${s.sanction_id}" data-default-days="${s.default_duration_days || ''}" data-severity="${s.severity_level || ''}" data-description="${s.description || ''}" data-requires-schedule="${s.requires_schedule || 0}">
                                                     ${s.sanction_name}${s.severity_level ? ' (Level ' + s.severity_level + ')' : ''}
                                                 </option>
@@ -371,7 +377,7 @@ async function manageSanctions(caseId) {
         const sanctionLevel = Number(selectedOption.dataset.severity || 0);
 
         if (isMinor && (sanctionNameLower.includes('corrective reinforcement') || sanctionLevel >= 3)) {
-            showNotification('Escalate to Major first', 'error');
+            showNotification('You must escalate this case first to apply this sanction.', 'error');
             return;
         }
         
@@ -446,7 +452,7 @@ async function manageSanctions(caseId) {
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">${isMinor ? 'Mark Recorded?' : 'Apply Sanction?'}</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">This action will be recorded</p>
+
                     </div>
                 </div>
                 
@@ -540,12 +546,12 @@ async function confirmApplySanction(caseId, sanctionId, duration, notes, schedul
             
             document.querySelector('[data-manage-sanctions-modal="true"]')?.remove();
         } else {
-            showErrorToast('Failed to apply sanction: ' + (data.error || 'Unknown error'));
+            showErrorToast('Unable to apply sanction: ' + (data.error || 'The server did not provide a reason. Check the case and sanction details, then try again.'));
         }
     } catch (error) {
         closeLoadingToast();
         console.error('Error applying sanction:', error);
-        showNotification('Error applying sanction. Please try again.', "error");
+        showNotification('The sanction could not be applied because the server did not return a valid response. Check your connection and try again.', "error");
     }
 }
 
@@ -939,7 +945,7 @@ async function saveSchedule(forceNew = false) {
     const caseId = window.currentCaseId;
     const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes, forceNew);
     if (!saved) {
-        showNotification('Unable to save schedule to calendar', 'error');
+        showNotification('The schedule could not be saved because the calendar server did not return a valid response. Check your connection and try again.', 'error');
         return;
     }
     
@@ -1515,7 +1521,7 @@ async function loadAppliedSanctions(caseId) {
         }
     } catch (error) {
         console.error('Error loading applied sanctions:', error);
-        document.getElementById('appliedSanctionsList').innerHTML = '<p class="text-sm text-red-500">Error loading sanctions.</p>';
+        document.getElementById('appliedSanctionsList').innerHTML = '<p class="text-sm text-red-500">Sanctions could not be loaded because the server did not return a valid response.</p>';
     }
 }
 
@@ -1627,12 +1633,12 @@ async function editSanction(caseId, caseSanctionId, sanctionName, currentDuratio
                 loadAppliedSanctions(caseId);
                 showNotification('Sanction updated successfully!', "success");
             } else {
-                showNotification('Failed to update sanction: ' + (data.error || 'Unknown error'), "error");
+                showNotification('Unable to update sanction: ' + (data.error || 'The server did not provide a reason. Check the sanction details, then try again.'), "error");
             }
         } catch (error) {
             closeLoadingToast();
             console.error('Error updating sanction:', error);
-            showNotification('Error updating sanction. Please try again.', "error");
+            showNotification('The sanction could not be updated because the server did not return a valid response. Check your connection and try again.', "error");
         }
     });
 }
@@ -1744,12 +1750,12 @@ async function confirmRemoveSanction(caseId, caseSanctionId) {
                 showSuccessToast('Sanction removed successfully!');
             }
         } else {
-            showErrorToast('Failed to remove sanction: ' + (data.error || 'Unknown error'));
+            showErrorToast('Unable to remove sanction: ' + (data.error || 'The server did not provide a reason. Check the sanction status, then try again.'));
         }
     } catch (error) {
         closeLoadingToast();
         console.error('Error removing sanction:', error);
-        showNotification('Error removing sanction. Please try again.', "error");
+        showNotification('The sanction could not be removed because the server did not return a valid response. Check your connection and try again.', "error");
     }
 }
 

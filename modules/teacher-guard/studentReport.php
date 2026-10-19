@@ -403,15 +403,7 @@ $caseTypeDescriptionMap = array_combine(
 
         // Notification function
         function showNotification(message, type = 'info') { 
-            const notification = document.createElement('div'); 
-            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'; 
-            notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`; 
-            notification.textContent = message; 
-            document.body.appendChild(notification); 
-            setTimeout(() => { 
-                notification.style.opacity = '0'; 
-                setTimeout(() => notification.remove(), 300); 
-            }, 3000); 
+            showNotificationModal(message, type);
         } 
 
         // Submit Button Event Listeners
@@ -479,11 +471,11 @@ $caseTypeDescriptionMap = array_combine(
                         showNotification('Report submitted successfully!', 'success'); 
                         setTimeout(() => window.history.back(), 1500); 
                     } else { 
-                        showNotification('Error: ' + (data.error || 'Failed to submit report'), 'error'); 
+                        showNotification('Unable to submit report: ' + (data.error || 'The server did not provide a reason. Check the report details and try again.'), 'error');
                     } 
                 } catch (error) { 
                     console.error('Submit error:', error); 
-                    showNotification('Error submitting report. Please try again.', 'error'); 
+                    showNotification('The report could not be submitted because the server did not return a valid response. Check your connection and try again.', 'error');
                 } 
             }); 
         } 
