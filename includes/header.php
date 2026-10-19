@@ -86,6 +86,7 @@ if (!isset($adminName) || empty($adminName)) {
     
     <!-- Global Notifications System -->
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/notifications.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
         
@@ -133,11 +134,10 @@ if (!isset($adminName) || empty($adminName)) {
                             alt="Notification icon dark"
                             class="absolute inset-0 w-6 h-6 hidden dark:inline">
                     </div>
-                    <?php if ($unreadCount > 0): ?>
-                        <span class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                            <?php echo $unreadCount > 9 ? '9+' : $unreadCount; ?>
-                        </span>
-                    <?php endif; ?>
+                    <span id="notificationBadge"
+                          class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center<?= $unreadCount > 0 ? '' : ' hidden' ?>">
+                        <?= $unreadCount > 9 ? '9+' : $unreadCount ?>
+                    </span>
                 </button>
 
                 <!-- Notification Panel -->
@@ -145,13 +145,13 @@ if (!isset($adminName) || empty($adminName)) {
                     <div class="sticky top-0 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-gray-700 p-4">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                     </div>
-                    
-                    <?php if (empty($unreadNotifications)): ?>
-                        <div class="p-6 text-center text-gray-500 dark:text-gray-400">
-                            No new notifications
-                        </div>
-                    <?php else: ?>
-                        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <div id="notificationList">
+                            <?php if (empty($unreadNotifications)): ?>
+                                <div class="p-6 text-center text-gray-500 dark:text-gray-400">
+                                    No new notifications
+                                </div>
+                            <?php else: ?>
+                                <div class="divide-y divide-gray-200 dark:divide-gray-700">
                             <?php foreach ($unreadNotifications as $notification): ?>
                                   <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
                                        onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
@@ -171,8 +171,9 @@ if (!isset($adminName) || empty($adminName)) {
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php endif; ?>
@@ -207,6 +208,13 @@ if (!isset($adminName) || empty($adminName)) {
 <?php endif; ?>
 
 <script>
+    window.REALTIME_CONFIG = {
+        notificationsUrl: <?= json_encode(BASE_URL . '/modules/shared/realtime.php') ?>,
+        initialNotificationIds: <?= json_encode(array_map(static function ($notification) {
+            return (int)($notification['notification_id'] ?? 0);
+        }, $unreadNotifications)) ?>
+    };
+
     function toggleNotificationPanel() {
         const panel = document.getElementById('notificationPanel');
         panel.classList.toggle('hidden');

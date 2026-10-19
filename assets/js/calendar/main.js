@@ -37,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadEvents();
     loadCategories();
+    window.setInterval(() => {
+        if (!document.hidden) {
+            loadEvents();
+            loadCategories();
+        }
+    }, 15000);
 });
 
 function initializeCalendarFromUrl() {
