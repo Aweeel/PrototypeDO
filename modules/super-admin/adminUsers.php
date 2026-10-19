@@ -115,7 +115,7 @@ function getPendingResetExistsSql() {
 }
 
 // Handle CSV Import for Users
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || isset($_POST['preview_csv']))) {
     header('Content-Type: application/json');
     try {
         if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
@@ -159,6 +159,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
         $imported = 0;
         $errors = [];
         $skipped = 0;
+        $preview = isset($_POST['preview_csv']);
+        $previewRows = [];
+        $seenEmails = [];
+        $seenRoleIds = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             // Skip empty rows
@@ -168,6 +172,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
 
             // Map CSV columns to array
             $data = array_combine($header, $row);
+            if ($data === false) {
+                $errors[] = 'Row skipped: Column count does not match the CSV header.';
+                $skipped++;
+                continue;
+            }
 
             // Validate required fields
             if (empty($data['first_name']) || empty($data['last_name']) || empty($data['role']) || empty($data['email'])) {
@@ -234,6 +243,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
                 continue;
             }
 
+            $roleIdKey = $role . ':' . $roleId;
+            if (isset($seenEmails[$email])) {
+                $errors[] = "Row skipped: email '{$email}' is duplicated in this CSV (first seen on row {$seenEmails[$email]})";
+                $skipped++;
+                continue;
+            }
+            if ($roleId !== '' && isset($seenRoleIds[$roleIdKey])) {
+                $errors[] = "Row skipped: role_id '{$roleId}' is duplicated in this CSV (first seen on row {$seenRoleIds[$roleIdKey]})";
+                $skipped++;
+                continue;
+            }
+            $seenEmails[$email] = $seenEmails[$email] ?? ($imported + $skipped + 2);
+            if ($roleId !== '') {
+                $seenRoleIds[$roleIdKey] = $seenRoleIds[$roleIdKey] ?? ($imported + $skipped + 2);
+            }
+
             // Check for existing IDs
             if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS CHAR) = ?", [$studentId])) {
                 $errors[] = "Row skipped: student_id '{$studentId}' already exists";
@@ -253,6 +278,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             if (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
                 $errors[] = "Row skipped: email '{$email}' already exists";
                 $skipped++;
+                continue;
+            }
+
+            if ($preview) {
+                $previewRows[] = [
+                    'name' => trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']),
+                    'email' => $email,
+                    'role' => $role,
+                    'role_id' => $roleId
+                ];
+                $imported++;
                 continue;
             }
 
@@ -311,7 +347,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_csv'])) {
             'success' => true,
             'imported' => $imported,
             'skipped' => $skipped,
-            'errors' => $errors
+            'errors' => $errors,
+            'preview' => $preview,
+            'preview_rows' => $previewRows
         ]);
         exit;
     } catch (Exception $e) {
@@ -1227,7 +1265,7 @@ $adminName = getFormattedUserName();
             <div id="importUsersResult" class="hidden mb-4"></div>
             <div class="flex flex-col-reverse gap-3 sm:flex-row">
                 <button type="submit" id="importUsersBtn" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                    Upload and Import
+                    Preview CSV
                 </button>
                 <button type="button" onclick="closeImportUsersModal()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                     Cancel
@@ -1242,17 +1280,36 @@ $adminName = getFormattedUserName();
 
     <script>
         // User CSV Import Functions
+        function escapeImportHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function openImportUsersModal() {
             document.getElementById('importUsersModal').classList.remove('hidden');
-            document.getElementById('importUsersForm').reset();
+            const form = document.getElementById('importUsersForm');
+            form.reset();
+            form.dataset.previewReady = 'false';
             document.getElementById('importUsersProgress').classList.add('hidden');
             document.getElementById('importUsersResult').classList.add('hidden');
-            document.getElementById('importUsersBtn').disabled = false;
+            const importButton = document.getElementById('importUsersBtn');
+            importButton.disabled = false;
+            importButton.textContent = 'Preview CSV';
         }
 
         function closeImportUsersModal() {
             document.getElementById('importUsersModal').classList.add('hidden');
         }
+
+        document.getElementById('usersCsvFile').addEventListener('change', function() {
+            const form = document.getElementById('importUsersForm');
+            form.dataset.previewReady = 'false';
+            document.getElementById('importUsersBtn').textContent = 'Preview CSV';
+        });
 
         document.getElementById('importUsersForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -1263,9 +1320,19 @@ $adminName = getFormattedUserName();
                 return;
             }
 
+            const isPreviewReady = this.dataset.previewReady === 'true';
+            if (isPreviewReady) {
+                const confirmed = await showConfirmDialog({
+                    message: 'Import the valid users shown in the preview? Duplicate and invalid rows will be skipped.',
+                    confirmText: 'Import users',
+                    confirmClass: 'bg-blue-600 hover:bg-blue-700'
+                });
+                if (!confirmed) return;
+            }
+
             const formData = new FormData();
             formData.append('csv_file', fileInput.files[0]);
-            formData.append('import_csv', true);
+            formData.append(isPreviewReady ? 'import_csv' : 'preview_csv', true);
 
             document.getElementById('importUsersProgress').classList.remove('hidden');
             document.getElementById('importUsersResult').classList.add('hidden');
@@ -1283,10 +1350,11 @@ $adminName = getFormattedUserName();
 
                 if (result.success) {
                     const resultDiv = document.getElementById('importUsersResult');
-                    let html = `<div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <h4 class="font-semibold text-green-900 dark:text-green-300 mb-2">Import Completed!</h4>
+                    const isPreview = result.preview === true;
+                    let html = `<div class="p-4 ${isPreview ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'} border rounded-lg">
+                        <h4 class="font-semibold ${isPreview ? 'text-blue-900 dark:text-blue-300' : 'text-green-900 dark:text-green-300'} mb-2">${isPreview ? 'Import Preview' : 'Import Completed!'}</h4>
                         <p class="text-sm text-green-800 dark:text-green-400">
-                            ✓ ${result.imported} user(s) imported successfully
+                            ${isPreview ? '✓' : '✓'} ${result.imported} valid user(s) ${isPreview ? 'ready to import' : 'imported successfully'}
                         </p>`;
                     
                     if (result.skipped > 0) {
@@ -1296,16 +1364,26 @@ $adminName = getFormattedUserName();
                     if (result.errors && result.errors.length > 0) {
                         html += `<div class="mt-3 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900 p-2 rounded max-h-48 overflow-y-auto">`;
                         result.errors.forEach(err => {
-                            html += `<p class="text-yellow-700 dark:text-yellow-400">• ${err}</p>`;
+                            html += `<p class="text-yellow-700 dark:text-yellow-400">• ${escapeImportHtml(err)}</p>`;
                         });
                         html += `</div>`;
                     }
 
+                    if (isPreview && result.preview_rows && result.preview_rows.length > 0) {
+                        html += `<div class="mt-3 max-h-40 overflow-y-auto rounded bg-white dark:bg-slate-900 p-2 text-xs text-gray-700 dark:text-gray-300">`;
+                        result.preview_rows.forEach(row => {
+                            html += `<p>${escapeImportHtml(row.name)} &mdash; ${escapeImportHtml(row.email)} &mdash; ${escapeImportHtml(row.role)}</p>`;
+                        });
+                        html += `</div>`;
+                    }
                     html += `</div>`;
                     resultDiv.innerHTML = html;
                     resultDiv.classList.remove('hidden');
 
-                    if (result.imported > 0) {
+                    if (isPreview) {
+                        this.dataset.previewReady = result.imported > 0 ? 'true' : 'false';
+                        document.getElementById('importUsersBtn').textContent = result.imported > 0 ? 'Import Valid Users' : 'Preview CSV';
+                    } else if (result.imported > 0) {
                         setTimeout(() => {
                             closeImportUsersModal();
                             loadUsers();
@@ -1315,7 +1393,7 @@ $adminName = getFormattedUserName();
                     const resultDiv = document.getElementById('importUsersResult');
                     resultDiv.innerHTML = `<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                         <h4 class="font-semibold text-red-900 dark:text-red-300 mb-2">Import Failed</h4>
-                        <p class="text-sm text-red-800 dark:text-red-400">${result.error}</p>
+                        <p class="text-sm text-red-800 dark:text-red-400">${escapeImportHtml(result.error)}</p>
                     </div>`;
                     resultDiv.classList.remove('hidden');
                 }
@@ -1324,7 +1402,7 @@ $adminName = getFormattedUserName();
                 const resultDiv = document.getElementById('importUsersResult');
                 resultDiv.innerHTML = `<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                     <h4 class="font-semibold text-red-900 dark:text-red-300 mb-2">Error</h4>
-                    <p class="text-sm text-red-800 dark:text-red-400">${error.message}</p>
+                    <p class="text-sm text-red-800 dark:text-red-400">${escapeImportHtml(error.message)}</p>
                 </div>`;
                 resultDiv.classList.remove('hidden');
             } finally {

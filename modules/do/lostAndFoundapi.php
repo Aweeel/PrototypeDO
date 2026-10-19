@@ -120,6 +120,7 @@ try {
             echo json_encode($result);
             break;
 
+        case 'previewArchiveLostAndFoundRange':
         case 'archiveLostAndFoundRange':
             $startDate = trim($_POST['start_date'] ?? '');
             $endDate = trim($_POST['end_date'] ?? '');
@@ -136,6 +137,35 @@ try {
 
             if ($startDateValue > $endDateValue) {
                 echo json_encode(['success' => false, 'error' => 'Start date cannot be after end date.']);
+                break;
+            }
+
+            if ($action === 'previewArchiveLostAndFoundRange') {
+                $total = (int) fetchValue(
+                    "SELECT COUNT(*) FROM lost_found_items
+                     WHERE is_archived = 0
+                       AND DATE(date_found) >= DATE(?)
+                       AND DATE(date_found) <= DATE(?)",
+                    [$startDate, $endDate]
+                );
+                $items = fetchAll(
+                    "SELECT item_id, item_name, category, date_found, status
+                     FROM lost_found_items
+                     WHERE is_archived = 0
+                       AND DATE(date_found) >= DATE(?)
+                       AND DATE(date_found) <= DATE(?)
+                     ORDER BY date_found ASC, item_id ASC
+                     LIMIT 100",
+                    [$startDate, $endDate]
+                );
+
+                echo json_encode([
+                    'success' => true,
+                    'preview' => true,
+                    'total' => $total,
+                    'items' => $items,
+                    'truncated' => $total > count($items)
+                ]);
                 break;
             }
 
