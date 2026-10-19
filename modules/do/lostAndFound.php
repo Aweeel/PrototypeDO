@@ -438,10 +438,15 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                            class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
                 <div id="archiveRangeStatus" class="text-xs hidden" role="status"></div>
+                <div id="archiveRangePreview" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-800 dark:bg-blue-900/20">
+                    <p id="archiveRangePreviewSummary" class="font-semibold text-blue-900 dark:text-blue-300"></p>
+                    <p id="archiveRangePreviewTruncated" class="mt-1 text-xs text-blue-800 dark:text-blue-400"></p>
+                    <div id="archiveRangePreviewItems" class="mt-2 max-h-40 overflow-y-auto rounded bg-white p-2 text-xs text-gray-700 dark:bg-slate-900 dark:text-gray-300"></div>
+                </div>
                 <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
                     <button type="button" onclick="closeArchiveRangeModal()"
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors">Archive Range</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors">Preview Items</button>
                 </div>
             </form>
         </div>
@@ -626,6 +631,6 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
     </div>
 
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/lostAndFound.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/lostAndFound.js?v=<?= (int) @filemtime(__DIR__ . '/../../assets/js/lostAndFound.js') ?>"></script>
 </body>
 </html>

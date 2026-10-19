@@ -799,8 +799,15 @@ function openArchiveRangeModal() {
     if (!modal || !form || !status) return;
 
     form.reset();
+    form.dataset.previewReady = 'false';
+    form.dataset.previewTotal = '0';
     status.textContent = '';
     status.className = 'text-xs hidden';
+    document.getElementById('archiveRangePreview')?.classList.add('hidden');
+    const previewItems = document.getElementById('archiveRangePreviewItems');
+    if (previewItems) previewItems.textContent = '';
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.textContent = 'Preview Items';
     modal.classList.remove('hidden');
 }
 
@@ -813,6 +820,16 @@ function setupArchiveRangeForm() {
     if (!form || form.dataset.bound === 'true') return;
 
     form.dataset.bound = 'true';
+    form.querySelectorAll('input[type="date"]').forEach((input) => {
+        input.addEventListener('change', () => {
+            form.dataset.previewReady = 'false';
+            form.dataset.previewTotal = '0';
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.textContent = 'Preview Items';
+            document.getElementById('archiveRangePreview')?.classList.add('hidden');
+        });
+    });
+
     form.addEventListener('submit', async function (event) {
         event.preventDefault();
 
@@ -828,32 +845,91 @@ function setupArchiveRangeForm() {
             return;
         }
 
-        status.textContent = 'Processing archive request...';
-        status.className = 'text-xs text-blue-600 dark:text-blue-400 block';
-
-        const formData = new FormData();
-        formData.append('action', 'archiveLostAndFoundRange');
-        formData.append('start_date', startDate);
-        formData.append('end_date', endDate);
-
         try {
-            const response = await fetch(window.appUrl('/modules/do/lostAndFoundapi.php'), {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
+            if (form.dataset.previewReady !== 'true') {
+                status.textContent = 'Loading archive preview...';
+                status.className = 'text-xs text-blue-600 dark:text-blue-400 block';
 
-            if (result.success) {
-                status.textContent = result.message;
-                status.className = 'text-xs text-green-600 dark:text-green-400 block';
-                setTimeout(() => {
-                    closeArchiveRangeModal();
-                    window.location.reload();
-                }, 1500);
-            } else {
-                status.textContent = result.error || result.message || 'Failed to archive items.';
-                status.className = 'text-xs text-red-600 dark:text-red-400 block';
+                const formData = new FormData();
+                formData.append('action', 'previewArchiveLostAndFoundRange');
+                formData.append('start_date', startDate);
+                formData.append('end_date', endDate);
+                const response = await fetch(window.appUrl('/modules/do/lostAndFoundapi.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || result.message || 'Failed to load archive preview.');
+                }
+
+                const preview = document.getElementById('archiveRangePreview');
+                const previewItems = document.getElementById('archiveRangePreviewItems');
+                if (!preview || !previewItems) return;
+
+                previewItems.innerHTML = '';
+                if (result.total === 0) {
+                    previewItems.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">No active items match this date range.</p>';
+                } else {
+                    result.items.forEach((item) => {
+                        const row = document.createElement('p');
+                        row.className = 'py-1';
+                        row.textContent = `${item.item_id} - ${item.item_name} - ${item.category} - ${item.date_found} (${item.status})`;
+                        previewItems.appendChild(row);
+                    });
+                }
+
+                document.getElementById('archiveRangePreviewSummary').textContent =
+                    `${result.total} active item(s) match this date range.`;
+                document.getElementById('archiveRangePreviewTruncated').textContent =
+                    result.truncated ? 'Showing the first 100 matching items.' : '';
+                preview.classList.remove('hidden');
+                form.dataset.previewReady = 'true';
+                form.dataset.previewTotal = String(result.total);
+                const submitButton = form.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.textContent = result.total > 0 ? 'Archive Items' : 'Close';
+                }
+                status.textContent = result.total > 0
+                    ? 'Review the preview, then click Archive Items to continue.'
+                    : 'No items match this date range.';
+                status.className = 'text-xs text-blue-600 dark:text-blue-400 block';
+                return;
             }
+
+            const previewSummary = document.getElementById('archiveRangePreviewSummary')?.textContent || '';
+            if (form.dataset.previewTotal === '0') {
+                closeArchiveRangeModal();
+                return;
+            }
+            const confirmed = await window.showConfirmDialog({
+                message: `Archive the items shown in the preview from ${startDate} to ${endDate}? ${previewSummary}`,
+                confirmText: 'Archive items',
+                confirmClass: 'bg-amber-600 hover:bg-amber-700'
+            });
+            if (!confirmed) return;
+
+            status.textContent = 'Archiving matching items...';
+            const archiveData = new FormData();
+            archiveData.append('action', 'archiveLostAndFoundRange');
+            archiveData.append('start_date', startDate);
+            archiveData.append('end_date', endDate);
+            const archiveResponse = await fetch(window.appUrl('/modules/do/lostAndFoundapi.php'), {
+                method: 'POST',
+                body: archiveData
+            });
+            const archiveResult = await archiveResponse.json();
+            if (!archiveResponse.ok || !archiveResult.success) {
+                throw new Error(archiveResult.error || archiveResult.message || 'Failed to archive items.');
+            }
+
+            status.textContent = archiveResult.message;
+            status.className = 'text-xs text-green-600 dark:text-green-400 block';
+            setTimeout(() => {
+                closeArchiveRangeModal();
+                window.location.reload();
+            }, 1500);
         } catch (error) {
             console.error('Archive range error:', error);
             status.textContent = 'A network error occurred while submitting.';

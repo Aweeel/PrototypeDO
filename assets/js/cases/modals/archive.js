@@ -1,4 +1,4 @@
-﻿// ====== ARCHIVE FUNCTIONS ======
+// ====== ARCHIVE FUNCTIONS ======
 
 function archiveCaseConfirm(caseId) {
   const existingModal = document.querySelector('.archive-confirm-modal');
