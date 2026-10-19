@@ -11,15 +11,24 @@ document.getElementById('maintenanceStatusButton')?.addEventListener('click', as
     formData.append('ajax', '1');
     formData.append('action', 'toggle_maintenance');
     formData.append('enabled', enabled);
-    const response = await fetch(window.location.href, { method: 'POST', body: formData });
-    const data = await response.json();
-    if (data.success) {
+    button.disabled = true;
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Maintenance mode could not be updated.');
         button.dataset.enabled = data.enabled ? '1' : '0';
-        button.textContent = data.enabled ? 'Enabled' : 'Disabled';
-        button.classList.toggle('bg-green-600', data.enabled);
-        button.classList.toggle('hover:bg-green-700', data.enabled);
-        button.classList.toggle('bg-red-600', !data.enabled);
-        button.classList.toggle('hover:bg-red-700', !data.enabled);
+        button.setAttribute('aria-pressed', data.enabled ? 'true' : 'false');
+        button.setAttribute('aria-label', data.enabled ? 'Disable maintenance mode' : 'Enable maintenance mode');
+        button.querySelector('span').classList.toggle('translate-x-5', data.enabled);
+        button.querySelector('span').classList.toggle('translate-x-0', !data.enabled);
+        button.classList.toggle('bg-blue-600', data.enabled);
+        button.classList.toggle('bg-gray-300', !data.enabled);
+        button.classList.toggle('dark:bg-gray-600', !data.enabled);
+        document.getElementById('maintenanceStatusText').textContent = `Current status: ${data.enabled ? 'Enabled' : 'Disabled'}`;
+    } catch (error) {
+        showErrorNotification(error.message);
+    } finally {
+        button.disabled = false;
     }
 });
 

@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadEvents();
     loadCategories();
+    window.setInterval(loadEvents, 30000);
 });
 
 function initializeCalendarFromUrl() {

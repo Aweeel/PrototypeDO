@@ -81,7 +81,6 @@ function updatePaginationButtons() {
         const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center';
         const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
         const disabledClass = 'opacity-50 cursor-not-allowed';
-        const ellipsis = 'px-2';
         const maxButtons = 3;
 
         container.innerHTML = '';
@@ -106,9 +105,18 @@ function updatePaginationButtons() {
 
             visiblePages.forEach((page, index) => {
                 if (index > 0 && page - visiblePages[index - 1] > 1) {
-                    const s = document.createElement('span');
-                    s.className = btnBase + ' ' + disabledClass;
+                    const s = document.createElement('button');
+                    s.type = 'button';
+                    s.className = btnBase;
                     s.textContent = '…';
+                    s.title = 'Jump to page';
+                    s.setAttribute('aria-label', 'Jump to page');
+                    s.addEventListener('click', () => {
+                        const requestedPage = Number(window.prompt(`Enter a page number from 1 to ${totalPages}:`, String(currentPage)));
+                        if (Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= totalPages) {
+                            onPageChange(requestedPage);
+                        }
+                    });
                     container.appendChild(s);
                 }
                 appendBtn(String(page), true, page, page === currentPage);
