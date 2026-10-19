@@ -146,6 +146,16 @@ foreach ($roleModulePrefixes[$currentRole] ?? [] as $prefix) {
     }
 }
 
+// Security personnel must not access Lost & Found management routes by URL.
+if ($currentRole === 'security'
+    && in_array($currentPath, [
+        '/modules/do/lostAndFound.php',
+        '/modules/do/lostAndFoundapi.php',
+        '/modules/do/debug_lostfound.php'
+    ], true)) {
+    $hasModuleAccess = false;
+}
+
 if ($hasModuleAccess
     && $currentRole === 'teacher'
     && $currentPath === '/modules/do/calendar.php'
