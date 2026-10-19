@@ -156,7 +156,7 @@ function getHandbookSection($sectionId, $defaultContent) {
           try {
             await loadQuill();
           } catch (error) {
-            alert(error.message);
+            showNotificationModal(error.message, 'error');
             return;
           }
 
@@ -3934,51 +3934,13 @@ function isSectionDirty(sectionId) {
   return currentHtml !== originalHtml;
 }
 
-function showHandbookConfirmDialog(title, message, confirmText = 'Confirm', confirmClass = 'bg-blue-600 hover:bg-blue-700') {
-  const existing = document.getElementById('handbookConfirmDialog');
-  if (existing) {
-    existing.remove();
-  }
-
-  return new Promise((resolve) => {
-    const modal = document.createElement('div');
-    modal.id = 'handbookConfirmDialog';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
-    modal.innerHTML = `
-      <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
-        <div class="p-6 border-b border-gray-200 dark:border-slate-700">
-          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">${title}</h2>
-        </div>
-        <div class="p-6">
-          <p class="text-sm text-gray-700 dark:text-gray-300">${message}</p>
-        </div>
-        <div class="flex gap-3 p-6 pt-0 justify-end">
-          <button type="button" data-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">Cancel</button>
-          <button type="button" data-confirm class="px-4 py-2 rounded-lg text-white transition-colors ${confirmClass}">${confirmText}</button>
-        </div>
-      </div>
-    `;
-
-    const finish = (value) => {
-      modal.remove();
-      resolve(value);
-    };
-
-    modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
-    modal.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
-    modal.addEventListener('click', (event) => {
-      if (event.target === modal) {
-        finish(false);
-      }
-    });
-
-    document.body.appendChild(modal);
-  });
-}
-
 async function cancelEditSection(sectionId, skipConfirm = false) {
   if (!skipConfirm && handbookUnsavedChanges[sectionId]) {
-    const confirmed = await showHandbookConfirmDialog('Discard Changes', 'You have unsaved changes. Are you sure you want to cancel?', 'Discard', 'bg-red-600 hover:bg-red-700');
+    const confirmed = await showConfirmDialog({
+      message: 'Discard changes?',
+      confirmText: 'Discard',
+      confirmClass: 'bg-red-600 hover:bg-red-700'
+    });
     if (!confirmed) {
       return;
     }
@@ -3994,7 +3956,11 @@ async function saveSectionEdit(sectionId) {
   const saveBtn = buttonsContainer ? buttonsContainer.querySelector('button:last-child') : null;
 
   if (handbookUnsavedChanges[sectionId]) {
-    const confirmed = await showHandbookConfirmDialog('Save Changes', 'Save the changes you made to this section?', 'Save', 'bg-green-600 hover:bg-green-700');
+    const confirmed = await showConfirmDialog({
+      message: 'Save changes?',
+      confirmText: 'Save',
+      confirmClass: 'bg-green-600 hover:bg-green-700'
+    });
     if (!confirmed) {
       return;
     }
@@ -4025,12 +3991,12 @@ async function saveSectionEdit(sectionId) {
       stopHandbookEditing(sectionId, false);
     } else {
       if (saveBtn) saveBtn.disabled = false;
-      alert('Error saving section: ' + (data.message || 'Unknown error'));
+      showNotificationModal('Unable to save section: ' + (data.message || 'The server did not provide a reason. Check the section content and try again.'), 'error');
     }
   })
   .catch(error => {
     if (saveBtn) saveBtn.disabled = false;
-    alert('Error saving section: ' + error.message);
+    showNotificationModal('Unable to save section: ' + error.message, 'error');
   });
 }
 
@@ -4143,7 +4109,7 @@ function uploadPDF() {
     }
   })
   .catch(error => {
-    statusDiv.innerHTML = '<div class="text-red-600">Error: ' + error.message + '</div>';
+    statusDiv.innerHTML = '<div class="text-red-600">Unable to load handbook content: ' + error.message + '</div>';
   });
 }
 

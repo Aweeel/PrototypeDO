@@ -2713,7 +2713,7 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
         $sanctionName = fetchValue("SELECT sanction_name FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
         $sanctionLevel = fetchValue("SELECT severity_level FROM sanctions WHERE sanction_id = ?", [$sanctionId]);
         if (stripos((string) $sanctionName, 'corrective reinforcement') !== false || intval($sanctionLevel) >= 3) {
-            throw new Exception('Minor cases must be escalated to Major before recording this sanction.');
+            throw new Exception('You must escalate this case first to apply this sanction.');
         }
     }
 

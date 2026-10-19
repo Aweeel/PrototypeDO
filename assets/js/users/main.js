@@ -96,11 +96,11 @@ async function loadUsers() {
             }
         } else {
             console.error('Failed to load users:', data.error);
-            showMessage('Error loading users: ' + (data.error || 'Unknown error'), 'error');
+            showMessage('Unable to load users: ' + (data.error || 'The server did not provide a reason. Check your connection and try again.'), 'error');
         }
     } catch (error) {
         console.error('Error loading users:', error);
-        showMessage('Error loading users. Please try again.', 'error');
+        showMessage('Users could not be loaded because the server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 
@@ -482,8 +482,7 @@ function toggleUserStatus(userId, currentStatus) {
     const userLabel = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: currentStatus ? 'Deactivate User' : 'Activate User',
-        message: `Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} ${userLabel}?`,
+        message: `${currentStatus ? 'Deactivate' : 'Activate'} ${userLabel}?`,
         confirmText: currentStatus ? 'Deactivate' : 'Activate',
         confirmClass: currentStatus ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'
     }).then((confirmed) => {
@@ -504,12 +503,12 @@ function toggleUserStatus(userId, currentStatus) {
                 showMessage('User status updated successfully', 'success');
                 loadUsers();
             } else {
-                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                showMessage('Unable to update user: ' + (data.error || 'The server did not provide a reason. Check the user details and try again.'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('Error updating status', 'error');
+            showMessage('The user status could not be updated because the server did not return a valid response. Check your connection and try again.', 'error');
         });
     });
 }
@@ -519,8 +518,7 @@ function archiveUser(userId) {
     const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: 'Archive User',
-        message: `Are you sure you want to archive ${identifier}? The account can be restored later.`,
+        message: `Archive ${identifier}?`,
         confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
@@ -541,12 +539,12 @@ function archiveUser(userId) {
                 showMessage('User archived successfully', 'success');
                 removeUserFromCurrentView(userId);
             } else {
-                showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                showMessage('Unable to archive user: ' + (data.error || 'The server did not provide a reason. Check the user account and try again.'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('Error archiving user', 'error');
+            showMessage('The user could not be archived because the server did not return a valid response. Check your connection and try again.', 'error');
         });
     });
 }
@@ -556,8 +554,7 @@ function restoreUser(userId) {
     const identifier = user ? `${user.full_name} (${user.email})` : 'this user';
 
     showConfirmDialog({
-        title: 'Restore User',
-        message: `Restore ${identifier} to the active accounts?`,
+        message: `Restore ${identifier}?`,
         confirmText: 'Restore',
         confirmClass: 'bg-green-600 hover:bg-green-700'
     }).then((confirmed) => {
@@ -575,12 +572,12 @@ function restoreUser(userId) {
                     showMessage('User restored successfully', 'success');
                     removeUserFromCurrentView(userId);
                 } else {
-                    showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+                    showMessage('Unable to restore user: ' + (data.error || 'The server did not provide a reason. Check the user account and try again.'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showMessage('Error restoring user', 'error');
+                showMessage('The user could not be restored because the server did not return a valid response. Check your connection and try again.', 'error');
             });
     });
 }
@@ -609,19 +606,7 @@ async function loadStats() {
 
 // ====== Message Display ======
 function showMessage(message, type = 'info') {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium z-[1000] ${
-        type === 'success' ? 'bg-green-500' :
-        type === 'error' ? 'bg-red-500' :
-        'bg-blue-500'
-    } shadow-lg`;
-    messageDiv.textContent = message;
-    
-    document.body.appendChild(messageDiv);
-    
-    setTimeout(() => {
-        messageDiv.remove();
-    }, 3000);
+    showNotification(message, type);
 }
 
 // ====== Selection Management ======
@@ -739,7 +724,6 @@ function bulkSetActive() {
     }
 
     showConfirmDialog({
-        title: 'Activate Users',
         message: `Activate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Activate',
         confirmClass: 'bg-green-600 hover:bg-green-700'
@@ -755,7 +739,6 @@ function bulkSetInactive() {
     }
 
     showConfirmDialog({
-        title: 'Deactivate Users',
         message: `Deactivate ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Deactivate',
         confirmClass: 'bg-yellow-600 hover:bg-yellow-700'
@@ -771,8 +754,7 @@ function bulkArchive() {
     }
 
     showConfirmDialog({
-        title: 'Archive Users',
-        message: `Archive ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}? They can be restored later.`,
+        message: `Archive ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Archive',
         confirmClass: 'bg-red-600 hover:bg-red-700'
     }).then((confirmed) => {
@@ -787,7 +769,6 @@ function bulkRestore() {
     }
 
     showConfirmDialog({
-        title: 'Restore Users',
         message: `Restore ${selectedUserIds.size} user${selectedUserIds.size !== 1 ? 's' : ''}?`,
         confirmText: 'Restore',
         confirmClass: 'bg-green-600 hover:bg-green-700'
@@ -815,11 +796,11 @@ async function performBulkAction(action, userIds) {
             selectedUserIds.clear();
             loadUsers(); // This already resets everything and handles re-rendering
         } else {
-            showMessage('Error: ' + (data.error || 'Unknown error'), 'error');
+            showMessage('Unable to update users: ' + (data.error || 'The server did not provide a reason. Check the selected accounts and try again.'), 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showMessage('Error performing bulk action', 'error');
+        showMessage('The bulk action could not be completed because the server did not return a valid response. Check your connection and try again.', 'error');
     }
 }
 

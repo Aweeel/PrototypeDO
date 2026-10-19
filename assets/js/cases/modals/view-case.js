@@ -340,11 +340,11 @@ async function confirmMarkResolved(caseId) {
       showNotification("Case marked as resolved successfully!", "success");
       document.querySelector('[data-view-case-modal="true"]')?.remove();
     } else {
-      showNotification("Failed to mark case as resolved: " + (data.error || "Unknown error"), "error");
+      showNotification("Unable to mark case as resolved: " + (data.error || "The server did not provide a reason. Check the case requirements and try again."), "error");
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error marking case as resolved:", error);
-    showNotification("Error marking case as resolved. Please try again.", "error");
+    showNotification("The case could not be marked as resolved because the server did not return a valid response. Check your connection and try again.", "error");
   }
 }

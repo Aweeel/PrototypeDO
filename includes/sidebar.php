@@ -114,11 +114,10 @@ switch ($role) {
         }
 
         table {
-            display: block;
+            display: table;
             width: max-content;
             min-width: 100%;
-            max-width: 100%;
-            overflow-x: auto;
+            max-width: none;
             table-layout: auto !important;
             white-space: nowrap;
         }

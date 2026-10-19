@@ -4,8 +4,13 @@ function openCatalogModal(type, data = null) {
     document.getElementById('catalogModal').classList.remove('hidden');
     document.getElementById('catalogModalTitle').textContent = `${data ? 'Edit' : 'Add'} ${isOffense ? 'violation' : 'sanction'}`;
     document.getElementById('catalogAction').value = isOffense ? 'save_offense' : 'save_sanction';
-    document.getElementById('offenseFields').classList.toggle('hidden', !isOffense);
-    document.getElementById('sanctionFields').classList.toggle('hidden', isOffense);
+    const offenseFields = document.getElementById('offenseFields');
+    const sanctionFields = document.getElementById('sanctionFields');
+    offenseFields.classList.toggle('hidden', !isOffense);
+    sanctionFields.classList.toggle('hidden', isOffense);
+    offenseFields.querySelectorAll('input, select, textarea').forEach((control) => { control.disabled = !isOffense; });
+    sanctionFields.querySelectorAll('input, select, textarea').forEach((control) => { control.disabled = isOffense; });
+    document.getElementById('sanction_name').required = !isOffense;
     form.reset();
     if (isOffense) {
         document.getElementById('offense_id').value = data?.id || '';
@@ -27,7 +32,14 @@ document.querySelectorAll('.edit-sanction').forEach((button) => button.addEventL
 document.querySelectorAll('[data-tab-target]').forEach((tab) => tab.addEventListener('click', () => {
     setActiveCatalogTab(tab);
     document.querySelectorAll('#violationCatalogPanel, #penaltyGuidelinesPanel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== tab.dataset.tabTarget));
+    document.querySelectorAll('input[name="active_tab"]').forEach((input) => { input.value = tab.dataset.tabTarget; });
     moveCatalogToolbar(tab.dataset.tabTarget);
+}));
+document.querySelectorAll('form[method="post"]').forEach((form) => form.addEventListener('submit', () => {
+    const activePanel = document.querySelector('#violationCatalogPanel:not(.hidden), #penaltyGuidelinesPanel:not(.hidden)');
+    const activeTab = activePanel ? activePanel.id : 'violationCatalogPanel';
+    const input = form.querySelector('input[name="active_tab"]');
+    if (input) input.value = activeTab;
 }));
 document.getElementById('catalogModal')?.addEventListener('click', (event) => { if (event.target.id === 'catalogModal') closeCatalogModal(); });
 document.querySelectorAll('.catalog-search').forEach((input) => input.addEventListener('input', () => {
@@ -89,9 +101,9 @@ function setActiveCatalogTab(tab) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const initialTab = document.querySelector('.tab-button[data-tab-target="violationCatalogPanel"]');
+    const initialTab = document.querySelector('.tab-button[class*="bg-blue-600"]') || document.querySelector('.tab-button[data-tab-target="violationCatalogPanel"]');
     if (initialTab) {
         setActiveCatalogTab(initialTab);
-        moveCatalogToolbar('violationCatalogPanel');
+        moveCatalogToolbar(initialTab.dataset.tabTarget);
     }
 });

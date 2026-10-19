@@ -736,7 +736,22 @@ if ($_POST['action'] === 'updateCase') {
 
         // Archive case
 if ($_POST['action'] === 'archiveCase') {
-    $caseId = $_POST['caseId'];
+    $caseId = trim((string)($_POST['caseId'] ?? ''));
+    if ($caseId === '') {
+        echo json_encode(['success' => false, 'error' => 'A case must be selected before it can be archived.']);
+        exit;
+    }
+
+    $case = fetchOne("SELECT case_id, is_archived FROM cases WHERE case_id = ?", [$caseId]);
+    if (!$case) {
+        echo json_encode(['success' => false, 'error' => 'This case is no longer available.']);
+        exit;
+    }
+    if ((int)$case['is_archived'] === 1) {
+        echo json_encode(['success' => false, 'error' => 'This case is already archived.']);
+        exit;
+    }
+
     $oldData = getRecordForAudit('cases', 'case_id', $caseId);
     $oldStatus = $oldData['status'] ?? 'Unknown';
 
@@ -751,7 +766,22 @@ if ($_POST['action'] === 'archiveCase') {
 
         // Unarchive case
 if ($_POST['action'] === 'unarchiveCase') {
-    $caseId = $_POST['caseId'];
+    $caseId = trim((string)($_POST['caseId'] ?? ''));
+    if ($caseId === '') {
+        echo json_encode(['success' => false, 'error' => 'A case must be selected before it can be restored.']);
+        exit;
+    }
+
+    $case = fetchOne("SELECT case_id, is_archived FROM cases WHERE case_id = ?", [$caseId]);
+    if (!$case) {
+        echo json_encode(['success' => false, 'error' => 'This case is no longer available.']);
+        exit;
+    }
+    if ((int)$case['is_archived'] !== 1) {
+        echo json_encode(['success' => false, 'error' => 'This case is already active and does not need to be restored.']);
+        exit;
+    }
+
     $sql = "UPDATE cases SET is_archived = 0, archived_at = NULL, manually_restored = 1 WHERE case_id = ?";
     executeQuery($sql, [$caseId]);
 
@@ -2311,8 +2341,8 @@ $adminName = getFormattedUserName() ?? 'User';
 
                 <!-- Table -->
                 <div
-                    class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
-                    <table class="w-full min-w-[900px] table-fixed">
+                    class="min-w-0 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
+                    <table class="w-max min-w-full bg-white dark:bg-[#111827]">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
                                 <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Case ID</th>

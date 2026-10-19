@@ -158,7 +158,7 @@ function openLogDetailModal(log) {
             oldValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>`;
         }
     } catch (e) {
-        oldValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
+        oldValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Unable to parse data: ${escapeHtml(e.message)}</p>`;
     }
     
     // Populate new values
@@ -171,7 +171,7 @@ function openLogDetailModal(log) {
             newValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No new values</p>`;
         }
     } catch (e) {
-        newValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Error parsing data: ${escapeHtml(e.message)}</p>`;
+        newValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Unable to parse data: ${escapeHtml(e.message)}</p>`;
     }
     
     // Show modal

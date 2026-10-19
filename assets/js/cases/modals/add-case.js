@@ -175,11 +175,11 @@ async function addCase() {
           loadCasesFromDB();
           showNotification("Case created successfully!", "success");
         } else {
-          showNotification("Error: " + (data.message || "Failed to create case"), "error");
+          showNotification("Unable to create case: " + (data.message || "The server did not provide a reason. Check your case details and try again."), "error");
         }
       } catch (error) {
         console.error("Error creating case:", error);
-        showNotification("Error creating case. Please try again.", "error");
+        showNotification("The case could not be created because the server did not return a valid response. Check your connection and try again.", "error");
       }
     });
 }
@@ -202,4 +202,3 @@ function clearAddCaseType() {
   descriptionBox.dataset.description = '';
   descriptionBox.textContent = 'Select a case type to view the offense description.';
 }
-

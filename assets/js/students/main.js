@@ -48,7 +48,7 @@ async function loadStudents() {
             renderStudents();
         } else {
             console.error('Failed to load students:', data.error);
-            showEmptyState('Error loading students: ' + (data.error || 'Unknown error'));
+            showEmptyState('Unable to load students: ' + (data.error || 'The server did not provide a reason. Check your connection and try again.'));
         }
     } catch (error) {
         console.error('Error loading students:', error);
@@ -453,13 +453,5 @@ async function handleCsvImport(e) {
 
 // ====== Notifications ======
 function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-[1000] transition-all duration-300`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    showNotificationModal(message, type);
 }

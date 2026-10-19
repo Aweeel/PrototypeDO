@@ -34,31 +34,10 @@ function showErrorToast(message) {
 }
 
 function showNotification(message, type = 'success', onClose = null) {
-  const existingToast = document.querySelector('[data-notification-toast]');
-  if (existingToast) existingToast.remove();
-
-  const toast = document.createElement('div');
-  toast.setAttribute('data-notification-toast', 'true');
-
-  let bgColor = 'bg-green-500';
-  let iconSVG = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
-
-  if (type === 'error') {
-    bgColor = 'bg-red-500';
-    iconSVG = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+  showNotificationModal(message, type, 2500);
+  if (onClose) {
+    window.setTimeout(onClose, 2500);
   }
-
-  toast.className = 'fixed top-4 right-4 z-[1000] ' + bgColor + ' text-white rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-md';
-  toast.innerHTML = iconSVG + '<span class="text-sm font-medium">' + message + '</span>';
-
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    if (toast.parentNode) {
-      toast.remove();
-      if (onClose) onClose();
-    }
-  }, 2500);
 }
 
 /**
@@ -132,4 +111,3 @@ function scheduleHideHandbookTooltip() {
     }
   }, 200); // 200ms delay to allow moving mouse to tooltip
 }
-

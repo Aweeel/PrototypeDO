@@ -140,31 +140,24 @@ if ($user) {
     <!-- Mobile Sidebar Backdrop Overlay -->
     <div id="sidebarBackdrop" class="fixed inset-0 z-30 bg-gray-900/50 backdrop-blur-sm hidden lg:hidden transition-opacity"></div>
 
-    <!-- Container for Alert Toasts -->
-    <div class="fixed top-16 sm:top-20 right-4 sm:right-6 z-50 flex flex-col space-y-3 max-w-[calc(100vw-2rem)] sm:max-w-sm pointer-events-none">
-        <!-- Message Alert Toast -->
-        <?php if ($message): ?>
-            <div id="messageAlert" class="pointer-events-auto p-4 rounded-lg shadow-lg border animation-slide-in <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/80 dark:text-green-200 dark:border-green-600' : 'bg-red-100 text-red-700 border-red-400 dark:bg-red-900/80 dark:text-red-200 dark:border-red-600'; ?>">
-                <?php echo htmlspecialchars($message); ?>
-            </div>
+    <?php if ($message || $passwordMessage): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification(
+                    <?= json_encode($message ?: $passwordMessage) ?>,
+                    <?= json_encode($message ? $messageType : $passwordMessageType) ?>
+                );
+            });
+        </script>
+        <?php if ($passwordMessageType === 'success'): ?>
+        <script>
+            const passwordWarningModal = document.getElementById('passwordWarningModal');
+            if (passwordWarningModal) {
+                passwordWarningModal.style.display = 'none';
+            }
+        </script>
         <?php endif; ?>
-
-        <!-- Password Change Alert Toast -->
-        <?php if ($passwordMessage): ?>
-            <div id="passwordAlert" class="pointer-events-auto p-4 rounded-lg shadow-lg border animation-slide-in <?php echo $passwordMessageType === 'success' ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/80 dark:text-green-200 dark:border-green-600' : 'bg-red-100 text-red-700 border-red-400 dark:bg-red-900/80 dark:text-red-200 dark:border-red-600'; ?>">
-                <?php echo htmlspecialchars($passwordMessage); ?>
-            </div>
-            <?php if ($passwordMessageType === 'success'): ?>
-            <script>
-                // Close the password warning modal if it exists
-                const modal = document.getElementById('passwordWarningModal');
-                if (modal) {
-                    modal.style.display = 'none';
-                }
-            </script>
-            <?php endif; ?>
-        <?php endif; ?>
-    </div>
+    <?php endif; ?>
 
     <!-- Main Content Wrapper -->
     <main class="lg:ml-64 pt-20 pb-8 px-4 sm:px-6 lg:px-8 transition-all duration-300">
@@ -591,47 +584,6 @@ if ($user) {
             }
         }
 
-        // Auto-hide success messages after 3 seconds
-        const messageAlert = document.getElementById('messageAlert');
-        if (messageAlert && messageAlert.classList.contains('bg-green-100')) {
-            setTimeout(() => {
-                messageAlert.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-                messageAlert.style.opacity = '0';
-                messageAlert.style.transform = 'translateX(400px)';
-                setTimeout(() => {
-                    messageAlert.style.display = 'none';
-                }, 500);
-            }, 3000);
-        }
-
-        const passwordAlert = document.getElementById('passwordAlert');
-        if (passwordAlert && passwordAlert.classList.contains('bg-green-100')) {
-            setTimeout(() => {
-                passwordAlert.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-                passwordAlert.style.opacity = '0';
-                passwordAlert.style.transform = 'translateX(400px)';
-                setTimeout(() => {
-                    passwordAlert.style.display = 'none';
-                }, 500);
-            }, 3000);
-        }
     </script>
-
-    <style>
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(100%);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        
-        .animation-slide-in {
-            animation: slideIn 0.3s ease-out;
-        }
-    </style>
 </body>
 </html>

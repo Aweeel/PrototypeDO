@@ -442,7 +442,7 @@ async function saveSuspensionStartDate(caseId, caseSanctionId) {
     showNotification('Initial day updated', 'success');
     refreshCheckInModalContent(caseId, 'suspension');
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to update the suspension start date: ' + error.message, 'error');
     console.error('Set suspension start date error:', error);
   }
 }
@@ -1688,7 +1688,7 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
       refreshCheckInModalContent(caseId, getActiveCheckInModalSanctionType(caseId));
     }, 100);
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to update the check-in time: ' + error.message, 'error');
     console.error('Time correction error:', error);
   }
 }
@@ -1901,7 +1901,7 @@ async function performRevert(dayNumber, timeType, caseSanctionId, caseId, update
       showNotification(result.error || 'Failed to revert time', 'error');
     }
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to revert the check-in time: ' + error.message, 'error');
     console.error('Revert time error:', error);
   }
 }
@@ -1919,7 +1919,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
     });
     
     if (!response.ok) {
-      showNotification('Server error: ' + response.status, 'error');
+      showNotification('Unable to complete the request. Server status: ' + response.status, 'error');
       console.error('Response status:', response.status);
       return;
     }
@@ -2023,7 +2023,7 @@ async function toggleCheckInOut(dayNumber, caseId, caseSanctionId, isCheckedIn) 
       console.error('Backend error:', result);
     }
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to update the check-in record: ' + error.message, 'error');
     console.error(actionLabel + ' error:', error);
   }
 }
@@ -2051,7 +2051,7 @@ async function performCheckIn(dayNumber, caseId, caseSanctionId) {
       showNotification(result.error || 'Failed to check in', 'error');
     }
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to check in: ' + error.message, 'error');
     console.error('Check-in error:', error);
   }
 }
@@ -2079,7 +2079,7 @@ async function performCheckOut(dayNumber, caseId, caseSanctionId) {
       showNotification(result.error || 'Failed to check out', 'error');
     }
   } catch (error) {
-    showNotification('Error: ' + error.message, 'error');
+    showNotification('Unable to check out: ' + error.message, 'error');
     console.error('Check-out error:', error);
   }
 }
@@ -2440,11 +2440,11 @@ async function handleExtendDeadline(caseSanctionId, daysToAdd = 7) {
         refreshCheckInModalContent(caseId, sanctionType);
       }
     } else {
-      showNotification('Error extending deadline: ' + (result.error || 'Unknown error'), 'error');
+      showNotification('Unable to extend deadline: ' + (result.error || 'The server did not provide a reason. Check the sanction status and try again.'), 'error');
     }
   } catch (error) {
     console.error('Error extending deadline:', error);
-    showNotification('Error extending deadline', 'error');
+    showNotification('The deadline could not be extended because the server did not return a valid response. Check your connection and try again.', 'error');
   }
 }
 
@@ -2467,10 +2467,10 @@ async function handleIncreaseHours(caseSanctionId, additionalHours = 8) {
         refreshCheckInModalContent(caseId, sanctionType);
       }
     } else {
-      showNotification('Error increasing duration: ' + (result.error || 'Unknown error'), 'error');
+      showNotification('Unable to increase duration: ' + (result.error || 'The server did not provide a reason. Check the sanction status and try again.'), 'error');
     }
   } catch (error) {
     console.error('Error increasing duration:', error);
-    showNotification('Error increasing duration', 'error');
+    showNotification('The duration could not be increased because the server did not return a valid response. Check your connection and try again.', 'error');
   }
 }

@@ -188,9 +188,6 @@ function addLostFoundItem($data) {
  * Pass $filters['archived'] = true to fetch archived items instead of active ones.
  */
 function getLostFoundItems($filters = []) {
-    // Run auto-archive check for unclaimed items older than 30 days
-    checkAndAutoArchiveLostFound();
-
     $archivedFlag = !empty($filters['archived']) ? 1 : 0;
 
     $sql = "SELECT 
@@ -1041,44 +1038,4 @@ function auditCategoryReactivated($categoryId) {
     logAudit($userId, 'Lost & Found Category Reactivated', 'lost_found_categories', $categoryId,
         ['is_active' => 0], ['is_active' => 1]
     );
-}
-
-/**
- * Automatically archive lost & found items that have been unclaimed for 1 month (30+ days)
- */
-function autoArchiveLostFoundItems() {
-    $sql = "UPDATE lost_found_items 
-            SET is_archived = 1, 
-                archived_at = NOW()
-            WHERE is_archived = 0 
-              AND status = 'Unclaimed'
-              AND date_found IS NOT NULL
-              AND date_found <= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)";
-    
-    try {
-        $stmt = executeQuery($sql);
-        $count = $stmt->rowCount();
-        
-        if ($count > 0) {
-            error_log("Auto-archived $count lost & found items older than 30 days.");
-        }
-        
-        return $count;
-    } catch (Exception $e) {
-        error_log("Error in autoArchiveLostFoundItems: " . $e->getMessage());
-        return 0;
-    }
-}
-
-/**
- * Check and auto-archive items once per session/day
- */
-function checkAndAutoArchiveLostFound() {
-    $today = date('Y-m-d');
-    if (!isset($_SESSION['auto_archive_lf_date']) || $_SESSION['auto_archive_lf_date'] !== $today) {
-        $archivedCount = autoArchiveLostFoundItems();
-        $_SESSION['auto_archive_lf_date'] = $today;
-        return $archivedCount;
-    }
-    return 0;
 }

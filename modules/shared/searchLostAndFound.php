@@ -86,16 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             <main class="p-4 pt-20 sm:p-6 sm:pt-24 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
                 
                 <?php if ($errorMessage): ?>
-                    <!-- Error Message -->
-                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 sm:p-6 mb-6 sm:mb-8 rounded-r-lg">
-                        <div class="flex items-start">
-                            <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-xl sm:text-2xl mr-3 sm:mr-4 mt-0.5"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2 text-sm sm:text-base">Error</h4>
-                                <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300"><?php echo htmlspecialchars($errorMessage); ?></p>
-                            </div>
-                        </div>
-                    </div>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', () => {
+                            showNotification(<?= json_encode($errorMessage) ?>, 'error');
+                        });
+                    </script>
                 <?php endif; ?>
                 
                 <!-- Search Section -->

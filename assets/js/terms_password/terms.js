@@ -63,12 +63,12 @@
                     modal.remove();
                 }, 260);
             } else {
-                alert('Failed to accept terms: ' + (data.error || 'Unknown error'));
+                showNotificationModal('Unable to accept terms: ' + (data.error || 'The server did not provide a reason. Check your connection and try again.'), 'error');
             }
         })
         .catch(err => {
             console.error('Error accepting terms:', err);
-            alert('An error occurred. Please try again.');
+            showNotificationModal('The terms could not be accepted because the server did not return a valid response. Check your connection and try again.', 'error');
         });
         
         return false;

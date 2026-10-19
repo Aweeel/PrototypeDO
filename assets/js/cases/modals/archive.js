@@ -77,13 +77,16 @@ async function confirmArchiveCase(caseId) {
       showNotification("Case archived successfully!", "success");
     } else {
       showNotification(
-        "Failed to archive case: " + (data.error || "Unknown error")
+        "Unable to archive case: " + (data.error || "The server did not provide a reason. Check your connection and try again.")
       );
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error archiving case:", error);
-    showNotification("Error archiving case. Please try again.", "error");
+    showNotification(
+      "The case could not be archived because the server did not return a valid response. Check your connection and try again.",
+      "error"
+    );
   }
 }
 
@@ -156,13 +159,15 @@ async function confirmUnarchiveCase(caseId) {
       showNotification("Case restored successfully!", "success");
     } else {
       showNotification(
-        "Failed to restore case: " + (data.error || "Unknown error")
+        "Unable to restore case: " + (data.error || "The server did not provide a reason. Check your connection and try again.")
       );
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error restoring case:", error);
-    showErrorToast("Error restoring case. Please try again.");
+    showErrorToast(
+      "The case could not be restored because the server did not return a valid response. Check your connection and try again."
+    );
   }
 }
 
@@ -250,13 +255,13 @@ async function confirmBulkRestore(caseIds) {
       showNotification(data.message, "success");
     } else {
       showNotification(
-        "Failed to restore cases: " + (data.error || "Unknown error"),
+        "Unable to restore cases: " + (data.error || "The server did not provide a reason. Check your connection and try again."),
         "error"
       );
     }
   } catch (error) {
     closeLoadingToast();
     console.error("Error restoring cases:", error);
-    showErrorToast("Error restoring cases. Please try again.");
+    showErrorToast("The cases could not be restored because the server did not return a valid response. Check your connection and try again.");
   }
 }

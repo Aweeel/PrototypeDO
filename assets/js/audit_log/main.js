@@ -114,7 +114,7 @@ async function loadLogs() {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="px-6 py-12 text-center text-red-500 dark:text-red-400">
-                        <p class="text-lg font-medium">Error loading audit logs</p>
+                        <p class="text-lg font-medium">Unable to load audit logs</p>
                         <p class="text-sm mt-1">${data.error || 'Failed to fetch audit logs'}</p>
                     </td>
                 </tr>`;
@@ -122,12 +122,12 @@ async function loadLogs() {
         }
     } catch (error) {
         console.error('Error loading logs:', error);
-        showNotification('Error loading audit logs: ' + error.message, 'error');
+        showNotification('Unable to load audit logs: ' + error.message, 'error');
         const tbody = document.getElementById('logsTableBody');
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="px-6 py-12 text-center text-red-500 dark:text-red-400">
-                    <p class="text-lg font-medium">Error loading audit logs</p>
+                    <p class="text-lg font-medium">Unable to load audit logs</p>
                     <p class="text-sm mt-1">${error.message}</p>
                 </td>
             </tr>`;
@@ -342,11 +342,11 @@ function exportLogs() {
             })
             .catch(err => {
                 console.error('Error preparing export:', err);
-                showNotification('Error preparing export', 'error');
+                showNotification('Unable to prepare export', 'error');
             });
     } catch (error) {
         console.error('Error exporting logs:', error);
-        showNotification('Error exporting logs', 'error');
+        showNotification('Unable to export logs', 'error');
     }
 }
 
@@ -444,7 +444,7 @@ function exportAuditLogsCSV() {
         closeExportModal();
     } catch (error) {
         console.error('Error exporting CSV:', error);
-        showNotification('Error exporting CSV', 'error');
+        showNotification('Unable to export CSV', 'error');
     }
 }
 
@@ -474,13 +474,5 @@ function printAuditReport() {
 
 // Notifications
 function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-[1000] transition-all duration-300`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    showNotificationModal(message, type);
 }

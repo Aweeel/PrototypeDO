@@ -932,7 +932,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
             } catch (error) {
                 console.error('Error loading case details:', error);
-                modalContent.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Error loading case details</p>';
+                modalContent.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Unable to load case details. The server did not return a valid response.</p>';
             }
         }
 
@@ -1179,7 +1179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 console.error('Error loading check-in progress:', error);
                 const content = overlay.querySelector('[data-checkin-progress-content]');
                 if (content) {
-                    content.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Error loading check-in progress</p>';
+                    content.innerHTML = '<p class="text-red-600 dark:text-red-400 text-sm">Unable to load check-in progress. The server did not return a valid response.</p>';
                 }
             }
         }
