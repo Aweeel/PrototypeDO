@@ -1,43 +1,93 @@
 (function () {
-    const refreshInterval = 30000;
+    'use strict';
 
-    function renderNotificationBadge(count) {
-        const button = document.querySelector('[onclick="toggleNotificationPanel()"]');
-        if (!button) return;
-        const existing = button.querySelector('[data-realtime-notification-count]');
-        if (existing) existing.remove();
-        if (count > 0) {
-            const badge = document.createElement('span');
-            badge.dataset.realtimeNotificationCount = 'true';
-            badge.className = 'absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center';
-            badge.textContent = count > 9 ? '9+' : String(count);
-            button.appendChild(badge);
+    const config = window.REALTIME_CONFIG;
+    if (!config || !config.notificationsUrl) {
+        return;
+    }
+
+    let knownNotificationIds = new Set((config.initialNotificationIds || []).map(Number));
+    let requestInProgress = false;
+
+    function escapeHtml(value) {
+        const element = document.createElement('span');
+        element.textContent = value == null ? '' : String(value);
+        return element.innerHTML;
+    }
+
+    function renderNotifications(notifications) {
+        const list = document.getElementById('notificationList');
+        if (!list) return;
+
+        if (!notifications.length) {
+            list.innerHTML = '<div class="p-6 text-center text-gray-500 dark:text-gray-400">No new notifications</div>';
+            return;
         }
+
+        list.innerHTML = `
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                ${notifications.map(notification => `
+                    <div class="realtime-notification p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
+                         data-notification-id="${Number(notification.id)}"
+                         data-related-id="${escapeHtml(notification.relatedId)}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">${escapeHtml(notification.title)}</p>
+                                <p class="text-gray-600 dark:text-gray-400 text-xs mt-1">${escapeHtml(notification.message).slice(0, 100)}${notification.message.length > 100 ? '...' : ''}</p>
+                                <p class="text-gray-500 dark:text-gray-500 text-xs mt-1">${escapeHtml(notification.createdAt)}</p>
+                            </div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full mt-1 ml-2 flex-shrink-0"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+
+        list.querySelectorAll('.realtime-notification').forEach(item => {
+            item.addEventListener('click', function () {
+                markAsRead(
+                    Number(this.dataset.notificationId),
+                    this.dataset.relatedId || ''
+                );
+            });
+        });
     }
 
     async function refreshNotifications() {
+        if (requestInProgress || document.hidden) return;
+        requestInProgress = true;
+
         try {
-            const body = new FormData();
-            body.append('action', 'getRealtimeState');
-            const response = await fetch(`${window.APP_BASE_URL}/modules/shared/realtime.php`, {
-                method: 'POST',
-                body,
+            const response = await fetch(config.notificationsUrl, {
                 credentials: 'same-origin',
-                headers: { Accept: 'application/json' }
+                cache: 'no-store'
             });
-            if (!response.ok) return;
+            if (!response.ok) throw new Error(`Notification request failed (${response.status})`);
+
             const data = await response.json();
-            if (data.success && Array.isArray(data.notifications)) {
-                renderNotificationBadge(data.notifications.length);
+            if (!data.success) throw new Error(data.error || 'Notification request failed');
+
+            const notifications = data.notifications || [];
+            const newNotifications = notifications.filter(notification => !knownNotificationIds.has(Number(notification.id)));
+            const badge = document.getElementById('notificationBadge');
+
+            if (badge) {
+                badge.textContent = data.count > 9 ? '9+' : String(data.count);
+                badge.classList.toggle('hidden', data.count === 0);
             }
+            renderNotifications(notifications);
+
+            newNotifications.forEach(notification => {
+                showInfoNotification(notification.title || 'You have a new notification');
+            });
+            knownNotificationIds = new Set(notifications.map(notification => Number(notification.id)));
         } catch (error) {
             console.error('Realtime notification refresh failed:', error);
+        } finally {
+            requestInProgress = false;
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        if (document.getElementById('notificationPanel')) {
-            window.setInterval(refreshNotifications, refreshInterval);
-        }
+    window.addEventListener('DOMContentLoaded', function () {
+        window.setInterval(refreshNotifications, 15000);
     });
 })();

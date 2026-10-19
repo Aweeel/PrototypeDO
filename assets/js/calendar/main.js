@@ -37,7 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadEvents();
     loadCategories();
-    window.setInterval(loadEvents, 30000);
+    window.setInterval(() => {
+        if (!document.hidden) {
+            loadEvents();
+            loadCategories();
+        }
+    }, 15000);
 });
 
 function initializeCalendarFromUrl() {
@@ -604,7 +609,7 @@ function openAddEventModal(preselectedDate = null) {
                 loadEvents();
                 loadCategories();
             } else {
-                showToast('Unable to add event: ' + (data.error || 'The server did not provide a reason. Check the event details and try again.'), 'error');
+                showToast('Failed to add event: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (error) {
             console.error('Error:', error);
@@ -724,12 +729,7 @@ function viewEvent(event) {
 
 // Delete event
 async function deleteEvent(eventId) {
-    const confirmed = await showConfirmDialog({
-        message: 'Delete event?',
-        confirmText: 'Delete',
-        confirmClass: 'bg-red-600 hover:bg-red-700'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to delete this event?')) return;
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -1001,5 +1001,20 @@ function showDayEvents(date, events) {
 
 // Toast notification
 function showToast(message, type = 'info') {
-    showNotificationModal(message, type);
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-[1000] transition-all duration-300 transform translate-x-full`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }

@@ -6,27 +6,44 @@ document.querySelectorAll('input[type="checkbox"]').forEach((toggle) => {
 
 document.getElementById('maintenanceStatusButton')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;
-    const enabled = button.dataset.enabled === '1' ? '0' : '1';
+    const enabling = button.dataset.enabled !== '1';
+    const actionLabel = enabling ? 'enable' : 'disable';
+    const confirmation = enabling
+        ? 'Enable system maintenance mode? Regular users will not be able to access the system.'
+        : 'Disable system maintenance mode? Regular users will be able to access the system again.';
+
+    if (!window.confirm(confirmation)) return;
+
+    button.disabled = true;
     const formData = new FormData();
     formData.append('ajax', '1');
     formData.append('action', 'toggle_maintenance');
-    formData.append('enabled', enabled);
-    button.disabled = true;
+    formData.append('enabled', enabling ? '1' : '0');
+
     try {
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        if (!response.ok) throw new Error(`Unable to ${actionLabel} maintenance mode.`);
+
         const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || 'Maintenance mode could not be updated.');
-        button.dataset.enabled = data.enabled ? '1' : '0';
-        button.setAttribute('aria-pressed', data.enabled ? 'true' : 'false');
-        button.setAttribute('aria-label', data.enabled ? 'Disable maintenance mode' : 'Enable maintenance mode');
-        button.querySelector('span').classList.toggle('translate-x-5', data.enabled);
-        button.querySelector('span').classList.toggle('translate-x-0', !data.enabled);
-        button.classList.toggle('bg-blue-600', data.enabled);
-        button.classList.toggle('bg-gray-300', !data.enabled);
-        button.classList.toggle('dark:bg-gray-600', !data.enabled);
-        document.getElementById('maintenanceStatusText').textContent = `Current status: ${data.enabled ? 'Enabled' : 'Disabled'}`;
+        if (!data.success) throw new Error(`Unable to ${actionLabel} maintenance mode.`);
+
+        const isEnabled = Boolean(data.enabled);
+        button.dataset.enabled = isEnabled ? '1' : '0';
+        button.setAttribute('aria-pressed', String(isEnabled));
+        button.setAttribute('aria-label', isEnabled ? 'Disable maintenance mode' : 'Enable maintenance mode');
+        button.className = `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            isEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+        }`;
+        const knob = button.querySelector('span');
+        if (knob) {
+            knob.className = `pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${
+                isEnabled ? 'translate-x-5' : 'translate-x-0'
+            }`;
+        }
+        const status = button.parentElement.querySelector('p');
+        if (status) status.textContent = `Current status: ${isEnabled ? 'Enabled' : 'Disabled'}`;
     } catch (error) {
-        showErrorNotification(error.message);
+        window.alert(error instanceof Error ? error.message : `Unable to ${actionLabel} maintenance mode.`);
     } finally {
         button.disabled = false;
     }

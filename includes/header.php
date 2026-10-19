@@ -136,9 +136,11 @@ if (!isset($adminName) || empty($adminName)) {
                             class="absolute inset-0 w-6 h-6 hidden dark:inline">
                     </div>
                     <?php if ($unreadCount > 0): ?>
-                        <span class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        <span id="notificationBadge" class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                             <?php echo $unreadCount > 9 ? '9+' : $unreadCount; ?>
                         </span>
+                    <?php else: ?>
+                        <span id="notificationBadge" class="hidden absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 items-center justify-center">0</span>
                     <?php endif; ?>
                 </button>
 
@@ -148,6 +150,7 @@ if (!isset($adminName) || empty($adminName)) {
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                     </div>
                     
+                    <div id="notificationList">
                     <?php if (empty($unreadNotifications)): ?>
                         <div class="p-6 text-center text-gray-500 dark:text-gray-400">
                             No new notifications
@@ -175,6 +178,7 @@ if (!isset($adminName) || empty($adminName)) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php endif; ?>
@@ -319,4 +323,12 @@ if (!isset($adminName) || empty($adminName)) {
             }
         }
     }
+</script>
+<script>
+    window.REALTIME_CONFIG = {
+        notificationsUrl: <?= json_encode(BASE_URL . '/modules/shared/realtime.php') ?>,
+        initialNotificationIds: <?= json_encode(array_map(static function ($notification) {
+            return (int)($notification['notification_id'] ?? 0);
+        }, $unreadNotifications)) ?>
+    };
 </script>
