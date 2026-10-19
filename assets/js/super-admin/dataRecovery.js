@@ -12,7 +12,12 @@ document.getElementById('maintenanceStatusButton')?.addEventListener('click', as
         ? 'Enable system maintenance mode? Regular users will not be able to access the system.'
         : 'Disable system maintenance mode? Regular users will be able to access the system again.';
 
-    if (!window.confirm(confirmation)) return;
+    const confirmed = await window.showConfirmDialog({
+        message: confirmation,
+        confirmText: enabling ? 'Enable' : 'Disable',
+        confirmClass: enabling ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700'
+    });
+    if (!confirmed) return;
 
     button.disabled = true;
     const formData = new FormData();
