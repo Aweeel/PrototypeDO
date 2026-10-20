@@ -93,7 +93,7 @@ if (!isset($adminName) || empty($adminName)) {
     <!-- Global Notifications System -->
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/notifications.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/confirmation.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js?v=20261020"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js?v=20261020-2"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
         
