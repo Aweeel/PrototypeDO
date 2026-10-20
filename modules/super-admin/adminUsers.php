@@ -1178,7 +1178,7 @@ $adminName = getFormattedUserName();
 
                 <!-- Users Table -->
                 <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#111827]">
-                    <table class="w-full min-w-[1100px]" style="table-layout: fixed;">
+                    <table class="w-full min-w-[900px] lg:min-w-[1100px]" style="table-layout: fixed;">
                         <colgroup>
                             <col style="width: 20%;">
                             <col style="width: 20%;">

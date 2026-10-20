@@ -75,10 +75,16 @@ if (!isset($adminName) || empty($adminName)) {
     window.appUrl = function (path) {
         return window.APP_BASE_URL + path;
     };
+    window.REALTIME_CONFIG = {
+        notificationsUrl: <?= json_encode(BASE_URL . '/modules/shared/realtime.php') ?>,
+        initialNotificationIds: <?= json_encode(array_map(static function ($notification) {
+            return (int)($notification['notification_id'] ?? 0);
+        }, $unreadNotifications)) ?>
+    };
 </script>
 
 <header
-    class="fixed top-0 left-0 md:left-64 right-0 z-30
+    class="fixed top-0 left-0 lg:left-64 right-0 z-30
            bg-white dark:bg-[#111827]
            border-b border-gray-200 dark:border-gray-700
            px-4 sm:px-6 md:px-8 py-3 md:py-4
@@ -87,7 +93,7 @@ if (!isset($adminName) || empty($adminName)) {
     <!-- Global Notifications System -->
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/notifications.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/confirmation.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js?v=20261020"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/preventDoubleTap.js"></script>
     <div class="flex items-center justify-between">
         
@@ -96,7 +102,7 @@ if (!isset($adminName) || empty($adminName)) {
             <!-- Mobile Hamburger Menu Button -->
             <button type="button" 
                     onclick="toggleSidebar()" 
-                    class="md:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg focus:outline-none transition-colors"
+                    class="lg:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg focus:outline-none transition-colors"
                     aria-label="Toggle Sidebar">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -207,7 +213,7 @@ if (!isset($adminName) || empty($adminName)) {
     </div>
 </header>
 <?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?>
-<div class="fixed top-[4.5rem] left-0 md:left-64 right-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+<div class="fixed top-[4.5rem] left-0 lg:left-64 right-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
     <?= htmlspecialchars($globalBannerText) ?>
 </div>
 <?php endif; ?>
@@ -323,12 +329,4 @@ if (!isset($adminName) || empty($adminName)) {
             }
         }
     }
-</script>
-<script>
-    window.REALTIME_CONFIG = {
-        notificationsUrl: <?= json_encode(BASE_URL . '/modules/shared/realtime.php') ?>,
-        initialNotificationIds: <?= json_encode(array_map(static function ($notification) {
-            return (int)($notification['notification_id'] ?? 0);
-        }, $unreadNotifications)) ?>
-    };
 </script>
