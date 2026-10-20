@@ -6,7 +6,6 @@
         return;
     }
 
-    let knownNotificationIds = new Set((config.initialNotificationIds || []).map(Number));
     let requestInProgress = false;
 
     function escapeHtml(value) {
@@ -67,7 +66,6 @@
             if (!data.success) throw new Error(data.error || 'Notification request failed');
 
             const notifications = data.notifications || [];
-            const newNotifications = notifications.filter(notification => !knownNotificationIds.has(Number(notification.id)));
             const badge = document.getElementById('notificationBadge');
 
             if (badge) {
@@ -75,11 +73,6 @@
                 badge.classList.toggle('hidden', data.count === 0);
             }
             renderNotifications(notifications);
-
-            newNotifications.forEach(notification => {
-                showInfoNotification(notification.title || 'You have a new notification');
-            });
-            knownNotificationIds = new Set(notifications.map(notification => Number(notification.id)));
         } catch (error) {
             console.error('Realtime notification refresh failed:', error);
         } finally {
