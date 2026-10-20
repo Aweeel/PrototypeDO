@@ -88,6 +88,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', function () {
+        refreshNotifications();
         window.setInterval(refreshNotifications, 15000);
     });
 })();

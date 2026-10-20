@@ -47,7 +47,7 @@ switch ($role) {
 <aside id="sidebar" 
        class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
               bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
-              -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+              -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">
@@ -100,10 +100,49 @@ switch ($role) {
 
 <div id="globalSidebarOverlay"
      onclick="toggleSidebar()"
-     class="fixed inset-0 z-30 hidden bg-black/50 md:hidden transition-opacity"
+     class="fixed inset-0 z-30 hidden bg-black/50 lg:hidden transition-opacity"
      aria-hidden="true"></div>
 
 <style>
+    @media (max-width: 1023px) {
+        #sidebar {
+            transform: translateX(-100%);
+        }
+
+        #sidebar.translate-x-0 {
+            transform: translateX(0);
+        }
+
+        #globalSidebarOverlay {
+            display: none;
+        }
+
+        #globalSidebarOverlay:not(.hidden) {
+            display: block;
+        }
+
+        [class~="md:ml-64"] {
+            margin-left: 0 !important;
+        }
+
+        .ml-64 {
+            margin-left: 0 !important;
+        }
+
+        .flex-1 {
+            min-width: 0;
+        }
+
+        .overflow-x-auto {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        table {
+            max-width: none;
+        }
+    }
+
     @media (max-width: 767px) {
         .ml-64 {
             margin-left: 0 !important;

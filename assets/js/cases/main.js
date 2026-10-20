@@ -230,9 +230,50 @@ function renderPagination() {
 
         visiblePages.forEach((page, index) => {
             if (index > 0 && page - visiblePages[index - 1] > 1) {
-                const ellipsis = document.createElement('span');
-                ellipsis.className = btnBase + ' ' + disabledClass;
+                const ellipsis = document.createElement('button');
+                ellipsis.type = 'button';
+                ellipsis.className = btnBase;
                 ellipsis.textContent = '…';
+                ellipsis.title = 'Jump to page';
+                ellipsis.setAttribute('aria-label', 'Jump to page');
+                ellipsis.addEventListener('click', () => {
+                    const existingJump = paginationContainer.querySelector('[data-pagination-jump]');
+                    if (existingJump) {
+                        existingJump.remove();
+                        return;
+                    }
+
+                    const jump = document.createElement('span');
+                    jump.dataset.paginationJump = 'true';
+                    jump.className = 'inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-1 mx-1';
+                    jump.innerHTML = `
+                        <label class="sr-only" for="paginationJumpInput">Page number</label>
+                        <input id="paginationJumpInput" type="number" min="1" max="${totalPages}" value="${currentPage}"
+                            class="w-16 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-sm text-gray-900 dark:text-gray-100"
+                            aria-label="Page number">
+                        <button type="button" data-pagination-jump-submit
+                            class="rounded bg-blue-600 px-2 py-1 text-sm text-white hover:bg-blue-700">Go</button>
+                    `;
+                    ellipsis.replaceWith(jump);
+
+                    const input = jump.querySelector('#paginationJumpInput');
+                    const submit = () => {
+                        const requestedPage = Number(input.value);
+                        if (Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= totalPages) {
+                            updateActiveTabPage(requestedPage);
+                            renderCases();
+                        } else {
+                            input.setCustomValidity(`Enter a page number from 1 to ${totalPages}.`);
+                            input.reportValidity();
+                        }
+                    };
+                    jump.querySelector('[data-pagination-jump-submit]').addEventListener('click', submit);
+                    input.addEventListener('keydown', event => {
+                        if (event.key === 'Enter') submit();
+                    });
+                    input.focus();
+                    input.select();
+                });
                 paginationContainer.appendChild(ellipsis);
             }
             appendBtn(String(page), true, page, page === currentPage);

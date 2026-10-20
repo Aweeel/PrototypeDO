@@ -227,7 +227,7 @@ function updatePagination() {
         const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
         const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold';
         const disabledClass = 'opacity-50 cursor-not-allowed';
-        const maxButtons = 3;
+        const pageWindow = 1;
 
         container.innerHTML = '';
         if (totalPages <= 1) return;
@@ -242,26 +242,68 @@ function updatePagination() {
 
         appendBtn('« Prev', currentPage > 1, currentPage - 1, false);
 
-        if (totalPages <= maxButtons) {
+        if (totalPages <= 2 * pageWindow + 5) {
             for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
         } else {
-            const visiblePages = [...new Set([1, 2, 3, currentPage, totalPages])].sort((a, b) => a - b);
+            const visiblePages = [...new Set([
+                1,
+                totalPages,
+                ...Array.from({ length: pageWindow * 2 + 1 }, (_, offset) => currentPage - pageWindow + offset)
+                    .filter(page => page > 1 && page < totalPages)
+            ])].sort((a, b) => a - b);
 
             visiblePages.forEach((page, index) => {
                 if (index > 0 && page - visiblePages[index - 1] > 1) {
-                    const s = document.createElement('button');
-                    s.type = 'button';
-                    s.className = btnBase;
-                    s.textContent = '…';
-                    s.title = 'Jump to page';
-                    s.setAttribute('aria-label', 'Jump to page');
-                    s.addEventListener('click', () => {
-                        const requestedPage = Number(window.prompt(`Enter a page number from 1 to ${totalPages}:`, String(currentPage)));
-                        if (Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= totalPages) {
-                            onPageChange(requestedPage);
+                    const firstPage = visiblePages[index - 1] + 1;
+                    const lastPage = page - 1;
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'relative inline-flex';
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = ellipsis + ' rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
+                    button.textContent = '…';
+                    button.title = `Go to a page between ${firstPage} and ${lastPage}`;
+                    button.setAttribute('aria-label', button.title);
+                    const panel = document.createElement('form');
+                    panel.className = 'absolute right-0 top-full z-10 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg dark:border-slate-600 dark:bg-slate-800';
+                    panel.setAttribute('aria-label', `Jump to page ${firstPage} to ${lastPage}`);
+                    panel.innerHTML = `
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Go to page</label>
+                        <div class="mt-2 flex items-center gap-2">
+                            <input type="number" min="${firstPage}" max="${lastPage}" step="1" required
+                                class="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100"
+                                placeholder="${firstPage}-${lastPage}">
+                            <button type="submit" class="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">Go</button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter a page from ${firstPage} to ${lastPage}.</p>
+                        <p class="hidden mt-2 text-xs text-red-600 dark:text-red-400" role="alert"></p>
+                    `;
+                    panel.classList.add('hidden');
+                    const input = panel.querySelector('input');
+                    const error = panel.querySelector('[role="alert"]');
+                    button.addEventListener('click', () => {
+                        const isOpen = !panel.classList.contains('hidden');
+                        container.querySelectorAll('form[aria-label^="Jump to page"]').forEach(item => item.classList.add('hidden'));
+                        if (!isOpen) {
+                            panel.classList.remove('hidden');
+                            input.focus();
                         }
                     });
-                    container.appendChild(s);
+                    panel.addEventListener('submit', event => {
+                        event.preventDefault();
+                        const destination = Number(input.value);
+                        if (!Number.isInteger(destination) || destination < firstPage || destination > lastPage) {
+                            error.textContent = `Enter a whole number from ${firstPage} to ${lastPage}.`;
+                            error.classList.remove('hidden');
+                            input.focus();
+                            return;
+                        }
+                        panel.classList.add('hidden');
+                        onPageChange(destination);
+                    });
+                    input.addEventListener('input', () => error.classList.add('hidden'));
+                    wrapper.append(button, panel);
+                    container.appendChild(wrapper);
                 }
                 appendBtn(String(page), true, page, page === currentPage);
             });
