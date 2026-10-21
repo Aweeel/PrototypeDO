@@ -100,7 +100,7 @@ switch ($role) {
 
 <div id="globalSidebarOverlay"
      onclick="toggleSidebar()"
-     class="fixed inset-0 z-30 hidden bg-black/50 lg:hidden transition-opacity"
+     class="fixed inset-0 z-[35] hidden bg-black/50 lg:hidden transition-opacity"
      aria-hidden="true"></div>
 
 <style>

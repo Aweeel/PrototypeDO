@@ -4,20 +4,22 @@
 
 The live user CSV importer is available on the super-admin user page and is handled by `modules/super-admin/adminUsers.php`.
 
-Use this exact column order:
+Use this column order (the student columns are required for student rows):
 
 ```csv
-role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role
+role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role,grade_year,track_course,section,student_type,guardian_name,guardian_contact
 ```
 
-Required fields are `first_name`, `last_name`, `role`, and `email`. A `role_id` is also required for students, teachers, and discipline-office users.
+Required fields are `first_name`, `last_name`, `role`, `role_id`, and `email`. Email addresses must be unique. Student rows additionally require `grade_year` and `student_type` (`SHS` or `College`). `track_course`, `section`, `guardian_name`, and `guardian_contact` may be blank.
+
+Role ID formats are `02000xxxxxx` for students, `01000xxxxxx` for teachers, and `03000xxxxxx` for discipline-office staff.
 
 Supported roles are `teacher`, `discipline_office`, `security`, `student`, and `super_admin`.
 
 Teacher-specific rules:
 
 - `teacher_subrole` may be blank or `department_head`.
-- A `department_head` must have a valid `program`, such as `BSCS`, `BSIT`, or `BSTM`.
+- A `department_head` must have one of these programs: `BSCS`, `BSIT`, `BSCpE`, `BSMA`, `BSA`, `BSHM`, `BMMA`, `BACOMM`, `BAPsych`, `BSTM`, or `BSCRIM`.
 - A regular teacher must leave `program` blank.
 
 The importer creates new accounts with the default password `password`. Use [users_import_test.csv](test_fixtures/users_import_test.csv) for local testing. Its records are synthetic and should be removed or reset before rerunning the import.

@@ -207,6 +207,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
 
             $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($data['program'] ?? '');
+            $gradeYear = trim((string) ($data['grade_year'] ?? ''));
+            $trackCourse = trim((string) ($data['track_course'] ?? ''));
+            $section = trim((string) ($data['section'] ?? ''));
+            $studentType = trim((string) ($data['student_type'] ?? ''));
+            $guardianName = trim((string) ($data['guardian_name'] ?? ''));
+            $guardianContact = trim((string) ($data['guardian_contact'] ?? ''));
 
             if ($role !== 'teacher') {
                 $teacherSubrole = '';
@@ -221,6 +227,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 $programError = validateTeacherProgram($teacherSubrole, $program);
                 if ($programError) {
                     $errors[] = "Row skipped for teacher '{$data['first_name']} {$data['last_name']}': " . $programError;
+                    $skipped++;
+                    continue;
+                }
+            }
+
+            if ($role === 'student') {
+                if ($gradeYear === '') {
+                    $errors[] = "Row skipped: grade_year is required for student rows";
+                    $skipped++;
+                    continue;
+                }
+                if (!in_array($studentType, ['SHS', 'College'], true)) {
+                    $errors[] = "Row skipped: student_type must be SHS or College for student rows";
                     $skipped++;
                     continue;
                 }
@@ -319,8 +338,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 if ($role === 'student') {
                     $middleName = trim($data['middle_name'] ?? '');
                     executeQuery(
-                        "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [$studentId, $newUserId, trim($data['first_name']), trim($data['last_name']), $middleName !== '' ? $middleName : null, 'N/A', 'College']
+                        "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [
+                            $studentId,
+                            $newUserId,
+                            trim($data['first_name']),
+                            trim($data['last_name']),
+                            $middleName !== '' ? $middleName : null,
+                            $gradeYear,
+                            $trackCourse !== '' ? $trackCourse : null,
+                            $section !== '' ? $section : null,
+                            $studentType,
+                            $guardianName !== '' ? $guardianName : null,
+                            $guardianContact !== '' ? $guardianContact : null
+                        ]
                     );
                 }
 
@@ -582,6 +613,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
+            $gradeYear = trim($_POST['grade_year'] ?? '');
+            $trackCourse = trim($_POST['track_course'] ?? '');
+            $section = trim($_POST['section'] ?? '');
+            $studentType = trim($_POST['student_type'] ?? '');
+            $guardianName = trim($_POST['guardian_name'] ?? '');
+            $guardianContact = trim($_POST['guardian_contact'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = null;
@@ -626,6 +663,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
 
+            if ($role === 'student') {
+                if ($gradeYear === '') {
+                    echo json_encode(['success' => false, 'error' => 'Grade/year level is required for student accounts']);
+                    exit;
+                }
+                if (!in_array($studentType, ['SHS', 'College'], true)) {
+                    echo json_encode(['success' => false, 'error' => 'Student type must be SHS or College']);
+                    exit;
+                }
+            }
+
             // Check if email already exists
             $existingEmail = fetchOne("SELECT user_id FROM users WHERE email = ?", [$email]);
             if ($existingEmail) {
@@ -655,8 +703,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $firstName = $nameParts[0];
                 $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
 
-                $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)";
-                executeQuery($sqlStudent, [$studentId, $newUserId, $firstName, $lastName, 'N/A', 'College']);
+                $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                executeQuery($sqlStudent, [
+                    $studentId,
+                    $newUserId,
+                    $firstName,
+                    $lastName,
+                    $gradeYear,
+                    $trackCourse !== '' ? $trackCourse : null,
+                    $section !== '' ? $section : null,
+                    $studentType,
+                    $guardianName !== '' ? $guardianName : null,
+                    $guardianContact !== '' ? $guardianContact : null
+                ]);
             }
 
             // Audit log
@@ -1237,9 +1296,10 @@ $adminName = getFormattedUserName();
             <h4 class="font-semibold text-blue-900 dark:text-blue-300 mb-2">CSV Format Requirements:</h4>
             <p class="text-sm text-blue-800 dark:text-blue-400 mb-2">Include these columns in your CSV:</p>
             <code class="text-xs bg-white dark:bg-slate-900 px-2 py-1 rounded block overflow-x-auto">
-                role_id, email, teacher_subrole, program, first_name, last_name, middle_name, contact_number, role
+                role_id, email, teacher_subrole, program, first_name, last_name, middle_name, contact_number, role, grade_year, track_course, section, student_type, guardian_name, guardian_contact
             </code>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: <strong>first_name, last_name, role, role_id, email</strong>.</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">For students, <strong>grade_year</strong> and <strong>student_type</strong> are also required. <strong>track_course, section, guardian_name</strong>, and <strong>guardian_contact</strong> are optional.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>).</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM</strong></p>

@@ -1,7 +1,7 @@
-role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role
-02000990031,estrella.990031@sti.edu,,,Carlo,Estrella,Padilla,09170000031,student
-01000990032,rivera.teacher@sti.edu,,,Joanna,Rivera,Quintana,09170000032,teacher
-02000990033,padilla.990033@sti.edu,,,Felix,Padilla,Macapagal,09170000033,student
-02000990034,romero.990034@sti.edu,,,Aira,Romero,Salazar,09170000034,student
-,ong.security1@sti.edu,,,Edmund,Ong,Laurel,09170000035,security
-02000990036,ponce.990036@sti.edu,,,Celeste,Ponce,Arellano,09170000036,student
+role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role,grade_year,track_course,section,student_type,guardian_name,guardian_contact
+02000990031,estrella.990031@sti.edu,,,Carlo,Estrella,Padilla,09170000031,student,11,STEM,A,SHS,,
+01000990032,rivera.teacher@sti.edu,,,Joanna,Rivera,Quintana,09170000032,teacher,,,,,,
+02000990033,padilla.990033@sti.edu,,,Felix,Padilla,Macapagal,09170000033,student,1st Year,BSIT,1A,College,,
+02000990034,romero.990034@sti.edu,,,Aira,Romero,Salazar,09170000034,student,12,ABM,B,SHS,,
+,ong.security1@sti.edu,,,Edmund,Ong,Laurel,09170000035,security,,,,,,
+02000990036,ponce.990036@sti.edu,,,Celeste,Ponce,Arellano,09170000036,student,2nd Year,BSCS,2B,College,,
