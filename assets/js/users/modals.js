@@ -117,6 +117,42 @@ function createAddModal() {
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for student accounts.</p>
                 </div>
+                <div id="add_student_details_container" class="hidden space-y-4">
+                    <div>
+                        <label for="add_grade_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grade/Year Level *</label>
+                        <input type="text" id="add_grade_year" name="grade_year" placeholder="e.g. 11 or 1st Year"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="add_track_course" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Track/Course</label>
+                        <input type="text" id="add_track_course" name="track_course" placeholder="e.g. STEM or BSIT"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="add_section" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
+                        <input type="text" id="add_section" name="section" placeholder="e.g. A or 1A"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="add_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
+                        <select id="add_student_type" name="student_type"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Select Student Type --</option>
+                            <option value="SHS">SHS</option>
+                            <option value="College">College</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="add_guardian_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guardian Name</label>
+                        <input type="text" id="add_guardian_name" name="guardian_name"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label for="add_guardian_contact" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guardian Contact</label>
+                        <input type="tel" id="add_guardian_contact" name="guardian_contact"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
                 <div>
                     <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
                     <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe"
@@ -164,6 +200,12 @@ async function submitAddUser(event) {
     const teacher_id = document.getElementById('add_teacher_id')?.value || '';
     const do_id = document.getElementById('add_do_id')?.value || '';
     const student_id = document.getElementById('add_student_id')?.value || '';
+    const grade_year = document.getElementById('add_grade_year')?.value || '';
+    const track_course = document.getElementById('add_track_course')?.value || '';
+    const section = document.getElementById('add_section')?.value || '';
+    const student_type = document.getElementById('add_student_type')?.value || '';
+    const guardian_name = document.getElementById('add_guardian_name')?.value || '';
+    const guardian_contact = document.getElementById('add_guardian_contact')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -178,6 +220,12 @@ async function submitAddUser(event) {
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
     formData.append('student_id', student_id);
+    formData.append('grade_year', grade_year);
+    formData.append('track_course', track_course);
+    formData.append('section', section);
+    formData.append('student_type', student_type);
+    formData.append('guardian_name', guardian_name);
+    formData.append('guardian_contact', guardian_contact);
 
     try {
         const response = await fetch(window.location.pathname, {
@@ -458,6 +506,9 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
     const doIdInput = document.getElementById(`${formType}_do_id`);
     const studentIdContainer = document.getElementById(`${formType}_student_id_container`);
     const studentIdInput = document.getElementById(`${formType}_student_id`);
+    const studentDetailsContainer = document.getElementById(`${formType}_student_details_container`);
+    const gradeYearInput = document.getElementById(`${formType}_grade_year`);
+    const studentTypeInput = document.getElementById(`${formType}_student_type`);
 
     const isTeacher = roleValue === 'teacher';
     const isDo = roleValue === 'discipline_office';
@@ -498,6 +549,22 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
         studentIdInput.required = isStudent;
         if (!isStudent) {
             studentIdInput.value = '';
+        }
+    }
+
+    if (studentDetailsContainer) {
+        studentDetailsContainer.classList.toggle('hidden', !isStudent);
+    }
+    if (gradeYearInput) {
+        gradeYearInput.required = isStudent;
+        if (!isStudent) {
+            gradeYearInput.value = '';
+        }
+    }
+    if (studentTypeInput) {
+        studentTypeInput.required = isStudent;
+        if (!isStudent) {
+            studentTypeInput.value = '';
         }
     }
 }

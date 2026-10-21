@@ -68,7 +68,7 @@ try {
                 'archived_count' => $archivedCount,
                 'archive_after_days' => (int)getSystemSetting('archive_after_days', 30)
             ]);
-            $modalMessage = $archivedCount . ' case(s) were soft-archived successfully.';
+            $modalMessage = $archivedCount . ' case(s) were archived successfully.';
         }
     }
 } catch (Throwable $e) {

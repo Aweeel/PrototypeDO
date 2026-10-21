@@ -376,7 +376,7 @@ function updatePaginationButtons() {
                     const firstPage = visiblePages[index - 1] + 1;
                     const lastPage = page - 1;
                     const wrapper = document.createElement('div');
-                    wrapper.className = 'relative inline-flex';
+                    wrapper.className = 'relative z-20 inline-flex';
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'px-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
@@ -384,7 +384,7 @@ function updatePaginationButtons() {
                     button.title = `Go to a page between ${firstPage} and ${lastPage}`;
                     button.setAttribute('aria-label', button.title);
                     const panel = document.createElement('form');
-                    panel.className = 'absolute right-0 top-full z-10 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg dark:border-slate-600 dark:bg-slate-800';
+                    panel.className = 'fixed z-50 mt-2 w-56 max-w-[calc(100vw-1rem)] rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg dark:border-slate-600 dark:bg-slate-800';
                     panel.setAttribute('aria-label', `Jump to page ${firstPage} to ${lastPage}`);
                     panel.innerHTML = `
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Go to page</label>
@@ -405,6 +405,17 @@ function updatePaginationButtons() {
                         container.querySelectorAll('form[aria-label^="Jump to page"]').forEach(item => item.classList.add('hidden'));
                         if (!isOpen) {
                             panel.classList.remove('hidden');
+                            const buttonRect = button.getBoundingClientRect();
+                            const panelWidth = Math.min(224, window.innerWidth - 16);
+                            const left = Math.max(8, Math.min(
+                                buttonRect.right - panelWidth,
+                                window.innerWidth - panelWidth - 8
+                            ));
+                            panel.style.left = `${left}px`;
+                            const top = buttonRect.bottom + panel.offsetHeight + 8 <= window.innerHeight
+                                ? buttonRect.bottom
+                                : Math.max(8, buttonRect.top - panel.offsetHeight - 8);
+                            panel.style.top = `${top}px`;
                             input.focus();
                         }
                     });
