@@ -45,8 +45,7 @@ function ensureUsersActiveSessionColumn() {
 }
 
 function isSimultaneousLoginExempt($username) {
-    $exemptUsernames = ['admin', 'teacher', 'security', 'student', 'do_staff'];
-    return in_array(strtolower(trim((string)$username)), $exemptUsernames, true);
+    return false;
 }
 
 function registerActiveSession($userId, $sessionId) {
