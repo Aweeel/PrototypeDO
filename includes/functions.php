@@ -296,63 +296,6 @@ function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate,
     return $count;
 }
 
-function createDepartmentHeadCalendarEntryForMajorCase($caseId, $studentName, $caseType, $reportedBy = null) {
-    $case = getCaseById($caseId);
-    if (!$case || strcasecmp((string)($case['severity'] ?? ''), 'Major') !== 0) {
-        return 0;
-    }
-
-    $student = fetchOne(
-        "SELECT track_course
-         FROM students
-         WHERE student_id = ?",
-        [$case['student_id']]
-    );
-    $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
-    if (empty($program)) {
-        error_log("Major case {$caseId} has no department-head program mapping");
-        return 0;
-    }
-
-    $teachers = getDepartmentHeadTeachers($program);
-    if (empty($teachers)) {
-        error_log("No active department head found for {$program} on major case {$caseId}");
-        return 0;
-    }
-
-    ensureCalendarTargetUserColumn();
-    $eventName = "Major Case Reported - {$studentName} (Case {$caseId})";
-    $description = "Major {$caseType} case reported for {$studentName}. Case ID: {$caseId}.";
-    $eventDate = $case['date_reported'] ?? date('Y-m-d');
-    $createdBy = $reportedBy ?: ($_SESSION['user_id'] ?? null);
-    $count = 0;
-
-    foreach ($teachers as $teacher) {
-        $targetUserId = $teacher['user_id'];
-        $existingEvent = fetchOne(
-            "SELECT event_id
-             FROM calendar_events
-             WHERE event_name = ?
-               AND event_date = ?
-               AND target_user_id = ?
-             LIMIT 1",
-            [$eventName, $eventDate, $targetUserId]
-        );
-
-        if (!$existingEvent) {
-            executeQuery(
-                "INSERT INTO calendar_events
-                    (event_name, event_date, category, description, location, created_by, target_user_id, created_at)
-                 VALUES (?, ?, 'Other', ?, 'Discipline Office', ?, ?, NOW())",
-                [$eventName, $eventDate, $description, $createdBy, $targetUserId]
-            );
-            $count++;
-        }
-    }
-
-    return $count;
-}
-
 function authenticateUser($username, $password) {
     $authentication = authenticateUserWithStatus($username, $password);
     return $authentication['user'];
@@ -834,19 +777,6 @@ function createCase($data) {
     // ✅ Log separately (only once each)
     logCaseHistory($newCaseId, $_SESSION['user_id'] ?? null, 'Created', null, 'Case created');
     auditCreate('cases', $newCaseId, sanitizeAuditData($data));
-
-    if (strcasecmp((string)($data['severity'] ?? ''), 'Major') === 0) {
-        try {
-            createDepartmentHeadCalendarEntryForMajorCase(
-                $newCaseId,
-                $data['student_name'],
-                $data['case_type'],
-                $data['reported_by'] ?? null
-            );
-        } catch (Throwable $e) {
-            error_log("Major case department-head notification failed for {$newCaseId}: " . $e->getMessage());
-        }
-    }
 
     return $newCaseId;
 }
@@ -3284,7 +3214,10 @@ function getCaseResolutionEligibility($caseId) {
                       FROM case_sanctions cs
                       JOIN sanctions s ON cs.sanction_id = s.sanction_id
                       WHERE cs.case_id = ?
-                        AND LOWER(s.sanction_name) LIKE '%corrective%'
+                        AND (
+                            LOWER(s.sanction_name) LIKE '%corrective%'
+                            OR LOWER(s.sanction_name) LIKE '%community service%'
+                        )
                         AND cs.duration_days > 0";
     $correctiveRows = fetchAll($correctiveSql, [$caseId]);
 
@@ -3308,13 +3241,17 @@ function getCaseResolutionEligibility($caseId) {
          FROM case_sanctions cs
          JOIN sanctions s ON cs.sanction_id = s.sanction_id
          WHERE cs.case_id = ?
-           AND LOWER(s.sanction_name) LIKE '%corrective%'
+           AND (
+               LOWER(s.sanction_name) LIKE '%corrective%'
+               OR LOWER(s.sanction_name) LIKE '%community service%'
+           )
            AND cs.duration_days > 0
            AND NOT EXISTS (
                SELECT 1
                FROM community_service_submissions css
                WHERE css.case_id = cs.case_id
                  AND css.case_sanction_id = cs.case_sanction_id
+                 AND css.review_status = 'approved'
             )",
         [$caseId]
     );
@@ -3322,7 +3259,7 @@ function getCaseResolutionEligibility($caseId) {
     if (intval($missingCorrectivePortfolioRow['cnt'] ?? 0) > 0) {
         return [
             'can_resolve' => false,
-            'error' => 'Student has not submitted a completion report'
+            'error' => 'Student does not have an approved completion report'
         ];
     }
 

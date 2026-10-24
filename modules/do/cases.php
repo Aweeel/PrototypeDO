@@ -257,7 +257,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
             return ['ok' => true];
         }
 
-        if (($checkOutTimestamp - $checkInTimestamp) > (8 * 60 * 60)) {
+        $durationSeconds = $checkOutTimestamp - $checkInTimestamp;
+        if ($durationSeconds <= 0) {
+            return ['ok' => false, 'error' => 'Check-out time must be after check-in time'];
+        }
+
+        if ($durationSeconds > (8 * 60 * 60)) {
             return ['ok' => false, 'error' => 'A single check-in day cannot exceed 8 hours'];
         }
 
@@ -1186,7 +1191,7 @@ if ($_POST['action'] === 'getCheckInHistory') {
         $sanctionNameLower = strtolower((string)($sanction['sanction_name'] ?? ''));
         if (strpos($sanctionNameLower, 'corrective') !== false || strpos($sanctionNameLower, 'community service') !== false || strpos($sanctionNameLower, 'suspension from class') !== false) {
             $portfolioSubmissions = fetchAll(
-                "SELECT submission_id, original_file_name, file_size_bytes, file_path, remarks, review_status, review_notes, reviewed_by, reviewed_at, created_at, is_seen_by_do
+                "SELECT submission_id, case_sanction_id, original_file_name, file_size_bytes, file_path, remarks, review_status, review_notes, reviewed_by, reviewed_at, created_at, is_seen_by_do
                  FROM community_service_submissions
                  WHERE case_id = ? AND case_sanction_id = ?
                  ORDER BY created_at DESC, submission_id DESC",
@@ -1300,8 +1305,8 @@ if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
              reviewed_by = ?,
              reviewed_at = NOW(),
              is_seen_by_do = 1
-         WHERE submission_id = ?",
-        [$decision, $reviewNotes !== '' ? $reviewNotes : null, $_SESSION['user_id'] ?? null, $submissionId]
+         WHERE submission_id = ? AND case_id = ?",
+        [$decision, $reviewNotes !== '' ? $reviewNotes : null, $_SESSION['user_id'] ?? null, $submissionId, $caseId]
     );
 
     $studentSubmission = fetchOne(

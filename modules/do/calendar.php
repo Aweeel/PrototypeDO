@@ -9,6 +9,27 @@ $isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher')
     && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
 $currentUserId = $_SESSION['user_id'] ?? null;
 
+function validateCalendarDateTimeRange(string $eventDate, ?string $eventTime, ?string $eventEndTime): ?string
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $eventDate);
+    $dateErrors = DateTimeImmutable::getLastErrors();
+    if (!$date || ($dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0)) || $date->format('Y-m-d') !== $eventDate) {
+        return 'Please provide a valid event date.';
+    }
+
+    if ($eventTime !== null && !preg_match('/^\d{2}:\d{2}(?::\d{2})?$/', $eventTime)) {
+        return 'Please provide a valid start time.';
+    }
+    if ($eventEndTime !== null && !preg_match('/^\d{2}:\d{2}(?::\d{2})?$/', $eventEndTime)) {
+        return 'Please provide a valid end time.';
+    }
+    if ($eventTime !== null && $eventEndTime !== null && $eventEndTime <= $eventTime) {
+        return 'End time must be after start time.';
+    }
+
+    return null;
+}
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -202,6 +223,11 @@ if ($_POST['action'] === 'getEvents') {
                 echo json_encode(['success' => false, 'error' => 'Missing required fields']);
                 exit;
             }
+            $dateTimeError = validateCalendarDateTimeRange($eventDate, $eventTime, $eventEndTime);
+            if ($dateTimeError !== null) {
+                echo json_encode(['success' => false, 'error' => $dateTimeError]);
+                exit;
+            }
 
             if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
                 $caseId = trim((string)($matches[1] ?? ''));
@@ -330,6 +356,11 @@ if ($_POST['action'] === 'getEvents') {
             }
             if ($eventEndTime !== null && preg_match('/^\d{2}:\d{2}$/', $eventEndTime)) {
                 $eventEndTime .= ':00';
+            }
+            $dateTimeError = validateCalendarDateTimeRange($eventDate, $eventTime, $eventEndTime);
+            if ($dateTimeError !== null) {
+                echo json_encode(['success' => false, 'error' => $dateTimeError]);
+                exit;
             }
             
                 $sql = "UPDATE calendar_events 

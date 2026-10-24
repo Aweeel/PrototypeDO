@@ -890,11 +890,35 @@ async function submitRejectCommunityServiceReview(submissionId, caseId) {
     return;
   }
 
+  const confirmed = typeof window.showConfirmDialog === 'function'
+    ? await window.showConfirmDialog({
+        message: 'Reject this community service portfolio submission?',
+        confirmText: 'Reject',
+        cancelText: 'Cancel',
+        confirmClass: 'bg-rose-600 hover:bg-rose-700'
+      })
+    : window.confirm('Reject this community service portfolio submission?');
+  if (!confirmed) {
+    return;
+  }
+
   closeRejectCommunityServiceModal();
   await reviewCommunityServiceSubmission(submissionId, caseId, 'rejected', notes);
 }
 
 async function approveCommunityServiceSubmission(submissionId, caseId, reviewNotes = '') {
+  const confirmed = typeof window.showConfirmDialog === 'function'
+    ? await window.showConfirmDialog({
+        message: 'Approve this community service portfolio submission?',
+        confirmText: 'Approve',
+        cancelText: 'Cancel',
+        confirmClass: 'bg-emerald-600 hover:bg-emerald-700'
+      })
+    : window.confirm('Approve this community service portfolio submission?');
+  if (!confirmed) {
+    return;
+  }
+
   await reviewCommunityServiceSubmission(submissionId, caseId, 'approved', reviewNotes);
 }
 
@@ -926,7 +950,11 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
     });
     const result = await response.json();
     if (!result.success) {
-      console.error('Portfolio review failed:', result.error || 'Unknown error');
+      const errorMessage = result.error || 'Unknown error';
+      console.error('Portfolio review failed:', errorMessage);
+      if (typeof showNotification === 'function') {
+        showNotification(errorMessage, 'error');
+      }
       return;
     }
 
@@ -943,6 +971,9 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
     }
   } catch (error) {
     console.error('Failed to review portfolio submission:', error);
+    if (typeof showNotification === 'function') {
+      showNotification('Unable to update the portfolio review. Please try again.', 'error');
+    }
   }
 }
 
@@ -1464,6 +1495,7 @@ function renderCheckInModal(modal, caseId, caseData, activeSanction, totalDays, 
   
   modal.setAttribute('data-checkin-modal', 'true');
   modal.setAttribute('data-case-id', caseId);
+  modal.setAttribute('data-case-sanction-id', activeSanction.case_sanction_id || '');
   modal.setAttribute('data-sanction-type', sanctionType);
   modal.setAttribute('data-portfolio-submissions', encodeURIComponent(JSON.stringify(portfolioSubmissions)));
   updateCaseCheckInAlert(caseId, newPortfolioSubmissionCount > 0, sanctionType);
@@ -1643,6 +1675,10 @@ async function saveBothTimesModal(modal, caseId, dayNumber, caseSanctionId) {
     const [checkInHours, checkInMinutes] = checkInValue.split(':').map(Number);
     const [checkOutHours, checkOutMinutes] = checkOutValue.split(':').map(Number);
     const durationMinutes = ((checkOutHours * 60) + checkOutMinutes) - ((checkInHours * 60) + checkInMinutes);
+    if (durationMinutes <= 0) {
+      showNotification('Check-out time must be after check-in time', 'error');
+      return;
+    }
     if (durationMinutes > 8 * 60) {
       showNotification('A single check-in day cannot exceed 8 hours', 'error');
       return;
