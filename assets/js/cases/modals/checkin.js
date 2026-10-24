@@ -969,10 +969,9 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
 
     openCommunityServiceSubmissionsModal(caseId, activeSanctionId || null, refreshedSubmissions);
 
-    if (typeof showNotification === 'function') {
-      // FIX: Pass 'rejected' explicitly when decision is rejected, or fall back to result.status / 'success'
-      const notificationType = decision === 'rejected' ? 'rejected' : (result.status || 'success');
-      showNotification(result.message || 'Portfolio review updated.', notificationType);
+if (typeof showNotification === 'function') {
+      // Keeps the backend result.message ("Portfolio rejected successfully") while triggering a 'success' status
+      showNotification(result.message || (decision === 'rejected' ? 'Portfolio rejected successfully' : 'Portfolio approved successfully'), 'success');
     }
   } catch (error) {
     console.error('Failed to review portfolio submission:', error);
