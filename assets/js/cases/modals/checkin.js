@@ -838,6 +838,7 @@ async function fetchPortfolioSubmissionList(caseId, caseSanctionId) {
     return [];
   }
 }
+// ====== REJECT PORTFOLIO MODAL & SUBMISSION HANDLERS ======
 
 function openRejectCommunityServiceModal(submissionId, caseId) {
   document.querySelectorAll('[data-portfolio-reject-modal="true"]').forEach((el) => el.remove());
@@ -856,7 +857,7 @@ function openRejectCommunityServiceModal(submissionId, caseId) {
           </svg>
         </button>
       </div>
-    
+      
       <label for="rejectCommunityServiceNote" class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Rejection reason</label>
       <textarea id="rejectCommunityServiceNote" rows="4" required class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Enter why the portfolio was rejected..."></textarea>
       <p id="rejectCommunityServiceError" class="mt-2 hidden text-xs text-red-600 dark:text-red-400">A rejection note is required before the submission can be rejected.</p>
@@ -930,6 +931,8 @@ async function rejectCommunityServiceSubmission(submissionId, caseId, reviewNote
   openRejectCommunityServiceModal(submissionId, caseId);
 }
 
+// ====== FIXED REVIEW SUBMISSION FUNCTION ======
+
 async function reviewCommunityServiceSubmission(submissionId, caseId, decision, reviewNotes = '') {
   if (!submissionId || !caseId) {
     return;
@@ -967,7 +970,9 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
     openCommunityServiceSubmissionsModal(caseId, activeSanctionId || null, refreshedSubmissions);
 
     if (typeof showNotification === 'function') {
-      showNotification(result.message || 'Portfolio review updated.', result.status === 'approved' ? 'success' : 'warning');
+      // FIX: Pass 'rejected' explicitly when decision is rejected, or fall back to result.status / 'success'
+      const notificationType = decision === 'rejected' ? 'rejected' : (result.status || 'success');
+      showNotification(result.message || 'Portfolio review updated.', notificationType);
     }
   } catch (error) {
     console.error('Failed to review portfolio submission:', error);
@@ -976,7 +981,6 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
     }
   }
 }
-
 function sanitizeCaseSanctionId(value) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
