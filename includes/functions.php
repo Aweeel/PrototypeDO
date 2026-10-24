@@ -2972,7 +2972,7 @@ function notifyDOOnCommunityServicePortfolioSubmission($caseId, $studentName, $o
         $message = "{$studentName} submitted a completion report ({$originalFileName}) for {$sanctionLabel} in Case {$caseId}.";
         $count = 0;
 
-        $relatedId = 'community_service_submission:' . $sanctionType . ':' . $caseId;
+        $relatedId = $caseId;
 
         foreach ($doUsers as $doUser) {
             createNotification($doUser['user_id'], $title, $message, 'community_service_submission', $relatedId);
