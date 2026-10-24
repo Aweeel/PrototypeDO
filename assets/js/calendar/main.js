@@ -595,6 +595,13 @@ function openAddEventModal(preselectedDate = null) {
         formData.append('location', document.getElementById('eventLocation').value);
         formData.append('description', document.getElementById('eventDescription').value);
 
+        const startTime = document.getElementById('eventTime').value;
+        const endTime = document.getElementById('eventEndTime').value;
+        if (startTime && endTime && endTime <= startTime) {
+            showToast('End time must be after start time', 'error');
+            return;
+        }
+
         try {
             const response = await fetch(window.location.href, {
                 method: 'POST',
@@ -907,6 +914,13 @@ function editEvent(event) {
         formData.append('category', document.getElementById('editEventCategory').value);
         formData.append('location', document.getElementById('editEventLocation').value);
         formData.append('description', document.getElementById('editEventDescription').value);
+
+        const startTime = document.getElementById('editEventTime').value;
+        const endTime = document.getElementById('editEventEndTime').value;
+        if (startTime && endTime && endTime <= startTime) {
+            showToast('End time must be after start time', 'error');
+            return;
+        }
 
         try {
             const response = await fetch(window.location.href, {

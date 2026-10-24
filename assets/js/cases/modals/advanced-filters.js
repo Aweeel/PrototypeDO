@@ -128,8 +128,14 @@ async function openAdvancedFilters() {
         activeFilters.caseType = document.getElementById('filterCaseType').value;
         activeFilters.status = document.getElementById('filterStatus').value;
         activeFilters.semester = document.getElementById('filterSemester').value;
-        activeFilters.dateFrom = document.getElementById('filterDateFrom').value;
-        activeFilters.dateTo = document.getElementById('filterDateTo').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            showNotification('Date to must be on or after date from', 'error');
+            return;
+        }
+        activeFilters.dateFrom = dateFrom;
+        activeFilters.dateTo = dateTo;
 
         closeModal(e.target);
         applyClientSideFilters();

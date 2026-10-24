@@ -27,7 +27,7 @@
 
             const modal = document.createElement('div');
             modal.id = 'globalConfirmDialog';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[1200] flex items-center justify-center p-4';
             modal.innerHTML = `
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
                     <div class="p-6">
