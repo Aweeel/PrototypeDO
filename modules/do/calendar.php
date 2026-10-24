@@ -398,8 +398,28 @@ if ($_POST['action'] === 'getEvents') {
                     ]
                 );
             }
+
+            if ($category === 'Hearing' && in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office', 'super_admin'], true)) {
+                try {
+                    notifyDepartmentHeadTeachersOfHearing(
+                        (int)$eventId,
+                        $eventName,
+                        $eventDate,
+                        $eventTime,
+                        $eventEndTime,
+                        $description,
+                        $location
+                    );
+                } catch (Throwable $e) {
+                    error_log("Hearing notification failed for updated event {$eventId}: " . $e->getMessage());
+                }
+            }
             
-            echo json_encode(['success' => true, 'message' => 'Event updated successfully']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Event updated successfully',
+                'event_id' => (int)$eventId
+            ]);
             exit;
         }
 

@@ -1337,7 +1337,7 @@ if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
                 $notificationTitle,
                 $notificationMessage,
                 'community_service_portfolio_status',
-                'community_service_submission:corrective:' . $caseId
+                $caseId
             );
         }
     }
