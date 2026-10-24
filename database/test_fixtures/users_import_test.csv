@@ -1,6 +1,6 @@
 role_id,email,teacher_subrole,program,first_name,last_name,middle_name,contact_number,role,grade_year,track_course,section,student_type,guardian_name,guardian_contact
 02000990001,navarro.990001@sti.edu,,,Marisol,Navarro,Garcia,09170000001,student,11,STEM,A,SHS,Maria Navarro,09171111111
-01000990002,reyes.teacher@sti.edu,,,Daniel,Reyes,Manalo,09170000002,teacher,,,,,,
+01000990002,reyes.teacher@sti.edu,department_head,BSCS,Daniel,Reyes,Manalo,09170000002,teacher,,,,,,
 02000990003,mendoza.990003@sti.edu,,,Beatriz,Mendoza,Ramos,09170000003,student,1st Year,BSIT,1A,College,Jose Mendoza,09172222222
 02000990004,bautista.990004@sti.edu,,,Angelo,Bautista,Valdez,09170000004,student,12,ABM,B,SHS,,
 ,ortega.security1@sti.edu,,,Lorena,Ortega,Castillo,09170000005,security,,,,,,
