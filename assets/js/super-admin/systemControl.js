@@ -5,6 +5,10 @@ document.querySelectorAll('.admin-input').forEach((input) => {
 const bannerButton = document.getElementById('bannerStatusButton');
 const bannerText = document.getElementById('globalBannerText');
 document.getElementById('updateBannerButton')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const button = event.currentTarget;
     const confirmed = await window.showConfirmDialog({
         message: 'Update the global announcement?',
         confirmText: 'Update',
@@ -12,7 +16,6 @@ document.getElementById('updateBannerButton')?.addEventListener('click', async (
     });
     if (!confirmed) return;
 
-    const button = event.currentTarget;
     button.disabled = true;
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -27,7 +30,10 @@ document.getElementById('updateBannerButton')?.addEventListener('click', async (
         showNotification(error instanceof Error ? error.message : 'Unable to update the global announcement.', 'error');
     }
 });
-bannerButton?.addEventListener('click', async () => {
+bannerButton?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     const enabled = bannerButton.dataset.enabled === '1' ? '0' : '1';
     const confirmed = await window.showConfirmDialog({
         message: enabled === '1' ? 'Enable the global announcement?' : 'Disable the global announcement?',

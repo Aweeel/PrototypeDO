@@ -73,10 +73,10 @@ function renderStudents() {
     }
 
     grid.innerHTML = pageStudents.map(student => `
-        <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-200 min-h-[100px]">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0 bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-200 min-h-[100px]">
+            <div class="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <!-- Student Info -->
-                <div class="flex items-center gap-4 flex-1">
+                <div class="flex min-w-0 items-center gap-4 xl:flex-1">
                     <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
                         <span class="text-lg font-semibold text-white">
                             ${student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
@@ -89,7 +89,7 @@ function renderStudents() {
                 </div>
 
                 <!-- Grade & Strand -->
-                <div class="grid grid-cols-2 gap-4 sm:flex sm:items-start sm:gap-8 sm:px-4">
+                <div class="grid grid-cols-2 gap-4 xl:flex xl:items-start xl:gap-8 xl:px-4">
                     <div class="min-w-[80px]">
                         <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Grade</p>
                         <p class="font-semibold text-gray-900 dark:text-gray-100">${student.grade}</p>
@@ -101,14 +101,14 @@ function renderStudents() {
                 </div>
 
                 <!-- Incidents -->
-                <div class="min-w-0 sm:min-w-[90px] sm:px-4">
+                <div class="min-w-0 xl:min-w-[90px] xl:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Incidents</p>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">${student.incidents}</p>
                     ${student.archivedCases > 0 ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${student.archivedCases} archived</p>` : ''}
                 </div>
 
                 <!-- Last Incident -->
-                <div class="min-w-0 sm:min-w-[120px] sm:px-4">
+                <div class="min-w-0 xl:min-w-[120px] xl:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Last Incident</p>
                     <p class="font-semibold text-gray-900 dark:text-gray-100">
                         ${student.lastIncident ? formatDate(student.lastIncident) : '-'}
@@ -116,15 +116,15 @@ function renderStudents() {
                 </div>
 
                 <!-- Status -->
-                <div class="min-w-0 sm:min-w-[140px] sm:px-4">
+                <div class="min-w-0 xl:min-w-[140px] xl:px-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-0.5">Status</p>
                     ${getStatusBadge(student.status)}
                 </div>
 
                 <!-- Actions -->
-                <div class="flex w-full gap-2 sm:w-auto">
+                <div class="flex w-full gap-2 xl:w-auto">
                     <button onclick="viewHistory('${student.id}')" 
-                        class="w-full px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors sm:w-auto">
+                        class="w-full px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors xl:w-auto">
                         View Full History
                     </button>
                 </div>

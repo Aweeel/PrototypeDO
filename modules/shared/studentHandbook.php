@@ -324,18 +324,6 @@ function getHandbookSection($sectionId, $defaultContent) {
             });
           });
 
-          function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-                if (overlay) {
-                    overlay.classList.toggle('hidden');
-                }
-            }
-          }
-
     </script>
 
 <style>
@@ -471,10 +459,6 @@ function getHandbookSection($sectionId, $defaultContent) {
   <div id="sidebarWrapper">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
   </div>
-
-  <div id="sidebarOverlay"
-       onclick="toggleSidebar()"
-       class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
 
       <header class="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-[#1E293B] border-b border-gray-200 dark:border-slate-700 shadow-sm md:left-64">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
