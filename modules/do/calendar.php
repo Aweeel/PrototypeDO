@@ -296,6 +296,7 @@ if ($_POST['action'] === 'getEvents') {
 
             if ($category === 'Hearing' && in_array($_SESSION['user_role'] ?? '', ['do', 'discipline_office', 'super_admin'], true)) {
                 try {
+                    shareHearingEventWithDepartmentHeads($eventId, $eventName, $eventDate);
                     notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime, $eventEndTime, $description, $location);
                 } catch (Throwable $e) {
                     error_log("Hearing notification failed for {$eventId}: " . $e->getMessage());

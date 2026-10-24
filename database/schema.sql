@@ -274,7 +274,7 @@ CREATE TABLE notifications (
     title VARCHAR(200) NOT NULL,
     message LONGTEXT NOT NULL,
     type VARCHAR(50) NOT NULL,
-    related_id VARCHAR(50),
+    related_id VARCHAR(255),
     is_read TINYINT(1) DEFAULT 0,
     read_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
