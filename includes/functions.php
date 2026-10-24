@@ -130,6 +130,32 @@ function ensureCalendarTargetUserColumn() {
     $initialized = true;
 }
 
+function ensureNotificationRelatedIdColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'notifications'
+           AND COLUMN_NAME = 'related_id'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE notifications ADD COLUMN related_id VARCHAR(255) NULL");
+    } elseif (
+        strtolower((string)($columnInfo['DATA_TYPE'] ?? '')) !== 'varchar'
+        || (int)($columnInfo['CHARACTER_MAXIMUM_LENGTH'] ?? 0) < 255
+    ) {
+        executeQuery("ALTER TABLE notifications MODIFY COLUMN related_id VARCHAR(255) NULL");
+    }
+
+    $initialized = true;
+}
+
 function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
     $normalized = strtolower(trim((string)$trackCourse));
 
@@ -187,10 +213,59 @@ function getDepartmentHeadTeacherForProgram($program) {
     return !empty($teachers) ? $teachers[0] : null;
 }
 
+function shareHearingEventWithDepartmentHeads($eventId, $eventName, $eventDate) {
+    if (!$eventId || empty($eventName) || empty($eventDate)) {
+        return;
+    }
+
+    ensureCalendarTargetUserColumn();
+
+    if (!preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+        return;
+    }
+
+    $case = getCaseById(trim((string)($matches[1] ?? '')));
+    if (!$case) {
+        return;
+    }
+
+    $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
+    $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+    if (!$program) {
+        return;
+    }
+
+    foreach (getDepartmentHeadTeachers($program) as $teacher) {
+        $existingTargetedEvent = fetchOne(
+            "SELECT event_id
+             FROM calendar_events
+             WHERE event_name = ?
+               AND event_date = ?
+               AND target_user_id = ?
+             LIMIT 1",
+            [$eventName, $eventDate, $teacher['user_id']]
+        );
+
+        if (!$existingTargetedEvent) {
+            insertAndGetId(
+                "INSERT INTO calendar_events
+                    (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
+                 SELECT event_name, event_date, event_time, event_end_time, category, description, location, created_by, ?, NOW()
+                 FROM calendar_events
+                 WHERE event_id = ?",
+                [$teacher['user_id'], $eventId]
+            );
+        }
+    }
+}
+
 function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime = null, $eventEndTime = null, $description = null, $location = null) {
     if (empty($eventName)) {
         return 0;
     }
+
+    ensureNotificationRelatedIdColumn();
+    shareHearingEventWithDepartmentHeads($eventId, $eventName, $eventDate);
 
     if (!preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
         return 0;
@@ -2822,6 +2897,7 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
                     ]);
                 }
 
+                shareHearingEventWithDepartmentHeads($eventId !== '' ? (int)$eventId : null, $eventName, $scheduleDate);
                 if (strcasecmp((string)($case['severity'] ?? ''), 'Major') === 0) {
                     notifyDepartmentHeadTeachersOfHearing(
                         $eventId !== '' ? (int)$eventId : null,
