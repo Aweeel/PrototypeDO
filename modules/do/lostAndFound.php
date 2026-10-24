@@ -495,7 +495,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                             </div>
                         </div>
                         <!-- Hidden select for form submission -->
-                        <select name="category" id="categorySelect" required class="hidden">
+                        <select name="category" id="categorySelect" required class="absolute h-px w-px opacity-0">
                             <option value="">Select Category</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>

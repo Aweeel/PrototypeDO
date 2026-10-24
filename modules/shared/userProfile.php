@@ -44,11 +44,11 @@ $passwordMessageType = '';
 
 // Handle password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
-    $currentPassword = $_POST['current_password'] ?? '';
-    $newPassword = $_POST['new_password'] ?? '';
-    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $currentPassword = (string)($_POST['current_password'] ?? '');
+    $newPassword = (string)($_POST['new_password'] ?? '');
+    $confirmPassword = (string)($_POST['confirm_password'] ?? '');
     
-    if (!$currentPassword || !$newPassword || !$confirmPassword) {
+    if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '' || trim($newPassword) === '') {
         $passwordMessage = "Please fill in all password fields.";
         $passwordMessageType = "error";
     } elseif ($newPassword !== $confirmPassword) {
@@ -527,6 +527,11 @@ if ($user) {
                 if (this.value.length === 0) {
                     this.style.borderColor = '';
                     document.getElementById('newPasswordMsg').textContent = '';
+                    newPasswordValid = false;
+                } else if (this.value.trim().length === 0) {
+                    this.style.borderColor = '#ef4444';
+                    document.getElementById('newPasswordMsg').textContent = 'Password cannot contain only spaces';
+                    document.getElementById('newPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
                     newPasswordValid = false;
                 } else if (this.value.length < 8) {
                     this.style.borderColor = '#ef4444';

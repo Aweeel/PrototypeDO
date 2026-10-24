@@ -624,6 +624,10 @@ function markClaimed(itemId) {
     // Add event listener to student ID input for auto-lookup
     const claimerIdInput = document.getElementById('claimerIdInput');
     const claimerNameInput = document.getElementById('claimerNameInput');
+
+    claimerIdInput.addEventListener('input', function() {
+        claimerNameInput.readOnly = this.value.trim() !== '';
+    });
     
     claimerIdInput.addEventListener('blur', async function() {
         const claimerId = this.value.trim();

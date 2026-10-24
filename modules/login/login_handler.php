@@ -5,9 +5,9 @@ require_once __DIR__ . '/../../includes/logger.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? $_POST['email'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $password = (string)($_POST['password'] ?? '');
 
-    if (!empty($username) && !empty($password)) {
+    if ($username !== '' && $password !== '' && trim($password) !== '') {
         
         // Authenticate user against database
         $authentication = authenticateUserWithStatus($username, $password);
