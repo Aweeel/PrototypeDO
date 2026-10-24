@@ -599,8 +599,8 @@ VALUES
 ('test3T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3T@sti.edu', 'Alpha Test Teacher 3', '01000000015', NULL, NULL, NULL, 'teacher', '09990000009', 1),
 -- Teacher (Department Head) (3)
 ('test1TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1TDH@sti.edu', 'Alpha Test Teacher Department Head 1', '01000000016', NULL, 'department_head', 'Information Technology', 'teacher', '09990000010', 1),
-('test2TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2TDH@sti.edu', 'Alpha Test Teacher Department Head 2', '01000000017', NULL, 'department_head', 'Business & Management', 'teacher', '09990000011', 1),
-('test3TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3TDH@sti.edu', 'Alpha Test Teacher Department Head 3', '01000000018', NULL, 'department_head', 'Hospitality Management', 'teacher', '09990000012', 1),
+('test2TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2TDH@sti.edu', 'Alpha Test Teacher Department Head 2', '01000000017', NULL, 'department_head', 'Information Technology', 'teacher', '09990000011', 1),
+('test3TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3TDH@sti.edu', 'Alpha Test Teacher Department Head 3', '01000000018', NULL, 'department_head', 'Information Technology', 'teacher', '09990000012', 1),
 -- Security (3)
 ('test1Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1Sec@sti.edu', 'Alpha Test Security 1', NULL, NULL, NULL, NULL, 'security', '09990000013', 1),
 ('test2Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2Sec@sti.edu', 'Alpha Test Security 2', NULL, NULL, NULL, NULL, 'security', '09990000014', 1),
@@ -639,15 +639,14 @@ full_name = CASE username
     WHEN 'test1TDH' THEN 'Bianca Dela Cruz' WHEN 'test2TDH' THEN 'Ethan Villanueva' WHEN 'test3TDH' THEN 'Sofia Castillo'
     WHEN 'test1Sec' THEN 'Marco Bautista' WHEN 'test2Sec' THEN 'Rafael Flores' WHEN 'test3Sec' THEN 'Diego Diaz'
     WHEN 'test1Stu' THEN 'Liam Lim' WHEN 'test2Stu' THEN 'Mia Torres' WHEN 'test3Stu' THEN 'Chloe Ramos'
-END,
-program = CASE WHEN username IN ('test1TDH', 'test2TDH', 'test3TDH') THEN 'Information Technology' ELSE program END
+END
 WHERE username IN ('test1SA', 'test2SA', 'test3SA', 'test1DO', 'test2DO', 'test3DO', 'test1T', 'test2T', 'test3T', 'test1TDH', 'test2TDH', 'test3TDH', 'test1Sec', 'test2Sec', 'test3Sec', 'test1Stu', 'test2Stu', 'test3Stu');
 
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status)
 VALUES
-('02000000040', (SELECT user_id FROM users WHERE username = 'test1Stu'), 'Liam', 'Lim', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing'),
-('02000000041', (SELECT user_id FROM users WHERE username = 'test2Stu'), 'Mia', 'Torres', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing'),
-('02000000042', (SELECT user_id FROM users WHERE username = 'test3Stu'), 'Chloe', 'Ramos', NULL, '1st Year', 'Information Technology', 'ALPHA-1', 'College', 'Good Standing');
+('02000000040', (SELECT user_id FROM users WHERE username = 'test1Stu'), 'Liam', 'Lim', NULL, '1st Year', 'BSIT', 'ALPHA-1', 'College', 'Good Standing'),
+('02000000041', (SELECT user_id FROM users WHERE username = 'test2Stu'), 'Mia', 'Torres', NULL, '1st Year', 'BSIT', 'ALPHA-1', 'College', 'Good Standing'),
+('02000000042', (SELECT user_id FROM users WHERE username = 'test3Stu'), 'Chloe', 'Ramos', NULL, '1st Year', 'BSIT', 'ALPHA-1', 'College', 'Good Standing');
 
 -- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)

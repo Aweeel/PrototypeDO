@@ -258,11 +258,94 @@ function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate,
         $message .= ' Notes: ' . $description;
     }
 
-    $relatedId = 'hearing:' . $caseId . ':' . ($eventId ?: 'new') . ':' . $eventDate . ':' . ($eventTime ?: 'all-day') . ':' . ($eventEndTime ?: 'none');
     $count = 0;
 
     foreach ($teachers as $teacher) {
+        $teacherEventId = $eventId;
+        if ($eventId) {
+            $existingTargetedEvent = fetchOne(
+                "SELECT event_id
+                 FROM calendar_events
+                 WHERE event_name = ?
+                   AND event_date = ?
+                   AND target_user_id = ?
+                 LIMIT 1",
+                [$eventName, $eventDate, $teacher['user_id']]
+            );
+
+            if ($existingTargetedEvent) {
+                $teacherEventId = (int)$existingTargetedEvent['event_id'];
+            } elseif ($teacher['user_id'] !== ($teachers[0]['user_id'] ?? null)) {
+                $teacherEventId = insertAndGetId(
+                    "INSERT INTO calendar_events
+                        (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
+                     SELECT event_name, event_date, event_time, event_end_time, category, description, location, created_by, ?, NOW()
+                     FROM calendar_events
+                     WHERE event_id = ?",
+                    [$teacher['user_id'], $eventId]
+                );
+            }
+        }
+
+        $relatedId = 'hearing:' . $caseId . ':' . ($teacherEventId ?: 'new') . ':' . $eventDate . ':' . ($eventTime ?: 'all-day') . ':' . ($eventEndTime ?: 'none');
         if (createUniqueNotification($teacher['user_id'], $title, $message, 'hearing_invitation', $relatedId)) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function createDepartmentHeadCalendarEntryForMajorCase($caseId, $studentName, $caseType, $reportedBy = null) {
+    $case = getCaseById($caseId);
+    if (!$case || strcasecmp((string)($case['severity'] ?? ''), 'Major') !== 0) {
+        return 0;
+    }
+
+    $student = fetchOne(
+        "SELECT track_course
+         FROM students
+         WHERE student_id = ?",
+        [$case['student_id']]
+    );
+    $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+    if (empty($program)) {
+        error_log("Major case {$caseId} has no department-head program mapping");
+        return 0;
+    }
+
+    $teachers = getDepartmentHeadTeachers($program);
+    if (empty($teachers)) {
+        error_log("No active department head found for {$program} on major case {$caseId}");
+        return 0;
+    }
+
+    ensureCalendarTargetUserColumn();
+    $eventName = "Major Case Reported - {$studentName} (Case {$caseId})";
+    $description = "Major {$caseType} case reported for {$studentName}. Case ID: {$caseId}.";
+    $eventDate = $case['date_reported'] ?? date('Y-m-d');
+    $createdBy = $reportedBy ?: ($_SESSION['user_id'] ?? null);
+    $count = 0;
+
+    foreach ($teachers as $teacher) {
+        $targetUserId = $teacher['user_id'];
+        $existingEvent = fetchOne(
+            "SELECT event_id
+             FROM calendar_events
+             WHERE event_name = ?
+               AND event_date = ?
+               AND target_user_id = ?
+             LIMIT 1",
+            [$eventName, $eventDate, $targetUserId]
+        );
+
+        if (!$existingEvent) {
+            executeQuery(
+                "INSERT INTO calendar_events
+                    (event_name, event_date, category, description, location, created_by, target_user_id, created_at)
+                 VALUES (?, ?, 'Other', ?, 'Discipline Office', ?, ?, NOW())",
+                [$eventName, $eventDate, $description, $createdBy, $targetUserId]
+            );
             $count++;
         }
     }
@@ -751,6 +834,19 @@ function createCase($data) {
     // ✅ Log separately (only once each)
     logCaseHistory($newCaseId, $_SESSION['user_id'] ?? null, 'Created', null, 'Case created');
     auditCreate('cases', $newCaseId, sanitizeAuditData($data));
+
+    if (strcasecmp((string)($data['severity'] ?? ''), 'Major') === 0) {
+        try {
+            createDepartmentHeadCalendarEntryForMajorCase(
+                $newCaseId,
+                $data['student_name'],
+                $data['case_type'],
+                $data['reported_by'] ?? null
+            );
+        } catch (Throwable $e) {
+            error_log("Major case department-head notification failed for {$newCaseId}: " . $e->getMessage());
+        }
+    }
 
     return $newCaseId;
 }
@@ -2763,30 +2859,49 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
                 
                 $eventName = "Sanction: {$sanctionName} - {$studentName} (Case {$caseId})";
                 $description = $scheduleNotes ?: "Scheduled sanction event for Case {$caseId}";
+                $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
+                $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
+                $departmentHead = $program ? getDepartmentHeadTeacherForProgram($program) : null;
+                $targetUserId = $departmentHead['user_id'] ?? null;
+                $eventId = null;
                 
                 // Create calendar event
                 if ($scheduleTime) {
-                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, created_at)
-                                VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, NOW())";
-                    executeQuery($eventSql, [
+                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
+                                VALUES (?, ?, ?, ?, 'Hearing', ?, ?, ?, ?, NOW())";
+                    $eventId = insertAndGetId($eventSql, [
                         $eventName,
                         $scheduleDate,
                         $scheduleTime,
                         $scheduleEndTime,
                         $description,
                         'Discipline Office',
-                        $_SESSION['user_id'] ?? null
+                        $_SESSION['user_id'] ?? null,
+                        $targetUserId
                     ]);
                 } else {
-                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, created_at)
-                                VALUES (?, ?, 'Hearing', ?, ?, ?, NOW())";
-                    executeQuery($eventSql, [
+                    $eventSql = "INSERT INTO calendar_events (event_name, event_date, category, description, location, created_by, target_user_id, created_at)
+                                VALUES (?, ?, 'Hearing', ?, ?, ?, ?, NOW())";
+                    $eventId = insertAndGetId($eventSql, [
                         $eventName,
                         $scheduleDate,
                         $description,
                         'Discipline Office',
-                        $_SESSION['user_id'] ?? null
+                        $_SESSION['user_id'] ?? null,
+                        $targetUserId
                     ]);
+                }
+
+                if (strcasecmp((string)($case['severity'] ?? ''), 'Major') === 0) {
+                    notifyDepartmentHeadTeachersOfHearing(
+                        $eventId !== '' ? (int)$eventId : null,
+                        $eventName,
+                        $scheduleDate,
+                        $scheduleTime,
+                        $scheduleEndTime,
+                        $description,
+                        'Discipline Office'
+                    );
                 }
             }
             
