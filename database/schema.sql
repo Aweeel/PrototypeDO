@@ -649,6 +649,82 @@ VALUES
 ('02000000042', (SELECT user_id FROM users WHERE username = 'test3Stu'), 'Chloe', 'Ramos', NULL, '1st Year', 'BSIT', 'ALPHA-1', 'College', 'Good Standing');
 
 -- ============================================
+-- INSERT BETA STUDENT ACCOUNTS AND PROFILES
+-- Login email and username: student1@sti.edu through student50@sti.edu
+-- Default password for beta accounts: password
+-- ============================================
+UPDATE users
+SET username = 'student1@sti.edu',
+    full_name = 'Ariana Dela Cruz',
+    contact_number = '09192345001'
+WHERE email = 'student1@sti.edu';
+
+INSERT INTO users (username, password_hash, email, full_name, role, contact_number, is_active)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 2 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+)
+SELECT
+    CONCAT('student', n, '@sti.edu'),
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    CONCAT('student', n, '@sti.edu'),
+    CONCAT(
+        ELT(n, 'Ariana', 'Beatriz', 'Caleb', 'Diana', 'Ethan', 'Faith', 'Gavin', 'Hannah', 'Ivan', 'Jasmine',
+            'Kyle', 'Leah', 'Mason', 'Nadia', 'Owen', 'Priya', 'Quinn', 'Rafael', 'Samantha', 'Tristan',
+            'Uma', 'Victor', 'Wendy', 'Xavier', 'Yasmin', 'Zachary', 'Amara', 'Brandon', 'Clarissa', 'Derek',
+            'Elise', 'Felix', 'Grace', 'Harvey', 'Iris', 'Jonah', 'Kiara', 'Lucas', 'Maya', 'Nathan',
+            'Olivia', 'Paolo', 'Regina', 'Samuel', 'Talia', 'Uriel', 'Vanessa', 'William', 'Zoe', 'Andre'),
+        ' ',
+        ELT(n, 'Dela Cruz', 'Santos', 'Reyes', 'Garcia', 'Mendoza', 'Navarro', 'Torres', 'Ramos', 'Castillo', 'Bautista',
+            'Flores', 'Morales', 'Cruz', 'Villanueva', 'Gonzales', 'Aquino', 'Fernandez', 'Rivera', 'Domingo', 'Salazar',
+            'Mercado', 'Pascual', 'Manalo', 'Lim', 'Tan', 'Chua', 'David', 'Hernandez', 'Lopez', 'Delos Santos',
+            'Aguilar', 'Bernardo', 'Cabrera', 'Diaz', 'Espinoza', 'Fuentes', 'Gutierrez', 'Herrera', 'Ilagan', 'Jimenez',
+            'King', 'Lazaro', 'Marquez', 'Natividad', 'Ocampo', 'Padilla', 'Quintana', 'Robles', 'Soriano', 'Valdez')
+    ),
+    'student',
+    CONCAT('09192345', LPAD(n, 3, '0')),
+    1
+FROM beta_numbers;
+
+INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status, guardian_name, guardian_contact)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+)
+SELECT
+    CONCAT('02000000', LPAD(n + 100, 3, '0')),
+    u.user_id,
+    ELT(n, 'Ariana', 'Beatriz', 'Caleb', 'Diana', 'Ethan', 'Faith', 'Gavin', 'Hannah', 'Ivan', 'Jasmine',
+        'Kyle', 'Leah', 'Mason', 'Nadia', 'Owen', 'Priya', 'Quinn', 'Rafael', 'Samantha', 'Tristan',
+        'Uma', 'Victor', 'Wendy', 'Xavier', 'Yasmin', 'Zachary', 'Amara', 'Brandon', 'Clarissa', 'Derek',
+        'Elise', 'Felix', 'Grace', 'Harvey', 'Iris', 'Jonah', 'Kiara', 'Lucas', 'Maya', 'Nathan',
+        'Olivia', 'Paolo', 'Regina', 'Samuel', 'Talia', 'Uriel', 'Vanessa', 'William', 'Zoe', 'Andre'),
+    ELT(n, 'Dela Cruz', 'Santos', 'Reyes', 'Garcia', 'Mendoza', 'Navarro', 'Torres', 'Ramos', 'Castillo', 'Bautista',
+        'Flores', 'Morales', 'Cruz', 'Villanueva', 'Gonzales', 'Aquino', 'Fernandez', 'Rivera', 'Domingo', 'Salazar',
+        'Mercado', 'Pascual', 'Manalo', 'Lim', 'Tan', 'Chua', 'David', 'Hernandez', 'Lopez', 'Delos Santos',
+        'Aguilar', 'Bernardo', 'Cabrera', 'Diaz', 'Espinoza', 'Fuentes', 'Gutierrez', 'Herrera', 'Ilagan', 'Jimenez',
+        'King', 'Lazaro', 'Marquez', 'Natividad', 'Ocampo', 'Padilla', 'Quintana', 'Robles', 'Soriano', 'Valdez'),
+    ELT(MOD(n - 1, 10) + 1, 'Marie', 'Anne', 'Jose', 'Grace', 'Lee', 'Mae', 'Noel', 'Rose', 'Jean', 'Paul'),
+    CASE WHEN n <= 25 THEN CASE WHEN MOD(n, 2) = 1 THEN '11' ELSE '12' END ELSE
+        CASE 1 + MOD(n, 4) WHEN 1 THEN '1st Year' WHEN 2 THEN '2nd Year' WHEN 3 THEN '3rd Year' ELSE '4th Year' END
+    END,
+    CASE WHEN n <= 25 THEN ELT(MOD(n - 1, 4) + 1, 'STEM', 'ABM', 'HUMSS', 'TVL') ELSE ELT(MOD(n - 1, 7) + 1, 'Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering') END,
+    CONCAT('BETA-', ELT(MOD(n - 1, 5) + 1, 'A', 'B', 'C', 'D', 'E')),
+    CASE WHEN n <= 25 THEN 'SHS' ELSE 'College' END,
+    CASE WHEN MOD(n, 5) = 0 THEN 'On Watch' ELSE 'Good Standing' END,
+    CONCAT(ELT(MOD(n - 1, 10) + 1, 'Maria', 'Jose', 'Lourdes', 'Ramon', 'Teresa', 'Eduardo', 'Carmen', 'Felipe', 'Rosa', 'Antonio'), ' ',
+           ELT(n, 'Dela Cruz', 'Santos', 'Reyes', 'Garcia', 'Mendoza', 'Navarro', 'Torres', 'Ramos', 'Castillo', 'Bautista',
+               'Flores', 'Morales', 'Cruz', 'Villanueva', 'Gonzales', 'Aquino', 'Fernandez', 'Rivera', 'Domingo', 'Salazar',
+               'Mercado', 'Pascual', 'Manalo', 'Lim', 'Tan', 'Chua', 'David', 'Hernandez', 'Lopez', 'Delos Santos',
+               'Aguilar', 'Bernardo', 'Cabrera', 'Diaz', 'Espinoza', 'Fuentes', 'Gutierrez', 'Herrera', 'Ilagan', 'Jimenez',
+               'King', 'Lazaro', 'Marquez', 'Natividad', 'Ocampo', 'Padilla', 'Quintana', 'Robles', 'Soriano', 'Valdez')),
+    CONCAT('09192345', LPAD(n, 3, '0'))
+FROM beta_numbers
+JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
+
+-- ============================================
 -- INSERT OFFENSE TYPES (Based on STI Handbook)
 -- ============================================
 INSERT INTO offense_types (offense_name, category, description) VALUES
@@ -710,7 +786,82 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Preventive Suspension', 3, 'Suspended during investigation period'),
 ('Non-readmission', 4, 'Denied enrollment for next term'),
 ('Exclusion', 5, 'Immediately removed from school'),
-('Expulsion', 5, 'Disqualified from all Philippine institutions');
+('Expulsion', 5, 'Disqualified from all Philippine institutions'),
+('Community Service', 2, 'Supervised service hours assigned as a restorative corrective action');
+
+-- ============================================
+-- INSERT BETA CASES AND SANCTIONS
+-- Four cases per beta student: minor, community service, suspension, archived
+-- ============================================
+INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes, next_hearing_date, resolved_date, is_archived, archived_at)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+),
+beta_cases AS (
+    SELECT n, 'M' AS case_kind FROM beta_numbers
+    UNION ALL SELECT n, 'C' FROM beta_numbers
+    UNION ALL SELECT n, 'S' FROM beta_numbers
+    UNION ALL SELECT n, 'A' FROM beta_numbers
+)
+SELECT
+    CONCAT('BETA-', LPAD(n, 3, '0'), '-', case_kind),
+    CONCAT('02000000', LPAD(n + 100, 3, '0')),
+    CASE case_kind WHEN 'M' THEN 1 WHEN 'C' THEN 26 WHEN 'S' THEN 16 ELSE 8 END,
+    CASE case_kind WHEN 'M' THEN 'Classroom Disruption' WHEN 'C' THEN 'Theft' WHEN 'S' THEN 'Cheating' ELSE 'Classroom Disruption' END,
+    CASE WHEN case_kind = 'M' OR case_kind = 'A' THEN 'Minor' ELSE 'Major' END,
+    CASE WHEN case_kind IN ('C', 'S') THEN 'Category A' ELSE NULL END,
+    CASE case_kind WHEN 'M' THEN 'Pending' WHEN 'C' THEN 'On Going' WHEN 'S' THEN 'On Going' ELSE 'Resolved' END,
+    DATE_ADD('2026-04-01', INTERVAL (n - 1) DAY),
+    '09:00:00',
+    CASE case_kind WHEN 'M' THEN 'Classroom Building A' WHEN 'C' THEN 'Student Lounge' WHEN 'S' THEN 'Examination Room' ELSE 'Library' END,
+    3,
+    2,
+    CASE case_kind
+        WHEN 'M' THEN 'Student disrupted a class activity and continued after a reminder from the instructor.'
+        WHEN 'C' THEN 'Student took another student''s personal property without permission and returned it after intervention.'
+        WHEN 'S' THEN 'Student was found using unauthorized materials during an assessment.'
+        ELSE 'Archived historical minor case retained for the student record.'
+    END,
+    'Class adviser and student witnesses',
+    CASE case_kind WHEN 'M' THEN NULL WHEN 'C' THEN 'Restorative community service assigned' WHEN 'S' THEN 'Five-day suspension assigned' ELSE 'Case resolved and archived' END,
+    CASE case_kind WHEN 'A' THEN 'Archived beta-test history record.' ELSE 'Beta testing case for discipline workflow coverage.' END,
+    CASE WHEN case_kind = 'S' THEN DATE_ADD('2026-05-15', INTERVAL (n - 1) DAY) ELSE NULL END,
+    CASE WHEN case_kind = 'A' THEN DATE_ADD('2026-04-05', INTERVAL (n - 1) DAY) ELSE NULL END,
+    CASE WHEN case_kind = 'A' THEN 1 ELSE 0 END,
+    CASE WHEN case_kind = 'A' THEN TIMESTAMP(DATE_ADD('2026-04-06', INTERVAL (n - 1) DAY), '10:00:00') ELSE NULL END
+FROM beta_cases;
+
+INSERT INTO case_sanctions (case_id, sanction_id, applied_date, duration_days, is_completed, completion_date, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes)
+SELECT case_id, 1, date_reported, NULL, 0, NULL, 'Minor warning recorded for beta workflow testing.', NULL, NULL, NULL, NULL
+FROM cases WHERE case_id LIKE 'BETA-%-M'
+UNION ALL
+SELECT case_id, 11, date_reported, 8, 0, NULL, 'Community service assignment: eight hours of supervised campus service.', DATE_ADD(date_reported, INTERVAL 3 DAY), '15:00:00', '17:00:00', 'Report to the Discipline Office service coordinator.'
+FROM cases WHERE case_id LIKE 'BETA-%-C'
+UNION ALL
+SELECT case_id, 6, date_reported, 5, 0, NULL, 'Five-day suspension pending scheduled hearing.', NULL, NULL, NULL, NULL
+FROM cases WHERE case_id LIKE 'BETA-%-S'
+UNION ALL
+SELECT case_id, 1, date_reported, NULL, 1, resolved_date, 'Historical warning completed before archival.', NULL, NULL, NULL, NULL
+FROM cases WHERE case_id LIKE 'BETA-%-A';
+
+INSERT INTO community_service_submissions (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, review_status)
+SELECT
+    c.case_id,
+    cs.case_sanction_id,
+    c.student_id,
+    c.assigned_to,
+    CONCAT(REPLACE(c.case_id, '-', '_'), '_service_plan.pdf'),
+    CONCAT(REPLACE(c.case_id, '-', '_'), '_service_plan.pdf'),
+    CONCAT('case_attachments/community_service_submissions/', c.case_id, '/service_plan.pdf'),
+    0,
+    'application/pdf',
+    'Beta testing placeholder for community service submission workflow.',
+    'pending'
+FROM cases c
+JOIN case_sanctions cs ON cs.case_id = c.case_id
+WHERE c.case_id LIKE 'BETA-%-C';
 
 -- ============================================
 -- INSERT SAMPLE CASES (30 Total - All 2026 Cases)
@@ -884,6 +1035,91 @@ VALUES
 ('LF-2026-1T-0016', 'Sports Medal', 'Personal Items', 'Gym', '2026-02-03', 'Unclaimed', 'Gold medal from 2026 Sports Festival');
 
 -- ============================================
+-- INSERT BETA LOST & FOUND ITEMS
+-- ============================================
+INSERT INTO lost_found_items (item_id, item_name, category, found_location, date_found, status, description, finder_name, finder_student_id)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+)
+SELECT
+    CONCAT('BETA-LF-', LPAD(n, 3, '0')),
+    ELT(MOD(n - 1, 10) + 1, 'Wireless Mouse', 'Umbrella', 'Notebook', 'Backpack', 'School ID', 'Water Bottle', 'USB Drive', 'Jacket', 'Calculator', 'Keychain'),
+    ELT(MOD(n - 1, 10) + 1, 'Electronics', 'Accessories', 'Books', 'Bags', 'ID/Documents', 'Accessories', 'Electronics', 'Clothing', 'Electronics', 'Keys'),
+    ELT(MOD(n - 1, 10) + 1, 'Computer Lab 1', 'Main Gate', 'Library', 'Cafeteria', 'Building A Lobby', 'Gym', 'Computer Lab 2', 'Student Lounge', 'Room C-401', 'Parking Lot'),
+    DATE_ADD('2026-05-01', INTERVAL (n - 1) DAY),
+    CASE WHEN MOD(n, 4) = 0 THEN 'Claimed' WHEN MOD(n, 11) = 0 THEN 'Disposed' ELSE 'Unclaimed' END,
+    CONCAT('Beta testing lost-and-found item ', n, '; description and claim workflow record.'),
+    CONCAT('Beta Finder ', n),
+    CONCAT('02000000', LPAD(MOD(n - 1, 50) + 101, 3, '0'))
+FROM beta_numbers;
+
+-- ============================================
+-- INSERT BETA NOTIFICATIONS
+-- Four notifications per beta student
+-- ============================================
+INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+),
+beta_notifications AS (
+    SELECT n, 1 AS notification_kind FROM beta_numbers
+    UNION ALL SELECT n, 2 FROM beta_numbers
+    UNION ALL SELECT n, 3 FROM beta_numbers
+    UNION ALL SELECT n, 4 FROM beta_numbers
+)
+SELECT
+    u.user_id,
+    CASE notification_kind
+        WHEN 1 THEN 'Case Update'
+        WHEN 2 THEN 'Scheduled Hearing'
+        WHEN 3 THEN 'Community Service Assignment'
+        ELSE 'Lost and Found Update'
+    END,
+    CASE notification_kind
+        WHEN 1 THEN CONCAT('Your beta case BETA-', LPAD(n, 3, '0'), '-M has been recorded.')
+        WHEN 2 THEN CONCAT('Your scheduled hearing for case BETA-', LPAD(n, 3, '0'), '-S is ready for review.')
+        WHEN 3 THEN CONCAT('Community service instructions are available for case BETA-', LPAD(n, 3, '0'), '-C.')
+        ELSE CONCAT('Lost-and-found beta item BETA-LF-', LPAD(n, 3, '0'), ' has been added to the catalog.')
+    END,
+    CASE notification_kind WHEN 2 THEN 'hearing' WHEN 3 THEN 'sanction' WHEN 4 THEN 'lost_found' ELSE 'case_update' END,
+    CASE notification_kind
+        WHEN 1 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-M')
+        WHEN 2 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-S')
+        WHEN 3 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-C')
+        ELSE CONCAT('BETA-LF-', LPAD(n, 3, '0'))
+    END,
+    CASE WHEN notification_kind = 3 THEN 1 ELSE 0 END
+FROM beta_notifications
+JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
+
+-- ============================================
+-- INSERT BETA SCHEDULED HEARINGS
+-- One hearing event per beta student
+-- ============================================
+INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 50
+)
+SELECT
+    CONCAT('Scheduled Hearing - Case BETA-', LPAD(n, 3, '0'), '-S'),
+    DATE_ADD('2026-05-15', INTERVAL (n - 1) DAY),
+    '10:00:00',
+    '11:00:00',
+    'Hearing',
+    CONCAT('Beta testing scheduled hearing for suspension case BETA-', LPAD(n, 3, '0'), '-S.'),
+    'Discipline Office Hearing Room',
+    2,
+    u.user_id
+FROM beta_numbers
+JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
+
+-- ============================================
 -- INSERT WATCH LIST ENTRIES
 -- ============================================
 INSERT INTO watch_list (student_id, reason, added_by, added_date, notes)
@@ -1010,6 +1246,32 @@ SELECT
     'Watch List Entries', 
     COUNT(*) 
 FROM watch_list;
+SELECT
+    'Beta Students',
+    COUNT(*)
+FROM users
+WHERE email REGEXP '^student([1-9]|[1-4][0-9]|50)@sti[.]edu$';
+SELECT
+    'Beta Cases',
+    COUNT(*)
+FROM cases
+WHERE case_id LIKE 'BETA-%';
+SELECT
+    'Beta Archived Cases',
+    COUNT(*)
+FROM cases
+WHERE case_id LIKE 'BETA-%-A' AND is_archived = 1;
+SELECT
+    'Beta Notifications',
+    COUNT(*)
+FROM notifications n
+JOIN users u ON u.user_id = n.user_id
+WHERE u.email REGEXP '^student([1-9]|[1-4][0-9]|50)@sti[.]edu$';
+SELECT
+    'Beta Scheduled Hearings',
+    COUNT(*)
+FROM calendar_events
+WHERE event_name LIKE 'Scheduled Hearing - Case BETA-%';
 SELECT 
     track_course AS 'Track/Course',
     student_type AS 'Type',
