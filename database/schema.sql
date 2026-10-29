@@ -856,23 +856,6 @@ UNION ALL
 SELECT case_id, 1, date_reported, NULL, 1, resolved_date, 'Historical warning completed before archival.', NULL, NULL, NULL, NULL
 FROM cases WHERE student_id BETWEEN '02000000101' AND '02000000160' AND is_archived = 1;
 
-INSERT INTO community_service_submissions (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, review_status)
-SELECT
-    c.case_id,
-    cs.case_sanction_id,
-    c.student_id,
-    c.assigned_to,
-    CONCAT(REPLACE(c.case_id, '-', '_'), '_service_plan.pdf'),
-    CONCAT(REPLACE(c.case_id, '-', '_'), '_service_plan.pdf'),
-    CONCAT('case_attachments/community_service_submissions/', c.case_id, '/service_plan.pdf'),
-    0,
-    'application/pdf',
-    'Beta testing placeholder for community service submission workflow.',
-    'pending'
-FROM cases c
-JOIN case_sanctions cs ON cs.case_id = c.case_id
-WHERE c.student_id BETWEEN '02000000101' AND '02000000160' AND c.offense_id = 26;
-
 -- ============================================
 -- INSERT SAMPLE CASES (30 Total - All 2026 Cases)
 -- 10 Pending, 10 On Going, 10 Resolved
