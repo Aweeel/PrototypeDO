@@ -792,6 +792,11 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 -- ============================================
 -- INSERT BETA CASES AND SANCTIONS
 -- Four cases per beta student: minor, community service, suspension, archived
+-- Case IDs follow the standard format (2026-1T-XXXX), continuing after the
+-- 39 regular 2026 sample cases: 2026-1T-0040 through 2026-1T-0239.
+--   Student n gets: M = 4n+36, C = 4n+37, S = 4n+38, A = 4n+39
+-- Beta cases are identified by student_id 02000000101-02000000150 and offense:
+--   M = offense 1 (not archived), C = offense 26, S = offense 16, A = archived
 -- ============================================
 INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category, status, date_reported, time_reported, location, reported_by, assigned_to, description, witnesses, action_taken, notes, next_hearing_date, resolved_date, is_archived, archived_at)
 WITH RECURSIVE beta_numbers AS (
@@ -800,13 +805,13 @@ WITH RECURSIVE beta_numbers AS (
     SELECT n + 1 FROM beta_numbers WHERE n < 50
 ),
 beta_cases AS (
-    SELECT n, 'M' AS case_kind FROM beta_numbers
-    UNION ALL SELECT n, 'C' FROM beta_numbers
-    UNION ALL SELECT n, 'S' FROM beta_numbers
-    UNION ALL SELECT n, 'A' FROM beta_numbers
+    SELECT n, 'M' AS case_kind, 0 AS k FROM beta_numbers
+    UNION ALL SELECT n, 'C', 1 FROM beta_numbers
+    UNION ALL SELECT n, 'S', 2 FROM beta_numbers
+    UNION ALL SELECT n, 'A', 3 FROM beta_numbers
 )
 SELECT
-    CONCAT('BETA-', LPAD(n, 3, '0'), '-', case_kind),
+    CONCAT('2026-1T-', LPAD(39 + (n - 1) * 4 + k + 1, 4, '0')),
     CONCAT('02000000', LPAD(n + 100, 3, '0')),
     CASE case_kind WHEN 'M' THEN 1 WHEN 'C' THEN 26 WHEN 'S' THEN 16 ELSE 8 END,
     CASE case_kind WHEN 'M' THEN 'Classroom Disruption' WHEN 'C' THEN 'Theft' WHEN 'S' THEN 'Cheating' ELSE 'Classroom Disruption' END,
@@ -835,16 +840,16 @@ FROM beta_cases;
 
 INSERT INTO case_sanctions (case_id, sanction_id, applied_date, duration_days, is_completed, completion_date, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes)
 SELECT case_id, 1, date_reported, NULL, 0, NULL, 'Minor warning recorded for beta workflow testing.', NULL, NULL, NULL, NULL
-FROM cases WHERE case_id LIKE 'BETA-%-M'
+FROM cases WHERE student_id BETWEEN '02000000101' AND '02000000150' AND offense_id = 1 AND is_archived = 0
 UNION ALL
 SELECT case_id, 11, date_reported, 8, 0, NULL, 'Community service assignment: eight hours of supervised campus service.', DATE_ADD(date_reported, INTERVAL 3 DAY), '15:00:00', '17:00:00', 'Report to the Discipline Office service coordinator.'
-FROM cases WHERE case_id LIKE 'BETA-%-C'
+FROM cases WHERE student_id BETWEEN '02000000101' AND '02000000150' AND offense_id = 26
 UNION ALL
 SELECT case_id, 6, date_reported, 5, 0, NULL, 'Five-day suspension pending scheduled hearing.', NULL, NULL, NULL, NULL
-FROM cases WHERE case_id LIKE 'BETA-%-S'
+FROM cases WHERE student_id BETWEEN '02000000101' AND '02000000150' AND offense_id = 16
 UNION ALL
 SELECT case_id, 1, date_reported, NULL, 1, resolved_date, 'Historical warning completed before archival.', NULL, NULL, NULL, NULL
-FROM cases WHERE case_id LIKE 'BETA-%-A';
+FROM cases WHERE student_id BETWEEN '02000000101' AND '02000000150' AND is_archived = 1;
 
 INSERT INTO community_service_submissions (case_id, case_sanction_id, student_id, uploaded_by, file_name, original_file_name, file_path, file_size_bytes, mime_type, remarks, review_status)
 SELECT
@@ -861,7 +866,7 @@ SELECT
     'pending'
 FROM cases c
 JOIN case_sanctions cs ON cs.case_id = c.case_id
-WHERE c.case_id LIKE 'BETA-%-C';
+WHERE c.student_id BETWEEN '02000000101' AND '02000000150' AND c.offense_id = 26;
 
 -- ============================================
 -- INSERT SAMPLE CASES (30 Total - All 2026 Cases)
@@ -1057,7 +1062,9 @@ FROM beta_numbers;
 
 -- ============================================
 -- INSERT BETA NOTIFICATIONS
--- Four notifications per beta student
+-- Three notifications per beta student (case update, hearing, community service).
+-- Lost-and-found notifications are intentionally NOT created for beta students.
+-- Case IDs use the standard format: M = 4n+36, S = 4n+38, C = 4n+37
 -- ============================================
 INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
 WITH RECURSIVE beta_numbers AS (
@@ -1069,28 +1076,24 @@ beta_notifications AS (
     SELECT n, 1 AS notification_kind FROM beta_numbers
     UNION ALL SELECT n, 2 FROM beta_numbers
     UNION ALL SELECT n, 3 FROM beta_numbers
-    UNION ALL SELECT n, 4 FROM beta_numbers
 )
 SELECT
     u.user_id,
     CASE notification_kind
         WHEN 1 THEN 'Case Update'
         WHEN 2 THEN 'Scheduled Hearing'
-        WHEN 3 THEN 'Community Service Assignment'
-        ELSE 'Lost and Found Update'
+        ELSE 'Community Service Assignment'
     END,
     CASE notification_kind
-        WHEN 1 THEN CONCAT('Your beta case BETA-', LPAD(n, 3, '0'), '-M has been recorded.')
-        WHEN 2 THEN CONCAT('Your scheduled hearing for case BETA-', LPAD(n, 3, '0'), '-S is ready for review.')
-        WHEN 3 THEN CONCAT('Community service instructions are available for case BETA-', LPAD(n, 3, '0'), '-C.')
-        ELSE CONCAT('Lost-and-found beta item BETA-LF-', LPAD(n, 3, '0'), ' has been added to the catalog.')
+        WHEN 1 THEN CONCAT('Your case 2026-1T-', LPAD(4 * n + 36, 4, '0'), ' has been recorded.')
+        WHEN 2 THEN CONCAT('Your scheduled hearing for case 2026-1T-', LPAD(4 * n + 38, 4, '0'), ' is ready for review.')
+        ELSE CONCAT('Community service instructions are available for case 2026-1T-', LPAD(4 * n + 37, 4, '0'), '.')
     END,
-    CASE notification_kind WHEN 2 THEN 'hearing' WHEN 3 THEN 'sanction' WHEN 4 THEN 'lost_found' ELSE 'case_update' END,
+    CASE notification_kind WHEN 2 THEN 'hearing' WHEN 3 THEN 'sanction' ELSE 'case_update' END,
     CASE notification_kind
-        WHEN 1 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-M')
-        WHEN 2 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-S')
-        WHEN 3 THEN CONCAT('BETA-', LPAD(n, 3, '0'), '-C')
-        ELSE CONCAT('BETA-LF-', LPAD(n, 3, '0'))
+        WHEN 1 THEN CONCAT('2026-1T-', LPAD(4 * n + 36, 4, '0'))
+        WHEN 2 THEN CONCAT('2026-1T-', LPAD(4 * n + 38, 4, '0'))
+        ELSE CONCAT('2026-1T-', LPAD(4 * n + 37, 4, '0'))
     END,
     CASE WHEN notification_kind = 3 THEN 1 ELSE 0 END
 FROM beta_notifications
@@ -1098,7 +1101,7 @@ JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
 
 -- ============================================
 -- INSERT BETA SCHEDULED HEARINGS
--- One hearing event per beta student
+-- One hearing event per beta student (linked to the suspension case 2026-1T-(4n+38))
 -- ============================================
 INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id)
 WITH RECURSIVE beta_numbers AS (
@@ -1107,12 +1110,12 @@ WITH RECURSIVE beta_numbers AS (
     SELECT n + 1 FROM beta_numbers WHERE n < 50
 )
 SELECT
-    CONCAT('Scheduled Hearing - Case BETA-', LPAD(n, 3, '0'), '-S'),
+    CONCAT('Scheduled Hearing - Case 2026-1T-', LPAD(4 * n + 38, 4, '0')),
     DATE_ADD('2026-05-15', INTERVAL (n - 1) DAY),
     '10:00:00',
     '11:00:00',
     'Hearing',
-    CONCAT('Beta testing scheduled hearing for suspension case BETA-', LPAD(n, 3, '0'), '-S.'),
+    CONCAT('Beta testing scheduled hearing for suspension case 2026-1T-', LPAD(4 * n + 38, 4, '0'), '.'),
     'Discipline Office Hearing Room',
     2,
     u.user_id
@@ -1255,12 +1258,12 @@ SELECT
     'Beta Cases',
     COUNT(*)
 FROM cases
-WHERE case_id LIKE 'BETA-%';
+WHERE student_id BETWEEN '02000000101' AND '02000000150';
 SELECT
     'Beta Archived Cases',
     COUNT(*)
 FROM cases
-WHERE case_id LIKE 'BETA-%-A' AND is_archived = 1;
+WHERE student_id BETWEEN '02000000101' AND '02000000150' AND is_archived = 1;
 SELECT
     'Beta Notifications',
     COUNT(*)
@@ -1271,7 +1274,7 @@ SELECT
     'Beta Scheduled Hearings',
     COUNT(*)
 FROM calendar_events
-WHERE event_name LIKE 'Scheduled Hearing - Case BETA-%';
+WHERE description LIKE 'Beta testing scheduled hearing%';
 SELECT 
     track_course AS 'Track/Course',
     student_type AS 'Type',
