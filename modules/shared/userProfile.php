@@ -19,6 +19,8 @@ $pdo = getDBConnection();
 // Fetch user information
 $user = null;
 $studentInfo = null;
+$staffId = null;
+$staffIdLabel = '';
 
 if ($pdo && $userId) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
@@ -30,6 +32,12 @@ if ($pdo && $userId) {
         $stmt = $pdo->prepare("SELECT * FROM students WHERE user_id = ?");
         $stmt->execute([$userId]);
         $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+    } elseif ($userRole === 'teacher') {
+        $staffId = $user['teacher_id'] ?? null;
+        $staffIdLabel = 'Teacher ID';
+    } elseif ($userRole === 'discipline_office') {
+        $staffId = $user['do_id'] ?? null;
+        $staffIdLabel = 'Discipline Office ID';
     }
 }
 
@@ -220,6 +228,17 @@ if ($user) {
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
                     </div>
 
+                    <?php if ($staffId !== null): ?>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <?php echo htmlspecialchars($staffIdLabel); ?>
+                            </label>
+                            <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-all text-sm sm:text-base">
+                                <?php echo htmlspecialchars($staffId); ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
+
                     <!-- Student-specific fields -->
                     <?php if ($userRole === 'student' && $studentInfo): ?>
                         <div class="pt-4 border-t border-gray-300 dark:border-gray-600">
@@ -409,46 +428,6 @@ if ($user) {
     </main>
 
     <script>
-        // Hamburger / Mobile Sidebar Toggle Handler
-        document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('sidebar') || document.querySelector('aside');
-            const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-            
-            // Query for common toggle button selectors across headers
-            const sidebarToggle = document.getElementById('sidebarToggle') || 
-                                  document.querySelector('[data-drawer-toggle="sidebar"]') ||
-                                  document.querySelector('header button');
-
-            function toggleSidebar() {
-                if (sidebar) {
-                    sidebar.classList.toggle('-translate-x-full');
-                }
-                if (sidebarBackdrop) {
-                    sidebarBackdrop.classList.toggle('hidden');
-                }
-            }
-
-            function closeSidebar() {
-                if (sidebar) {
-                    sidebar.classList.add('-translate-x-full');
-                }
-                if (sidebarBackdrop) {
-                    sidebarBackdrop.classList.add('hidden');
-                }
-            }
-
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    toggleSidebar();
-                });
-            }
-
-            if (sidebarBackdrop) {
-                sidebarBackdrop.addEventListener('click', closeSidebar);
-            }
-        });
-
         // Ensure tailwind uses class-based dark mode
         tailwind.config = {
             darkMode: 'class'

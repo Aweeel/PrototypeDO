@@ -447,6 +447,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 u.do_id,
                                 u.teacher_subrole,
                                 u.program,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT grade_year FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as grade_year,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT track_course FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as track_course,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT section FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as section,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT student_type FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as student_type,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT guardian_name FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as guardian_name,
+                                CASE WHEN u.role = 'student' THEN (
+                                    SELECT guardian_contact FROM students WHERE user_id = u.user_id ORDER BY created_at ASC LIMIT 1
+                                ) ELSE NULL END as guardian_contact,
                                 CASE 
                                     WHEN u.user_id IS NOT NULL AND EXISTS(
                                         SELECT 1 FROM notifications n 
@@ -589,6 +607,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'do_id' => $user['do_id'] ?? null,
                     'teacher_subrole' => $user['teacher_subrole'] ?? null,
                     'program' => $user['program'] ?? null,
+                    'grade_year' => $user['grade_year'] ?? null,
+                    'track_course' => $user['track_course'] ?? null,
+                    'section' => $user['section'] ?? null,
+                    'student_type' => $user['student_type'] ?? null,
+                    'guardian_name' => $user['guardian_name'] ?? null,
+                    'guardian_contact' => $user['guardian_contact'] ?? null,
                     'is_active' => $user['is_active'],
                     'status' => $user['is_active'] ? 'Active' : 'Inactive',
                     'last_login' => $user['last_login'] ? formatDatabaseDateTime($user['last_login']) : 'Never',
@@ -612,6 +636,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $program = normalizeTeacherProgram($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
+            $studentId = trim($_POST['student_id'] ?? '');
+            $gradeYear = trim($_POST['grade_year'] ?? '');
+            $trackCourse = trim($_POST['track_course'] ?? '');
+            $section = trim($_POST['section'] ?? '');
+            $studentType = trim($_POST['student_type'] ?? '');
+            $guardianName = trim($_POST['guardian_name'] ?? '');
+            $guardianContact = trim($_POST['guardian_contact'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
             $gradeYear = trim($_POST['grade_year'] ?? '');
             $trackCourse = trim($_POST['track_course'] ?? '');
@@ -801,10 +832,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 exit;
             }
 
-            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, trim($_POST['student_id'] ?? ''));
+            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, $studentId);
             if ($roleIdError) {
                 echo json_encode(['success' => false, 'error' => $roleIdError]);
                 exit;
+            }
+            if ($role === 'student') {
+                if ($gradeYear === '') {
+                    echo json_encode(['success' => false, 'error' => 'Grade/year level is required for student accounts']);
+                    exit;
+                }
+                if (!in_array($studentType, ['SHS', 'College'], true)) {
+                    echo json_encode(['success' => false, 'error' => 'Student type must be SHS or College']);
+                    exit;
+                }
             }
 
             // Get old data for audit
@@ -829,14 +870,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // if becoming a student and no corresponding student record exists, create one
             if ($role === 'student') {
-                $studentId = trim($_POST['student_id'] ?? '');
                 $existingStudent = fetchOne("SELECT student_id FROM students WHERE user_id = ?", [$user_id]);
-                if (!$existingStudent && $studentId !== '') {
+                if ($existingStudent) {
+                    executeQuery(
+                        "UPDATE students SET student_id = ?, grade_year = ?, track_course = ?, section = ?, student_type = ?, guardian_name = ?, guardian_contact = ?, updated_at = NOW() WHERE user_id = ?",
+                        [$studentId, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null, $user_id]
+                    );
+                } elseif ($studentId !== '') {
                     $nameParts = preg_split('/\s+/', $full_name);
                     $firstName = $nameParts[0];
                     $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
-                    $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, student_type) VALUES (?, ?, ?, ?, ?, ?)";
-                    executeQuery($sqlStudent, [$studentId, $user_id, $firstName, $lastName, 'N/A', 'College']);
+                    $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    executeQuery($sqlStudent, [$studentId, $user_id, $firstName, $lastName, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null]);
                 }
             }
 

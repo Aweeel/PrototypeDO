@@ -167,28 +167,45 @@ function fetchStatisticsData($p) {
         'byType'          => fetchAll("SELECT c.case_type, COUNT(*) AS count, SUM(CASE WHEN c.severity='Major' THEN 1 ELSE 0 END) AS major_count $joins $where GROUP BY c.case_type ORDER BY count DESC", $params),
         'byGrade'         => fetchAll("SELECT s.grade_year, COUNT(*) AS count $joins $where AND s.grade_year IS NOT NULL GROUP BY s.grade_year ORDER BY s.grade_year", $params),
         'byStatus'        => fetchAll("SELECT c.status, COUNT(*) AS count $joins $where GROUP BY c.status", $params),
-        'totals'          => fetchOne("SELECT COUNT(*) AS total, SUM(CASE WHEN c.severity='Major' THEN 1 ELSE 0 END) AS major, SUM(CASE WHEN c.severity='Minor' THEN 1 ELSE 0 END) AS minor, SUM(CASE WHEN c.status='Resolved' THEN 1 ELSE 0 END) AS resolved $joins $where", $params),
+        'totals'          => fetchOne("SELECT COUNT(*) AS total,
+            SUM(CASE WHEN c.severity='Major' THEN 1 ELSE 0 END) AS major,
+            SUM(CASE WHEN c.severity='Minor' THEN 1 ELSE 0 END) AS minor,
+            SUM(CASE WHEN c.status='Resolved' THEN 1 ELSE 0 END) AS resolved,
+            SUM(CASE WHEN c.status='Pending' THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN c.status='On Going' THEN 1 ELSE 0 END) AS ongoing
+            $joins $where", $params),
         'repeatOffenders' => fetchAll("SELECT s.student_id, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS name, s.grade_year, s.track_course, COUNT(c.case_id) AS offense_count $joins $where GROUP BY s.student_id, s.first_name, s.middle_name, s.last_name, s.grade_year, s.track_course HAVING COUNT(c.case_id) > 1 ORDER BY offense_count DESC", $params),
         'filters'         => $p];
 }
 
 function fetchLostFoundData($p) {
-    $where = "WHERE is_archived = 0"; $params = [];
-    if (!empty($p['dateFrom'])) { $where .= " AND date_found >= ?"; $params[] = $p['dateFrom']; }
-    if (!empty($p['dateTo']))   { $where .= " AND date_found <= ?"; $params[] = $p['dateTo']; }
-    if (!empty($p['status']))   { $where .= " AND status = ?";      $params[] = $p['status']; }
-    if (!empty($p['category'])) { $where .= " AND category = ?";    $params[] = $p['category']; }
+    $where = "WHERE l.is_archived = 0"; $params = [];
+    if (!empty($p['dateFrom'])) { $where .= " AND l.date_found >= ?"; $params[] = $p['dateFrom']; }
+    if (!empty($p['dateTo']))   { $where .= " AND l.date_found <= ?"; $params[] = $p['dateTo']; }
+    if (!empty($p['status']))   { $where .= " AND l.status = ?";      $params[] = $p['status']; }
+    if (!empty($p['category'])) { $where .= " AND l.category = ?";    $params[] = $p['category']; }
+    $itemColumns = "l.item_id, l.item_name, l.category, l.description, l.found_location,
+        l.date_found, l.time_found, l.finder_name, l.finder_student_id, l.status,
+        l.claimer_name, l.claimer_student_id, l.date_claimed, l.image_path";
 
     return ['success' => true,
-        'items'      => fetchAll("SELECT * FROM lost_found_items $where ORDER BY date_found DESC", $params),
-        'byCategory' => fetchAll("SELECT category, COUNT(*) AS total, SUM(CASE WHEN status='Claimed' THEN 1 ELSE 0 END) AS claimed, SUM(CASE WHEN status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed FROM lost_found_items $where GROUP BY category ORDER BY total DESC", $params),
-        'totals'     => fetchOne("SELECT COUNT(*) AS total, SUM(CASE WHEN status='Claimed' THEN 1 ELSE 0 END) AS claimed, SUM(CASE WHEN status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed FROM lost_found_items $where", $params),
+        'items'      => fetchAll("SELECT $itemColumns FROM lost_found_items l $where ORDER BY l.date_found DESC, l.item_id DESC", $params),
+        'byCategory' => fetchAll("SELECT l.category, COUNT(*) AS total,
+            SUM(CASE WHEN l.status='Claimed' THEN 1 ELSE 0 END) AS claimed,
+            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed,
+            SUM(CASE WHEN l.status='Disposed' THEN 1 ELSE 0 END) AS disposed
+            FROM lost_found_items l $where GROUP BY l.category ORDER BY total DESC, l.category", $params),
+        'totals'     => fetchOne("SELECT COUNT(*) AS total,
+            SUM(CASE WHEN l.status='Claimed' THEN 1 ELSE 0 END) AS claimed,
+            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed,
+            SUM(CASE WHEN l.status='Disposed' THEN 1 ELSE 0 END) AS disposed
+            FROM lost_found_items l $where", $params),
         'filters'    => $p];
 }
 
 function fetchStudentData($p) {
     $where = "WHERE 1=1"; $params = [];
-    if (!empty($p['studentId']))  { $where .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)"; $params[] = "%".$p['studentId']."%"; $params[] = "%".$p['studentId']."%"; $params[] = "%".$p['studentId']."%"; }
+    if (!empty($p['studentId']))  { $where .= " AND (s.student_id LIKE ? OR s.first_name LIKE ? OR s.middle_name LIKE ? OR s.last_name LIKE ?)"; $search = "%".$p['studentId']."%"; $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search; }
     if (!empty($p['gradeLevel'])) { $where .= " AND s.grade_year = ?"; $params[] = $p['gradeLevel']; }
     if (!empty($p['course']))     { $where .= " AND s.track_course = ?"; $params[] = $p['course']; }
     if (!empty($p['status']))     { $where .= " AND s.status = ?";     $params[] = $p['status']; }
@@ -197,8 +214,9 @@ function fetchStudentData($p) {
         'students'   => fetchAll("SELECT s.*,
             (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.is_archived=0) AS active_cases,
             (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.severity='Major' AND c.is_archived=0) AS major_count,
-            (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.severity='Minor' AND c.is_archived=0) AS minor_count
-            FROM students s $where ORDER BY s.total_offenses DESC, s.last_name", $params),
+            (SELECT COUNT(*) FROM cases c WHERE c.student_id=s.student_id AND c.severity='Minor' AND c.is_archived=0) AS minor_count,
+            (SELECT MAX(c.date_reported) FROM cases c WHERE c.student_id=s.student_id AND c.is_archived=0) AS report_last_incident_date
+            FROM students s $where ORDER BY active_cases DESC, s.last_name, s.first_name", $params),
         'statusDist' => fetchAll("SELECT s.status, COUNT(*) AS count FROM students s $where GROUP BY s.status", $params),
         'filters'    => $p];
 }
@@ -207,8 +225,9 @@ function fetchStudentData($p) {
 //  CSV BUILDER
 // ============================================================
 function buildCSVData($type, $params) {
-    // Use the admin name from session, which was already computed at login
-    $exportedBy = $_SESSION['admin_name'] ?? 'User';
+    // Same name the on-screen preview uses
+    global $adminName;
+    $exportedBy = $adminName ?: 'User';
     
     $rows  = [];
     $today = date('F d, Y g:i A');
@@ -220,14 +239,19 @@ function buildCSVData($type, $params) {
             $rows[] = ['Generated:', $today];
             $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
-            $rows[] = ['Case ID','Student','Student ID','Grade/Year','Track','Case Type','Severity','Status','Date Reported','Reported By','Assigned To','Description'];
+            $rows[] = ['Case ID','Student','Student ID','Grade/Year','Track','Case Type','Severity','Status','Date Reported','Reported By','Assigned To','Description','Sanctions'];
             foreach ($data['cases'] as $c) {
+                $sanctionsText = implode('; ', array_map(
+                    fn($s) => $s['sanction_name'] . (!empty($s['duration_days']) ? " ({$s['duration_days']}d)" : ''),
+                    $c['sanctions'] ?? []
+                ));
                 $rows[] = [
                     $c['case_id'], $c['student_name']??'', $c['student_number']??'',
                     $c['grade_year']??'', $c['track_course']??'', $c['case_type'],
                     $c['severity'], $c['status'],
                     $c['date_reported'] ? date('Y-m-d', strtotime($c['date_reported'])) : '',
                     $c['reported_by_name']??'', $c['assigned_to_name']??'', $c['description']??'',
+                    $sanctionsText,
                 ];
             }
             break;
@@ -235,14 +259,22 @@ function buildCSVData($type, $params) {
         case 'statistics':
             $data   = fetchStatisticsData($params);
             $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            $rows[] = ['STI Discipline Office – Case Statistics ' . ($params['year'] ?? date('Y'))];
+            $rows[] = ['STI Discipline Office – Case Statistics ' . (!empty($params['year']) ? $params['year'] : 'All Years')];
             $rows[] = ['Generated:', $today];
             $rows[] = ['Exported By:', $exportedBy];
+            $rows[] = ['View:', ($params['view'] ?? '') === 'monthly' ? 'Monthly Breakdown' : 'Yearly Overview'];
+            $rows[] = ['Filters:', implode(', ', array_filter([
+                !empty($params['month'])       ? "Month: {$params['month']}"          : '',
+                !empty($params['severity'])    ? "Severity: {$params['severity']}"    : '',
+                !empty($params['gradeLevel'])  ? "Grade: {$params['gradeLevel']}"     : '',
+                !empty($params['course'])      ? "Course: {$params['course']}"        : '',
+                !empty($params['offenseType']) ? "Offense: {$params['offenseType']}"  : '',
+            ])) ?: 'None'];
             $rows[] = [];
             $rows[] = ['TOTALS'];
-            $rows[] = ['Total','Major','Minor','Resolved'];
+            $rows[] = ['Total','Major','Minor','Resolved','Pending','On Going'];
             $t = $data['totals'];
-            $rows[] = [$t['total']??0, $t['major']??0, $t['minor']??0, $t['resolved']??0];
+            $rows[] = [$t['total']??0, $t['major']??0, $t['minor']??0, $t['resolved']??0, $t['pending']??0, $t['ongoing']??0];
             $rows[] = [];
             $rows[] = ['MONTHLY BREAKDOWN'];
             $rows[] = ['Month','Total Cases'];
@@ -251,6 +283,14 @@ function buildCSVData($type, $params) {
             $rows[] = ['BY CASE TYPE'];
             $rows[] = ['Case Type','Total','Major'];
             foreach ($data['byType'] as $r) { $rows[] = [$r['case_type'], $r['count'], $r['major_count']]; }
+            $rows[] = [];
+            $rows[] = ['BY GRADE / YEAR'];
+            $rows[] = ['Grade / Year','Total Cases'];
+            foreach ($data['byGrade'] as $r) { $rows[] = [$r['grade_year'], $r['count']]; }
+            $rows[] = [];
+            $rows[] = ['BY STATUS'];
+            $rows[] = ['Status','Count'];
+            foreach ($data['byStatus'] as $r) { $rows[] = [$r['status'], $r['count']]; }
             $rows[] = [];
             $rows[] = ['REPEAT OFFENDERS'];
             $rows[] = ['Student ID','Name','Grade/Year','Track','Offense Count'];
@@ -263,6 +303,11 @@ function buildCSVData($type, $params) {
             $rows[] = ['Generated:', $today];
             $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
+            $rows[] = ['SUMMARY BY CATEGORY'];
+            $rows[] = ['Category','Total','Claimed','Unclaimed','Disposed'];
+            foreach ($data['byCategory'] as $r) { $rows[] = [$r['category'], $r['total'], $r['claimed'], $r['unclaimed'], $r['disposed']]; }
+            $rows[] = [];
+            $rows[] = ['ITEM RECORDS'];
             $rows[] = ['Item ID','Name','Category','Location Found','Date Found','Status','Finder','Claimer','Date Claimed','Description'];
             foreach ($data['items'] as $i) {
                 $rows[] = [
@@ -287,7 +332,7 @@ function buildCSVData($type, $params) {
                     $s['student_id'], $s['first_name'], $s['last_name'],
                     $s['grade_year']??'', $s['track_course']??'', $s['status']??'Good Standing',
                     $s['active_cases']??0, $s['major_count']??0, $s['minor_count']??0,
-                    $s['last_incident_date'] ? date('Y-m-d', strtotime($s['last_incident_date'])) : '',
+                    $s['report_last_incident_date'] ? date('Y-m-d', strtotime($s['report_last_incident_date'])) : '',
                 ];
             }
             break;
@@ -355,7 +400,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         if ($action === 'getOffenseTypes') {
-            echo json_encode(['success'=>true, 'data'=>fetchAll("SELECT DISTINCT offense_name AS case_type FROM offense_types ORDER BY offense_name")]);
+            echo json_encode(['success'=>true, 'data'=>fetchAll("SELECT DISTINCT case_type FROM cases WHERE is_archived=0 AND case_type IS NOT NULL AND case_type <> '' ORDER BY case_type")]);
             exit;
         }
         if ($action === 'getGradeLevels') {
@@ -380,7 +425,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
         if ($action === 'getCategories') {
-            echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT category FROM lost_found_items WHERE category IS NOT NULL ORDER BY category")]);
+            echo json_encode(['success'=>true,'data'=>fetchAll("SELECT DISTINCT category FROM lost_found_items WHERE is_archived=0 AND category IS NOT NULL AND category <> '' ORDER BY category")]);
             exit;
         }
         if ($action === 'getCaseList') {
@@ -441,7 +486,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             body > * { display: none !important; }
             #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
             #print-root .preview-wrap { width: 100%; }
-            #print-root .overflow-x-auto { display: block; overflow: visible !important; page-break-inside: auto; }
+            #print-root .overflow-x-auto { display: block; overflow: visible !important; page-break-inside: auto; break-inside: avoid; }
+            #print-root .border-l-4 { break-after: avoid; page-break-after: avoid; }
             #print-root table { display: table; page-break-inside: auto; break-inside: auto; width: auto !important; max-width: 100%; table-layout: auto; border-collapse: collapse; border: 1px solid #e5e7eb; margin-bottom: 0.5rem; font-size: 8pt; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
@@ -611,7 +657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         <!-- Preview -->
                         <div class="lg:col-span-2 min-w-0">
                             <div id="<?= $panelId ?>-preview"
-                                 class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 min-h-[520px] lg:min-h-[700px] h-auto overflow-visible flex flex-col">
+                                 class="bg-white dark:bg-[#111827] rounded-xl border border-gray-200 dark:border-slate-700 min-h-[520px] lg:h-[calc(100vh-16rem)] lg:min-h-0 lg:max-h-none h-auto overflow-hidden flex flex-col">
 
                                 <!-- empty state -->
                                 <div id="<?= $panelId ?>-empty" class="flex items-center justify-center min-h-[420px]">
@@ -623,13 +669,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                         <p class="text-sm mt-1 opacity-70">Report preview appears here</p>
                                     </div>
                                 </div>
-
                                 <!-- action bar -->
-                                <div id="<?= $panelId ?>-actions"
-                                     class="hidden flex-wrap gap-2 items-center justify-between px-4 sm:px-5 py-3
-                                            border-b border-gray-200 dark:border-slate-700
-                                            bg-gray-50 dark:bg-slate-800/50 rounded-t-xl
-                                            lg:sticky lg:top-28 z-10">
+                                    <div id="<?= $panelId ?>-actions"
+                                            class="hidden flex-wrap gap-2 items-center justify-between px-4 sm:px-5 py-3
+                                                    border-b border-gray-200 dark:border-slate-700
+                                                    bg-gray-50 dark:bg-slate-800
+                                                    flex-shrink-0 z-30 shadow-sm">
                                     <span id="<?= $panelId ?>-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
                                     <div class="flex flex-wrap gap-2">
                                         <button onclick="exportCSV('<?= $cfg['type'] ?>')"
@@ -654,7 +699,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 </div>
 
                                 <!-- report content -->
-                                <div id="<?= $panelId ?>-content" class="p-5 overflow-x-auto"></div>
+                                <div id="<?= $panelId ?>-content" class="p-5 overflow-auto"></div>
                             </div>
                         </div>
 
@@ -670,4 +715,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/reports/modals.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
+</html>
 </html>

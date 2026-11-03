@@ -366,8 +366,8 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                                 <div class="divide-y divide-gray-200 dark:divide-slate-700">
                                     <?php if (!empty($pendingCases)): ?>
                                         <?php foreach ($pendingCases as $case): ?>
-                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="w-full text-left flex items-center justify-between p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset block">
-                                            <div class="flex items-center space-x-3 flex-1">
+                                        <a href="<?php echo htmlspecialchars(buildCaseHighlightUrl($case['case_id'], $case['status'] ?? null, !empty($case['is_archived']), $case['severity'] ?? 'Major')); ?>" class="w-full min-w-0 overflow-hidden text-left flex flex-col gap-3 p-4 hover:bg-[#E0F2FE] dark:hover:bg-slate-700 transition-all duration-200 first:rounded-t-lg last:rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset block sm:flex-row sm:items-center sm:justify-between">
+                                            <div class="flex items-center space-x-3 min-w-0 flex-1">
                                                 <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex-shrink-0 flex items-center justify-center">
                                                     <span class="text-xs font-bold text-white"><?php 
                                                         $names = explode(' ', $case['student_name']);
@@ -379,13 +379,13 @@ function buildCalendarEventUrl($eventId, $eventDate = null) {
                                                     ?></span>
                                                 </div>
                                                 <div class="flex-1 min-w-0">
-                                                    <p class="font-medium text-gray-800 dark:text-gray-100"><?php echo htmlspecialchars($case['student_name']); ?></p>
-                                                    <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_number']); ?></p>
+                                                    <p class="font-medium text-gray-800 dark:text-gray-100 break-words"><?php echo htmlspecialchars($case['student_name']); ?></p>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400 break-words [overflow-wrap:anywhere]"><?php echo htmlspecialchars($case['case_type']); ?> • <?php echo htmlspecialchars($case['student_number']); ?></p>
                                                 </div>
                                             </div>
-                                            <div class="flex items-center space-x-4">
-                                                <span class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100">Pending</span>
-                                                <span class="text-sm text-gray-500 dark:text-gray-400"><?php echo formatDate($case['date_reported']); ?></span>
+                                            <div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-shrink-0 sm:justify-end sm:space-x-4">
+                                                <span class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-[#713F12] dark:text-yellow-100 whitespace-nowrap">Pending</span>
+                                                <span class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"><?php echo formatDate($case['date_reported']); ?></span>
                                             </div>
                                         </a>
                                         <?php endforeach; ?>

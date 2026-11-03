@@ -227,10 +227,7 @@ function getStatusText($status) {
 
             <!-- Page Content -->
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
-                <!-- Dashboard Title -->
-                <div class="mb-6 md:mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">Student Dashboard</h1>
-                </div>
+
 
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -334,18 +331,6 @@ function getStatusText($status) {
         </div>
     </div>
 
-    <script>
-        // Sidebar Toggle Handler for Mobile Viewports
-        function toggleSidebar() {
-            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-                overlay.classList.toggle('hidden');
-            }
-        }
-    </script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

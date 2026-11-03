@@ -386,17 +386,6 @@ $caseTypeDescriptionMap = array_combine(
     </div> 
 
     <script> 
-        // Sidebar Toggle Handler for Mobile Viewports
-        function toggleSidebar() {
-            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-                overlay.classList.toggle('hidden');
-            }
-        }
-
         // Severity and description mappings from server 
         const caseTypeSeverityMap = <?php echo json_encode($caseTypeSeverityMap); ?>; 
         const caseTypeDescriptionMap = <?php echo json_encode($caseTypeDescriptionMap); ?>; 

@@ -86,81 +86,99 @@ function setupLostFoundFilters() {
         return;
     }
 
-    const applyFilters = () => {
+    const rows = Array.from(form.closest('main').querySelectorAll('tbody tr[data-item-id]'));
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationButtons = document.getElementById('paginationButtons');
+    const perPage = 10;
+    let currentPage = 1;
+
+    const render = () => {
         const searchValue = (searchInput?.value || '').trim().toLowerCase();
         const statusValue = (statusSelect?.value || '').trim().toLowerCase();
         const categoryValue = (categorySelect?.value || '').trim().toLowerCase();
-        const rows = Array.from(document.querySelectorAll('tbody tr[data-item-name]'));
-        const noResultsRow = document.getElementById('lostFoundNoResultsRow');
-
-        let visibleCount = 0;
-
-        rows.forEach((row) => {
+        const dateSortValue = dateSortSelect?.value || 'newest';
+        const filteredRows = rows.filter((row) => {
             const matchesSearch = !searchValue || [
-                row.dataset.itemName || '',
-                row.dataset.location || '',
-                row.dataset.category || ''
-            ].some((value) => value.includes(searchValue));
-            const matchesStatus = !statusValue || (row.dataset.status || '') === statusValue;
-            const matchesCategory = !categoryValue || (row.dataset.category || '') === categoryValue;
-            const isVisible = matchesSearch && matchesStatus && matchesCategory;
-
-            row.classList.toggle('hidden', !isVisible);
-
-            if (isVisible) {
-                visibleCount += 1;
-            }
+                row.dataset.itemId || '', row.dataset.itemName || '',
+                row.dataset.location || '', row.dataset.category || ''
+            ].some((value) => value.toLowerCase().includes(searchValue));
+            return matchesSearch
+                && (!statusValue || row.dataset.status === statusValue)
+                && (!categoryValue || row.dataset.category === categoryValue);
         });
+        filteredRows.sort((a, b) => {
+            const result = String(a.dataset.dateFound).localeCompare(String(b.dataset.dateFound));
+            return dateSortValue === 'oldest' ? result : -result;
+        });
+        const totalPages = Math.max(1, Math.ceil(filteredRows.length / perPage));
+        currentPage = Math.min(currentPage, totalPages);
+        rows.forEach((row) => row.classList.add('hidden'));
+        filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+            .forEach((row) => row.classList.remove('hidden'));
 
-        if (noResultsRow) {
-            noResultsRow.classList.toggle('hidden', visibleCount !== 0);
+        if (paginationInfo) {
+            const start = filteredRows.length ? (currentPage - 1) * perPage + 1 : 0;
+            const end = Math.min(currentPage * perPage, filteredRows.length);
+            paginationInfo.textContent = filteredRows.length
+                ? `Showing ${start}-${end} of ${filteredRows.length} items`
+                : 'No items found';
         }
+        renderLostFoundPagination(paginationButtons, currentPage, totalPages, (page) => {
+            currentPage = page;
+            render();
+        });
     };
 
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const url = new URL(window.location.href);
-
-        const searchValue = (searchInput?.value || '').trim();
-        const statusValue = statusSelect?.value || '';
-        const categoryValue = categorySelect?.value || '';
-        const dateSortValue = dateSortSelect?.value || 'newest';
-
-        if (searchValue) {
-            url.searchParams.set('search', searchValue);
-        } else {
-            url.searchParams.delete('search');
-        }
-
-        if (statusValue) {
-            url.searchParams.set('status', statusValue);
-        } else {
-            url.searchParams.delete('status');
-        }
-
-        if (categoryValue) {
-            url.searchParams.set('category', categoryValue);
-        } else {
-            url.searchParams.delete('category');
-        }
-
-        if (dateSortValue === 'oldest') {
-            url.searchParams.set('date_sort', dateSortValue);
-        } else {
-            url.searchParams.delete('date_sort');
-        }
-
-        window.location.href = url.toString();
+    form.addEventListener('submit', (event) => event.preventDefault());
+    [searchInput, statusSelect, categorySelect, dateSortSelect].forEach((control) => {
+        control?.addEventListener('input', () => { currentPage = 1; render(); });
+        control?.addEventListener('change', () => { currentPage = 1; render(); });
     });
-
-    [searchInput, statusSelect, categorySelect].forEach((control) => {
-        control?.addEventListener('change', applyFilters);
-        control?.addEventListener('input', applyFilters);
-    });
-    dateSortSelect?.addEventListener('change', () => form.requestSubmit());
 
     lostFoundFilterBound = true;
-    applyFilters();
+    render();
+}
+
+function renderLostFoundPagination(container, currentPage, totalPages, onPageChange) {
+    if (!container) return;
+    const base = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center';
+    const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
+    container.innerHTML = '';
+    const add = (text, enabled, page, selected = false) => {
+        const element = document.createElement(enabled ? 'button' : 'span');
+        element.textContent = text;
+        element.className = selected ? active : base + (enabled ? '' : ' opacity-50 cursor-not-allowed');
+        if (enabled) element.addEventListener('click', () => onPageChange(page));
+        container.appendChild(element);
+    };
+    add('« Prev', currentPage > 1, Math.max(1, currentPage - 1));
+    const pages = [...new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])]
+        .filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+    pages.forEach((page, index) => {
+        if (index && page - pages[index - 1] > 1) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            const first = pages[index - 1] + 1;
+            const last = page - 1;
+            button.textContent = '…';
+            button.className = base;
+            button.addEventListener('click', () => {
+                const jump = document.createElement('span');
+                jump.className = 'inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-1 mx-1';
+                jump.innerHTML = `<input type="number" min="${first}" max="${last}" value="${currentPage}" class="w-16 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-sm text-gray-900 dark:text-gray-100"><button type="button" class="rounded bg-blue-600 px-2 py-1 text-sm text-white">Go</button>`;
+                jump.querySelector('button').addEventListener('click', () => {
+                    const destination = Number(jump.querySelector('input').value);
+                    if (Number.isInteger(destination) && destination >= first && destination <= last) onPageChange(destination);
+                });
+                button.replaceWith(jump);
+                jump.querySelector('input').focus();
+                jump.querySelector('input').select();
+            });
+            container.appendChild(button);
+        }
+        add(String(page), true, page, page === currentPage);
+    });
+    add('Next »', currentPage < totalPages, Math.min(totalPages, currentPage + 1));
 }
 
 function displayImagePreview(file) {

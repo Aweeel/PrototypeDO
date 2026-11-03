@@ -696,10 +696,10 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Old Values -->
-                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                <div id="oldValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
                     <div id="oldValuesSection">
-                        <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
+                        <p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>
                     </div>
                 </div>
 

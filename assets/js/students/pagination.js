@@ -24,15 +24,13 @@ function updatePaginationButtons() {
 
     function renderCompactPaginationDOM(container, currentPage, totalPages, onPageChange) {
         if (!container) return;
-        const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700';
-        const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold';
+        const btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center';
+        const active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
         const disabledClass = 'opacity-50 cursor-not-allowed';
         const ellipsis = 'px-2';
         const pageWindow = 1;
 
         container.innerHTML = '';
-        if (totalPages <= 1) return;
-
         const appendBtn = (text, enabled, page, isActive) => {
             const el = document.createElement(enabled ? 'button' : 'span');
             el.textContent = text;
@@ -41,7 +39,7 @@ function updatePaginationButtons() {
             container.appendChild(el);
         };
 
-        appendBtn('« Prev', currentPage > 1, currentPage - 1, false);
+        appendBtn('« Prev', currentPage > 1, Math.max(1, currentPage - 1), false);
 
         if (totalPages <= 2 * pageWindow + 5) {
             for (let i = 1; i <= totalPages; i++) appendBtn(String(i), true, i, i === currentPage);
@@ -110,7 +108,7 @@ function updatePaginationButtons() {
             });
         }
 
-        appendBtn('Next »', currentPage < totalPages, currentPage + 1, false);
+        appendBtn('Next »', currentPage < totalPages, Math.min(totalPages, currentPage + 1), false);
     }
 
     renderCompactPaginationDOM(pagination, currentPage, totalPages, changePage);
