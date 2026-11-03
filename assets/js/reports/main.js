@@ -340,10 +340,11 @@ function incHTML(d) {
     html += h2('Case Records');
     if (!detailed) {
         html += tbl(
-            ['Case ID','Student','Student ID','Case Type','Severity','Status','Date Reported','Assigned To'],
+            ['Case ID','Student','Student ID','Grade/Year','Track','Case Type','Severity','Status','Date Reported','Reported By','Assigned To','Description','Sanctions'],
             cases.map(c=>[`<b>${esc(c.case_id)}</b>`,esc(c.student_name),esc(c.student_number),
-                esc(c.case_type),badge(c.severity),badge(c.status),
-                fmtDate(c.date_reported),esc(c.assigned_to_name)])
+                esc(c.grade_year),esc(c.track_course),esc(c.case_type),badge(c.severity),badge(c.status),
+                fmtDate(c.date_reported),esc(c.reported_by_name),esc(c.assigned_to_name),esc(c.description),
+                esc((c.sanctions || []).map(s => `${s.sanction_name}${s.duration_days ? ` (${s.duration_days}d)` : ''}`).join('; '))])
         );
     } else {
         cases.forEach(c => {
@@ -384,7 +385,8 @@ function statHTML(d) {
     const isMonthlyView = filters.view === 'monthly';
     const monthName = filters.month ? ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][parseInt(filters.month)] : null;
     
-    let subtitle = `Year: ${filters.year}`;
+    const yearLabel = filters.year || 'All Years';
+    let subtitle = `Year: ${yearLabel}`;
     if (monthName) subtitle += ` • ${monthName}`;
     
     let html = banner('Case Statistics Report', subtitle,
@@ -395,19 +397,20 @@ function statHTML(d) {
         {label:'Major',            value:totals.major??0,        color:'#dc2626'},
         {label:'Minor',            value:totals.minor??0,        color:'#ca8a04'},
         {label:'Resolved',         value:totals.resolved??0,     color:'#16a34a'},
+        {label:'Pending',          value:totals.pending??0,      color:'#d97706'},
+        {label:'On Going',         value:totals.ongoing??0,      color:'#2563eb'},
         {label:'Repeat Offenders', value:repeatOffenders.length, color:'#7c3aed'},
     ]);
     
     if (monthName) {
-        html += h2(`Statistics for ${monthName} ${filters.year}`);
+        html += h2(`Statistics for ${monthName} ${yearLabel}`);
         const total = totals.total || 0;
         const major = totals.major || 0;
         const minor = totals.minor || 0;
         const resolved = totals.resolved || 0;
-        const pending = total - resolved;
         html += tbl(['Metric','Value'], [
             ['Total Cases', total], ['Major Cases', major], ['Minor Cases', minor], 
-            ['Resolved', resolved], ['Pending/On Going', pending]
+            ['Resolved', resolved], ['Pending', totals.pending??0], ['On Going', totals.ongoing??0]
         ]);
         html += h2('Cases by Type');
         html += tbl(['Case Type','Total','Major'], byType.map(r=>[esc(r.case_type),r.count,r.major_count]));
@@ -476,15 +479,16 @@ function lfHTML(d) {
         {label:'Total',    value:totals.total??0,    color:'#1d4ed8'},
         {label:'Unclaimed',value:totals.unclaimed??0,color:'#d97706'},
         {label:'Claimed',  value:totals.claimed??0,  color:'#16a34a'},
+        {label:'Disposed', value:totals.disposed??0, color:'#6b7280'},
     ]);
     html += h2('Summary by Category');
-    html += tbl(['Category','Total','Claimed','Unclaimed'],
-        byCategory.map(r=>[esc(r.category),r.total,r.claimed,r.unclaimed]));
+    html += tbl(['Category','Total','Claimed','Unclaimed','Disposed'],
+        byCategory.map(r=>[esc(r.category),r.total,r.claimed,r.unclaimed,r.disposed]));
     html += h2('Item Records');
-    html += tbl(['Item ID','Name','Category','Location Found','Date Found','Status','Claimer'],
+    html += tbl(['Item ID','Name','Category','Location Found','Date Found','Status','Finder','Claimer','Date Claimed','Description'],
         items.map(i=>[esc(i.item_id),esc(i.item_name),esc(i.category),esc(i.found_location),
             fmtDate(i.date_found),badge(i.status),
-            i.claimer_name?`${esc(i.claimer_name)}${i.date_claimed?' ('+fmtDate(i.date_claimed)+')':''}` : '—']));
+            esc(i.finder_name),esc(i.claimer_name),fmtDate(i.date_claimed),esc(i.description)]));
     return html;
 }
 
@@ -502,10 +506,10 @@ function stuHTML(d) {
         {label:'On Probation',   value:get('On Probation'),    color:'#dc2626'},
     ]);
     html += h2('Student Records');
-    html += tbl(['Student ID','Name','Grade/Year','Track/Course','Status','Cases','Major','Minor','Last Incident'],
-        students.map(s=>[esc(s.student_id),`${esc(s.first_name)} ${esc(s.last_name)}`,
+    html += tbl(['Student ID','First Name','Last Name','Grade/Year','Track/Course','Status','Cases','Major','Minor','Last Incident'],
+        students.map(s=>[esc(s.student_id),esc(s.first_name),esc(s.last_name),
             esc(s.grade_year),esc(s.track_course),badge(s.status||'Good Standing'),
-            s.active_cases??0,s.major_count??0,s.minor_count??0,fmtDate(s.last_incident_date)]));
+            s.active_cases??0,s.major_count??0,s.minor_count??0,fmtDate(s.report_last_incident_date)]));
     return html;
 }
 

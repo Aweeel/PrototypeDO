@@ -26,42 +26,14 @@ $dateSort = ($_GET['date_sort'] ?? 'newest') === 'oldest' ? 'oldest' : 'newest';
 $highlightItemId = $_GET['highlightItemId'] ?? '';
 $view = ($_GET['view'] ?? 'active') === 'archived' ? 'archived' : 'active';
 
-// Server-side pagination setup
+// Load the complete view once; filtering and pagination are handled client-side.
 $filters = [];
-if ($filterStatus) $filters['status'] = $filterStatus;
-if ($filterCategory) $filters['category'] = $filterCategory;
-if ($searchTerm) $filters['search'] = $searchTerm;
 $filters['date_sort'] = $dateSort;
 if ($view === 'archived') $filters['archived'] = true;
 
 $items = getLostFoundItems($filters);
 $totalItems = is_array($items) ? count($items) : 0;
 $perPage = 10;
-$pageParam = $_GET['page'] ?? null;
-if (is_scalar($pageParam) && is_numeric($pageParam)) {
-    $lfCurrentPage = max(1, (int)$pageParam);
-} else {
-    $lfCurrentPage = 1;
-}
-$totalPages = $totalItems > 0 ? (int) ceil($totalItems / $perPage) : 1;
-if ($lfCurrentPage > $totalPages) {
-    $lfCurrentPage = $totalPages;
-}
-
-if (!empty($highlightItemId) && $totalItems > 0) {
-    foreach ($items as $index => $candidateItem) {
-        if ((string) $candidateItem['item_id'] === (string) $highlightItemId) {
-            $lfCurrentPage = (int) floor($index / $perPage) + 1;
-            break;
-        }
-    }
-    if ($lfCurrentPage > $totalPages) {
-        $lfCurrentPage = $totalPages;
-    }
-}
-
-$startIndex = max(0, ($lfCurrentPage - 1) * $perPage);
-$itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : [];
 
 ?>
 
@@ -256,7 +228,7 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                                         </td>
                                     </tr>
                                 <?php else: ?>
-                                    <?php foreach ($itemsToShow as $item): ?>
+                                    <?php foreach ($items as $item): ?>
                                             <tr class="hover:bg-gray-50 dark:hover:bg-[#0F1623] transition <?php echo (!empty($highlightItemId) && (string) $item['item_id'] === (string) $highlightItemId) ? 'bg-blue-100 dark:bg-blue-900/20 ring-2 ring-blue-500 shadow-sm' : ''; ?>"
                                                 data-item-id="<?php echo htmlspecialchars($item['item_id']); ?>"
                                                 data-item-name="<?php echo htmlspecialchars(strtolower($item['item_name'])); ?>"
@@ -355,64 +327,9 @@ $itemsToShow = $totalItems > 0 ? array_slice($items, $startIndex, $perPage) : []
                     </div>
                 </div>
 
-                        <!-- Pagination (moved outside the table card) -->
                         <div class="mt-4 flex flex-wrap items-center justify-between gap-4 px-6 py-2">
-                            <div id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400">
-                                Showing <?php echo $startIndex + 1; ?>-<?php echo min($startIndex + $perPage, $totalItems); ?> of <?php echo $totalItems; ?> items
-                            </div>
-                            <div id="paginationButtons" class="flex flex-wrap gap-2 text-sm">
-                                <?php
-                                $maxButtons = 3;
-                                $queryParams = $_GET;
-                                $queryParams['view'] = $view;
-
-                                $buildUrl = function($p) use ($queryParams) {
-                                    $qp = $queryParams;
-                                    $qp['page'] = (int)$p;
-                                    return '?' . http_build_query($qp);
-                                };
-
-                                $btnBase = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 min-w-[44px] text-center inline-flex items-center justify-center';
-                                $active = 'px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold min-w-[44px] text-center inline-flex items-center justify-center';
-                                $disabledClass = 'opacity-50 cursor-not-allowed';
-
-                                // Previous (always rendered)
-                                if ($lfCurrentPage > 1) {
-                                    echo '<button onclick="window.location.href=\'' . $buildUrl($lfCurrentPage - 1) . '\'" class="' . $btnBase . '">« Prev</button>';
-                                } else {
-                                    echo '<span class="' . $btnBase . ' ' . $disabledClass . '" aria-disabled="true">« Prev</span>';
-                                }
-
-                                if ($totalPages <= $maxButtons) {
-                                    for ($i = 1; $i <= $totalPages; $i++) {
-                                        if ($i == $lfCurrentPage) echo '<span class="' . $active . '">' . $i . '</span>';
-                                        else echo '<button onclick="window.location.href=\'' . $buildUrl($i) . '\'" class="' . $btnBase . '">' . $i . '</button>';
-                                    }
-                                } else {
-                                    $visiblePages = array_unique([1, 2, 3, $lfCurrentPage, $totalPages]);
-                                    sort($visiblePages);
-
-                                    foreach ($visiblePages as $index => $page) {
-                                        if ($index > 0 && $page - $visiblePages[$index - 1] > 1) {
-                                            echo '<span class="' . $btnBase . ' ' . $disabledClass . '">&hellip;</span>';
-                                        }
-
-                                        if ($page == $lfCurrentPage) {
-                                            echo '<span class="' . $active . '">' . $page . '</span>';
-                                        } else {
-                                            echo '<button onclick="window.location.href=\'' . $buildUrl($page) . '\'" class="' . $btnBase . '">' . $page . '</button>';
-                                        }
-                                    }
-                                }
-
-                                // Next (always rendered)
-                                if ($lfCurrentPage < $totalPages) {
-                                    echo '<button onclick="window.location.href=\'' . $buildUrl($lfCurrentPage + 1) . '\'" class="' . $btnBase . '">Next »</button>';
-                                } else {
-                                    echo '<span class="' . $btnBase . ' ' . $disabledClass . '" aria-disabled="true">Next »</span>';
-                                }
-                                ?>
-                            </div>
+                            <div id="paginationInfo" class="text-sm text-gray-600 dark:text-gray-400"></div>
+                            <div id="paginationButtons" class="flex flex-wrap gap-2 text-sm"></div>
                         </div>
             </main>
         </div>

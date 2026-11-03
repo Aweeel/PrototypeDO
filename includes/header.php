@@ -151,7 +151,7 @@ if (!isset($adminName) || empty($adminName)) {
                 </button>
 
                 <!-- Notification Panel -->
-                <div id="notificationPanel" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-[#111827] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
+                <div id="notificationPanel" class="hidden absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1rem)] bg-white dark:bg-[#111827] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-y-auto">
                     <div class="sticky top-0 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-gray-700 p-4">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                     </div>
@@ -212,6 +212,19 @@ if (!isset($adminName) || empty($adminName)) {
         </div>
     </div>
 </header>
+<style>
+    @media (max-width: 639px) {
+        #notificationPanel {
+            position: fixed;
+            top: 4.5rem;
+            left: 0.5rem;
+            right: 0.5rem;
+            width: auto;
+            max-width: none;
+            margin-top: 0;
+        }
+    }
+</style>
 <?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?>
 <div class="fixed top-[4.5rem] left-0 lg:left-64 right-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
     <?= htmlspecialchars($globalBannerText) ?>

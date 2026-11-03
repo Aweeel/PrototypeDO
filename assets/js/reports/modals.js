@@ -1,12 +1,17 @@
 // Reports Page - Modal & Export Functions
 
 // ── CSV Export ───────────────────────────────────────────
+// Uses the filters from the report that was last generated, so the CSV
+// always matches what is shown in the preview and the printed PDF.
 function exportCSV(type) {
     try {
-        const filters = getFilters(type);
-        const params = new URLSearchParams({ export: 'csv', type, ...filters });
-        const url = `${PAGE_URL}?${params.toString()}`;
-        window.location.href = url;
+        const cached = reportCache[type];
+        if (!cached) {
+            showNotificationModal('Please generate a report first before exporting', 'warning');
+            return;
+        }
+        const params = new URLSearchParams({ export: 'csv', type, ...cached.filters });
+        window.location.href = `${PAGE_URL}?${params.toString()}`;
     } catch (e) {
         console.error('CSV Export Error:', e);
         showNotificationModal('Failed to export CSV: ' + e.message, 'error');
@@ -22,20 +27,20 @@ function printReport(type) {
             return;
         }
 
-        const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
         const printRoot = document.getElementById('print-root');
-
         if (!printRoot) {
             throw new Error('Print root element not found in DOM');
         }
 
-        // Inject a clean print header + the same HTML used in preview
-        printRoot.innerHTML = `
-            <div class="flex justify-between items-center border-b-2 border-blue-700 pb-2 mb-4 font-sans">
-                <span class="font-bold text-blue-700 text-sm">STI Discipline Office</span>
-                <span class="text-xs text-gray-600">Generated: ${today} &nbsp;|&nbsp; By: ${esc(ADMIN_NAME)}</span>
-            </div>
-            <div class="preview-wrap">${buildHTML(type, cached.data)}</div>`;
+        // The report banner already shows the date and author, so no extra print header.
+        printRoot.innerHTML = `<div class="preview-wrap">${buildHTML(type, cached.data)}</div>`;
+
+        // Paper is white: switch off dark mode while printing, then restore it.
+        const wasDark = document.documentElement.classList.contains('dark');
+        document.documentElement.classList.remove('dark');
+        window.addEventListener('afterprint', () => {
+            if (wasDark) document.documentElement.classList.add('dark');
+        }, { once: true });
 
         window.print();
     } catch (e) {

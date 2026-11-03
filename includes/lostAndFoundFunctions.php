@@ -213,11 +213,17 @@ function getLostFoundItems($filters = []) {
     }
     
     if (!empty($filters['search'])) {
-        $sql .= " AND (lf.item_name LIKE ? OR lf.description LIKE ? OR lf.found_location LIKE ?)";
+        $sql .= " AND (
+            lf.item_id LIKE ? OR
+            lf.item_name LIKE ? OR
+            lf.description LIKE ? OR
+            lf.category LIKE ? OR
+            lf.found_location LIKE ? OR
+            lf.status LIKE ? OR
+            lf.finder_name LIKE ?
+        )";
         $searchTerm = '%' . $filters['search'] . '%';
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
-        $params[] = $searchTerm;
+        $params = array_merge($params, array_fill(0, 7, $searchTerm));
     }
     
     if (!empty($filters['date_from'])) {
