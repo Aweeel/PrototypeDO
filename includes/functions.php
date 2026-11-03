@@ -3293,6 +3293,7 @@ function getCaseResolutionEligibility($caseId) {
                         AND (
                             LOWER(s.sanction_name) LIKE '%corrective%'
                             OR LOWER(s.sanction_name) LIKE '%community service%'
+                            OR LOWER(s.sanction_name) LIKE '%suspension from class%'
                         )
                         AND cs.duration_days > 0";
     $correctiveRows = fetchAll($correctiveSql, [$caseId]);
@@ -3310,6 +3311,27 @@ function getCaseResolutionEligibility($caseId) {
                 'error' => 'Check-in is not complete.'
             ];
         }
+    }
+
+    $rejectedCorrectivePortfolioRow = fetchOne(
+        "SELECT COUNT(*) AS cnt
+         FROM community_service_submissions css
+         JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
+         JOIN sanctions s ON s.sanction_id = cs.sanction_id
+         WHERE css.case_id = ?
+           AND (
+               LOWER(s.sanction_name) LIKE '%corrective%'
+               OR LOWER(s.sanction_name) LIKE '%community service%'
+           )
+           AND LOWER(COALESCE(css.review_status, '')) = 'rejected'",
+        [$caseId]
+    );
+
+    if (intval($rejectedCorrectivePortfolioRow['cnt'] ?? 0) > 0) {
+        return [
+            'can_resolve' => false,
+            'error' => 'The completion report was rejected.'
+        ];
     }
 
     $missingCorrectivePortfolioRow = fetchOne(

@@ -573,7 +573,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
             }
 
-            $sql .= " ORDER BY created_at DESC";
+            $sql .= " ORDER BY has_pending_reset DESC, created_at DESC";
 
             $users = fetchAll($sql, $params);
 

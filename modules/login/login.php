@@ -46,7 +46,19 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 </head>
 
 <body class="min-h-screen lg:h-screen lg:overflow-hidden">
-    <?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?><div class="fixed top-0 left-0 right-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-slate-950"><?= htmlspecialchars($globalBannerText) ?></div><?php endif; ?>
+    <?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?>
+    <div id="globalAnnouncementBanner"
+         data-banner-text="<?= htmlspecialchars($globalBannerText, ENT_QUOTES, 'UTF-8') ?>"
+         class="fixed top-0 left-0 right-0 z-50 flex items-center gap-3 bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950">
+        <span class="min-w-0 flex-1 text-center break-words"><?= htmlspecialchars($globalBannerText) ?></span>
+        <button id="closeGlobalAnnouncement"
+                type="button"
+                class="shrink-0 rounded p-1 text-xl leading-none text-slate-800 hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-slate-700"
+                aria-label="Close announcement"
+                title="Close announcement">&times;</button>
+    </div>
+    <?php endif; ?>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261103-3"></script>
     <div class="flex flex-col lg:flex-row h-full min-h-screen lg:min-h-0">
         
         <!-- Left Side (Hidden on screens below lg) -->

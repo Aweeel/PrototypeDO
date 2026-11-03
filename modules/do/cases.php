@@ -586,11 +586,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
 
                                 $correctivePortfolioCountRow = fetchOne(
                                         "SELECT COUNT(*) AS cnt
-                                         FROM community_service_submissions css
-                                         JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
+                                         FROM case_sanctions cs
                                          JOIN sanctions s ON s.sanction_id = cs.sanction_id
-                                         WHERE css.case_id = ?
-                                             AND LOWER(s.sanction_name) LIKE '%corrective%'",
+                                         WHERE cs.case_id = ?
+                                             AND (
+                                                 LOWER(s.sanction_name) LIKE '%corrective%'
+                                                 OR LOWER(s.sanction_name) LIKE '%community service%'
+                                                 OR LOWER(s.sanction_name) LIKE '%suspension from class%'
+                                             )
+                                             AND cs.duration_days > 0
+                                             AND EXISTS (
+                                                 SELECT 1
+                                                 FROM community_service_submissions css
+                                                 WHERE css.case_id = cs.case_id
+                                                   AND css.case_sanction_id = cs.case_sanction_id
+                                                   AND LOWER(COALESCE(css.review_status, '')) = 'approved'
+                                             )",
                                         [$case['case_id']]
                                 );
                                 $hasCorrectivePortfolioSubmission = intval($correctivePortfolioCountRow['cnt'] ?? 0) > 0;
@@ -715,9 +726,15 @@ if ($_POST['action'] === 'getStudentByNumber') {
         // Update existing case
 if ($_POST['action'] === 'updateCase') {
     $caseId = $_POST['caseId'];
+    $existingCase = getCaseById($caseId);
+    if (!$existingCase) {
+        echo json_encode(['success' => false, 'error' => 'Case not found']);
+        exit;
+    }
+
     $data = [
         'case_type' => $_POST['type'],
-        'severity' => $_POST['severity'] ?? 'Minor',
+        'severity' => $existingCase['severity'] ?? 'Minor',
         'status' => $_POST['status'],
         'date_reported' => $_POST['dateReported'] ?? null,
         'assigned_to' => $_SESSION['user_id'] ?? null,
@@ -1974,7 +1991,7 @@ if ($_POST['action'] === 'markResolved') {
             }
 
         $eligibility = getCaseResolutionEligibility($caseId);
-        if (($existingCase['severity'] ?? null) !== 'Minor' && !$eligibility['can_resolve']) {
+        if (!$eligibility['can_resolve']) {
             echo json_encode(['success' => false, 'error' => $eligibility['error']]);
             exit;
         }
@@ -2398,29 +2415,6 @@ $adminName = getFormattedUserName() ?? 'User';
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/main.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
     
-    <!-- Auto-open case from notification -->
-    <script>
-        // Check if caseId is in URL params and open it
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const caseId = urlParams.get('caseId');
-            
-            if (caseId && urlParams.get('openPortfolio') !== '1' && urlParams.get('openCheckIn') !== '1') {
-                // Wait for cases to be fully loaded, then open the specific case
-                const checkInterval = setInterval(() => {
-                    if (typeof allCases !== 'undefined' && allCases.length > 0 && typeof viewCase === 'function') {
-                        viewCase(caseId);
-                        clearInterval(checkInterval);
-                        // Clean URL
-                        window.history.replaceState({}, document.title, '<?= BASE_URL ?>/modules/do/cases.php');
-                    }
-                }, 100);
-                
-                // Timeout after 5 seconds to avoid infinite loop
-                setTimeout(() => clearInterval(checkInterval), 5000);
-            }
-        });
-    </script>
 </body>
 
 </html>

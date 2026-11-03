@@ -469,6 +469,7 @@ $caseTypeDescriptionMap = array_combine(
 
                     if (data.success) { 
                         showNotification('Report submitted successfully!', 'success'); 
+                        resetReportForm();
                         setTimeout(() => window.history.back(), 1500); 
                     } else { 
                         showNotification('Unable to submit report: ' + (data.error || 'The server did not provide a reason. Check the report details and try again.'), 'error');
@@ -479,6 +480,36 @@ $caseTypeDescriptionMap = array_combine(
                 } 
             }); 
         } 
+
+        function resetReportForm() {
+            reportForm.reset();
+            clearTimeout(lookupTimeout);
+
+            const studentName = document.getElementById('studentName');
+            const statusEl = document.getElementById('studentLookupStatus');
+            const infoDisplay = document.getElementById('studentInfoDisplay');
+            const description = document.getElementById('description');
+            const descRequired = document.getElementById('descRequired');
+            const severityDisplay = document.getElementById('severityDisplay');
+            const severityBadge = document.getElementById('severityBadge');
+            const previewContainer = document.getElementById('imagePreviewContainer');
+
+            studentName.readOnly = true;
+            studentName.placeholder = 'Enter student number first...';
+            studentName.className = 'w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100 cursor-not-allowed';
+
+            statusEl.textContent = '';
+            statusEl.className = 'text-xs mt-1 hidden';
+            infoDisplay.classList.add('hidden');
+            description.disabled = true;
+            description.required = false;
+            descRequired.style.display = 'none';
+            severityDisplay.textContent = 'Select a case type...';
+            severityBadge.textContent = '';
+            severityBadge.classList.add('hidden');
+            previewContainer.innerHTML = '';
+            previewContainer.classList.add('hidden');
+        }
 
         // Student lookup with debounce 
         let lookupTimeout; 

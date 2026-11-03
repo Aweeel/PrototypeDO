@@ -127,24 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        if ($_POST['action'] === 'getSystemMetrics') {
-            if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
-                echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-                exit;
-            }
-            $databaseSize = fetchValue("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) FROM information_schema.tables WHERE table_schema = DATABASE()");
-            $activeSessions = fetchValue("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)");
-            $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CURRENT_DATE");
-            $failedLogins = fetchAll("SELECT ip_address, timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.reason')) AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 10");
-            foreach ($failedLogins as &$failedLogin) {
-                $failedLogin['timestamp'] = formatDatabaseDateTime($failedLogin['timestamp']);
-            }
-            unset($failedLogin);
-            $peakHours = fetchAll("SELECT HOUR(timestamp) AS hour_of_day, COUNT(*) AS activity_count FROM audit_log WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY HOUR(timestamp) ORDER BY activity_count DESC LIMIT 5");
-            echo json_encode(['success' => true, 'metrics' => compact('databaseSize', 'activeSessions', 'auditEventsToday', 'failedLogins', 'peakHours')]);
-            exit;
-        }
-
         // Export audit logs to CSV
         if ($_POST['action'] === 'exportLogs') {
             $filters = [
@@ -478,7 +460,6 @@ table.w-full th, table.w-full td {
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3">
-                    <?php if (($_SESSION['user_role'] ?? '') === 'super_admin'): ?><button onclick="openSystemMetrics()" class="px-4 py-2.5 bg-slate-700 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">System Metrics</button><?php endif; ?>
                     <button onclick="exportLogs()"
                         class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -564,13 +545,6 @@ table.w-full th, table.w-full td {
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-
-    <div id="systemMetricsModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div class="flex items-center justify-between mb-6"><h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">System Metrics</h2><button onclick="closeSystemMetrics()" class="text-2xl text-gray-400">&times;</button></div>
-            <div id="systemMetricsContent" class="grid gap-4 md:grid-cols-3"><p class="text-gray-500">Loading metrics...</p></div>
         </div>
     </div>
 
@@ -764,7 +738,6 @@ table.w-full th, table.w-full td {
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/main.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/filters.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/modals.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/metrics.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

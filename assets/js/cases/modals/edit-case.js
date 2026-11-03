@@ -44,8 +44,8 @@ async function editCase(caseId) {
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">Offense Type <span class="text-red-500">*</span></label>
-                        <select id="editOffenseType" required onchange="handleEditOffenseTypeChange()" 
-                            class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <select id="editOffenseType" required disabled aria-disabled="true"
+                                class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100 cursor-not-allowed">
                             <option value="Minor" ${
                               caseData.severity === "Minor" ? "selected" : ""
                             }>Minor</option>
@@ -68,7 +68,6 @@ async function editCase(caseId) {
                     <div class="relative">
                         <input list="editCaseTypeList" id="editCaseType" required
                             value="${caseData.type}"
-                            onchange="handleEditCaseTypeChange()"
                             class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                             placeholder="Type to search or select...">
                         <datalist id="editCaseTypeList">
@@ -102,8 +101,8 @@ async function editCase(caseId) {
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
                         Description <span id="editDescRequired" class="text-red-500" style="display: none;">*</span>
                     </label>
-                    <textarea id="editDescription" rows="3" 
-                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 resize-none">${
+                    <textarea id="editDescription" rows="3" readonly
+                        class="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-gray-100 resize-none cursor-not-allowed">${
                           caseData.description
                         }</textarea>
                 </div>
@@ -140,12 +139,20 @@ async function editCase(caseId) {
     `;
   document.body.appendChild(modal);
 
+  editCaseOffenses = offenses;
+  const caseTypeInput = document.getElementById("editCaseType");
+  caseTypeInput.addEventListener("input", () => handleEditCaseTypeChange());
+  caseTypeInput.addEventListener("change", () => handleEditCaseTypeChange());
+
   // Check if current case type is "Others"
   if (
     caseData.type === "Others" ||
     !offenses.find((o) => o.offense_name === caseData.type)
   ) {
-    handleEditCaseTypeChange();
+    document.getElementById("editCustomOffense").value = caseData.type;
+    handleEditCaseTypeChange(caseData.description);
+  } else {
+    updateEditDescription(caseData.type, caseData.description);
   }
 
   document
@@ -218,35 +225,17 @@ async function editCase(caseId) {
     });
 }
 
-// Handle offense type change in edit modal
-async function handleEditOffenseTypeChange() {
-  const offenseType = document.getElementById("editOffenseType").value;
-  const caseTypeInput = document.getElementById("editCaseType");
-  const datalist = document.getElementById("editCaseTypeList");
-
-  // Load new offense types
-  const offenses = await loadOffenseTypes(offenseType);
-
-  // Update datalist
-  datalist.innerHTML =
-    offenses
-      .map(
-        (o) => `<option value="${o.offense_name}">${o.offense_name}</option>`
-      )
-      .join("") +
-    '<option value="Others">Others (Specify in description)</option>';
-
-  // Clear current selection
-  caseTypeInput.value = "";
-}
+let editCaseOffenses = [];
 
 // Handle case type change in edit modal
-function handleEditCaseTypeChange() {
+function handleEditCaseTypeChange(fallbackDescription = "") {
   const caseType = document.getElementById("editCaseType").value;
   const description = document.getElementById("editDescription");
   const descRequired = document.getElementById("editDescRequired");
   const customOffenseDiv = document.getElementById("editCustomOffenseDiv");
   const customOffenseInput = document.getElementById("editCustomOffense");
+
+  updateEditDescription(caseType, fallbackDescription);
 
   if (caseType === "Others") {
     description.required = true;
@@ -259,6 +248,15 @@ function handleEditCaseTypeChange() {
     customOffenseDiv.style.display = "none";
     customOffenseInput.required = false;
   }
+}
+
+function updateEditDescription(caseType, fallbackDescription = "") {
+  const description = document.getElementById("editDescription");
+  const normalizedCaseType = caseType.trim().toLowerCase();
+  const offense = editCaseOffenses.find(
+    (item) => item.offense_name.trim().toLowerCase() === normalizedCaseType
+  );
+  description.value = offense ? offense.description || "" : fallbackDescription;
 }
 
 // Archive case from edit modal

@@ -2,47 +2,28 @@ document.querySelectorAll('.admin-input').forEach((input) => {
     input.addEventListener('input', () => input.classList.add('is-dirty'));
 });
 
-const bannerButton = document.getElementById('bannerStatusButton');
+
+const bannerToggle = document.getElementById('bannerStatusToggle');
 const bannerText = document.getElementById('globalBannerText');
-document.getElementById('updateBannerButton')?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+const bannerStatusLabel = document.getElementById('bannerStatusLabel');
+const globalBanner = document.getElementById('globalAnnouncementBanner');
 
-    const button = event.currentTarget;
-    const confirmed = await window.showConfirmDialog({
-        message: 'Update the global announcement?',
-        confirmText: 'Update',
-        confirmClass: 'bg-blue-600 hover:bg-blue-700'
-    });
-    if (!confirmed) return;
-
-    button.disabled = true;
-    const formData = new FormData();
-    formData.append('ajax', '1');
-    formData.append('action', 'save_banner');
-    formData.append('global_banner_text', bannerText.value);
-    try {
-        const response = await fetch(window.location.href, { method: 'POST', body: formData });
-        if (!response.ok) throw new Error('Unable to update the global announcement.');
-        window.location.reload();
-    } catch (error) {
-        button.disabled = false;
-        showNotification(error instanceof Error ? error.message : 'Unable to update the global announcement.', 'error');
+const updateBannerVisibility = (visible) => {
+    if (!globalBanner) return;
+    const bannerContent = globalBanner.querySelector('span');
+    if (bannerContent) {
+        bannerContent.textContent = bannerText.value;
     }
-});
-bannerButton?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    globalBanner.hidden = !visible;
+    globalBanner.style.display = visible ? '' : 'none';
+};
 
-    const enabled = bannerButton.dataset.enabled === '1' ? '0' : '1';
-    const confirmed = await window.showConfirmDialog({
-        message: enabled === '1' ? 'Enable the global announcement?' : 'Disable the global announcement?',
-        confirmText: enabled === '1' ? 'Enable' : 'Disable',
-        confirmClass: enabled === '1' ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'
-    });
-    if (!confirmed) return;
+bannerToggle?.addEventListener('change', async () => {
+    const enabled = bannerToggle.checked ? '1' : '0';
+    bannerText.disabled = bannerToggle.checked;
+    bannerStatusLabel.textContent = bannerToggle.checked ? 'On' : 'Off';
+    bannerToggle.disabled = true;
 
-    bannerButton.disabled = true;
     const formData = new FormData();
     formData.append('ajax', '1');
     formData.append('action', 'toggle_banner');
@@ -53,9 +34,22 @@ bannerButton?.addEventListener('click', async (event) => {
         if (!response.ok) throw new Error('Unable to update the global announcement status.');
         const data = await response.json();
         if (!data.success) throw new Error('Unable to update the global announcement status.');
-        window.location.reload();
+        bannerToggle.checked = data.enabled === true;
+        bannerText.disabled = bannerToggle.checked;
+        bannerStatusLabel.textContent = bannerToggle.checked ? 'On' : 'Off';
+        updateBannerVisibility(bannerToggle.checked && bannerText.value.trim() !== '');
+        if (bannerToggle.checked) {
+            localStorage.removeItem('globalAnnouncementDismissed');
+        } else {
+            localStorage.setItem('globalAnnouncementDismissed', '1');
+        }
+        bannerToggle.disabled = false;
     } catch (error) {
-        bannerButton.disabled = false;
+        bannerToggle.checked = !bannerToggle.checked;
+        bannerText.disabled = bannerToggle.checked;
+        bannerStatusLabel.textContent = bannerToggle.checked ? 'On' : 'Off';
+        updateBannerVisibility(bannerToggle.checked && bannerText.value.trim() !== '');
+        bannerToggle.disabled = false;
         showNotification(error instanceof Error ? error.message : 'Unable to update the global announcement status.', 'error');
     }
 });

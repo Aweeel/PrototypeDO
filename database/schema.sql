@@ -649,6 +649,65 @@ VALUES
 ('02000000042', (SELECT user_id FROM users WHERE username = 'test3Stu'), 'Chloe', 'Ramos', NULL, '1st Year', 'BSIT', 'ALPHA-1', 'College', 'Good Standing');
 
 -- ============================================
+-- INSERT BETA STAFF ACCOUNTS
+-- Password for all beta accounts: password
+-- ============================================
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 10
+)
+SELECT
+    CONCAT('teacher', LPAD(n, 2, '0'), '@sti.edu'),
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    CONCAT('teacher', LPAD(n, 2, '0'), '@sti.edu'),
+    CONCAT('Beta Teacher ', LPAD(n, 2, '0')),
+    CONCAT('01000', LPAD(91000 + n, 6, '0')),
+    NULL, NULL, NULL, 'teacher',
+    CONCAT('0917009', LPAD(n, 3, '0')),
+    1
+FROM beta_numbers;
+
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
+VALUES
+('head01@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head01@sti.edu', 'Beta Department Head 01', '01000092001', NULL, 'department_head', 'Business & Management', 'teacher', '0917008001', 1),
+('head02@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head02@sti.edu', 'Beta Department Head 02', '01000092002', NULL, 'department_head', 'Information Technology', 'teacher', '0917008002', 1),
+('head03@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head03@sti.edu', 'Beta Department Head 03', '01000092003', NULL, 'department_head', 'Hospitality Management', 'teacher', '0917008003', 1),
+('head04@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head04@sti.edu', 'Beta Department Head 04', '01000092004', NULL, 'department_head', 'Tourism Management', 'teacher', '0917008004', 1),
+('head05@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head05@sti.edu', 'Beta Department Head 05', '01000092005', NULL, 'department_head', 'Engineering', 'teacher', '0917008005', 1);
+
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 5
+)
+SELECT
+    CONCAT('security', LPAD(n, 2, '0'), '@sti.edu'),
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    CONCAT('security', LPAD(n, 2, '0'), '@sti.edu'),
+    CONCAT('Beta Security ', LPAD(n, 2, '0')),
+    NULL, CONCAT('03000', LPAD(93000 + n, 6, '0')), 'security',
+    CONCAT('0917007', LPAD(n, 3, '0')), 1
+FROM beta_numbers;
+
+INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active)
+WITH RECURSIVE beta_numbers AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM beta_numbers WHERE n < 5
+)
+SELECT
+    CONCAT('admin', LPAD(n, 2, '0'), '@sti.edu'),
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    CONCAT('admin', LPAD(n, 2, '0'), '@sti.edu'),
+    CONCAT('Beta Super Admin ', LPAD(n, 2, '0')),
+    NULL, NULL, 'super_admin',
+    CONCAT('0917006', LPAD(n, 3, '0')), 1
+FROM beta_numbers;
+
+-- ============================================
 -- INSERT BETA STUDENT ACCOUNTS AND PROFILES
 -- Login email and username: student1@sti.edu through student50@sti.edu
 -- Default password for beta accounts: password
@@ -1099,6 +1158,46 @@ SELECT
     u.user_id
 FROM beta_numbers
 JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
+
+-- ============================================
+-- INSERT BETA STAFF HEARINGS AND NOTIFICATIONS
+-- Hearing notifications redirect to the calendar.
+-- Password-reset notifications redirect to user management.
+-- ============================================
+INSERT INTO calendar_events
+    (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id)
+VALUES
+('Beta Hearing - Case 2026-1T-0254', '2026-11-10', '09:00:00', '10:00:00', 'Hearing', 'Beta testing hearing for Business & Management.', 'Room Beta 1', 2, (SELECT user_id FROM users WHERE username = 'head01@sti.edu')),
+('Beta Hearing - Case 2026-1T-0266', '2026-11-11', '10:00:00', '11:00:00', 'Hearing', 'Beta testing hearing for Information Technology.', 'Room Beta 2', 2, (SELECT user_id FROM users WHERE username = 'head02@sti.edu')),
+('Beta Hearing - Case 2026-1T-0278', '2026-11-12', '13:00:00', '14:00:00', 'Hearing', 'Beta testing hearing for Hospitality Management.', 'Room Beta 3', 2, (SELECT user_id FROM users WHERE username = 'head03@sti.edu'));
+
+INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
+SELECT
+    u.user_id,
+    'Hearing Invitation',
+    CONCAT('Beta testing hearing for ', SUBSTRING_INDEX(SUBSTRING_INDEX(e.event_name, 'Case ', -1), ' ', 1),
+           ' is scheduled on ', e.event_date, ' at ', TIME_FORMAT(e.event_time, '%l:%i %p'),
+           '. Location: ', e.location, '.'),
+    'hearing_invitation',
+    CONCAT('hearing:', SUBSTRING_INDEX(SUBSTRING_INDEX(e.event_name, 'Case ', -1), ' ', 1), ':', e.event_id, ':', e.event_date, ':',
+           e.event_time, ':', e.event_end_time),
+    0
+FROM calendar_events e
+JOIN users u ON u.user_id = e.target_user_id
+WHERE e.event_name LIKE 'Beta Hearing - Case %';
+
+INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
+SELECT
+    admin.user_id,
+    'Password Reset Request',
+    CONCAT('Beta testing password reset request for ', teacher.email, '.'),
+    'password_reset_request',
+    CONCAT('password_reset:', teacher.user_id),
+    0
+FROM users admin
+CROSS JOIN users teacher
+WHERE admin.username LIKE 'admin__@sti.edu'
+  AND teacher.username LIKE 'teacher__@sti.edu';
 
 -- ============================================
 -- INSERT WATCH LIST ENTRIES
