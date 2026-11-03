@@ -60,29 +60,22 @@ function validateAcademicTermDates(array $values, bool $requireSemesters = true)
 }
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1' && ($_POST['action'] ?? '') === 'save_banner') {
-        $bannerText = trim($_POST['global_banner_text'] ?? '');
-        setSystemSetting('global_banner_text', $bannerText);
-        logAudit($_SESSION['user_id'] ?? null, 'Global Banner Updated', 'system_settings', null, null, [
-            'setting' => 'global_banner_text',
-            'text_length' => strlen($bannerText)
-        ]);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
-        exit;
-    }
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1' && ($_POST['action'] ?? '') === 'toggle_banner') {
         $bannerText = trim($_POST['global_banner_text'] ?? '');
         $bannerEnabled = ($_POST['enabled'] ?? '') === '1' ? 'enabled' : 'disabled';
         setSystemSetting('global_banner_text', $bannerText);
         setSystemSetting('global_banner_enabled', $bannerEnabled);
+        $persistedBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled');
+        if ($persistedBannerEnabled !== $bannerEnabled) {
+            throw new RuntimeException('Unable to persist the global announcement status.');
+        }
         logAudit($_SESSION['user_id'] ?? null, 'Global Banner Toggled', 'system_settings', null, null, [
             'setting' => 'global_banner_enabled',
             'value' => $bannerEnabled,
             'text_length' => strlen($bannerText)
         ]);
         header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'enabled' => getSystemSetting('global_banner_enabled') === 'enabled']);
+        echo json_encode(['success' => true, 'enabled' => $persistedBannerEnabled === 'enabled']);
         exit;
     }
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -173,9 +166,9 @@ $adminName = getFormattedUserName();
         <input type="hidden" name="action" value="save_settings">
         <section class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700"><h2 class="text-xl font-bold mb-6">Academic term management</h2><div class="grid grid-cols-1 lg:grid-cols-2 gap-8"><div class="space-y-4"><div class="grid grid-cols-2 gap-4"><?php foreach (['sy_start_date'=>'SY start','sy_end_date'=>'SY end'] as $key => $label): ?><label class="block text-sm font-semibold"><?= $label ?><input class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" type="date" name="<?= $key ?>" value="<?= htmlspecialchars($settings[$key]) ?>" required></label><?php endforeach; ?></div><div class="grid grid-cols-2 gap-4"><?php foreach (['first_semester_start'=>'1st semester start','first_semester_end'=>'1st semester end'] as $key => $label): ?><label class="block text-sm font-semibold"><?= $label ?><input class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" type="date" name="<?= $key ?>" value="<?= htmlspecialchars($settings[$key]) ?>" required></label><?php endforeach; ?></div><div class="grid grid-cols-2 gap-4"><?php foreach (['second_semester_start'=>'2nd semester start','second_semester_end'=>'2nd semester end'] as $key => $label): ?><label class="block text-sm font-semibold"><?= $label ?><input class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" type="date" name="<?= $key ?>" value="<?= htmlspecialchars($settings[$key]) ?>" required></label><?php endforeach; ?></div></div><div class="flex flex-col justify-between gap-4"><label class="block text-sm font-semibold">Auto-archive resolved cases after semester end (days)<input class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" type="number" min="0" name="archive_after_days" value="<?= htmlspecialchars($settings['archive_after_days']) ?>"></label><button class="self-start px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">Save settings</button></div></div></section>
     </form>
-    <section class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 space-y-4"><h2 class="text-xl font-bold">Global announcements</h2><div class="flex flex-col lg:flex-row gap-3 items-center"><input class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none" id="globalBannerText" name="global_banner_text" value="<?= htmlspecialchars($settings['global_banner_text']) ?>" maxlength="500" placeholder="Announcement text"><button type="button" id="bannerStatusButton" class="px-4 py-2.5 rounded-lg font-medium text-white <?= $settings['global_banner_enabled'] === 'enabled' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700' ?>" data-enabled="<?= $settings['global_banner_enabled'] === 'enabled' ? '1' : '0' ?>"><?= $settings['global_banner_enabled'] === 'enabled' ? 'Enabled' : 'Disabled' ?></button><button type="button" id="updateBannerButton" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">Update Announcement</button></div></section>
+    <section class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 space-y-4"><h2 class="text-xl font-bold">Global announcements</h2><div class="flex flex-col lg:flex-row gap-4 items-start lg:items-center"><input class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500" id="globalBannerText" name="global_banner_text" value="<?= htmlspecialchars($settings['global_banner_text']) ?>" maxlength="500" placeholder="Announcement text" <?= $settings['global_banner_enabled'] === 'enabled' ? 'disabled' : '' ?>><label class="inline-flex shrink-0 cursor-pointer items-center gap-3" aria-label="Toggle global announcement"><input type="checkbox" id="bannerStatusToggle" class="peer sr-only" <?= $settings['global_banner_enabled'] === 'enabled' ? 'checked' : '' ?>><span class="relative h-6 w-11 rounded-full bg-gray-300 transition-colors after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform after:content-[''] peer-checked:bg-green-600 peer-checked:after:translate-x-5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-500 dark:bg-slate-600" aria-hidden="true"></span><span id="bannerStatusLabel" class="text-sm font-medium"><?= $settings['global_banner_enabled'] === 'enabled' ? 'On' : 'Off' ?></span></label></div></section>
     <section class="bg-white dark:bg-[#111827] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><h2 class="text-xl font-bold">Manual Archive Term</h2><div class="flex gap-3"><form method="post"><input type="hidden" name="action" value="archive_preview"><button class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">Archive preview</button></form><form method="post" data-confirm-form data-confirm-message="Archive term?" data-confirm-text="Archive" data-confirm-class="bg-amber-600 hover:bg-amber-700"><input type="hidden" name="action" value="archive_now"><button class="px-4 py-2.5 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700">Archive term now</button></form></div></section>
 </main></div></div>
-<script src="<?= BASE_URL ?>/assets/js/super-admin/systemControl.js"></script>
+<script src="<?= BASE_URL ?>/assets/js/super-admin/systemControl.js?v=20261103-3"></script>
 </body><?php if ($modalError || ($modalMessage && !$previewRequested)): ?><script>document.addEventListener('DOMContentLoaded', () => showNotification(<?= json_encode($modalMessage ?: $modalError) ?>, <?= json_encode($modalMessage ? 'success' : 'error') ?>));</script><?php endif; ?>
 </html>

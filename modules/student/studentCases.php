@@ -406,8 +406,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             [$caseSanctionId, $caseId]
         );
 
+        $isSuspension = $sanction
+            && strpos(strtolower((string)($sanction['sanction_name'] ?? '')), 'suspension from class') !== false;
+
         if ($sanction) {
-            $completionSnapshot = getCommunityServiceCompletionSnapshot($sanction['case_sanction_id']);
+            $completionSnapshot = $isSuspension
+                ? getSuspensionCompletionSnapshot($sanction['case_sanction_id'])
+                : getCommunityServiceCompletionSnapshot($sanction['case_sanction_id']);
             if ($completionSnapshot) {
                 $sanction['is_completed'] = !empty($completionSnapshot['is_complete']);
             }
@@ -656,6 +661,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         let allCases = [];
         let showArchived = false;
         let viewedRejectedPortfolioCaseIds = new Set();
+        let highlightedCaseId = null;
 
         // Load cases on page load
         document.addEventListener('DOMContentLoaded', function () {
@@ -664,18 +670,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // Check if a specific case should be opened from URL parameter
             const urlParams = new URLSearchParams(window.location.search);
             const caseId = urlParams.get('case_id');
-            
-            if (caseId) {
-                // Remove the case_id parameter from URL to prevent modal from opening again on reload
-                const newUrl = new URL(window.location);
-                newUrl.searchParams.delete('case_id');
-                window.history.replaceState({}, '', newUrl);
-                
-                // Wait a bit for cases to load, then open the specific case
-                setTimeout(() => {
-                    viewCaseDetails(caseId);
-                }, 500);
-            }
+            highlightedCaseId = caseId;
         });
 
         async function loadCases() {
@@ -694,12 +689,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 if (data.success) {
                     allCases = data.cases;
                     renderCases();
+                    if (caseIdFromUrl()) {
+                        const caseId = caseIdFromUrl();
+                        if (allCases.some((caseItem) => String(caseItem.id) === String(caseId))) {
+                            document.querySelector(`[data-case-id="${CSS.escape(String(caseId))}"]`)?.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+                            viewCaseDetails(caseId);
+                            const newUrl = new URL(window.location.href);
+                            newUrl.searchParams.delete('case_id');
+                            newUrl.searchParams.delete('highlightCase');
+                            window.history.replaceState({}, document.title, newUrl.pathname + newUrl.search);
+                        }
+                    }
                 } else {
                     showEmptyState();
                 }
+
             } catch (error) {
                 console.error('Error loading cases:', error);
                 showEmptyState();
+            }
+
+            function caseIdFromUrl() {
+                return new URLSearchParams(window.location.search).get('case_id');
             }
         }
 
@@ -722,7 +736,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 const showRejectedPortfolioAlert = !!caseItem.hasRejectedPortfolio && !hasViewedRejectedPortfolio;
 
                 return `
-                <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''}">
+                <tr data-case-id="${escapeHtml(caseItem.id)}" class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${caseItem.isArchived ? 'opacity-70' : ''} ${highlightedCaseId === String(caseItem.id) ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-inset ring-blue-500' : ''}">
                     <td class="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100 w-32 align-middle">
                         <div class="truncate">${escapeHtml(caseItem.id)}</div>
                         ${caseItem.isArchived ? '<span class="ml-1 md:ml-2 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">Archived</span>' : ''}
@@ -1329,8 +1343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     </div>
 
                     <div class="border-t border-gray-200 dark:border-slate-700 pt-4">
-                        ${isSuspension ? '' : `
-                            <div>
+                        <div>
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                                     <div>
                                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Completion Report</label>
@@ -1359,8 +1372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                         ${renderCommunityServiceSubmissions(portfolioSubmissions)}
                                     </div>
                                 </div>
-                            </div>
-                        `}
+                        </div>
                     </div>
                 </div>
             `;

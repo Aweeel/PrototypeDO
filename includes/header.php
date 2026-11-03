@@ -164,14 +164,18 @@ if (!isset($adminName) || empty($adminName)) {
                     <?php else: ?>
                         <div class="divide-y divide-gray-200 dark:divide-gray-700">
                             <?php foreach ($unreadNotifications as $notification): ?>
+                                  <?php $isPasswordResetNotification = ($notification['type'] ?? '') === 'password_reset_request'; ?>
                                   <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
                                        onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1">
-                                            <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                            <p class="font-medium text-sm <?php echo $isPasswordResetNotification ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-gray-100'; ?>">
+                                                <?php if ($isPasswordResetNotification): ?>
+                                                    <span class="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white" aria-label="Urgent">!</span>
+                                                <?php endif; ?>
                                                 <?php echo htmlspecialchars($notification['title']); ?>
                                             </p>
-                                            <p class="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                                            <p class="<?php echo $isPasswordResetNotification ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'; ?> text-xs mt-1">
                                                 <?php echo htmlspecialchars(substr($notification['message'], 0, 100)) . (strlen($notification['message']) > 100 ? '...' : ''); ?>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-500 text-xs mt-1">
@@ -225,12 +229,20 @@ if (!isset($adminName) || empty($adminName)) {
         }
     }
 </style>
-<?php if ($globalBannerEnabled && trim($globalBannerText) !== ''): ?>
-<div class="fixed top-[4.5rem] left-0 lg:left-64 right-0 z-20 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-    <?= htmlspecialchars($globalBannerText) ?>
-</div>
-<?php endif; ?>
 
+<div id="globalAnnouncementBanner"
+     data-banner-text="<?= htmlspecialchars($globalBannerText, ENT_QUOTES, 'UTF-8') ?>"
+     class="fixed top-[4.5rem] left-0 lg:left-64 right-0 z-20 flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+     <?= $globalBannerEnabled && trim($globalBannerText) !== '' ? '' : 'hidden' ?>>
+    <span class="min-w-0 flex-1 text-center break-words"><?= htmlspecialchars($globalBannerText) ?></span>
+    <button id="closeGlobalAnnouncement"
+            type="button"
+            class="shrink-0 rounded p-1 text-xl leading-none text-amber-700 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:text-amber-200 dark:hover:bg-amber-900"
+            aria-label="Close announcement"
+            title="Close announcement">&times;</button>
+</div>
+
+<script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261103-3"></script>
 <script>
     function toggleNotificationPanel() {
         const panel = document.getElementById('notificationPanel');
@@ -312,12 +324,14 @@ if (!isset($adminName) || empty($adminName)) {
                                 url.searchParams.set('case_id', hearingCaseId);
                             }
                             window.location.href = url.toString();
+                        } else if (isPortfolioNotification && userRole === 'student') {
+                            window.location.href = `${window.APP_BASE_URL}/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}&highlightCase=1`;
                         } else if (isPortfolioNotification) {
-                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&highlightCaseId=${encodeURIComponent(relatedCaseId)}&highlightCase=1&openCheckIn=1&sanctionType=${encodeURIComponent(relatedSanctionType)}`;
                         } else if (userRole === 'student') {
-                            window.location.href = `${window.APP_BASE_URL}/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}&highlightCase=1`;
                         } else {
-                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}`;
+                            window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&highlightCaseId=${encodeURIComponent(relatedCaseId)}&highlightCase=1&viewCase=1`;
                         }
                     }, 100);
             } else if (data.success) {

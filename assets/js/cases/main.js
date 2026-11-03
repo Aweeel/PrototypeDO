@@ -97,7 +97,7 @@ async function openPendingCheckInFromUrl() {
 async function openCaseDetailsFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const caseId = params.get('caseId') || params.get('case_id');
-    const openDetails = params.get('viewCase');
+    const openDetails = params.get('viewCase') || (params.get('caseId') && params.get('openCheckIn') !== '1' ? '1' : null);
     const requestedTab = params.get('tab');
     const tab = requestedTab === 'recorded' ? 'resolved' : requestedTab;
     const requestedPage = Number.parseInt(params.get('page') || '', 10);
@@ -179,6 +179,7 @@ async function highlightCaseFromUrl() {
 
     const url = new URL(window.location.href);
     url.searchParams.delete('highlightCase');
+    url.searchParams.delete('highlightCaseId');
     window.history.replaceState({}, document.title, url.pathname + url.search);
 }
 
