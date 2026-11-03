@@ -13,6 +13,17 @@ header("Expires: 0");
 
 // Check if user has a valid session
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
+    $currentUser = getUserById($_SESSION['user_id']);
+    if (!$currentUser
+        || (int)($currentUser['is_active'] ?? 0) !== 1
+        || (int)($currentUser['is_archived'] ?? 0) !== 0) {
+        setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
+        session_unset();
+        session_destroy();
+        header('Location: ' . BASE_URL . '/modules/login/login.php?error=deactivated');
+        exit;
+    }
+
     $sessionUsername = $_SESSION['user']['username'] ?? '';
     if (!isSimultaneousLoginExempt($sessionUsername)
         && hasActiveSessionChanged($_SESSION['user_id'], session_id())) {
@@ -30,7 +41,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $pdo = getDBConnection();
     if ($pdo) {
         // Find user by token
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CURRENT_TIMESTAMP AND COALESCE(is_archived, 0) = 0");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND remember_token_expiry > CURRENT_TIMESTAMP AND COALESCE(is_active, 0) = 1 AND COALESCE(is_archived, 0) = 0");
         $stmt->execute([$tokenHash]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         

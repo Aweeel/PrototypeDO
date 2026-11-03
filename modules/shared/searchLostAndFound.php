@@ -249,16 +249,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     </div>
 
     <script>
-        // Toggle Sidebar Handler for Mobile
-        function toggleSidebar() {
-            const sidebar = document.querySelector('aside') || document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            
-            if (sidebar) {
-                sidebar.classList.toggle('-translate-x-full');
-                overlay.classList.toggle('hidden');
-            }
-        }
     </script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>

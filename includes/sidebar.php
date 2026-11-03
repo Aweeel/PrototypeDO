@@ -46,7 +46,7 @@ switch ($role) {
 
 <aside id="sidebar" 
        class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
-              bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
+              max-h-[100dvh] overflow-hidden bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
               -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
 
     <!-- Logo -->
@@ -65,7 +65,7 @@ switch ($role) {
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 px-3 py-1 space-y-1 overflow-y-auto">
+    <nav class="flex-1 min-h-0 px-3 py-1 space-y-1 overflow-y-auto">
         <?php foreach ($sidebarItems as $item):
             $itemPath = parse_url($item['path'], PHP_URL_PATH) ?: $item['path'];
             $itemQuery = [];
@@ -85,7 +85,7 @@ switch ($role) {
     </nav>
 
     <!-- Log Out Button -->
-    <div class="p-4 border-t border-[#374151] dark:border-gray-800">
+    <div class="flex-shrink-0 p-4 border-t border-[#374151] dark:border-gray-800">
         <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php" class="w-full flex items-center justify-center space-x-2 
                   bg-[#33475F] hover:bg-[#991B1B] 
                   dark:bg-[#111827] dark:hover:bg-[#7F1D1D] 

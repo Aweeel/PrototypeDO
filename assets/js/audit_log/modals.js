@@ -1,10 +1,83 @@
 // Helper function to convert snake_case or camelCase to readable label
 function formatLabel(key) {
+    const labels = {
+        id: 'ID',
+        user_id: 'User ID',
+        case_id: 'Case ID',
+        student_id: 'Student ID',
+        sanction_id: 'Sanction ID',
+        record_id: 'Record ID',
+        day_number: 'Day Number',
+        ip_address: 'IP Address',
+        user_agent: 'User Agent',
+        html_content: 'HTML Content',
+        pdf_path: 'PDF Path',
+        url: 'URL'
+    };
+
+    if (labels[key]) return labels[key];
+
     return key
         .replace(/_/g, ' ')                          // Replace underscores with spaces
         .replace(/([a-z])([A-Z])/g, '$1 $2')         // Handle camelCase
         .replace(/\b\w/g, char => char.toUpperCase()) // Capitalize each word
         .trim();
+}
+
+function formatValueLabel(key, value) {
+    if (value === null || value === undefined) return value;
+
+    const valueLabels = {
+        role: {
+            do: 'Discipline Office',
+            discipline_office: 'Discipline Office',
+            super_admin: 'Super Admin',
+            admin: 'Administrator',
+            teacher: 'Teacher',
+            student: 'Student'
+        },
+        status: {
+            active: 'Active',
+            inactive: 'Inactive',
+            archived: 'Archived',
+            resolved: 'Resolved',
+            on_going: 'On Going',
+            pending: 'Pending'
+        }
+    };
+    const normalizedKey = key.toLowerCase();
+    const normalizedValue = String(value).toLowerCase();
+
+    if (valueLabels[normalizedKey] && valueLabels[normalizedKey][normalizedValue]) {
+        return valueLabels[normalizedKey][normalizedValue];
+    }
+
+    if (['is_active', 'is_archived'].includes(normalizedKey) && ['0', '1'].includes(normalizedValue)) {
+        const enabled = normalizedValue === '1';
+        return normalizedKey === 'is_archived'
+            ? (enabled ? 'Archived' : 'Not Archived')
+            : (enabled ? 'Active' : 'Inactive');
+    }
+
+    return value;
+}
+
+function formatTableLabel(table) {
+    const tableLabels = {
+        users: 'Users',
+        students: 'Students',
+        cases: 'Cases',
+        case_sanctions: 'Case Sanctions',
+        case_checkins: 'Case Check-Ins',
+        lost_found_items: 'Lost & Found Items',
+        lost_found_categories: 'Lost & Found Categories',
+        calendar_events: 'Calendar Events',
+        community_service_submissions: 'Community Service Submissions',
+        system_settings: 'System Settings',
+        system_backup: 'System Backup'
+    };
+
+    return tableLabels[table] || formatLabel(table);
 }
 
 // Helper function to format values for display
@@ -79,7 +152,7 @@ function formatDataSection(data, bgColor) {
                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">${formatLabel(key)}:</label>
                 </div>
                 <div class="min-w-0 text-sm text-gray-900 dark:text-gray-100">
-                    ${formatValue(value)}
+                    ${formatValue(formatValueLabel(key, value))}
                 </div>
             </div>
         `;
@@ -140,24 +213,27 @@ function openLogDetailModal(log) {
     
     // Populate main details
     document.getElementById('detailUser').textContent = log.user || 'System';
-    document.getElementById('detailRole').textContent = log.role || 'N/A';
+    document.getElementById('detailRole').textContent = formatValueLabel('role', log.role || 'N/A');
     document.getElementById('detailAction').innerHTML = `<span class="px-2 py-1 text-xs font-semibold rounded-full ${log.actionColor}">${log.action}</span>`;
     document.getElementById('detailTimestamp').textContent = log.timestamp;
-    document.getElementById('detailTable').textContent = log.table || 'N/A';
+    document.getElementById('detailTable').textContent = log.table ? formatTableLabel(log.table) : 'N/A';
     document.getElementById('detailRecordId').textContent = log.recordId || 'N/A';
     document.getElementById('detailIpAddress').textContent = log.ipAddress || 'N/A';
     document.getElementById('detailUserAgent').textContent = log.userAgent || 'N/A';
     
     // Populate old values
+    const oldValuesBlock = document.getElementById('oldValuesBlock');
     const oldValuesSection = document.getElementById('oldValuesSection');
     try {
         const oldData = parseAuditValues(log.oldValues);
-        if (oldData !== null && typeof oldData === 'object') {
+        if (oldData !== null && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
+            oldValuesBlock.classList.remove('hidden');
             oldValuesSection.innerHTML = formatDataSection(oldData, 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800');
         } else {
-            oldValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>`;
+            oldValuesBlock.classList.add('hidden');
         }
     } catch (e) {
+        oldValuesBlock.classList.remove('hidden');
         oldValuesSection.innerHTML = `<p class="text-red-600 dark:text-red-400">Unable to parse data: ${escapeHtml(e.message)}</p>`;
     }
     
@@ -222,13 +298,13 @@ function exportDetailAsCSV() {
         try {
             const oldData = JSON.parse(selectedLog.oldValues);
             for (const [key, value] of Object.entries(oldData)) {
-                csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(value))}\n`;
+                csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(formatValueLabel(key, value)))}\n`;
             }
         } catch (e) {
             csvContent += `"Error parsing old values",${escapeCSV(e.message)}\n`;
         }
     } else {
-        csvContent += `"  (No previous values)",\n`;
+        csvContent = csvContent.replace('"Previous Values",\n', '');
     }
     
     // New Values
@@ -237,13 +313,13 @@ function exportDetailAsCSV() {
         try {
             const newData = JSON.parse(selectedLog.newValues);
             for (const [key, value] of Object.entries(newData)) {
-                csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(value))}\n`;
+                csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(formatValueLabel(key, value)))}\n`;
             }
         } catch (e) {
             csvContent += `"Error parsing new values",${escapeCSV(e.message)}\n`;
         }
     } else {
-        csvContent += `"  (No new values)",\n`;
+        csvContent = csvContent.replace('"New Values",\n', '');
     }
     
     // Download CSV
@@ -278,7 +354,7 @@ function printDetailAsPDF() {
         return Object.entries(data).map(([key, value]) => `
             <tr>
                 <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555; vertical-align: top;">${escapeHtml(formatLabel(key))}</td>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top;">${escapeHtml(printValue(value))}</td>
+                <td style="padding: 6px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top;">${escapeHtml(printValue(formatValueLabel(key, value)))}</td>
             </tr>
         `).join('');
     }
@@ -340,11 +416,12 @@ function printDetailAsPDF() {
     `;
     
     // Old Values
-    printContent += `<div style="margin-bottom: 25px;">
-        <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Previous Values</h3>`;
-    
-    printContent += `<div style="background-color: #fee2e2; padding: 10px; border-radius: 4px; border-left: 4px solid #dc2626;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(oldData)}</table></div>`;
-    printContent += `</div>`;
+    if (oldData && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
+        printContent += `<div style="margin-bottom: 25px;">
+            <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Previous Values</h3>
+            <div style="background-color: #fee2e2; padding: 10px; border-radius: 4px; border-left: 4px solid #dc2626;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(oldData)}</table></div>
+        </div>`;
+    }
     
     // New Values
     printContent += `<div style="margin-bottom: 25px;">

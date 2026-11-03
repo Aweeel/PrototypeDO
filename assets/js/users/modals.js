@@ -47,10 +47,10 @@ function closeAddModal() {
 function createAddModal() {
     const modal = document.createElement('div');
     modal.id = 'addModal';
-    modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.className = 'hidden fixed inset-0 overflow-y-auto overscroll-contain bg-black bg-opacity-50 z-50 flex items-start justify-center p-2 sm:items-center sm:p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
+        <div class="my-0 flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl dark:bg-[#111827] sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
+            <div class="flex flex-shrink-0 items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 sm:p-6">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Add New User</h2>
                 <button onclick="closeAddModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +58,7 @@ function createAddModal() {
                     </svg>
                 </button>
             </div>
-            <form id="add_form" onsubmit="submitAddUser(event)" class="p-6 space-y-4">
+            <form id="add_form" onsubmit="submitAddUser(event)" class="min-h-0 overflow-y-auto p-4 space-y-4 sm:p-6">
                 <div>
                     <label for="add_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
                     <select id="add_role" name="role" required onchange="handleRoleChange('add')"
@@ -259,10 +259,10 @@ function closeEditModal() {
 function createEditModal() {
     const modal = document.createElement('div');
     modal.id = 'editModal';
-    modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.className = 'hidden fixed inset-0 overflow-y-auto overscroll-contain bg-black bg-opacity-50 z-50 flex items-start justify-center p-2 sm:items-center sm:p-4';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
+        <div class="my-0 flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl border border-gray-200 dark:border-slate-700 dark:bg-[#111827] sm:my-4 sm:max-h-[calc(100dvh-2rem)]">
+            <div class="flex flex-shrink-0 items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 sm:p-6">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Edit User</h2>
                 <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@ function createEditModal() {
                     </svg>
                 </button>
             </div>
-            <form id="edit_form" onsubmit="submitEditUser(event)" class="p-6">
+            <form id="edit_form" onsubmit="submitEditUser(event)" class="min-h-0 overflow-y-auto p-4 sm:p-6">
                 <input type="hidden" id="edit_user_id">
 
                 <div class="space-y-4">
@@ -335,6 +335,42 @@ function createEditModal() {
                         <input type="text" id="edit_student_id" name="student_id" placeholder="02000000001"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
+                    <div id="edit_student_details_container" class="hidden space-y-4">
+                        <div>
+                            <label for="edit_grade_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grade/Year Level *</label>
+                            <input type="text" id="edit_grade_year" name="grade_year" placeholder="e.g. 11 or 1st Year"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="edit_track_course" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Track/Course</label>
+                            <input type="text" id="edit_track_course" name="track_course"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="edit_section" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
+                            <input type="text" id="edit_section" name="section"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="edit_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
+                            <select id="edit_student_type" name="student_type"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                                <option value="">-- Select Type --</option>
+                                <option value="SHS">SHS</option>
+                                <option value="College">College</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit_guardian_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guardian Name</label>
+                            <input type="text" id="edit_guardian_name" name="guardian_name"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label for="edit_guardian_contact" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guardian Contact</label>
+                            <input type="tel" id="edit_guardian_contact" name="guardian_contact"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
                     <div>
                         <label for="edit_contact_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number</label>
                         <input type="tel" id="edit_contact_number" name="contact_number" 
@@ -371,6 +407,12 @@ async function submitEditUser(event) {
     const teacher_id = document.getElementById('edit_teacher_id')?.value || '';
     const do_id = document.getElementById('edit_do_id')?.value || '';
     const student_id = document.getElementById('edit_student_id')?.value || '';
+    const grade_year = document.getElementById('edit_grade_year')?.value || '';
+    const track_course = document.getElementById('edit_track_course')?.value || '';
+    const section = document.getElementById('edit_section')?.value || '';
+    const student_type = document.getElementById('edit_student_type')?.value || '';
+    const guardian_name = document.getElementById('edit_guardian_name')?.value || '';
+    const guardian_contact = document.getElementById('edit_guardian_contact')?.value || '';
 
     const formData = new FormData();
     formData.append('ajax', '1');
@@ -385,6 +427,12 @@ async function submitEditUser(event) {
     formData.append('teacher_id', teacher_id);
     formData.append('do_id', do_id);
     formData.append('student_id', student_id);
+    formData.append('grade_year', grade_year);
+    formData.append('track_course', track_course);
+    formData.append('section', section);
+    formData.append('student_type', student_type);
+    formData.append('guardian_name', guardian_name);
+    formData.append('guardian_contact', guardian_contact);
 
     try {
         const response = await fetch(window.location.pathname, {
