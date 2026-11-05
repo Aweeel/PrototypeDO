@@ -15,10 +15,10 @@
     </style>
 </head>
 
-<body class="h-screen overflow-hidden">
-    <div class="flex h-full">
-        <!-- Left Side -->
-        <div class="w-1/2 relative flex flex-col items-center justify-center p-12 overflow-hidden bg-slate-800">
+<body class="min-h-screen lg:h-screen lg:overflow-hidden">
+    <div class="flex flex-col lg:flex-row h-full min-h-screen lg:min-h-0">
+        <!-- Left Side (Hidden on screens below lg) -->
+        <div class="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center p-12 overflow-hidden bg-slate-800">
 
             <!-- Background Image -->
             <div class="absolute inset-0 z-0"
@@ -81,9 +81,16 @@
             </div>
         </div>
 
-        <!-- Right Side -->
-        <div class="w-1/2 bg-white flex items-center justify-center p-12">
-            <div class="w-full max-w-md">
+        <!-- Right Side - Styled Background on mobile, white on desktop -->
+        <div class="w-full lg:w-1/2 bg-gradient-to-b from-slate-100 via-slate-50 to-white lg:bg-none lg:bg-white flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 min-h-screen lg:min-h-0 overflow-y-auto">
+            <!-- Mobile Header Logo & Styled Card Banner (Only visible on screens below lg) -->
+            <div class="lg:hidden mb-6 text-center w-full max-w-md bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <img src="../../assets/images/logos/doms-logo.png" alt="DOMS Logo" class="w-48 h-auto mx-auto mb-3">
+                <h1 class="text-gray-800 text-xl font-bold">STI Discipline Office</h1>
+                <p class="text-gray-500 text-xs">Management System</p>
+            </div>
+
+            <div class="w-full max-w-md bg-white lg:bg-transparent p-6 sm:p-8 lg:p-0 rounded-2xl lg:rounded-none shadow-sm lg:shadow-none border border-slate-200/60 lg:border-none">
                 <h2 class="text-3xl font-bold text-gray-800 mb-2">Contact Administrator</h2>
                 <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let administrator reset
                     your password.</p>
@@ -123,7 +130,7 @@
                 </div>
 
                 <!-- System Information -->
-                <div class="mt-12 pt-8 border-t border-gray-200">
+                <div class="hidden lg:block mt-12 pt-8 border-t border-gray-200">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">System Information</h3>
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">

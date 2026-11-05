@@ -45,6 +45,21 @@ if ($pdo) {
 }
 ?>
 
+<style>
+    #tosBody::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #tosBody::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 4px;
+    }
+
+    #tosBody::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(96, 165, 250, 0.8);
+    }
+</style>
+
 <!-- ======================== TERMS OF SERVICE MODAL ======================== -->
 <div id="tosModal"
      class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -207,4 +222,3 @@ if ($pdo) {
 </div>
 
 <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/terms_password/terms.js"></script>
-

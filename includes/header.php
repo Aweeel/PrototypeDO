@@ -219,6 +219,38 @@ if (!isset($adminName) || empty($adminName)) {
     </div>
 </header>
 <style>
+    .app-content-scroll {
+        box-sizing: border-box;
+        height: calc(100vh - var(--app-header-height));
+        margin-top: var(--app-header-height);
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .app-content-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .app-content-scroll::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 4px;
+    }
+
+    .app-content-scroll::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(96, 165, 250, 0.8);
+    }
+
+    .app-content-scroll > main {
+        min-height: 100%;
+        padding-top: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        .app-content-scroll > main {
+            padding-top: 2rem;
+        }
+    }
+
     @media (max-width: 639px) {
         #notificationPanel {
             position: fixed;
@@ -230,7 +262,39 @@ if (!isset($adminName) || empty($adminName)) {
             margin-top: 0;
         }
     }
+
+    @media (max-width: 767px) {
+        .app-content-scroll > main.p-8 {
+            padding-top: 1rem !important;
+        }
+    }
 </style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const fixedHeaders = document.querySelectorAll('header.fixed');
+        const header = fixedHeaders[fixedHeaders.length - 1];
+        if (!header) return;
+
+        let scrollContainer = header.parentElement;
+        while (scrollContainer && scrollContainer !== document.body) {
+            const overflowY = window.getComputedStyle(scrollContainer).overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') break;
+            scrollContainer = scrollContainer.parentElement;
+        }
+        if (!scrollContainer || scrollContainer === document.body) {
+            scrollContainer = document.querySelector('main.overflow-y-auto');
+        }
+        if (!scrollContainer) return;
+
+        const headerHeight = header.offsetHeight;
+        document.documentElement.style.setProperty('--app-header-height', headerHeight + 'px');
+        const handbookScroll = document.querySelector('.handbook-scroll');
+        if (handbookScroll) {
+            return;
+        }
+        scrollContainer.classList.add('app-content-scroll');
+    });
+</script>
 
 <div id="globalAnnouncementBanner"
      data-banner-text="<?= htmlspecialchars($globalBannerText, ENT_QUOTES, 'UTF-8') ?>"

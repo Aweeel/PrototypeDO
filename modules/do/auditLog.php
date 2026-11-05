@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             fputcsv($output, ['Date & Time:', date('F d, Y h:i A')]);
             fputcsv($output, []);
             
-            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp', 'IP Address']);
+            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp']);
 
             foreach ($logs as $log) {
                 fputcsv($output, [
@@ -210,8 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $log['action'],
                     $log['table_name'],
                     $log['record_id'],
-                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s'),
-                    $log['ip_address'] ?? 'N/A'
+                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s')
                 ]);
             }
 
@@ -528,7 +527,7 @@ table.w-full th, table.w-full td {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Action</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">IP Address</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Record ID</th>
                         </tr>
                         </thead>
 
@@ -639,7 +638,7 @@ table.w-full th, table.w-full td {
 
     <!-- Audit Log Detail Modal -->
     <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
             <!-- Modal Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Audit Log Detail - <span id="detailLogId"></span></h3>
@@ -671,7 +670,7 @@ table.w-full th, table.w-full td {
                         <p class="text-gray-900 dark:text-gray-100" id="detailTimestamp"></p>
                     </div>
                     <div>
-                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Table</h4>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Module</h4>
                         <p class="text-gray-900 dark:text-gray-100" id="detailTable"></p>
                     </div>
                     <div>
@@ -697,15 +696,15 @@ table.w-full th, table.w-full td {
 
                 <!-- Old Values -->
                 <div id="oldValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
+                    <h3 id="oldValuesTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
                     <div id="oldValuesSection">
                         <p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>
                     </div>
                 </div>
 
                 <!-- New Values -->
-                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
+                <div id="newValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 id="newValuesTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
                     <div id="newValuesSection">
                         <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
                     </div>
