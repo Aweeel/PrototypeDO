@@ -3,6 +3,54 @@
 let lostFoundImageUploadBound = false;
 let lostFoundFilterBound = false;
 
+function setupFinderStudentLookup(form) {
+    const finderIdInput = form?.querySelector('[name="finder_student_id"]');
+    const finderNameInput = form?.querySelector('[name="finder_name"]');
+
+    if (!finderIdInput || !finderNameInput || finderIdInput.dataset.lookupBound === 'true') {
+        return;
+    }
+
+    let lookupSequence = 0;
+    let lookupTimeout;
+    finderIdInput.dataset.lookupBound = 'true';
+
+    const lookupFinder = async () => {
+        const finderId = finderIdInput.value.trim();
+        const requestSequence = ++lookupSequence;
+
+        if (!finderId) {
+            finderNameInput.value = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(window.appUrl(`/modules/do/lostAndFoundAPI.php?action=get_student&student_id=${encodeURIComponent(finderId)}`));
+            const result = await response.json();
+
+            if (requestSequence !== lookupSequence) {
+                return;
+            }
+
+            if (result.success) {
+                finderNameInput.value = result.data.full_name;
+            } else {
+                finderNameInput.value = '';
+            }
+        } catch (error) {
+            if (requestSequence === lookupSequence) {
+                console.error('Error fetching finder student:', error);
+            }
+        }
+    };
+
+    finderIdInput.addEventListener('input', () => {
+        clearTimeout(lookupTimeout);
+        lookupTimeout = setTimeout(lookupFinder, 300);
+    });
+    finderIdInput.addEventListener('blur', lookupFinder);
+}
+
 function formatLostFoundTime(timeValue) {
     if (!timeValue) return '';
 
@@ -211,6 +259,7 @@ function openAddModal() {
     document.getElementById('addItemForm').reset();
     clearImagePreview();
     setupImageUpload();
+    setupFinderStudentLookup(document.getElementById('addItemForm'));
 }
 
 function closeAddModal() {
@@ -555,6 +604,7 @@ function showEditModal(item) {
     `;
     
     modal.classList.remove('hidden');
+    setupFinderStudentLookup(document.getElementById('editItemForm'));
     
     // Attach submit handler
     document.getElementById('editItemForm').addEventListener('submit', async function(e) {

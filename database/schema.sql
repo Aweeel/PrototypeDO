@@ -21,7 +21,14 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('archive_after_days', '30'),
 ('archived_case_retention_days', '365'),
 ('audit_log_retention_days', '730'),
-('escalation_minor_count', '3');
+('escalation_minor_count', '3'),
+-- Academic term defaults cover the 2026 sample cases and related workflows.
+('sy_start_date', '2026-01-01'),
+('sy_end_date', '2026-12-31'),
+('first_semester_start', '2026-01-01'),
+('first_semester_end', '2026-06-30'),
+('second_semester_start', '2026-07-01'),
+('second_semester_end', '2026-12-31');
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -72,6 +79,7 @@ CREATE TABLE students (
     guardian_contact VARCHAR(20),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_students_student_id CHECK (student_id REGEXP '^[0-9]{11}$'),
     CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
 );
 -- ============================================
@@ -114,6 +122,7 @@ CREATE TABLE cases (
     archived_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_cases_student_id CHECK (student_id REGEXP '^[0-9]{11}$'),
     CONSTRAINT fk_cases_student FOREIGN KEY (student_id) REFERENCES students(student_id),
     CONSTRAINT fk_cases_offense FOREIGN KEY (offense_id) REFERENCES offense_types(offense_id),
     CONSTRAINT fk_cases_reported_by FOREIGN KEY (reported_by) REFERENCES users(user_id),
@@ -194,6 +203,7 @@ CREATE TABLE community_service_submissions (
     seen_by_do_at DATETIME NULL,
     seen_by_do_user_id INT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_submissions_student_id CHECK (student_id REGEXP '^[0-9]{11}$'),
     CONSTRAINT fk_submissions_case FOREIGN KEY (case_id) REFERENCES cases(case_id),
     CONSTRAINT fk_submissions_sanction FOREIGN KEY (case_sanction_id) REFERENCES case_sanctions(case_sanction_id),
     CONSTRAINT fk_submissions_student FOREIGN KEY (student_id) REFERENCES students(student_id),
@@ -238,6 +248,8 @@ CREATE TABLE lost_found_items (
     archived_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_lost_found_finder_student_id CHECK (finder_student_id IS NULL OR finder_student_id REGEXP '^[0-9]{11}$'),
+    CONSTRAINT chk_lost_found_claimer_student_id CHECK (claimer_student_id IS NULL OR claimer_student_id REGEXP '^[0-9]{11}$'),
     CONSTRAINT fk_lost_found_finder FOREIGN KEY (finder_student_id) REFERENCES students(student_id),
     CONSTRAINT fk_lost_found_claimer FOREIGN KEY (claimer_student_id) REFERENCES students(student_id)
 );
@@ -340,6 +352,7 @@ CREATE TABLE watch_list (
     removed_date DATE,
     removed_by INT NULL,
     notes LONGTEXT,
+    CONSTRAINT chk_watch_list_student_id CHECK (student_id IS NULL OR student_id REGEXP '^[0-9]{11}$'),
     CONSTRAINT fk_watch_list_student FOREIGN KEY (student_id) REFERENCES students(student_id),
     CONSTRAINT fk_watch_list_added_by FOREIGN KEY (added_by) REFERENCES users(user_id),
     CONSTRAINT fk_watch_list_removed_by FOREIGN KEY (removed_by) REFERENCES users(user_id)
@@ -773,7 +786,7 @@ SELECT
     CASE WHEN n <= 25 THEN CASE WHEN MOD(n, 2) = 1 THEN '11' ELSE '12' END ELSE
         CASE 1 + MOD(n, 4) WHEN 1 THEN '1st Year' WHEN 2 THEN '2nd Year' WHEN 3 THEN '3rd Year' ELSE '4th Year' END
     END,
-    CASE WHEN n <= 25 THEN ELT(MOD(n - 1, 4) + 1, 'STEM', 'ABM', 'HUMSS', 'TVL') ELSE ELT(MOD(n - 1, 7) + 1, 'Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering') END,
+    CASE WHEN n <= 25 THEN ELT(MOD(n - 1, 3) + 1, 'STEM', 'ABM', 'HUMSS') ELSE ELT(MOD(n - 1, 7) + 1, 'BSIT', 'BSTM', 'BSCRIM', 'BSHM', 'BSMA', 'BMMA', 'BSCpE') END,
     CONCAT('BETA-', ELT(MOD(n - 1, 5) + 1, 'A', 'B', 'C', 'D', 'E')),
     CASE WHEN n <= 25 THEN 'SHS' ELSE 'College' END,
     CASE WHEN MOD(n, 5) = 0 THEN 'On Watch' ELSE 'Good Standing' END,

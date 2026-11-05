@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     ], static fn($name) => trim((string)$name) !== ''))),
                     'studentId' => $student['student_id'],
                     'grade' => $student['grade_year'] ?? 'N/A',
-                    'strand' => $student['track_course'] ?? 'N/A',
+                    'strand' => normalizeProgramAbbreviation($student['track_course'] ?? '') ?: 'N/A',
                     'incidents' => $student['total_offenses'] ?? 0,
                     'majorOffenses' => $student['major_offenses'] ?? 0,
                     'minorOffenses' => $student['minor_offenses'] ?? 0,

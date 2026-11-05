@@ -69,6 +69,159 @@ document.getElementById('backupForm')?.addEventListener('submit', async (event) 
     window.setTimeout(() => window.location.reload(), 250);
 });
 
+document.getElementById('backup_file')?.addEventListener('change', (event) => {
+    const input = event.currentTarget;
+    const label = document.getElementById('backupFileLabel');
+    const importButton = document.getElementById('importBackupButton');
+    const file = input.files?.[0];
+    if (label) label.textContent = file ? file.name : 'Choose .sql file';
+    if (!file) {
+        if (importButton) {
+            importButton.disabled = true;
+            importButton.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const contents = String(reader.result || '');
+        const statements = splitSqlStatements(contents);
+        const rowsByTable = new Map();
+        statements.forEach((statement) => {
+            const match = statement.match(/^\s*INSERT\s+INTO\s+`([^`]+)`\s*\(([\s\S]+?)\)\s*VALUES\s*\(([\s\S]+)\)\s*$/i);
+            if (!match) return;
+            const columns = match[2].split(',').map((column) => column.trim().replace(/^`|`$/g, ''));
+            const values = splitSqlValues(match[3]);
+            if (!rowsByTable.has(match[1])) rowsByTable.set(match[1], { columns, rows: [] });
+            rowsByTable.get(match[1]).rows.push(values);
+        });
+        const previewContent = document.getElementById('backupPreviewContent');
+        if (previewContent) {
+            previewContent.replaceChildren();
+            if (!rowsByTable.size) {
+                previewContent.textContent = 'Preview unavailable: this file contains no generated PrototypeDO data statements.';
+            } else {
+                const summary = document.createElement('p');
+                summary.className = 'font-semibold';
+                summary.textContent = `${[...rowsByTable.values()].reduce((total, table) => total + table.rows.length, 0)} records across ${rowsByTable.size} tables`;
+                previewContent.appendChild(summary);
+                rowsByTable.forEach((table, tableName) => {
+                    const heading = document.createElement('h3');
+                    heading.className = 'mt-4 font-semibold';
+                    heading.textContent = `${tableName} (${table.rows.length} records)`;
+                    previewContent.appendChild(heading);
+                    const tableElement = document.createElement('table');
+                    tableElement.className = 'mt-2 w-full min-w-[520px] text-left text-xs';
+                    tableElement.innerHTML = `<thead><tr>${table.columns.map((column) => `<th class="border-b border-blue-200 px-2 py-1">${escapePreviewHtml(column)}</th>`).join('')}</tr></thead>`;
+                    const body = document.createElement('tbody');
+                    table.rows.forEach((row) => {
+                        const tr = document.createElement('tr');
+                        row.forEach((value) => {
+                            const td = document.createElement('td');
+                            td.className = 'max-w-[180px] truncate border-b border-blue-100 px-2 py-1';
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        body.appendChild(tr);
+                    });
+                    tableElement.appendChild(body);
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'max-h-64 overflow-auto rounded border border-blue-100 dark:border-blue-900';
+                    wrapper.appendChild(tableElement);
+                    previewContent.appendChild(wrapper);
+                });
+            }
+        }
+        if (importButton) {
+            importButton.disabled = !rowsByTable.size;
+            importButton.classList.toggle('opacity-50', !rowsByTable.size);
+            importButton.classList.toggle('cursor-not-allowed', !rowsByTable.size);
+        }
+    };
+    reader.readAsText(file);
+});
+
+function splitSqlStatements(contents) {
+    const statements = [];
+    let current = '';
+    let quoted = false;
+    for (let index = 0; index < contents.length; index += 1) {
+        const character = contents[index];
+        current += character;
+        if (character === "'" && contents[index - 1] !== '\\') {
+            if (quoted && contents[index + 1] === "'") {
+                current += contents[index + 1];
+                index += 1;
+            } else {
+                quoted = !quoted;
+            }
+        }
+        if (character === ';' && !quoted) {
+            statements.push(current.slice(0, -1).replace(/^--.*(?:\r\n|\r|\n)/gm, '').trim());
+            current = '';
+        }
+    }
+    return statements.filter(Boolean);
+}
+
+function splitSqlValues(values) {
+    const result = [];
+    let current = '';
+    let quoted = false;
+    for (let index = 0; index < values.length; index += 1) {
+        const character = values[index];
+        if (character === "'" && values[index - 1] !== '\\') {
+            if (quoted && values[index + 1] === "'") {
+                current += values[index + 1];
+                index += 1;
+            } else {
+                quoted = !quoted;
+            }
+        }
+        if (character === ',' && !quoted) {
+            result.push(normalizeSqlValue(current));
+            current = '';
+        } else {
+            current += character;
+        }
+    }
+    result.push(normalizeSqlValue(current));
+    return result;
+}
+
+function normalizeSqlValue(value) {
+    const trimmed = value.trim();
+    if (trimmed.toUpperCase() === 'NULL') return 'NULL';
+    if (trimmed.startsWith("'") && trimmed.endsWith("'")) return trimmed.slice(1, -1).replace(/''/g, "'");
+    return trimmed;
+}
+
+function escapePreviewHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[character]));
+}
+
+document.getElementById('importBackupForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    document.getElementById('backupPreviewModal')?.classList.remove('hidden');
+});
+
+const closeBackupPreview = () => document.getElementById('backupPreviewModal')?.classList.add('hidden');
+document.getElementById('closeBackupPreview')?.addEventListener('click', closeBackupPreview);
+document.getElementById('cancelBackupImport')?.addEventListener('click', closeBackupPreview);
+document.getElementById('confirmBackupImport')?.addEventListener('click', () => {
+    const form = document.getElementById('importBackupForm');
+    if (!form) return;
+    const confirmation = document.createElement('input');
+    confirmation.type = 'hidden';
+    confirmation.name = 'confirm_restore';
+    confirmation.value = '1';
+    form.appendChild(confirmation);
+    HTMLFormElement.prototype.submit.call(form);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const historyCard = [...document.querySelectorAll('section')].find((section) => section.querySelector('h2')?.textContent.trim() === 'Backup history');
     const heading = historyCard?.querySelector('h2');

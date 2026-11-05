@@ -475,7 +475,7 @@ $perPage = 10;
                     <div class="col-span-2">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item Picture</label>
                         <div class="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition" id="imageDropZone">
-                            <input type="file" name="item_image" id="itemImageInput" accept="image/*" class="hidden">
+                            <input type="file" name="item_image" id="itemImageInput" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden">
                             <div id="imagePreview" class="hidden">
                                 <img id="previewImg" src="" alt="Preview" class="max-h-48 mx-auto rounded-lg mb-4">
                                 <button type="button" onclick="clearImagePreview()" class="text-sm text-red-600 dark:text-red-400 hover:text-red-800">Remove Image</button>

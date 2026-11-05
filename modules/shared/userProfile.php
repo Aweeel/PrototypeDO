@@ -49,6 +49,8 @@ $message = '';
 $messageType = '';
 $passwordMessage = '';
 $passwordMessageType = '';
+$profileEditRequested = $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'update_profile';
 
 // Handle password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
@@ -62,8 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif ($newPassword !== $confirmPassword) {
         $passwordMessage = "New passwords do not match.";
         $passwordMessageType = "error";
-    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/', $newPassword)) {
-        $passwordMessage = "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.";
+    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:\'",.?\/|]{8,}$/', $newPassword)) {
+        $passwordMessage = "Password must be at least 8 characters, include an uppercase letter, a lowercase letter, and a number. Spaces and invalid characters are not allowed.";
         $passwordMessageType = "error";
     } else {
         // Verify current password
@@ -195,11 +197,11 @@ if ($user) {
                 </div>
             </div>
 
-            <!-- Edit Profile Form -->
+            <!-- Profile Form -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h2>
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-6">Profile</h2>
                 
-                <form method="POST" class="space-y-4">
+                <form method="POST" class="space-y-4" id="profileForm" data-editing="<?php echo $profileEditRequested && $messageType === 'error' ? 'true' : 'false'; ?>">
                     <input type="hidden" name="action" value="update_profile">
 
                     <div>
@@ -229,6 +231,8 @@ if ($user) {
                                title="Use 11 digits starting with 0"
                                value="<?php echo htmlspecialchars(preg_replace('/^(\d{4})(\d{3})(\d{4})$/', '$1 $2 $3', preg_replace('/\D/', '', $user['contact_number'] ?? ''))); ?>"
                                oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11).replace(/^(\d{4})(\d{0,3})(\d{0,4}).*$/, function(_, a, b, c) { return a + (b ? ' ' + b : '') + (c ? ' ' + c : ''); });"
+                               id="contactNumber"
+                               readonly
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
                     </div>
 
@@ -330,15 +334,19 @@ if ($user) {
                         </div>
                     <?php endif; ?>
 
-                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-                        <button type="submit" 
+                    <div class="pt-6 border-t border-gray-300 dark:border-gray-600 flex flex-col sm:flex-row gap-3" id="profileActions">
+                        <button type="button" id="editProfileButton"
                                 class="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
+                            Edit
+                        </button>
+                        <button type="submit" id="saveProfileButton"
+                                class="hidden w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
                             Save Changes
                         </button>
-                        <a href="javascript:history.back()" 
-                           class="w-full sm:w-auto px-6 py-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
+                        <button type="button" id="cancelProfileButton"
+                           class="hidden w-full sm:w-auto px-6 py-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition text-center text-sm sm:text-base">
                             Cancel
-                        </a>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -367,10 +375,10 @@ if ($user) {
                         <input type="password" id="newPassword" name="new_password" 
                                required
                                minlength="8"
-                               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,}"
-                               title="Use at least 8 characters with uppercase, lowercase, and a number"
+                               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])[A-Za-z0-9!@#$%^&amp;*()_+\-=\[\]{};:'&quot;,.?/|]{8,}"
+                               title="Use at least 8 characters with uppercase, lowercase, and a number. Spaces and invalid characters are not allowed."
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 text-sm sm:text-base" />
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">At least 8 characters with uppercase, lowercase, and a number</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">At least 8 characters with uppercase, lowercase, and a number.</p>
                         <p id="newPasswordMsg" class="text-xs mt-1"></p>
                     </div>
 
@@ -450,6 +458,41 @@ if ($user) {
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
 
+        // Toggle profile editing without leaving the page.
+        const profileForm = document.getElementById('profileForm');
+        const contactNumberInput = document.getElementById('contactNumber');
+        const editProfileButton = document.getElementById('editProfileButton');
+        const saveProfileButton = document.getElementById('saveProfileButton');
+        const cancelProfileButton = document.getElementById('cancelProfileButton');
+        const originalContactNumber = contactNumberInput ? contactNumberInput.value : '';
+
+        function setProfileEditing(isEditing) {
+            if (!profileForm || !contactNumberInput || !editProfileButton || !saveProfileButton || !cancelProfileButton) {
+                return;
+            }
+
+            contactNumberInput.readOnly = !isEditing;
+            editProfileButton.classList.toggle('hidden', isEditing);
+            saveProfileButton.classList.toggle('hidden', !isEditing);
+            cancelProfileButton.classList.toggle('hidden', !isEditing);
+            profileForm.dataset.editing = isEditing ? 'true' : 'false';
+        }
+
+        if (profileForm) {
+            const shouldStartEditing = profileForm.dataset.editing === 'true';
+            setProfileEditing(shouldStartEditing);
+
+            editProfileButton.addEventListener('click', function() {
+                setProfileEditing(true);
+                contactNumberInput.focus();
+            });
+
+            cancelProfileButton.addEventListener('click', function() {
+                contactNumberInput.value = originalContactNumber;
+                setProfileEditing(false);
+            });
+        }
+
         // Password validation logic
         const currentPasswordInput = document.getElementById('currentPassword');
         const newPasswordInput = document.getElementById('newPassword');
@@ -510,14 +553,18 @@ if ($user) {
                     this.style.borderColor = '';
                     document.getElementById('newPasswordMsg').textContent = '';
                     newPasswordValid = false;
-                } else if (this.value.trim().length === 0) {
+                } else if (/\s/.test(this.value)) {
                     this.style.borderColor = '#ef4444';
-                    document.getElementById('newPasswordMsg').textContent = 'Password cannot contain only spaces';
+                    document.getElementById('newPasswordMsg').textContent = 'Password cannot contain spaces';
                     document.getElementById('newPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
                     newPasswordValid = false;
-                } else if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/.test(this.value)) {
+                } else if (this.value.length < 8) {
+                    this.style.borderColor = '';
+                    document.getElementById('newPasswordMsg').textContent = '';
+                    newPasswordValid = false;
+                } else if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:'",.?\/|]{8,}$/.test(this.value)) {
                     this.style.borderColor = '#ef4444';
-                    document.getElementById('newPasswordMsg').textContent = 'Use 8+ characters with uppercase, lowercase, and a number';
+                    document.getElementById('newPasswordMsg').textContent = 'Password contains an invalid character or is missing a required character type.';
                     document.getElementById('newPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
                     newPasswordValid = false;
                 } else {

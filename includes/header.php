@@ -95,6 +95,7 @@ if (!isset($adminName) || empty($adminName)) {
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/confirmation.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/realtime.js?v=20261020-2"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/preventDoubleTap.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/validation.js"></script>
     <div class="flex items-center justify-between">
         
         <!-- Left Side: Mobile Hamburger & Page Title -->
