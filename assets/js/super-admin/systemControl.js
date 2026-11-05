@@ -7,6 +7,7 @@ const bannerToggle = document.getElementById('bannerStatusToggle');
 const bannerText = document.getElementById('globalBannerText');
 const bannerStatusLabel = document.getElementById('bannerStatusLabel');
 const globalBanner = document.getElementById('globalAnnouncementBanner');
+const restoreBannerButton = document.getElementById('restoreGlobalAnnouncement');
 
 const updateBannerVisibility = (visible) => {
     if (!globalBanner) return;
@@ -14,8 +15,13 @@ const updateBannerVisibility = (visible) => {
     if (bannerContent) {
         bannerContent.textContent = bannerText.value;
     }
+    globalBanner.dataset.bannerEnabled = visible ? '1' : '0';
     globalBanner.hidden = !visible;
     globalBanner.style.display = visible ? '' : 'none';
+    if (restoreBannerButton) {
+        restoreBannerButton.hidden = !visible;
+        restoreBannerButton.style.display = 'none';
+    }
 };
 
 bannerToggle?.addEventListener('change', async () => {
@@ -37,12 +43,14 @@ bannerToggle?.addEventListener('change', async () => {
         bannerToggle.checked = data.enabled === true;
         bannerText.disabled = bannerToggle.checked;
         bannerStatusLabel.textContent = bannerToggle.checked ? 'On' : 'Off';
-        updateBannerVisibility(bannerToggle.checked && bannerText.value.trim() !== '');
         if (bannerToggle.checked) {
+            localStorage.removeItem('globalAnnouncementMinimized');
             localStorage.removeItem('globalAnnouncementDismissed');
         } else {
+            localStorage.removeItem('globalAnnouncementMinimized');
             localStorage.setItem('globalAnnouncementDismissed', '1');
         }
+        updateBannerVisibility(bannerToggle.checked && bannerText.value.trim() !== '');
         bannerToggle.disabled = false;
     } catch (error) {
         bannerToggle.checked = !bannerToggle.checked;
