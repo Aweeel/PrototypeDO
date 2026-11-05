@@ -41,14 +41,6 @@
                 `).join('')}
             </div>`;
 
-        list.querySelectorAll('.realtime-notification').forEach(item => {
-            item.addEventListener('click', function () {
-                markAsRead(
-                    Number(this.dataset.notificationId),
-                    this.dataset.relatedId || ''
-                );
-            });
-        });
     }
 
     async function refreshNotifications() {

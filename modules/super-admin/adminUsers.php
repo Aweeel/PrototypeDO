@@ -105,6 +105,39 @@ function normalizeTeacherProgram($program) {
     return $programMap[$program] ?? $program;
 }
 
+function normalizeStudentTrackCourse($trackCourse) {
+    $value = trim((string)$trackCourse);
+    if ($value === '') {
+        return '';
+    }
+
+    $map = [
+        'BSCS' => 'Bachelor of Science in Computer Science',
+        'BSIT' => 'Bachelor of Science in Information Technology',
+        'Information Technology' => 'Bachelor of Science in Information Technology',
+        'BSCpE' => 'Bachelor of Science in Computer Engineering',
+        'BSMA' => 'Bachelor of Science in Management Accounting',
+        'BSA' => 'Bachelor of Science in Accountancy',
+        'BSHM' => 'Bachelor of Science in Hospitality Management',
+        'Hospitality Management' => 'Bachelor of Science in Hospitality Management',
+        'BMMA' => 'Bachelor of Multimedia Arts',
+        'BACOMM' => 'Bachelor of Arts in Communication',
+        'BAPsych' => 'Bachelor of Arts in Psychology',
+        'BSTM' => 'Bachelor of Science in Tourism Management',
+        'Tourism Management' => 'Bachelor of Science in Tourism Management',
+        'BSCRIM' => 'Bachelor of Science in Criminology',
+        'Criminal Justice Education' => 'Bachelor of Science in Criminology',
+        'Engineering' => 'Bachelor of Science in Computer Engineering'
+    ];
+    $key = strtoupper($value);
+    $aliases = [];
+    foreach ($map as $alias => $course) {
+        $aliases[strtoupper($alias)] = $course;
+    }
+
+    return $aliases[$key] ?? $value;
+}
+
 function getPendingResetExistsSql() {
     return "EXISTS(
                 SELECT 1 FROM notifications n
@@ -171,12 +204,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             }
 
             // Map CSV columns to array
-            $data = array_combine($header, $row);
-            if ($data === false) {
+            if (count($row) !== count($header)) {
                 $errors[] = 'Row skipped: Column count does not match the CSV header.';
                 $skipped++;
                 continue;
             }
+            $data = array_combine($header, $row);
 
             // Validate required fields
             if (empty($data['first_name']) || empty($data['last_name']) || empty($data['role']) || empty($data['email'])) {
@@ -208,7 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($data['program'] ?? '');
             $gradeYear = trim((string) ($data['grade_year'] ?? ''));
-            $trackCourse = trim((string) ($data['track_course'] ?? ''));
+            $trackCourse = normalizeStudentTrackCourse($data['track_course'] ?? '');
             $section = trim((string) ($data['section'] ?? ''));
             $studentType = trim((string) ($data['student_type'] ?? ''));
             $guardianName = trim((string) ($data['guardian_name'] ?? ''));
@@ -535,7 +568,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     }
                 }
             } else {
-                $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number, 
+                $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number,
+                                   (SELECT first_name FROM students WHERE user_id = u.user_id LIMIT 1) as first_name,
+                                   (SELECT middle_name FROM students WHERE user_id = u.user_id LIMIT 1) as middle_name,
+                                   (SELECT last_name FROM students WHERE user_id = u.user_id LIMIT 1) as last_name,
                                u.is_active, u.last_login, u.created_at,
                                CASE WHEN u.role = 'student' THEN (
                                    SELECT student_id FROM students 
@@ -600,6 +636,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'user_id' => $user['user_id'],
                     'email' => $user['email'],
                     'full_name' => $user['full_name'],
+                    'first_name' => $user['first_name'] ?? null,
+                    'middle_name' => $user['middle_name'] ?? null,
+                    'last_name' => $user['last_name'] ?? null,
                     'role' => $user['role'],
                     'contact_number' => $user['contact_number'] ?? 'N/A',
                     'student_id' => $user['student_id'] ?? null,
@@ -625,11 +664,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
+        if ($_POST['action'] === 'getStudentOptions') {
+            $studentType = trim($_POST['student_type'] ?? '');
+            $gradeYear = trim($_POST['grade_year'] ?? '');
+            $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
+            $conditions = ["student_type = ?"];
+            $params = [$studentType];
+
+            if ($gradeYear !== '') {
+                $conditions[] = "grade_year = ?";
+                $params[] = $gradeYear;
+            }
+            $where = implode(' AND ', $conditions);
+            $rows = fetchAll("SELECT grade_year, track_course, section FROM students WHERE {$where}", $params);
+            $options = ['grade_year' => [], 'track_course' => [], 'section' => []];
+            foreach ($rows as $row) {
+                $course = normalizeStudentTrackCourse($row['track_course'] ?? '');
+                if (in_array(strtoupper($course), ['ARTS & SCIENCES', 'BUSINESS & MANAGEMENT'], true)) {
+                    continue;
+                }
+                if ($row['grade_year'] !== '' && !in_array($row['grade_year'], $options['grade_year'], true)) $options['grade_year'][] = $row['grade_year'];
+                if ($course !== '' && !in_array($course, $options['track_course'], true)) $options['track_course'][] = $course;
+                if ($row['section'] !== '' && $course === $trackCourse && !in_array($row['section'], $options['section'], true)) $options['section'][] = $row['section'];
+            }
+            foreach ($options as &$values) sort($values);
+            echo json_encode(['success' => true, 'options' => $options]);
+            exit;
+        }
+
         // Create new user
         if ($_POST['action'] === 'createUser') {
             // admin will not provide a username or password anymore
             $email = trim($_POST['email']);
-            $full_name = trim($_POST['full_name']);
+            $firstName = trim($_POST['first_name'] ?? '');
+            $middleName = trim($_POST['middle_name'] ?? '');
+            $lastName = trim($_POST['last_name'] ?? '');
+            $full_name = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
@@ -638,14 +708,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $doId = trim($_POST['do_id'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
             $gradeYear = trim($_POST['grade_year'] ?? '');
-            $trackCourse = trim($_POST['track_course'] ?? '');
+            $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
             $section = trim($_POST['section'] ?? '');
             $studentType = trim($_POST['student_type'] ?? '');
             $guardianName = trim($_POST['guardian_name'] ?? '');
             $guardianContact = trim($_POST['guardian_contact'] ?? '');
             $studentId = trim($_POST['student_id'] ?? '');
             $gradeYear = trim($_POST['grade_year'] ?? '');
-            $trackCourse = trim($_POST['track_course'] ?? '');
+            $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
             $section = trim($_POST['section'] ?? '');
             $studentType = trim($_POST['student_type'] ?? '');
             $guardianName = trim($_POST['guardian_name'] ?? '');
@@ -673,8 +743,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $password = 'password';
 
             // Validate required fields
-            if (empty($email) || empty($full_name) || empty($role)) {
-                echo json_encode(['success' => false, 'error' => 'Email, full name and role are required']);
+            if (empty($email) || empty($firstName) || empty($lastName) || empty($role)) {
+                echo json_encode(['success' => false, 'error' => 'Email, first name, last name and role are required']);
                 exit;
             }
 
@@ -729,17 +799,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             // If an imported student_id is supplied, create the linked student record
             if ($role === 'student' && $studentId !== '') {
 
-                // split full name into first/last
-                $nameParts = preg_split('/\s+/', $full_name);
-                $firstName = $nameParts[0];
-                $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
-
-                $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 executeQuery($sqlStudent, [
                     $studentId,
                     $newUserId,
                     $firstName,
                     $lastName,
+                    $middleName !== '' ? $middleName : null,
                     $gradeYear,
                     $trackCourse !== '' ? $trackCourse : null,
                     $section !== '' ? $section : null,
@@ -796,13 +862,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         if ($_POST['action'] === 'updateUser') {
             $user_id = $_POST['user_id'];
             $email = trim($_POST['email']);
-            $full_name = trim($_POST['full_name']);
+            $firstName = trim($_POST['first_name'] ?? '');
+            $middleName = trim($_POST['middle_name'] ?? '');
+            $lastName = trim($_POST['last_name'] ?? '');
+            $full_name = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
             $role = $_POST['role'];
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($_POST['program'] ?? '');
             $teacherId = trim($_POST['teacher_id'] ?? '');
             $doId = trim($_POST['do_id'] ?? '');
+            $studentId = trim($_POST['student_id'] ?? '');
+            $gradeYear = trim($_POST['grade_year'] ?? '');
+            $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
+            $section = trim($_POST['section'] ?? '');
+            $studentType = trim($_POST['student_type'] ?? '');
+            $guardianName = trim($_POST['guardian_name'] ?? '');
+            $guardianContact = trim($_POST['guardian_contact'] ?? '');
 
             if ($role !== 'teacher') {
                 $teacherSubrole = null;
@@ -873,15 +949,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $existingStudent = fetchOne("SELECT student_id FROM students WHERE user_id = ?", [$user_id]);
                 if ($existingStudent) {
                     executeQuery(
-                        "UPDATE students SET student_id = ?, grade_year = ?, track_course = ?, section = ?, student_type = ?, guardian_name = ?, guardian_contact = ?, updated_at = NOW() WHERE user_id = ?",
-                        [$studentId, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null, $user_id]
+                        "UPDATE students SET student_id = ?, first_name = ?, last_name = ?, middle_name = ?, grade_year = ?, track_course = ?, section = ?, student_type = ?, guardian_name = ?, guardian_contact = ?, updated_at = NOW() WHERE user_id = ?",
+                        [$studentId, $firstName, $lastName, $middleName !== '' ? $middleName : null, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null, $user_id]
                     );
                 } elseif ($studentId !== '') {
-                    $nameParts = preg_split('/\s+/', $full_name);
-                    $firstName = $nameParts[0];
-                    $lastName = isset($nameParts[1]) ? implode(' ', array_slice($nameParts, 1)) : '';
-                    $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    executeQuery($sqlStudent, [$studentId, $user_id, $firstName, $lastName, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null]);
+                    $sqlStudent = "INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, guardian_name, guardian_contact) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    executeQuery($sqlStudent, [$studentId, $user_id, $firstName, $lastName, $middleName !== '' ? $middleName : null, $gradeYear, $trackCourse !== '' ? $trackCourse : null, $section !== '' ? $section : null, $studentType, $guardianName !== '' ? $guardianName : null, $guardianContact !== '' ? $guardianContact : null]);
                 }
             }
 
@@ -1163,6 +1236,38 @@ $adminName = getFormattedUserName();
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
     </script>
+    <style>
+        .users-table th,
+        .users-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .users-table th {
+            position: relative;
+        }
+
+        .users-table .column-resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 6px;
+            height: 100%;
+            cursor: col-resize;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .users-table .column-resizer.is-resizing {
+            background-color: rgb(59 130 246 / 0.8);
+        }
+
+        body.is-column-resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
@@ -1281,27 +1386,43 @@ $adminName = getFormattedUserName();
                 </div>
 
                 <!-- Users Table -->
-                <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#111827]">
-                    <table class="w-full min-w-[900px] lg:min-w-[1100px]" style="table-layout: fixed;">
+                <div id="usersTableContainer" class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#111827]">
+                    <table class="users-table" style="table-layout: fixed;">
                         <colgroup>
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                            <col style="width: 12%;">
-                            <col style="width: 12%;">
-                            <col style="width: 12%;">
-                            <col style="width: 12%;">
-                            <col style="width: 16%;">
-                            <col style="width: 72px;">
+                            <col data-column-index="0">
+                            <col data-column-index="1">
+                            <col data-column-index="2">
+                            <col data-column-index="3">
+                            <col data-column-index="4">
+                            <col data-column-index="5">
+                            <col data-column-index="6">
+                            <col data-column-index="7">
                         </colgroup>
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Contact</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Last Login</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                                <?php
+                                $sortableColumns = [
+                                    ['label' => 'Name', 'key' => 'full_name'],
+                                    ['label' => 'Email', 'key' => 'email'],
+                                    ['label' => 'Role', 'key' => 'role'],
+                                    ['label' => 'Contact', 'key' => 'contact_number'],
+                                    ['label' => 'Status', 'key' => 'is_active'],
+                                    ['label' => 'Last Login', 'key' => 'last_login']
+                                ];
+                                foreach ($sortableColumns as $index => $column):
+                                ?>
+                                <th class="relative px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                                    <button type="button" data-sort="<?= htmlspecialchars($column['key']) ?>" data-label="<?= htmlspecialchars($column['label']) ?>" aria-sort="none" class="w-full text-left">
+                                        <?= htmlspecialchars($column['label']) ?> ↕
+                                    </button>
+                                    <?php if ($index < count($sortableColumns) - 1): ?>
+                                    <span class="column-resizer z-10 border-l border-gray-300 bg-gray-200/70 hover:bg-blue-500 dark:border-slate-600 dark:bg-slate-600/70 dark:hover:bg-blue-400" data-column-index="<?= $index ?>" title="Drag to resize column"></span>
+                                    <?php endif; ?>
+                                </th>
+                                <?php endforeach; ?>
+                                <th class="relative px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                    Actions
+                                </th>
                                 <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Select</th>
                             </tr>
                         </thead>

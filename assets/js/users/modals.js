@@ -119,27 +119,30 @@ function createAddModal() {
                 </div>
                 <div id="add_student_details_container" class="hidden space-y-4">
                     <div>
+                        <label for="add_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
+                        <select id="add_student_type" name="student_type" onchange="loadStudentOptions('add')" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <option value="">-- Select Student Type --</option><option value="SHS">SHS</option><option value="College">College</option>
+                        </select>
+                    </div>
+                    <div>
                         <label for="add_grade_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grade/Year Level *</label>
-                        <input type="text" id="add_grade_year" name="grade_year" placeholder="e.g. 11 or 1st Year"
+                        <select id="add_grade_year" name="grade_year" onchange="loadStudentOptions('add')"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">-- Select Grade/Year --</option>
+                        </select>
                     </div>
                     <div>
                         <label for="add_track_course" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Track/Course</label>
-                        <input type="text" id="add_track_course" name="track_course" placeholder="e.g. STEM or BSIT"
+                        <select id="add_track_course" name="track_course" onchange="loadStudentOptions('add')"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">-- Select Track/Course --</option>
+                        </select>
                     </div>
                     <div>
                         <label for="add_section" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
-                        <input type="text" id="add_section" name="section" placeholder="e.g. A or 1A"
+                        <select id="add_section" name="section"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label for="add_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
-                        <select id="add_student_type" name="student_type"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer focus:ring-2 focus:ring-blue-500">
-                            <option value="">-- Select Student Type --</option>
-                            <option value="SHS">SHS</option>
-                            <option value="College">College</option>
+                            <option value="">-- Select Section --</option>
                         </select>
                     </div>
                     <div>
@@ -153,10 +156,10 @@ function createAddModal() {
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
-                <div>
-                    <label for="add_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                    <input type="text" id="add_full_name" name="full_name" required placeholder="eg. John Doe"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <input type="text" id="add_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <input type="text" id="add_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <input type="text" id="add_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                 </div>
                 <div id="email_container">
                     <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
@@ -192,7 +195,9 @@ async function submitAddUser(event) {
     event.preventDefault();
     
     const email = document.getElementById('add_email').value;
-    const full_name = document.getElementById('add_full_name').value;
+    const first_name = document.getElementById('add_first_name').value;
+    const middle_name = document.getElementById('add_middle_name').value;
+    const last_name = document.getElementById('add_last_name').value;
     const role = document.getElementById('add_role').value;
     const contact_number = document.getElementById('add_contact_number').value;
     const teacher_subrole = document.getElementById('add_teacher_subrole')?.value || '';
@@ -212,7 +217,9 @@ async function submitAddUser(event) {
     formData.append('action', 'createUser');
     // username and password are handled server‑side
     formData.append('email', email);
-    formData.append('full_name', full_name);
+    formData.append('first_name', first_name);
+    formData.append('middle_name', middle_name);
+    formData.append('last_name', last_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
@@ -280,9 +287,11 @@ function createEditModal() {
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
-                        <label for="edit_full_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                        <input type="text" id="edit_full_name" name="full_name" required 
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <input type="text" id="edit_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <input type="text" id="edit_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <input type="text" id="edit_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        </div>
                     </div>
                     <div>
                         <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
@@ -337,27 +346,30 @@ function createEditModal() {
                     </div>
                     <div id="edit_student_details_container" class="hidden space-y-4">
                         <div>
+                            <label for="edit_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
+                            <select id="edit_student_type" name="student_type" onchange="loadStudentOptions('edit')" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                                <option value="">-- Select Type --</option><option value="SHS">SHS</option><option value="College">College</option>
+                            </select>
+                        </div>
+                        <div>
                             <label for="edit_grade_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grade/Year Level *</label>
-                            <input type="text" id="edit_grade_year" name="grade_year" placeholder="e.g. 11 or 1st Year"
+                            <select id="edit_grade_year" name="grade_year" onchange="loadStudentOptions('edit')"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">-- Select Grade/Year --</option>
+                            </select>
                         </div>
                         <div>
                             <label for="edit_track_course" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Track/Course</label>
-                            <input type="text" id="edit_track_course" name="track_course"
+                            <select id="edit_track_course" name="track_course" onchange="loadStudentOptions('edit')"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">-- Select Track/Course --</option>
+                            </select>
                         </div>
                         <div>
                             <label for="edit_section" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
-                            <input type="text" id="edit_section" name="section"
+                            <select id="edit_section" name="section"
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                        </div>
-                        <div>
-                            <label for="edit_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
-                            <select id="edit_student_type" name="student_type"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
-                                <option value="">-- Select Type --</option>
-                                <option value="SHS">SHS</option>
-                                <option value="College">College</option>
+                                <option value="">-- Select Section --</option>
                             </select>
                         </div>
                         <div>
@@ -399,7 +411,9 @@ async function submitEditUser(event) {
     
     const user_id = document.getElementById('edit_user_id').value;
     const email = document.getElementById('edit_email').value;
-    const full_name = document.getElementById('edit_full_name').value;
+    const first_name = document.getElementById('edit_first_name').value;
+    const middle_name = document.getElementById('edit_middle_name').value;
+    const last_name = document.getElementById('edit_last_name').value;
     const role = document.getElementById('edit_role').value;
     const contact_number = document.getElementById('edit_contact_number').value;
     const teacher_subrole = document.getElementById('edit_teacher_subrole')?.value || '';
@@ -419,7 +433,9 @@ async function submitEditUser(event) {
     formData.append('action', 'updateUser');
     formData.append('user_id', user_id);
     formData.append('email', email);
-    formData.append('full_name', full_name);
+    formData.append('first_name', first_name);
+    formData.append('middle_name', middle_name);
+    formData.append('last_name', last_name);
     formData.append('role', role);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
@@ -617,6 +633,34 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
     }
 }
 
+async function loadStudentOptions(formType) {
+    const studentType = document.getElementById(`${formType}_student_type`).value;
+    const gradeYear = document.getElementById(`${formType}_grade_year`).value;
+    const trackCourse = document.getElementById(`${formType}_track_course`).value;
+    if (!studentType) {
+        ['grade_year', 'track_course', 'section'].forEach(field => {
+            document.getElementById(`${formType}_${field}`).innerHTML = `<option value="">-- Select ${field === 'grade_year' ? 'Grade/Year' : field === 'track_course' ? 'Track/Course' : 'Section'} --</option>`;
+        });
+        return;
+    }
+    const response = await fetch(window.location.pathname, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ajax: '1', action: 'getStudentOptions', student_type: studentType, grade_year: gradeYear, track_course: trackCourse})
+    });
+    const data = await response.json();
+    if (!data.success) return;
+    ['grade_year', 'track_course', 'section'].forEach(field => {
+        const select = document.getElementById(`${formType}_${field}`);
+        const current = select.value;
+        select.innerHTML = `<option value="">-- Select ${field === 'grade_year' ? 'Grade/Year' : field === 'track_course' ? 'Track/Course' : 'Section'} --</option>`;
+        (data.options[field] || []).forEach(value => select.add(new Option(value, value)));
+        if ((data.options[field] || []).includes(current)) {
+            select.value = current;
+        }
+    });
+}
+
 // Handle role change in add user form
 async function handleRoleChange(formType = 'add') {
     const roleSelect = document.getElementById(`${formType}_role`);
@@ -636,6 +680,9 @@ async function handleRoleChange(formType = 'add') {
         roleSelect.value,
         document.getElementById(`${formType}_teacher_subrole`)?.value || ''
     );
+    if (roleSelect.value === 'student') {
+        loadStudentOptions(formType);
+    }
 }
 
 // Kept for compatibility with the existing oninput hook if any pages still call it.
