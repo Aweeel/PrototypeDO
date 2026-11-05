@@ -165,8 +165,10 @@ if (!isset($adminName) || empty($adminName)) {
                         <div class="divide-y divide-gray-200 dark:divide-gray-700">
                             <?php foreach ($unreadNotifications as $notification): ?>
                                   <?php $isPasswordResetNotification = ($notification['type'] ?? '') === 'password_reset_request'; ?>
-                                  <div class="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors" 
-                                       onclick="markAsRead(<?php echo $notification['notification_id']; ?>, '<?php echo htmlspecialchars($notification['related_id'] ?? ''); ?>')">
+                                  <div class="notification-item p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
+                                       data-notification-id="<?php echo (int)$notification['notification_id']; ?>"
+                                       data-related-id="<?php echo htmlspecialchars((string)($notification['related_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                       role="button" tabindex="0">
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1">
                                             <p class="font-medium text-sm <?php echo $isPasswordResetNotification ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-gray-100'; ?>">
@@ -260,19 +262,69 @@ if (!isset($adminName) || empty($adminName)) {
         }
     });
 
-    async function markAsRead(notificationId, relatedId) {
+    function removeNotificationFromPanel(notificationId) {
+        const item = document.querySelector(`[data-notification-id="${Number(notificationId)}"]`);
+        if (item) {
+            item.remove();
+        }
+
+        const list = document.getElementById('notificationList');
+        const remainingItems = list ? list.querySelectorAll('[data-notification-id]').length : 0;
+        if (list && remainingItems === 0) {
+            list.innerHTML = '<div class="p-6 text-center text-gray-500 dark:text-gray-400">No new notifications</div>';
+        }
+
+        const badge = document.getElementById('notificationBadge');
+        if (badge) {
+            badge.textContent = remainingItems > 9 ? '9+' : String(remainingItems);
+            badge.classList.toggle('hidden', remainingItems === 0);
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target;
+        const item = target instanceof Element
+            ? target.closest('#notificationList [data-notification-id]')
+            : null;
+        if (item) {
+            event.preventDefault();
+            window.markAsRead(item.dataset.notificationId, item.dataset.relatedId || '');
+        }
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        const target = event.target;
+        const item = target instanceof Element
+            ? target.closest('#notificationList [data-notification-id]')
+            : null;
+        if (item) {
+            event.preventDefault();
+            window.markAsRead(item.dataset.notificationId, item.dataset.relatedId || '');
+        }
+    });
+
+    window.markAsRead = async function markAsRead(notificationId, relatedId) {
         try {
             const formData = new FormData();
             formData.append('ajax', '1');
             formData.append('action', 'markNotificationAsRead');
             formData.append('notificationId', notificationId);
 
-            const response = await fetch('<?= BASE_URL ?>/modules/do/doDashboard.php', {
+            const response = await fetch('<?= BASE_URL ?>/modules/shared/realtime.php', {
                 method: 'POST',
                 body: formData
             });
 
             const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Notification request failed (${response.status})`);
+            }
+
+            removeNotificationFromPanel(notificationId);
             
             if (relatedId) {
                     const userRole = document.documentElement.getAttribute('data-user-role') || '<?php echo $_SESSION['user_role'] ?? 'discipline_office'; ?>';
@@ -334,8 +386,8 @@ if (!isset($adminName) || empty($adminName)) {
                             window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(relatedCaseId)}&highlightCaseId=${encodeURIComponent(relatedCaseId)}&highlightCase=1&viewCase=1`;
                         }
                     }, 100);
-            } else if (data.success) {
-                setTimeout(() => location.reload(), 300);
+            } else {
+                document.getElementById('notificationPanel')?.classList.add('hidden');
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
@@ -355,5 +407,5 @@ if (!isset($adminName) || empty($adminName)) {
                 window.location.href = fallbackUrl.toString();
             }
         }
-    }
+    };
 </script>

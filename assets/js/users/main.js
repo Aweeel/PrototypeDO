@@ -5,16 +5,39 @@ let selectedUserIds = new Set();
 let currentPage = 1;
 let itemsPerPage = 7;
 let archiveMode = false;
+let sortColumn = 'full_name';
+let sortDirection = 'asc';
+const MIN_WIDTHS = [200, 190, 140, 125, 100, 130];
+const START_WIDTHS = [300, 280, 150, 150, 120, 150];
+const FIXED_WIDTHS = [175, 70];
+const sumWidths = (list) => list.reduce((total, width) => total + width, 0);
+let columnWidths = [...START_WIDTHS];
+let tableResizeObserver = null;
 
 // ====== Initialization ======
 document.addEventListener('DOMContentLoaded', function () {
     loadUsers();
     setupEventDelegation();
+    setupTableSizing();
 })
 
 // Setup event delegation for action buttons
 function setupEventDelegation() {
     document.addEventListener('click', function(e) {
+        const sortButton = e.target.closest('button[data-sort]');
+        if (sortButton) {
+            const column = sortButton.dataset.sort;
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+            currentPage = 1;
+            renderUsers();
+            return;
+        }
+
         // Make sure we get the button even if SVG is clicked
         const button = e.target.closest('button[data-action]');
         
@@ -42,6 +65,101 @@ function setupEventDelegation() {
                 break;
         }
     });
+
+    document.querySelectorAll('.column-resizer').forEach(resizer => {
+        resizer.addEventListener('pointerdown', startColumnResize);
+    });
+}
+
+function setupTableSizing() {
+    const container = document.getElementById('usersTableContainer');
+    if (!container) return;
+
+    tableResizeObserver = new ResizeObserver(applyColumnWidths);
+    tableResizeObserver.observe(container);
+
+    document.querySelectorAll('.column-resizer').forEach(handle => {
+        handle.addEventListener('dblclick', () => {
+            columnWidths = [...START_WIDTHS];
+            applyColumnWidths();
+        });
+    });
+
+    applyColumnWidths();
+}
+
+function fitColumnWidths(availableWidth) {
+    const target = Math.max(availableWidth - sumWidths(FIXED_WIDTHS), sumWidths(MIN_WIDTHS));
+    let widths = columnWidths.map((width, index) => Math.max(width, MIN_WIDTHS[index]));
+    const diff = target - sumWidths(widths);
+
+    if (diff > 0) {
+        const total = sumWidths(widths);
+        widths = widths.map(width => width + diff * (width / total));
+    } else if (diff < 0) {
+        const slack = widths.map((width, index) => width - MIN_WIDTHS[index]);
+        const totalSlack = sumWidths(slack);
+        if (totalSlack > 0) {
+            widths = widths.map((width, index) => width + diff * (slack[index] / totalSlack));
+        }
+    }
+    columnWidths = widths;
+}
+
+function applyColumnWidths() {
+    const table = document.querySelector('.users-table');
+    const container = document.getElementById('usersTableContainer');
+    if (!table || !container) return;
+
+    const available = Math.floor(container.clientWidth) - 1;
+    if (available <= 0) return;
+    fitColumnWidths(available);
+    const allWidths = [...columnWidths, ...FIXED_WIDTHS];
+    const tableWidth = sumWidths(allWidths);
+    table.style.width = `${tableWidth}px`;
+    table.style.minWidth = `${tableWidth}px`;
+    table.querySelectorAll('col').forEach((column, index) => {
+        column.style.width = `${allWidths[index]}px`;
+    });
+}
+
+function startColumnResize(event) {
+    const resizer = event.currentTarget;
+    const columnIndex = Number(resizer.dataset.columnIndex);
+    if (columnIndex < 0 || columnIndex >= columnWidths.length - 1) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const leftStart = columnWidths[columnIndex];
+    const pairTotal = leftStart + columnWidths[columnIndex + 1];
+
+    resizer.setPointerCapture(event.pointerId);
+    resizer.classList.add('is-resizing');
+    document.body.classList.add('is-column-resizing');
+
+    const resize = (moveEvent) => {
+        const wanted = leftStart + moveEvent.clientX - startX;
+        const left = Math.min(Math.max(wanted, MIN_WIDTHS[columnIndex]), pairTotal - MIN_WIDTHS[columnIndex + 1]);
+        columnWidths[columnIndex] = left;
+        columnWidths[columnIndex + 1] = pairTotal - left;
+        applyColumnWidths();
+    };
+
+    const stopResize = () => {
+        if (resizer.hasPointerCapture(event.pointerId)) {
+            resizer.releasePointerCapture(event.pointerId);
+        }
+        resizer.classList.remove('is-resizing');
+        document.body.classList.remove('is-column-resizing');
+        resizer.removeEventListener('pointermove', resize);
+        resizer.removeEventListener('pointerup', stopResize);
+        resizer.removeEventListener('pointercancel', stopResize);
+    };
+
+    resizer.addEventListener('pointermove', resize);
+    resizer.addEventListener('pointerup', stopResize);
+    resizer.addEventListener('pointercancel', stopResize);
 }
 
 // ====== Load Users from Database ======
@@ -172,15 +290,26 @@ function renderUsers() {
         return;
     }
 
+    const sortedUsers = [...filteredUsers].sort((a, b) => {
+        const first = String(a[sortColumn] ?? '').toLowerCase();
+        const second = String(b[sortColumn] ?? '').toLowerCase();
+        return first.localeCompare(second, undefined, { numeric: true }) * (sortDirection === 'asc' ? 1 : -1);
+    });
+    document.querySelectorAll('button[data-sort]').forEach(button => {
+        const active = button.dataset.sort === sortColumn;
+        button.textContent = `${button.dataset.label} ${active ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}`;
+        button.setAttribute('aria-sort', active ? sortDirection : 'none');
+    });
+
     // Calculate pagination
-    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+    const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
     if (currentPage > totalPages) {
         currentPage = totalPages;
     }
 
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+    const paginatedUsers = sortedUsers.slice(startIndex, endIndex);
 
     let tableHTML = paginatedUsers.map(user => `
         ${(() => {
@@ -208,28 +337,28 @@ function renderUsers() {
             ].join('');
 
             return `
-        <tr class="group h-[72px] overflow-hidden hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 border-l-4 transition-colors ${selectedUserIds.has(user.user_id) ? 'bg-blue-50 dark:bg-slate-800 border-l-blue-600' : 'border-l-transparent'}">
-            <td class="h-[72px] overflow-hidden px-6 py-4 align-middle">
+        <tr class="group h-[72px] overflow-hidden hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 transition-colors ${selectedUserIds.has(user.user_id) ? 'bg-blue-50 dark:bg-slate-800' : ''}">
+            <td class="h-[72px] overflow-hidden px-4 py-4 align-middle ${selectedUserIds.has(user.user_id) ? 'shadow-[inset_4px_0_0_0_#2563eb]' : ''}" title="${escapeHtml(user.full_name)}">
                 <div class="h-10 overflow-hidden">
                     <p class="truncate font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(user.full_name)}</p>
                     <p class="truncate text-xs text-gray-400 dark:text-gray-500">${detailsMarkup}</p>
                 </div>
             </td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap">${escapeHtml(user.email)}</td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 align-middle">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadgeClass(user.role)}">
+            <td class="h-[72px] overflow-hidden px-4 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap" title="${escapeHtml(user.email)}">${escapeHtml(user.email)}</td>
+            <td class="h-[72px] overflow-hidden px-4 py-4 align-middle" title="${escapeHtml(formatRole(user.role))}">
+                <span class="inline-flex max-w-full items-center overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold ${getRoleBadgeClass(user.role)}">
                     ${formatRole(user.role)}
                 </span>
             </td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap">${user.contact_number || 'N/A'}</td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 align-middle">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}">
+            <td class="h-[72px] overflow-hidden px-4 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap" title="${escapeHtml(user.contact_number || 'N/A')}">${escapeHtml(user.contact_number || 'N/A')}</td>
+            <td class="h-[72px] overflow-hidden px-4 py-4 align-middle" title="${statusText}">
+                <span class="inline-flex max-w-full items-center overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold ${isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}">
                     ${statusText}
                 </span>
             </td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap">${user.last_login || '—'}</td>
-            <td class="h-[72px] overflow-hidden px-6 py-4 align-middle whitespace-nowrap">
-                <div class="flex flex-nowrap gap-1.5">
+            <td class="h-[72px] overflow-hidden px-4 py-4 text-sm text-gray-600 dark:text-gray-400 align-middle whitespace-nowrap" title="${escapeHtml(user.last_login || '—')}">${escapeHtml(user.last_login || '—')}</td>
+            <td class="h-[72px] overflow-hidden px-4 py-4 align-middle whitespace-nowrap" title="Actions">
+                <div class="flex w-max flex-nowrap gap-1.5">
                     <button data-action="edit" data-user-id="${user.user_id}" 
                         class="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors cursor-pointer" title="Edit User">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,15 +397,15 @@ function renderUsers() {
     const emptyRowsCount = itemsPerPage - paginatedUsers.length;
     for (let i = 0; i < emptyRowsCount; i++) {
         tableHTML += `
-            <tr class="h-[72px] border-b border-gray-100 dark:border-slate-700 border-l-4 border-l-transparent">
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
-                <td class="px-6 py-4"></td>
+            <tr class="h-[72px] border-b border-gray-100 dark:border-slate-700">
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
+                <td class="px-4 py-4"></td>
             </tr>
         `;
     }
@@ -507,7 +636,10 @@ function editUser(userId) {
     try {
         document.getElementById('edit_user_id').value = user.user_id;
         document.getElementById('edit_email').value = user.email;
-        document.getElementById('edit_full_name').value = user.full_name;
+        const nameParts = (user.full_name || '').trim().split(/\s+/);
+        document.getElementById('edit_first_name').value = user.first_name || nameParts.shift() || '';
+        document.getElementById('edit_last_name').value = user.last_name || (nameParts.pop() || '');
+        document.getElementById('edit_middle_name').value = user.middle_name || nameParts.join(' ');
         document.getElementById('edit_role').value = user.role;
         document.getElementById('edit_contact_number').value = user.contact_number || '';
         const editTeacherId = document.getElementById('edit_teacher_id');

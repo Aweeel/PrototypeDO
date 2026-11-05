@@ -62,8 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif ($newPassword !== $confirmPassword) {
         $passwordMessage = "New passwords do not match.";
         $passwordMessageType = "error";
-    } elseif (strlen($newPassword) < 8) {
-        $passwordMessage = "Password must be at least 8 characters long.";
+    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/', $newPassword)) {
+        $passwordMessage = "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.";
         $passwordMessageType = "error";
     } else {
         // Verify current password
@@ -94,9 +94,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_profile') {
-    $contactNumber = trim((string)($_POST['contact_number'] ?? ''));
+    $contactNumber = preg_replace('/\D/', '', (string)($_POST['contact_number'] ?? ''));
     
-    if ($contactNumber !== '') {
+    if (!preg_match('/^0\d{10}$/', $contactNumber)) {
+        $message = "Contact number must contain 11 digits and start with 0.";
+        $messageType = "error";
+    } else {
         try {
             $stmt = $pdo->prepare("
                 UPDATE users
@@ -114,9 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
             $message = "Error updating profile: " . $e->getMessage();
             $messageType = "error";
         }
-    } else {
-        $message = "Please fill in all required fields.";
-        $messageType = "error";
     }
 }
 
@@ -139,6 +139,7 @@ if ($user) {
     <title>User Profile - PrototypeDO</title>
     <script>(function(){if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}})();</script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' };</script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globals.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased min-h-screen">
@@ -224,7 +225,10 @@ if ($user) {
                             Contact Number *
                         </label>
                         <input type="tel" name="contact_number" required
-                               value="<?php echo htmlspecialchars($user['contact_number'] ?? ''); ?>"
+                               pattern="0[0-9]{3} [0-9]{3} [0-9]{4}" maxlength="13" inputmode="numeric"
+                               title="Use 11 digits starting with 0"
+                               value="<?php echo htmlspecialchars(preg_replace('/^(\d{4})(\d{3})(\d{4})$/', '$1 $2 $3', preg_replace('/\D/', '', $user['contact_number'] ?? ''))); ?>"
+                               oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11).replace(/^(\d{4})(\d{0,3})(\d{0,4}).*$/, function(_, a, b, c) { return a + (b ? ' ' + b : '') + (c ? ' ' + c : ''); });"
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
                     </div>
 
@@ -363,8 +367,10 @@ if ($user) {
                         <input type="password" id="newPassword" name="new_password" 
                                required
                                minlength="8"
+                               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,}"
+                               title="Use at least 8 characters with uppercase, lowercase, and a number"
                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 text-sm sm:text-base" />
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 8 characters required</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">At least 8 characters with uppercase, lowercase, and a number</p>
                         <p id="newPasswordMsg" class="text-xs mt-1"></p>
                     </div>
 
@@ -479,20 +485,17 @@ if ($user) {
                         
                         if (data.valid) {
                             this.style.borderColor = '#22c55e';
-                            document.getElementById('currentPasswordMsg').textContent = 'Password is correct';
-                            document.getElementById('currentPasswordMsg').className = 'text-xs text-green-600 dark:text-green-400 mt-1';
+                            document.getElementById('currentPasswordMsg').textContent = '';
                             currentPasswordValid = true;
                         } else {
                             this.style.borderColor = '#ef4444';
-                            document.getElementById('currentPasswordMsg').textContent = 'Password is incorrect';
-                            document.getElementById('currentPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
+                            document.getElementById('currentPasswordMsg').textContent = '';
                             currentPasswordValid = false;
                         }
                     } catch (error) {
                         console.error('Error validating password:', error);
                         this.style.borderColor = '#ef4444';
-                        document.getElementById('currentPasswordMsg').textContent = 'Error validating password';
-                        document.getElementById('currentPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
+                        document.getElementById('currentPasswordMsg').textContent = '';
                         currentPasswordValid = false;
                     }
                 }
@@ -512,9 +515,9 @@ if ($user) {
                     document.getElementById('newPasswordMsg').textContent = 'Password cannot contain only spaces';
                     document.getElementById('newPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
                     newPasswordValid = false;
-                } else if (this.value.length < 8) {
+                } else if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/.test(this.value)) {
                     this.style.borderColor = '#ef4444';
-                    document.getElementById('newPasswordMsg').textContent = `${this.value.length}/8 characters`;
+                    document.getElementById('newPasswordMsg').textContent = 'Use 8+ characters with uppercase, lowercase, and a number';
                     document.getElementById('newPasswordMsg').className = 'text-xs text-red-600 dark:text-red-400 mt-1';
                     newPasswordValid = false;
                 } else {

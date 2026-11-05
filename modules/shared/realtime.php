@@ -9,6 +9,25 @@ $role = $_SESSION['user_role'] ?? '';
 $showNotifications = $role !== 'security'
     && ($role !== 'teacher' || ($_SESSION['teacher_subrole'] ?? $_SESSION['user']['teacher_subrole'] ?? null) === 'department_head');
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'markNotificationAsRead') {
+    $notificationId = $_POST['notificationId'] ?? null;
+
+    if (!$showNotifications || !isset($_SESSION['user_id']) || !$notificationId) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Unable to mark notification as read']);
+        exit;
+    }
+
+    try {
+        markNotificationAsRead($notificationId);
+        echo json_encode(['success' => true]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Unable to mark notification as read']);
+    }
+    exit;
+}
+
 if (!$showNotifications || !isset($_SESSION['user_id'])) {
     echo json_encode(['success' => true, 'notifications' => [], 'count' => 0]);
     exit;
