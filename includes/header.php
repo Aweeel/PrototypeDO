@@ -59,7 +59,7 @@ if ($showNotifications && isset($_SESSION['user_id'])) {
     }
 }
 $unreadCount = count($unreadNotifications);
-$globalBannerEnabled = getSystemSetting('global_banner_enabled', 'disabled') === 'enabled';
+$globalBannerEnabled = strtolower(trim((string)getSystemSetting('global_banner_enabled', 'disabled'))) === 'enabled';
 $globalBannerText = getSystemSetting('global_banner_text', '');
 
 // Get consistent user name for header - use database value to ensure consistency
@@ -232,17 +232,24 @@ if (!isset($adminName) || empty($adminName)) {
 
 <div id="globalAnnouncementBanner"
      data-banner-text="<?= htmlspecialchars($globalBannerText, ENT_QUOTES, 'UTF-8') ?>"
+     data-banner-enabled="<?= $globalBannerEnabled && trim($globalBannerText) !== '' ? '1' : '0' ?>"
      class="fixed top-[4.5rem] left-0 lg:left-64 right-0 z-20 flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
      <?= $globalBannerEnabled && trim($globalBannerText) !== '' ? '' : 'hidden' ?>>
     <span class="min-w-0 flex-1 text-center break-words"><?= htmlspecialchars($globalBannerText) ?></span>
-    <button id="closeGlobalAnnouncement"
+    <button id="minimizeGlobalAnnouncement"
             type="button"
             class="shrink-0 rounded p-1 text-xl leading-none text-amber-700 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:text-amber-200 dark:hover:bg-amber-900"
-            aria-label="Close announcement"
-            title="Close announcement">&times;</button>
+            aria-label="Minimize announcement"
+            title="Minimize announcement">&minus;</button>
 </div>
+<button id="restoreGlobalAnnouncement"
+        type="button"
+        class="fixed top-[5.25rem] right-4 md:right-8 z-20 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900 sm:px-3"
+        aria-label="Show announcement"
+        title="Show announcement"
+        hidden><svg class="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5Zm7.07 3.93a5 5 0 0 1 0 6.14M21 6.5a9 9 0 0 1 0 11"/></svg><span class="hidden sm:inline">Show announcement</span></button>
 
-<script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261103-3"></script>
+<script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261105-7"></script>
 <script>
     function toggleNotificationPanel() {
         const panel = document.getElementById('notificationPanel');
