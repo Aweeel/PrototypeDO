@@ -881,7 +881,7 @@ async function submitRejectCommunityServiceReview(submissionId, caseId) {
   const errorEl = modal?.querySelector('#rejectCommunityServiceError');
   const notes = (noteInput?.value || '').trim();
 
-  if (!notes) {
+  if (!notes || (window.AppValidation && !window.AppValidation.validateElement(noteInput))) {
     if (errorEl) {
       errorEl.classList.remove('hidden');
     }

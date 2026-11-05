@@ -3611,20 +3611,27 @@ function normalizeProgramAbbreviation($input) {
     $trimmed = trim($input);
 
     $map = [
-        'Bachelor of Science in Computer Science'      => 'BSCS',
-        'Bachelor of Science in Information Technology'=> 'BSIT',
-        'Bachelor of Science in Computer Engineering'  => 'BSCpE',
-        'Bachelor of Science in Management Accounting'  => 'BSMA',
-        'Bachelor of Science in Accountancy'            => 'BSA',
-        'Bachelor of Science in Hospitality Management' => 'BSHM',
-        'Bachelor of Multimedia Arts'                   => 'BMMA',
-        'Bachelor of Arts in Communication'             => 'BACOMM',
-        'Bachelor of Arts in Psychology'                => 'BAPsych',
-        'Bachelor of Science in Tourism Management'     => 'BSTM',
-        'Bachelor of Science in Criminology'            => 'BSCRIM'
+        'bachelor of science in computer science'       => 'BSCS',
+        'bachelor of science in information technology'  => 'BSIT',
+        'information technology'                        => 'BSIT',
+        'bachelor of science in computer engineering'   => 'BSCpE',
+        'engineering'                                   => 'BSCpE',
+        'bachelor of science in management accounting'  => 'BSMA',
+        'business & management'                         => 'BSMA',
+        'bachelor of science in accountancy'            => 'BSA',
+        'bachelor of science in hospitality management' => 'BSHM',
+        'hospitality management'                        => 'BSHM',
+        'bachelor of multimedia arts'                   => 'BMMA',
+        'arts & sciences'                               => 'BMMA',
+        'bachelor of arts in communication'             => 'BACOMM',
+        'bachelor of arts in psychology'                => 'BAPsych',
+        'bachelor of science in tourism management'     => 'BSTM',
+        'tourism management'                            => 'BSTM',
+        'bachelor of science in criminology'            => 'BSCRIM',
+        'criminal justice education'                    => 'BSCRIM'
     ];
 
     // Return mapped abbreviation if matched, otherwise return trimmed input
-    return $map[$trimmed] ?? $trimmed;
+    return $map[strtolower($trimmed)] ?? $trimmed;
 }
 ?>

@@ -35,7 +35,7 @@ student_id,first_name,last_name,middle_name,grade_year,track_course,section,stud
 The current `modules/do/studentHistory.php` does not contain a CSV upload handler, so this is not an active UI import workflow at present. The schema fixture is available at [students_import_test.csv](test_fixtures/students_import_test.csv) for a restored or external importer.
 
 ### Required Fields
-- `student_id` - Student number/ID (must be unique)
+- `student_id` - Student number/ID (must be exactly 11 digits and unique)
 - `first_name` - Student's first name
 - `last_name` - Student's last name
 - `grade_year` - Grade/year level (e.g., "11", "12", "1st Year", "2nd Year")
@@ -51,7 +51,7 @@ The current `modules/do/studentHistory.php` does not contain a CSV upload handle
 ## Student ID Requirement
 
 - Student IDs are provided by your CSV file and are no longer auto-generated during import
-- Student IDs should follow your school format (for example: **02000XXXXXX**)
+- Student IDs must contain exactly 11 numeric digits (for example: **02000000001**)
 - Duplicate student IDs are skipped and reported as errors
 
 ## Email Auto-Generation
@@ -63,5 +63,5 @@ The current `modules/do/studentHistory.php` does not contain a CSV upload handle
 
 ## User Account Creation
 
-Student IDs should use the school format `02000xxxxxx`. Duplicate IDs should be rejected by any implementation of this schema.
+Student IDs must contain exactly 11 numeric digits. Duplicate IDs should be rejected by any implementation of this schema.
 02000000101,Juan,Dela Cruz,Santos,11,STEM,A,SHS,Maria Dela Cruz,09171234567

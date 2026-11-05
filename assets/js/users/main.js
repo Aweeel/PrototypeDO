@@ -5,7 +5,7 @@ let selectedUserIds = new Set();
 let currentPage = 1;
 let itemsPerPage = 7;
 let archiveMode = false;
-let sortColumn = 'full_name';
+let sortColumn = null;
 let sortDirection = 'asc';
 const MIN_WIDTHS = [200, 190, 140, 125, 100, 130];
 const START_WIDTHS = [300, 280, 150, 150, 120, 150];
@@ -290,11 +290,13 @@ function renderUsers() {
         return;
     }
 
-    const sortedUsers = [...filteredUsers].sort((a, b) => {
-        const first = String(a[sortColumn] ?? '').toLowerCase();
-        const second = String(b[sortColumn] ?? '').toLowerCase();
-        return first.localeCompare(second, undefined, { numeric: true }) * (sortDirection === 'asc' ? 1 : -1);
-    });
+    const sortedUsers = sortColumn
+        ? [...filteredUsers].sort((a, b) => {
+            const first = String(a[sortColumn] ?? '').toLowerCase();
+            const second = String(b[sortColumn] ?? '').toLowerCase();
+            return first.localeCompare(second, undefined, { numeric: true }) * (sortDirection === 'asc' ? 1 : -1);
+        })
+        : [...filteredUsers];
     document.querySelectorAll('button[data-sort]').forEach(button => {
         const active = button.dataset.sort === sortColumn;
         button.textContent = `${button.dataset.label} ${active ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}`;

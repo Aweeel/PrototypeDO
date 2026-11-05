@@ -9,11 +9,12 @@ try {
         $action = $_POST['action'] ?? '';
         if ($action === 'save_offense') {
             $params = [trim($_POST['offense_name'] ?? ''), $_POST['category'] ?? '', trim($_POST['description'] ?? ''), isset($_POST['is_active']) ? 1 : 0];
-            if ($params[0] === '' || !in_array($params[1], ['Minor', 'Major'], true)) throw new RuntimeException('Enter a valid violation name and category.');
+            if ($params[0] === '' || strlen($params[0]) > 50 || !in_array($params[1], ['Minor', 'Major'], true)) throw new RuntimeException('Enter a valid violation name and category (maximum 50 characters).');
             if (!empty($_POST['offense_id'])) { $params[] = (int)$_POST['offense_id']; executeQuery('UPDATE offense_types SET offense_name = ?, category = ?, description = ?, is_active = ? WHERE offense_id = ?', $params); $modalMessage = 'Violation updated.'; }
             else { executeQuery('INSERT INTO offense_types (offense_name, category, description, is_active) VALUES (?, ?, ?, ?)', $params); $modalMessage = 'Violation added.'; }
         } elseif ($action === 'save_sanction') {
             $name = trim($_POST['sanction_name'] ?? ''); $level = max(1, min(5, (int)($_POST['severity_level'] ?? 1))); $description = trim($_POST['sanction_description'] ?? ''); $active = isset($_POST['sanction_active']) ? 1 : 0;
+            if ($name === '' || strlen($name) > 50) throw new RuntimeException('Enter a valid sanction name (maximum 50 characters).');
             if (!empty($_POST['sanction_id'])) { executeQuery('UPDATE sanctions SET sanction_name = ?, severity_level = ?, description = ?, is_active = ? WHERE sanction_id = ?', [$name, $level, $description, $active, (int)$_POST['sanction_id']]); $modalMessage = 'Sanction updated.'; }
             else { executeQuery('INSERT INTO sanctions (sanction_name, severity_level, description, is_active) VALUES (?, ?, ?, ?)', [$name, $level, $description, $active]); $modalMessage = 'Sanction added.'; }
         } elseif ($action === 'save_escalation') { setSystemSetting('escalation_minor_count', max(1, (int)($_POST['escalation_minor_count'] ?? 3))); $modalMessage = 'Escalation rule saved.'; }
