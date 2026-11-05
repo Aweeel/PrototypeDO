@@ -40,7 +40,7 @@ try {
         http_response_code(404);
         echo json_encode([
             'success' => false,
-            'error' => 'No account found with this email address.'
+            'error' => "We couldn't find an account with that email address. If you believe this is an error, please contact an administrator."
         ]);
         
         // Log the attempt for non-existent email

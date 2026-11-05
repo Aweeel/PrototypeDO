@@ -73,6 +73,7 @@ function formatTableLabel(table) {
         lost_found_categories: 'Lost & Found Categories',
         calendar_events: 'Calendar Events',
         community_service_submissions: 'Community Service Submissions',
+        handbook: 'Student Handbook',
         system_settings: 'System Settings',
         system_backup: 'System Backup'
     };
@@ -162,6 +163,32 @@ function formatDataSection(data, bgColor) {
     return html;
 }
 
+function formatHandbookAuditSection(data, bgColor) {
+    if (!data || !Array.isArray(data.sections)) return formatDataSection(data, bgColor);
+
+    return `<div class="${bgColor} rounded-lg p-4"><div class="space-y-3">${data.sections.map(section => {
+        const content = auditPlainText(section.content ?? section.new_content ?? section.old_content);
+        return `<div class="rounded border border-gray-200 dark:border-slate-600 p-3">
+            <div class="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">${escapeHtml(formatLabel(section.section_id))}</div>
+            <div class="whitespace-pre-wrap break-words text-sm leading-6">${escapeHtml(content) || '<span class="text-gray-400 italic">No content</span>'}</div>
+        </div>`;
+    }).join('')}</div></div>`;
+}
+
+function auditPlainText(value) {
+    const element = document.createElement('div');
+    element.innerHTML = String(value ?? '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n');
+    return (element.textContent || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n?/g, '\n')
+        .replace(/[ \t\f\v]+/g, ' ')
+        .replace(/ *\n */g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 // Helper function to escape HTML
 function escapeHtml(text) {
     const map = {
@@ -179,6 +206,312 @@ function stripHtml(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     return tmp.textContent || tmp.innerText || '';
+}
+
+function getAuditValueEntries(data) {
+    if (!data || typeof data !== 'object') return [];
+    if (Array.isArray(data.sections)) {
+        return data.sections.map(section => [
+            section.section_id || 'Section',
+            section.content ?? ''
+        ]);
+    }
+    return Object.entries(data);
+}
+
+function getHandbookSections(data, side) {
+    if (!data || !Array.isArray(data.sections)) return new Map();
+    return new Map(data.sections.map(section => [
+        String(section.section_id || ''),
+        auditPlainText(side === 'old' && section.old_content !== undefined
+            ? section.old_content
+            : side === 'new' && section.new_content !== undefined
+                ? section.new_content
+                : section.content)
+    ]));
+}
+
+function getHandbookComparisonSources(oldData, newData) {
+    const hasLegacyContent = newData && Array.isArray(newData.sections) &&
+        newData.sections.some(section => section.old_content !== undefined || section.new_content !== undefined);
+    if ((!oldData || !Array.isArray(oldData.sections)) && hasLegacyContent) {
+        return [newData, newData];
+    }
+    return [oldData, newData];
+}
+
+function tokenizeAuditText(text) {
+    return String(text ?? '').match(/\n|[ \t]+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu) || [];
+}
+
+function isWordToken(token) {
+    return /^[\p{L}\p{N}_]+$/u.test(token);
+}
+
+function isMinorCharacterEdit(oldText, newText) {
+    if (oldText.length > 80 || newText.length > 80) return false;
+    const row = Array.from({ length: newText.length + 1 }, (_, index) => index);
+    for (let oldIndex = 1; oldIndex <= oldText.length; oldIndex += 1) {
+        let diagonal = row[0];
+        row[0] = oldIndex;
+        for (let newIndex = 1; newIndex <= newText.length; newIndex += 1) {
+            const previous = row[newIndex];
+            row[newIndex] = oldText[oldIndex - 1] === newText[newIndex - 1]
+                ? diagonal
+                : Math.min(diagonal, row[newIndex], row[newIndex - 1]) + 1;
+            diagonal = previous;
+        }
+    }
+    return row[newText.length] <= 1;
+}
+
+function diffCharacterRuns(oldText, newText) {
+    const oldTokens = Array.from(oldText);
+    const newTokens = Array.from(newText);
+    const rows = Array.from({ length: oldTokens.length + 1 }, () => new Uint32Array(newTokens.length + 1));
+    for (let oldIndex = oldTokens.length - 1; oldIndex >= 0; oldIndex -= 1) {
+        for (let newIndex = newTokens.length - 1; newIndex >= 0; newIndex -= 1) {
+            rows[oldIndex][newIndex] = oldTokens[oldIndex] === newTokens[newIndex]
+                ? rows[oldIndex + 1][newIndex + 1] + 1
+                : Math.max(rows[oldIndex + 1][newIndex], rows[oldIndex][newIndex + 1]);
+        }
+    }
+
+    return buildAuditOperations(oldTokens, newTokens, rows);
+}
+
+function buildAuditOperations(oldTokens, newTokens, rows) {
+    const operations = [];
+    let oldIndex = 0;
+    let newIndex = 0;
+    const append = (type, text) => {
+        if (!text) return;
+        const previous = operations[operations.length - 1];
+        if (previous && previous.type === type) previous.text += text;
+        else operations.push({ type, text });
+    };
+
+    while (oldIndex < oldTokens.length || newIndex < newTokens.length) {
+        if (oldIndex < oldTokens.length && newIndex < newTokens.length &&
+            oldTokens[oldIndex] === newTokens[newIndex]) {
+            append('equal', oldTokens[oldIndex]);
+            oldIndex += 1;
+            newIndex += 1;
+        } else if (newIndex < newTokens.length &&
+            (oldIndex === oldTokens.length || rows[oldIndex][newIndex + 1] >= rows[oldIndex + 1][newIndex])) {
+            append('insert', newTokens[newIndex]);
+            newIndex += 1;
+        } else {
+            append('delete', oldTokens[oldIndex]);
+            oldIndex += 1;
+        }
+    }
+    return operations;
+}
+
+function myersAuditOperations(oldTokens, newTokens) {
+    const maxDistance = oldTokens.length + newTokens.length;
+    let frontier = new Map([[1, 0]]);
+    const trace = [];
+    let endDistance = 0;
+
+    for (let distance = 0; distance <= maxDistance; distance += 1) {
+        let reachedEnd = false;
+        for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
+            let oldIndex;
+            if (diagonal === -distance ||
+                (diagonal !== distance && (frontier.get(diagonal - 1) || 0) < (frontier.get(diagonal + 1) || 0))) {
+                oldIndex = frontier.get(diagonal + 1) || 0;
+            } else {
+                oldIndex = (frontier.get(diagonal - 1) || 0) + 1;
+            }
+            let newIndex = oldIndex - diagonal;
+            while (oldIndex < oldTokens.length && newIndex < newTokens.length &&
+                oldTokens[oldIndex] === newTokens[newIndex]) {
+                oldIndex += 1;
+                newIndex += 1;
+            }
+            frontier.set(diagonal, oldIndex);
+            if (oldIndex >= oldTokens.length && newIndex >= newTokens.length) {
+                endDistance = distance;
+                reachedEnd = true;
+                break;
+            }
+        }
+        trace.push(new Map(frontier));
+        if (reachedEnd) break;
+    }
+
+    const reversed = [];
+    let oldIndex = oldTokens.length;
+    let newIndex = newTokens.length;
+    for (let distance = endDistance; distance > 0; distance -= 1) {
+        const diagonal = oldIndex - newIndex;
+        const previous = trace[distance - 1];
+        const previousDiagonal = diagonal === -distance ||
+            (diagonal !== distance && (previous.get(diagonal - 1) || 0) < (previous.get(diagonal + 1) || 0))
+            ? diagonal + 1
+            : diagonal - 1;
+        const previousOldIndex = previous.get(previousDiagonal) || 0;
+        const previousNewIndex = previousOldIndex - previousDiagonal;
+
+        while (oldIndex > previousOldIndex && newIndex > previousNewIndex) {
+            reversed.push({ type: 'equal', text: oldTokens[oldIndex - 1] });
+            oldIndex -= 1;
+            newIndex -= 1;
+        }
+        if (oldIndex === previousOldIndex) {
+            reversed.push({ type: 'insert', text: newTokens[newIndex - 1] });
+            newIndex -= 1;
+        } else {
+            reversed.push({ type: 'delete', text: oldTokens[oldIndex - 1] });
+            oldIndex -= 1;
+        }
+    }
+    while (oldIndex > 0 && newIndex > 0) {
+        reversed.push({ type: 'equal', text: oldTokens[oldIndex - 1] });
+        oldIndex -= 1;
+        newIndex -= 1;
+    }
+    while (oldIndex > 0) {
+        reversed.push({ type: 'delete', text: oldTokens[oldIndex - 1] });
+        oldIndex -= 1;
+    }
+    while (newIndex > 0) {
+        reversed.push({ type: 'insert', text: newTokens[newIndex - 1] });
+        newIndex -= 1;
+    }
+
+    return reversed.reverse().reduce((result, operation) => {
+        const previous = result[result.length - 1];
+        if (previous && previous.type === operation.type) previous.text += operation.text;
+        else result.push(operation);
+        return result;
+    }, []);
+}
+
+function refineAuditOperations(operations) {
+    const refined = [];
+    for (let index = 0; index < operations.length; index += 1) {
+        const operation = operations[index];
+        const next = operations[index + 1];
+        if ((operation.type === 'delete' && next && next.type === 'insert') ||
+            (operation.type === 'insert' && next && next.type === 'delete')) {
+            const oldOperation = operation.type === 'delete' ? operation : next;
+            const newOperation = operation.type === 'insert' ? operation : next;
+            const oldTokens = oldOperation.text.match(/\S+/g) || [];
+            const newTokens = newOperation.text.match(/\S+/g) || [];
+            const shouldUseCharacters = oldTokens.length === 1 && newTokens.length === 1 &&
+                (!isWordToken(oldTokens[0]) || !isWordToken(newTokens[0]) ||
+                    isMinorCharacterEdit(oldTokens[0], newTokens[0]));
+            if (shouldUseCharacters) {
+                refined.push(...diffCharacterRuns(oldOperation.text, newOperation.text));
+            } else {
+                refined.push(operation, next);
+            }
+            index += 1;
+        } else {
+            refined.push(operation);
+        }
+    }
+    return refined;
+}
+
+function diffAuditText(oldText, newText) {
+    oldText = auditPlainText(oldText);
+    newText = auditPlainText(newText);
+    if (oldText === newText) return oldText ? [{ type: 'equal', text: oldText }] : [];
+    const oldTokens = tokenizeAuditText(oldText);
+    const newTokens = tokenizeAuditText(newText);
+    return refineAuditOperations(myersAuditOperations(oldTokens, newTokens));
+}
+
+function renderAuditDiff(operations) {
+    return operations.map(operation => {
+        if (operation.type === 'context') {
+            return `<span class="text-gray-500 dark:text-gray-400">${escapeHtml(operation.text)}</span>`;
+        }
+        const className = operation.type === 'delete'
+            ? 'bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-100 line-through decoration-red-700'
+            : operation.type === 'insert'
+                ? 'bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100'
+                : 'text-gray-800 dark:text-gray-100';
+        return `<span class="${className}">${escapeHtml(operation.text)}</span>`;
+    }).join('');
+}
+
+function getAuditDiffContext(operations, limit = 180) {
+    if (operations.length <= limit) return operations;
+    const changed = operations
+        .map((operation, index) => operation.type === 'equal' ? -1 : index)
+        .filter(index => index >= 0);
+    if (!changed.length) return operations.slice(0, limit);
+    const ranges = [];
+    changed.forEach(index => {
+        const range = [Math.max(0, index - 25), Math.min(operations.length, index + 26)];
+        const previous = ranges[ranges.length - 1];
+        if (previous && range[0] <= previous[1]) previous[1] = range[1];
+        else ranges.push(range);
+    });
+
+    return ranges.reduce((result, [start, end], rangeIndex) => {
+        if (rangeIndex > 0) result.push({ type: 'context', text: ' ... ' });
+        if (start > 0 && rangeIndex === 0) result.push({ type: 'context', text: '... ' });
+        result.push(...operations.slice(start, end));
+        if (end < operations.length && rangeIndex === ranges.length - 1) {
+            result.push({ type: 'context', text: ' ...' });
+        }
+        return result;
+    }, []);
+}
+
+function formatHandbookComparison(oldData, newData) {
+    const [oldSource, newSource] = getHandbookComparisonSources(oldData, newData);
+    const oldSections = getHandbookSections(oldSource, 'old');
+    const newSections = getHandbookSections(newSource, 'new');
+    const sectionIds = [...new Set([...oldSections.keys(), ...newSections.keys()])];
+    if (!sectionIds.length) return '<p class="text-gray-500 dark:text-gray-400 italic">No section changes</p>';
+
+    return `<div class="space-y-5">${sectionIds.map(sectionId => {
+        const oldText = oldSections.get(sectionId) || '';
+        const newText = newSections.get(sectionId) || '';
+        const operations = diffAuditText(oldText, newText);
+        const hasChanges = operations.some(operation => operation.type !== 'equal');
+        const isLong = operations.length > 180;
+        const comparison = hasChanges ? renderAuditDiff(getAuditDiffContext(operations)) :
+            '<span class="text-gray-500 dark:text-gray-400 italic">No changes</span>';
+
+        return `<section class="rounded-lg border border-gray-200 dark:border-slate-600 overflow-hidden">
+            <h4 class="px-4 py-3 bg-gray-50 dark:bg-slate-800 text-sm font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(formatLabel(sectionId))}</h4>
+            <div class="p-4">
+                <div class="whitespace-pre-wrap break-words text-sm leading-6">${comparison}</div>
+                ${isLong ? `<details class="mt-3"><summary class="cursor-pointer text-xs text-blue-600 dark:text-blue-400">View complete comparison</summary><div class="mt-2 whitespace-pre-wrap break-words text-sm leading-6">${renderAuditDiff(operations)}</div></details>` : ''}
+            </div>
+        </section>`;
+    }).join('')}</div>`;
+}
+
+function getHandbookComparisonRows(oldData, newData) {
+    const [oldSource, newSource] = getHandbookComparisonSources(oldData, newData);
+    const oldSections = getHandbookSections(oldSource, 'old');
+    const newSections = getHandbookSections(newSource, 'new');
+    const sectionIds = [...new Set([...oldSections.keys(), ...newSections.keys()])];
+
+    return sectionIds.map(sectionId => {
+        const operations = diffAuditText(oldSections.get(sectionId) || '', newSections.get(sectionId) || '');
+        return {
+            sectionId,
+            comparison: operations.map(operation => operation.type === 'delete'
+                ? `[REMOVED] ${operation.text} [/REMOVED]`
+                : operation.type === 'insert' ? `[ADDED] ${operation.text} [/ADDED]` : operation.text).join(''),
+            previous: operations.map(operation =>
+                operation.type === 'insert' ? '' : operation.type === 'delete' ? `[REMOVED] ${operation.text}` : operation.text
+            ).join(''),
+            updated: operations.map(operation =>
+                operation.type === 'delete' ? '' : operation.type === 'insert' ? `[ADDED] ${operation.text}` : operation.text
+            ).join('')
+        };
+    });
 }
 
 function parseAuditValues(values) {
@@ -214,22 +547,36 @@ function openLogDetailModal(log) {
     // Populate main details
     document.getElementById('detailUser').textContent = log.user || 'System';
     document.getElementById('detailRole').textContent = formatValueLabel('role', log.role || 'N/A');
-    document.getElementById('detailAction').innerHTML = `<span class="px-2 py-1 text-xs font-semibold rounded-full ${log.actionColor}">${log.action}</span>`;
+    document.getElementById('detailAction').innerHTML = `<span class="px-2 py-1 text-xs font-semibold rounded-full ${log.actionColor}">${escapeHtml(log.action)}</span>`;
     document.getElementById('detailTimestamp').textContent = log.timestamp;
     document.getElementById('detailTable').textContent = log.table ? formatTableLabel(log.table) : 'N/A';
-    document.getElementById('detailRecordId').textContent = log.recordId || 'N/A';
+    document.getElementById('detailRecordId').textContent =
+        log.table === 'handbook' && String(log.recordId) === '0' ? 'N/A' : (log.recordId || 'N/A');
     document.getElementById('detailIpAddress').textContent = log.ipAddress || 'N/A';
     document.getElementById('detailUserAgent').textContent = log.userAgent || 'N/A';
     
     // Populate old values
     const oldValuesBlock = document.getElementById('oldValuesBlock');
     const oldValuesSection = document.getElementById('oldValuesSection');
+    const newValuesBlock = document.getElementById('newValuesBlock');
+    const oldValuesTitle = document.getElementById('oldValuesTitle');
     try {
         const oldData = parseAuditValues(log.oldValues);
-        if (oldData !== null && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
+        const newData = parseAuditValues(log.newValues);
+        const isHandbookContent = log.table === 'handbook' && log.action === 'Student Handbook Content Updated';
+        if (isHandbookContent) {
+            oldValuesTitle.textContent = 'Content Comparison';
             oldValuesBlock.classList.remove('hidden');
-            oldValuesSection.innerHTML = formatDataSection(oldData, 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800');
+            newValuesBlock.classList.add('hidden');
+            oldValuesSection.innerHTML = formatHandbookComparison(oldData, newData);
+        } else if (oldData !== null && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
+            oldValuesTitle.textContent = 'Previous Values';
+            newValuesBlock.classList.remove('hidden');
+            oldValuesBlock.classList.remove('hidden');
+            oldValuesSection.innerHTML = formatHandbookAuditSection(oldData, 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800');
         } else {
+            oldValuesTitle.textContent = 'Previous Values';
+            newValuesBlock.classList.remove('hidden');
             oldValuesBlock.classList.add('hidden');
         }
     } catch (e) {
@@ -240,10 +587,11 @@ function openLogDetailModal(log) {
     // Populate new values
     const newValuesSection = document.getElementById('newValuesSection');
     try {
+        const isHandbookContent = log.table === 'handbook' && log.action === 'Student Handbook Content Updated';
         const newData = parseAuditValues(log.newValues);
-        if (newData !== null && typeof newData === 'object') {
-            newValuesSection.innerHTML = formatDataSection(newData, 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800');
-        } else {
+        if (!isHandbookContent && newData !== null && typeof newData === 'object') {
+            newValuesSection.innerHTML = formatHandbookAuditSection(newData, 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800');
+        } else if (!isHandbookContent) {
             newValuesSection.innerHTML = `<p class="text-gray-500 dark:text-gray-400 italic">No new values</p>`;
         }
     } catch (e) {
@@ -277,7 +625,7 @@ function exportDetailAsCSV() {
     csvContent += `Action,${escapeCSV(selectedLog.action)}\n`;
     csvContent += `Timestamp,${escapeCSV(selectedLog.timestamp)}\n`;
     csvContent += `Table,${escapeCSV(selectedLog.table || 'N/A')}\n`;
-    csvContent += `Record ID,${escapeCSV(selectedLog.recordId || 'N/A')}\n`;
+    csvContent += `Record ID,${escapeCSV(selectedLog.table === 'handbook' && String(selectedLog.recordId) === '0' ? 'N/A' : (selectedLog.recordId || 'N/A'))}\n`;
     
     // Network Information
     csvContent += `IP Address,${escapeCSV(selectedLog.ipAddress || 'N/A')}\n`;
@@ -292,12 +640,27 @@ function exportDetailAsCSV() {
         return str;
     }
 
+    const isHandbookContent = selectedLog.table === 'handbook' && selectedLog.action === 'Student Handbook Content Updated';
+    const oldData = parseAuditValues(selectedLog.oldValues);
+    const newData = parseAuditValues(selectedLog.newValues);
+
     // Old Values
-    csvContent += '"Previous Values",\n';
-    if (selectedLog.oldValues && selectedLog.oldValues !== 'null') {
+    csvContent += '"Content Comparison",\n';
+    if (isHandbookContent) {
+        for (const row of getHandbookComparisonRows(oldData, newData)) {
+            csvContent += `"  ${escapeCSV(formatLabel(row.sectionId))}",${escapeCSV(row.comparison)}\n`;
+        }
+        csvContent += '"Previous Content (historical)",\n';
+        for (const row of getHandbookComparisonRows(oldData, newData)) {
+            csvContent += `"  ${escapeCSV(formatLabel(row.sectionId))}",${escapeCSV(row.previous.replace(/\[REMOVED\]\s*|\[\/REMOVED\]/g, ''))}\n`;
+        }
+        csvContent += '"Updated Content (historical)",\n';
+        for (const row of getHandbookComparisonRows(oldData, newData)) {
+            csvContent += `"  ${escapeCSV(formatLabel(row.sectionId))}",${escapeCSV(row.updated.replace(/\[ADDED\]\s*|\[\/ADDED\]/g, ''))}\n`;
+        }
+    } else if (selectedLog.oldValues && selectedLog.oldValues !== 'null') {
         try {
-            const oldData = JSON.parse(selectedLog.oldValues);
-            for (const [key, value] of Object.entries(oldData)) {
+            for (const [key, value] of getAuditValueEntries(oldData)) {
                 csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(formatValueLabel(key, value)))}\n`;
             }
         } catch (e) {
@@ -308,18 +671,15 @@ function exportDetailAsCSV() {
     }
     
     // New Values
-    csvContent += '"New Values",\n';
-    if (selectedLog.newValues && selectedLog.newValues !== 'null') {
+    if (!isHandbookContent && selectedLog.newValues && selectedLog.newValues !== 'null') {
+        csvContent += '"New Values",\n';
         try {
-            const newData = JSON.parse(selectedLog.newValues);
-            for (const [key, value] of Object.entries(newData)) {
+            for (const [key, value] of getAuditValueEntries(newData)) {
                 csvContent += `"  ${formatLabel(key)}",${escapeCSV(flattenForCSV(formatValueLabel(key, value)))}\n`;
             }
         } catch (e) {
             csvContent += `"Error parsing new values",${escapeCSV(e.message)}\n`;
         }
-    } else {
-        csvContent = csvContent.replace('"New Values",\n', '');
     }
     
     // Download CSV
@@ -351,7 +711,7 @@ function printDetailAsPDF() {
             return '<tr><td colspan="2" style="padding: 6px;"><em>No data</em></td></tr>';
         }
 
-        return Object.entries(data).map(([key, value]) => `
+        return getAuditValueEntries(data).map(([key, value]) => `
             <tr>
                 <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%; color: #555; vertical-align: top;">${escapeHtml(formatLabel(key))}</td>
                 <td style="padding: 6px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top;">${escapeHtml(printValue(formatValueLabel(key, value)))}</td>
@@ -403,7 +763,7 @@ function printDetailAsPDF() {
                     </tr>
                     <tr>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Record ID</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.recordId || 'N/A')}</td>
+                        <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.table === 'handbook' && String(selectedLog.recordId) === '0' ? 'N/A' : (selectedLog.recordId || 'N/A'))}</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">IP Address</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.ipAddress || 'N/A')}</td>
                     </tr>
@@ -415,20 +775,40 @@ function printDetailAsPDF() {
             </div>
     `;
     
-    // Old Values
-    if (oldData && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
+    const isHandbookContent = selectedLog.table === 'handbook' && selectedLog.action === 'Student Handbook Content Updated';
+    if (isHandbookContent) {
+        const comparisonRows = getHandbookComparisonRows(oldData, newData).map(row => `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top;">
+                    <strong>${escapeHtml(formatLabel(row.sectionId))}</strong><br>
+                    <span style="white-space: pre-wrap; overflow-wrap: anywhere;">${row.comparison
+                        ? escapeHtml(row.comparison)
+                            .replace(/\[REMOVED\] /g, '<span style="background:#fecaca;color:#991b1b;text-decoration:line-through;">[REMOVED] ')
+                            .replace(/ \[\/REMOVED\]/g, '</span>')
+                            .replace(/\[ADDED\] /g, '<span style="background:#bbf7d0;color:#166534;">[ADDED] ')
+                            .replace(/ \[\/ADDED\]/g, '</span>')
+                        : '<em>No changes</em>'}</span>
+                </td>
+            </tr>`).join('');
+        printContent += `<div style="margin-bottom: 25px;">
+            <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Content Comparison</h3>
+            <div style="padding: 10px; border: 1px solid #d1d5db; border-radius: 4px;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${comparisonRows}</table></div>
+        </div></div>`;
+    } else if (oldData && typeof oldData === 'object' && Object.keys(oldData).length > 0) {
         printContent += `<div style="margin-bottom: 25px;">
             <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">Previous Values</h3>
             <div style="background-color: #fee2e2; padding: 10px; border-radius: 4px; border-left: 4px solid #dc2626;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(oldData)}</table></div>
         </div>`;
     }
     
-    // New Values
-    printContent += `<div style="margin-bottom: 25px;">
-        <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">New Values</h3>`;
-    
-    printContent += `<div style="background-color: #dcfce7; padding: 10px; border-radius: 4px; border-left: 4px solid #16a34a;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(newData)}</table></div>`;
-    printContent += `</div></div>`;
+    if (!isHandbookContent) {
+        printContent += `<div style="margin-bottom: 25px;">
+            <h3 style="font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 0 0 10px 0;">New Values</h3>
+            <div style="background-color: #dcfce7; padding: 10px; border-radius: 4px; border-left: 4px solid #16a34a;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">${printDataRows(newData)}</table></div>
+        </div></div>`;
+    } else {
+        printContent += '</div>';
+    }
     
     // Create temporary print container
     let printRoot = document.getElementById('audit-print-root');

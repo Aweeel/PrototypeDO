@@ -38,11 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         $file = $_FILES['pdf_file'];
-        $fileName = $file['name'];
+        $originalFileName = basename((string) $file['name']);
         $fileTmpName = $file['tmp_name'];
 
         // Validate file type
-        $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
         $mimeType = mime_content_type($fileTmpName);
 
         if ($fileExtension !== 'pdf' || strpos($mimeType, 'pdf') === false) {
@@ -60,6 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         // Define target directory and file path
         $targetDir = __DIR__ . '/../../assets/PDF/';
         $targetFile = $targetDir . 'STI_TER_HANDBOOK.pdf';
+        $previousFile = null;
+        if (file_exists($targetFile)) {
+            $previousFile = [
+                'filename' => basename($targetFile),
+                'file_size' => filesize($targetFile),
+                'sha256' => hash_file('sha256', $targetFile)
+            ];
+        }
 
         // Create backup of old PDF if it exists
         if (file_exists($targetFile)) {
@@ -78,22 +86,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
 
-        $response = [
-            'success' => true,
-            'message' => 'PDF uploaded successfully',
-            'file_name' => $fileName
+        $newFile = [
+            'original_filename' => $originalFileName,
+            'saved_filename' => basename($targetFile),
+            'file_size' => filesize($targetFile),
+            'sha256' => hash_file('sha256', $targetFile)
         ];
-        finishHandbookResponse($response);
 
         try {
-            logAudit($_SESSION['user_id'], 'Student Handbook PDF Updated', 'handbook', 0, null, [
-                'action' => 'PDF file uploaded',
-                'file_name' => $fileName,
-                'file_size' => $file['size']
-            ]);
+            logAudit($_SESSION['user_id'], 'Student Handbook PDF Updated', 'handbook', 0, $previousFile, $newFile);
         } catch (Throwable $e) {
             error_log('PDF upload audit failed: ' . $e->getMessage());
         }
+
+        $response = [
+            'success' => true,
+            'message' => 'PDF uploaded successfully',
+            'file_name' => $originalFileName
+        ];
+        finishHandbookResponse($response);
         exit;
 
     } catch (Exception $e) {
@@ -118,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         // Check if we're updating multiple sections (new inline editing approach)
         if (isset($_POST['sections'])) {
             $sectionsData = json_decode($_POST['sections'], true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($sectionsData)) {
                 echo json_encode(['success' => false, 'error' => 'Invalid sections JSON']);
                 exit;
             }
@@ -127,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $sectionId = $_POST['section_id'] ?? null;
             $content = $_POST['content'] ?? '';
 
-            if (empty($sectionId) || empty($content)) {
+            if ($sectionId === null || $sectionId === '') {
                 echo json_encode(['success' => false, 'error' => 'Section ID and content are required']);
                 exit;
             }
@@ -146,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         if (file_exists($configFile)) {
             $handbookData = json_decode(file_get_contents($configFile), true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($handbookData)) {
                 $handbookData = [];
             }
         }
@@ -155,19 +166,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $changedSections = [];
         
         // Update all sections
+        $oldSections = [];
+        $newSections = [];
+
         foreach ($sectionsData as $sectionId => $content) {
+            if (is_array($content) || is_object($content)) {
+                echo json_encode(['success' => false, 'error' => 'Invalid section content']);
+                exit;
+            }
+
+            $sectionId = (string) $sectionId;
+            $content = (string) ($content ?? '');
             // Store the old content for audit
-            $oldContent = $handbookData[$sectionId] ?? null;
+            $oldContent = (string) ($handbookData[$sectionId] ?? '');
             
             // Only log if content actually changed
             if ($oldContent !== $content) {
-                $changedSections[] = [
+                $oldSections[] = [
                     'section_id' => $sectionId,
-                    'old_length' => strlen((string) ($oldContent ?? '')),
-                    'new_length' => strlen((string) $content),
-                    'old_sha256' => hash('sha256', (string) ($oldContent ?? '')),
-                    'new_sha256' => hash('sha256', (string) $content)
+                    'content' => $oldContent
                 ];
+                $newSections[] = [
+                    'section_id' => $sectionId,
+                    'content' => $content
+                ];
+                $changedSections[] = $sectionId;
             }
 
             // Update content
@@ -193,15 +216,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $response = [
             'success' => true,
             'message' => 'Content updated successfully',
-            'sections_updated' => array_keys($sectionsData)
+            'sections_updated' => $changedSections
         ];
         finishHandbookResponse($response);
 
         try {
-            logAudit($_SESSION['user_id'], 'Student Handbook Content Updated', 'handbook', 0, null, [
-                'total_sections_updated' => count($changedSections),
-                'sections' => $changedSections
-            ]);
+            logAudit(
+                $_SESSION['user_id'],
+                'Student Handbook Content Updated',
+                'handbook',
+                0,
+                ['sections' => $oldSections],
+                ['sections' => $newSections]
+            );
         } catch (Throwable $e) {
             error_log('Handbook content audit failed: ' . $e->getMessage());
         }

@@ -161,12 +161,12 @@ function renderTable() {
       <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="openLogDetailModal(${JSON.stringify(log).replace(/"/g, '&quot;')})">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">#${log.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${log.user}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.role}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${formatValueLabel('role', log.role || 'N/A')}</td>
         <td class="px-6 py-4 whitespace-nowrap">
           <span class="px-2 py-1 text-xs font-semibold rounded-full ${log.actionColor}">${log.action}</span>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.timestamp}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.ipAddress}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${log.recordId || 'N/A'}</td>
       </tr>
     `).join('');
 
@@ -480,7 +480,7 @@ function buildExportPreview(logs) {
                         <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Role</th>
                         <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Action</th>
                         <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Timestamp</th>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">IP Address</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Record ID</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-slate-700">`;
@@ -490,10 +490,10 @@ function buildExportPreview(logs) {
                     <tr class="hover:bg-gray-50 dark:hover:bg-slate-800">
                         <td class="px-3 py-2 text-gray-900 dark:text-gray-100">#${log.id}</td>
                         <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.user}</td>
-                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.role}</td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${formatValueLabel('role', log.role || 'N/A')}</td>
                         <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs font-semibold ${log.actionColor}">${log.action}</span></td>
                         <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.timestamp}</td>
-                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.ipAddress}</td>
+                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">${log.recordId || 'N/A'}</td>
                     </tr>`;
     });
     

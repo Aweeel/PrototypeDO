@@ -231,9 +231,13 @@ function getHandbookSection($sectionId, $defaultContent) {
             }
 
             window.searchHandbook = function(event) {
-              const query = document.getElementById("searchInput").value.trim().toLowerCase();
-              const content = document.querySelector("main");
-              const countDisplay = document.getElementById("searchCount");
+              const searchInput = event?.target?.matches?.("#searchInput")
+                ? event.target
+                : document.getElementById("searchInput");
+              const query = searchInput.value.trim().toLowerCase();
+              const content = document.getElementById("handbookContent");
+              const countDisplay = searchInput.closest("div")?.querySelector("#searchCount")
+                || document.getElementById("searchCount");
 
               if (event && event.key === "Enter") {
                 event.preventDefault();
@@ -363,6 +367,24 @@ function getHandbookSection($sectionId, $defaultContent) {
     background-color: rgba(96, 165, 250, 0.8);
   }
 
+  .handbook-scroll {
+    height: calc(100vh - var(--app-header-height)) !important;
+    margin-top: var(--app-header-height);
+  }
+
+  @media (min-width: 1024px) {
+    #handbookContent {
+      margin-right: calc(20rem + 2.5rem);
+    }
+
+    #handbookToc {
+      position: fixed;
+      top: calc(var(--app-header-height, 4rem) + 2rem);
+      right: 3rem;
+      width: 20rem;
+    }
+  }
+
   .active-toc-link {
     color: #2563eb !important;
     font-weight: 600;
@@ -393,6 +415,21 @@ function getHandbookSection($sectionId, $defaultContent) {
   .handbook-content [style*="background-color"],
   .ql-editor [style*="background-color"] {
     background-color: transparent !important;
+  }
+
+  #welcome-to-sti .handbook-content p,
+  #welcome-to-sti .ql-editor p {
+    margin: 0 0 1rem;
+    line-height: 1.75;
+  }
+
+  #welcome-to-sti .handbook-content p:last-child,
+  #welcome-to-sti .ql-editor p:last-child {
+    margin-bottom: 0;
+  }
+
+  #welcome-to-sti h4 {
+    margin-bottom: 1rem;
   }
 
   .ql-container.ql-snow {
@@ -464,15 +501,32 @@ function getHandbookSection($sectionId, $defaultContent) {
         <?php include __DIR__ . '/../../includes/header.php'; ?>
       </header>
 
-      <main class="flex-1 h-screen overflow-y-auto max-w-full">
-        <div class="pt-20 md:pt-28 p-4 md:p-8 md:ml-64">
+      <main class="handbook-scroll custom-scrollbar flex-1 h-screen overflow-y-auto max-w-full">
+        <div class="pt-4 md:pt-8 p-4 md:p-8 md:ml-64">
           <div class="flex flex-col gap-6 lg:flex-row lg:gap-10 max-w-full items-start">
-          <div class="flex-1 min-w-0 max-w-full bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 pt-6 md:p-12 overflow-x-hidden">
+          <div id="handbookContent" class="flex-1 min-w-0 max-w-full bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm p-4 pt-6 md:p-12 overflow-x-hidden">
 
               <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-                <h2 class="text-3xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
-                  <?php echo htmlspecialchars($pageTitle); ?>
-                </h2>
+                <div class="flex items-center gap-3">
+                  <h2 class="text-3xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
+                    <?php echo htmlspecialchars($pageTitle); ?>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick="toggleMobileToc()"
+                    aria-label="Open table of contents"
+                    aria-controls="mobileTocPanel"
+                    aria-expanded="false"
+                    class="lg:hidden inline-flex items-center justify-center p-2 text-gray-700 dark:text-gray-200 rounded-lg shadow transition"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <rect x="4" y="4" width="6" height="6" rx="1" stroke-width="2" />
+                      <rect x="14" y="4" width="6" height="6" rx="1" stroke-width="2" />
+                      <rect x="4" y="14" width="6" height="6" rx="1" stroke-width="2" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 15h6M14 19h6" />
+                    </svg>
+                  </button>
+                </div>
           <div class="flex gap-3">
             <a
               href="../../assets/PDF/STI_TER_HANDBOOK.pdf"
@@ -492,6 +546,17 @@ function getHandbookSection($sectionId, $defaultContent) {
           </div>
         </div>
 
+           <!-- ================= INTRODUCTION ================= -->
+<section id="introduction" class="space-y-6 text-justify text-lg max-w-full mb-16">
+  <h3 class="text-3xl font-semibold mb-4">Introduction</h3>
+
+  <div id="welcome-to-sti">
+    <div class="handbook-content">
+      <?php echo $handbookContent['introduction'] ?? ''; ?>
+    </div>
+  </div>
+</section>
+
            <!-- ================= GENERAL INFORMATION ================= -->
 <section id="general-info" class="space-y-6 text-justify text-lg max-w-full">
   <h3 class="text-3xl font-semibold mb-4">GENERAL INFORMATION</h3>
@@ -505,10 +570,10 @@ function getHandbookSection($sectionId, $defaultContent) {
     <p>
       <br>It all started when four visionaries conceptualized setting up a training center to fill very specific workforce needs.<br><br>
       It was in the early ‘80s when Augusto C. Lagman, Herman T. Gamboa, Benjamin A. Santos, and Edgar H. Sarte — four entrepreneurs and friends — came together to set up Systems Technology Institute, a training center that delivers basic programming education to professionals and students who want to learn this new skill.<br><br>
-      Lagman, Gamboa, and Sarte were all heavily involved in the growing computer industry, while Santos had just retired from his IT position in a pharmaceutical company.<br><br>
+      Lagman, Gamboa, and Sarte were all heavily involved in the growing computer industry, while Santos just retired from his IT position in a pharmaceutical company.<br><br>
       Sarte’s software house, Systems Resources Incorporated (SRI), kept losing programmers and analysts to jobs abroad. Programmers and analysts were a rare breed then, with only a few training centers offering courses on computer programming.<br><br>
       Therefore, there was a clear need to find and hire people for SRI and fulfill this need for a growing business industry that was migrating to automated or computerized business processes. The founders transformed the problem into an opportunity.<br><br>
-      Systems Technology Institute’s name came from countless brainstorming sessions among the founders — perhaps from Sarte’s penchant for three-letter acronyms from the companies he managed at the time.<br><br>
+      Systems Technology Institute’s name came from countless brainstorming sessions among the founders; perhaps from Sarte’s penchant for three-letter acronyms from the companies he managed at the time.<br><br>
       The first two schools were inaugurated on August 21, 1983 in Buendia, Makati and in España, Manila, and offered basic computer programming courses. With a unique and superior product in their hands, it was not difficult to expand the franchise through the founders’ business contacts. A year after the first two schools opened, the franchise grew to include STI Binondo, Cubao, and Taft.<br><br>
       A unique value proposition spelled the difference for the STI brand: “First We’ll Teach You, Then We’ll Hire You.” Through its unique Guaranteed Hire Program (GHP), all qualified graduates were offered jobs by one of the founders’ companies or through their contacts in the industry.<br><br>
       The school’s 1st batch of graduates, all 11 of them, were hired by SRI. Through the GHP, more qualified STI graduates found themselves working in their field of interest straight out of school.<br><br>
@@ -575,6 +640,10 @@ function getHandbookSection($sectionId, $defaultContent) {
             captures the overall thrust of the institution to provide Education for Real Life.
       </div>
     </div>
+  </div>
+
+  <div id="sti-philosophy">
+    <h4 class="font-semibold text-2xl">STI Educational Philosophy</h4>
   </div>
 
   <div id="sti-way">
@@ -695,7 +764,7 @@ Department of Education’s requirements.
   <h3 class="text-3xl font-semibold mb-4">ACADEMIC POLICIES & PROCEDURES</h3>
 
   <div id="school-student-relationship">
-    <h4 class="font-semibold text-2xl">School-Student Relationship</h4>
+    <h4 class="font-semibold text-2xl">School-Student Relationship: A Legal Contract</h4>
     <div class="handbook-content">
       <?php if (isset($handbookContent['school-student-relationship'])) {
         echo $handbookContent['school-student-relationship'];
@@ -765,7 +834,7 @@ to any academic program:</p>
     <h4 class="font-semibold text-2xl">Students with Scholastic Records from a Foreign School</h4>
     <br>
      <ol type="1" class="list-decimal list-inside space-y-2">
-      <li>Five (5) copies of the Student’s Personal History Statement (PHS) containing his/her left and right thumbprints and a 2” x 2” photograph on plain white background taken not more than six months prior to submission.</li>
+      <li>Five (5) copies of the Student’s Personal History Statement (PHS) containing his/her left and right thumbprints and a 2” x 2” photograph on plain white background taken not more than six months prior to submission, among others.</li>
       <li>Original Form 138/SF9 (Learner’s Progress Report Card) or its equivalent, and Original Form 137/SF10 (Learner’s Permanent Academic Record) or its equivalent authenticated by the Philippine Foreign Service Post (FSP), which has jurisdiction over the place of issuance, or by the Department of Foreign Affairs (DFA) if said document is issued by the local Embassy in the Philippines, with English translation if written in another foreign language.</li>
       <li>Notarized Affidavit of Support, including bank statements or notarized grant for institutional scholars.</li>
       <li>Photocopy of the student’s passport (valid for at least 6 months) showing date and place of birth.</li>
@@ -917,7 +986,7 @@ by the curriculum.
         <ul class="list-disc list-inside ml-5 space-y-1">
             <li>The course to be cross enrolled should only be a minor course;</li>
             <li>The host school has a comparable standard of quality education with STI;</li>
-            <li>The course description and units of the course in the host school are similar to STI; and</li>
+            <li>The course description and units of course in the host school are similar to STI; and</li>
             <li>The minimum grade obtained by the STI student in the cross enrolled course should be 2.50 or above (or its equivalent) for it to be credited to STI.</li>
         </ul>
     </li>
@@ -925,7 +994,7 @@ by the curriculum.
   </div>
 
   <div id="requirements-cross-enrollment">
-    <h4 class="font-semibold text-2xl">Requirements for Students Cross Enrolling to Other School</h4>
+    <h4 class="font-semibold text-2xl">Requirements for Students Cross Enrolling from Other Schools</h4>
  <ol type="1" class="list-decimal list-inside space-y-2"><br>
         <li>Permit to Cross Enroll from the Registrar of the mother school indicating the course, units, school year, and specific school to admit the student</li>
         <li>Certificate of Good Moral Character from the Guidance Counselor/Student Affairs Coordinator of the mother school</li>
@@ -994,6 +1063,10 @@ of activities to be observed unless otherwise changed by the school officials.
       <thead>
         <tr>
           <th class="border border-gray-400 px-4 py-2">Year Level</th>
+          <th class="border border-gray-400 px-4 py-2" colspan="3">Number of Units Credited</th>
+        </tr>
+        <tr>
+          <th class="border border-gray-400 px-4 py-2"></th>
           <th class="border border-gray-400 px-4 py-2">4-Yr. Program</th>
           <th class="border border-gray-400 px-4 py-2">3-Yr. Program</th>
           <th class="border border-gray-400 px-4 py-2">2-Yr. Program</th>
@@ -1130,7 +1203,7 @@ provided they meet the following conditions:
             Allow to enroll in the failed course. If the course to be enrolled is a prerequisite course,
             the student will be allowed to take it alongside the regular course subject to the following conditions:<br><br>
             a. If the student still fails the prerequisite course but passes the regular course, both courses are deemed failed.<br><br>
-            b. However, if the student passes the prerequisite course but fails the regular course, they will have to re-enroll
+            b. However, if the student passes the prerequisite course but fails the regular course, the student will have to re-enroll
             only the regular course in the succeeding term.
           </td>
         </tr>
@@ -1169,7 +1242,7 @@ zero unless their failure to take the test is excused.
   <div id="special-examinations">
     <h4 class="font-semibold text-2xl">Special Examinations</h4>
      <p><br>
-    A special examination may be given to a student who missed a periodical examination
+    Special examination may be given to a student who missed a periodical examination
     for any of the following reasons:
   </p>
 
@@ -1184,8 +1257,8 @@ zero unless their failure to take the test is excused.
   </ol>
 
   <p class="mt-4">
-    The special examination must be taken not later than seven (7) calendar days after
-    the approval of the application for special examination and before the start of
+    It must be taken not later than seven (7) calendar days after
+    the approval of the application for special examination before the start of
     the next periodical examination.
   </p>
   </div>
@@ -1244,7 +1317,7 @@ a passing grade.
 <div id="course-grade" class="mt-10">
   <h4 class="font-semibold text-2xl mb-3">Course Grade</h4>
   <p class="mb-4">
-    The Course Grade is the measure of the student’s level of achievement in a course. It is given upon completion of all course requirements and is based on the weighted average of the periodical scores.
+    The Course Grade is the measure of the student’s level of achievement in a course. This is given to the student upon completion of all course requirements and is based on the weighted average of the periodical scores. The percentage distribution is as follows:
   </p>
 
   <div class="overflow-x-auto max-w-full mb-4">
@@ -1265,7 +1338,7 @@ a passing grade.
   </div>
 
   <p class="mb-4">
-    To get the Course Grade, each periodical score is multiplied by its percentage weight. The total of these partial scores gives the Course Score, which is transmuted into the Course Grade using the Grading System Table.
+    To get the Course Grade, each periodical score is multiplied by the corresponding percentage weight of the grading period. The sum of these is the Course Score, which is transmuted into the Course Grade using the Grading System Table.
   </p>
 
   <h5 class="font-semibold mb-2">Example:</h5>
@@ -1301,7 +1374,7 @@ a passing grade.
   <h4 class="font-semibold text-2xl mb-3">Periodical Score</h4>
   <p class="mb-4">
     Components of a periodical score are specified in the syllabus of each course.
-    Below is a sample breakdown of periodical score components:
+    Sample periodical score components for a course:
   </p>
 
   <div class="overflow-x-auto max-w-full">
@@ -1606,7 +1679,7 @@ requirements of the particular program.
   </div>
 
   <div id="fees-payments">
-    <h4 class="font-semibold text-2xl">Fees & Payments</h4>
+    <h4 class="font-semibold text-2xl">Fees and Payments</h4>
    <p class="mb-4"> <br>
     All fees due during enrollment and within the term should be paid through the Cashier
     and/or any authorized payment partners. This includes, but is not limited to, the
@@ -1685,7 +1758,7 @@ requirements of the particular program.
   <div id="refund-of-payment">
     <h4 class="font-semibold text-2xl">Refund of Payment</h4>
     <p class="text-justify mb-4"><br>
-    To be entitled to a refund, students should drop/change courses or withdraw and file in writing that is addressed to their respective 
+    To be entitled to a refund, students should drop/change courses/withdraw and file in writing that is addressed to their respective 
     School Administrator/Deputy School Administrator, not later than the 14th calendar day from the start of classes.
   </p>
 
@@ -1768,22 +1841,10 @@ students will not be allowed to join the graduation rites until the dues are set
       <tbody>
         <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold align-top">Common conditions for inclusion in the list</td>
-          <td class="border border-gray-400 px-4 py-2 align-top">
+          <td class="border border-gray-400 px-4 py-2 align-top" colspan="2">
             <ol class="list-decimal pl-6 space-y-2">
               <li>Not be found guilty of any minor or major offense throughout the student’s residency at STI.</li>
               <li>NSTP course grade is not included in the determination of the GWA but should not be less than 1.50.</li>
-            </ol>
-          </td>
-          <td class="border border-gray-400 px-4 py-2 align-top">
-            <ol class="list-decimal pl-6 space-y-2" start="3">
-              <li>
-                Have a <span class="font-semibold">cumulative GWA of 1.50 or higher</span> based on all grades earned
-                since the student’s initial enrollment up to the current term being evaluated.
-              </li>
-              <li>
-                Note that cumulative GWA is a measure of the overall academic performance of a student weighted by all courses
-                taken, multiplied by their credit hours.
-              </li>
             </ol>
           </td>
         </tr>
@@ -1798,7 +1859,12 @@ students will not be allowed to join the graduation rites until the dues are set
             </ol>
           </td>
           <td class="border border-gray-400 px-4 py-2 align-top">
-            <ol class="list-decimal pl-6 space-y-2" start="5">
+            <ol class="list-decimal pl-6 space-y-2" start="3">
+              <li>
+                Have a <span class="font-semibold">cumulative GWA of 1.50 or higher</span> based on all grades earned
+                since the student’s initial enrollment up to the current term being evaluated.
+                <br><strong>Note:</strong> Cumulative GWA is a measure of the overall academic performance of a student considering all courses taken, weighted by their credit hours.
+              </li>
               <li>Be officially enrolled in all previous and current regular loads of academic units specified in the curriculum.</li>
               <li>Have no grades lower than 2.00 in all courses.</li>
               <li>Have no DRP in all previous and current study load as well as INC grade in OJT/Practicum courses.</li>
@@ -1816,7 +1882,7 @@ students will not be allowed to join the graduation rites until the dues are set
               <li>Certificate of Academic Recognition for the particular term</li>
               <li>
                 Privilege of unlimited absences in all courses for the succeeding regular term without receiving a failing mark,
-                provided, however, that the student is not excused from keeping up with lessons, assignments, and examinations.
+                provided, however, that the student is not excused from keeping up with the lessons, assignments, and examinations.
               </li>
               <li>
                 Discount on tuition fee for the succeeding regular term depending on the cumulative GWA.
@@ -2075,7 +2141,7 @@ enrolled in the succeeding term.
           <td class="border border-gray-400 px-4 py-2 text-center">Good</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Final Probationary</td>
           <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
-          <td class="border border-gray-400 px-4 py-2 text-center">Dismissal</td>
+          <td class="border border-gray-400 px-4 py-2 text-center"></td>
         </tr>
         <tr>
           <td class="border border-gray-400 px-4 py-2 font-semibold text-center">Final Probationary</td>
@@ -2324,7 +2390,7 @@ projects in the entire STI network.
             In its commitment to supporting and helping students reach their highest
 potential, STI offers various programs and services, which include:<br>
   <div id="guidance">
-    <h4 class="font-semibold text-2xl">Guidance & Counseling</h4>
+    <h4 class="font-semibold text-2xl">Guidance & Counseling Services</h4>
     <p>
         <br>Guidance and Counseling Services assist the students in making the best out of their
 college life. It is student-centered, preventive, and developmental. Through the Guidance
@@ -2334,7 +2400,7 @@ dealing with various personal, educational, emotional, and career concerns.
   </div>
 
   <div id="student-records">
-    <h4 class="font-semibold text-2xl">Student Records</h4>
+    <h4 class="font-semibold text-2xl">Student Records Services</h4>
     <p>
         <br>Student Records Services, through the Registrar’s Office, make accurate academic and
 financial records available to the students when needed. The Registrar’s Office maintains
@@ -2363,7 +2429,7 @@ sources, screens, acquires, organizes, and circulates print and non-print refere
   </div>
 
   <div id="sports">
-    <h4 class="font-semibold text-2xl">Sports Development</h4>
+    <h4 class="font-semibold text-2xl">Sports Development Services</h4>
     <p>
        <br> Sports Development Services are provided to foster the harmonious development of
 the students’ mental, emotional, and physical well-being. Athletic environments, both
@@ -2384,7 +2450,7 @@ further examination or treatment.
   </div>
 
   <div id="special-needs">
-    <h4 class="font-semibold text-2xl">Special Needs & PWD</h4>
+    <h4 class="font-semibold text-2xl">Services for Students with Special Needs and Persons with Disabilities</h4>
     <p>
         <br>STI accommodates students with special needs and/or persons with disabilities whether in
 academic, vocational, or technical courses as stipulated in Republic Act 7277, also known
@@ -2403,7 +2469,7 @@ professionals whenever necessary.
   </div>
 
   <div id="student-affairs">
-    <h4 class="font-semibold text-2xl">Student Affairs</h4>
+    <h4 class="font-semibold text-2xl">Student Affairs Services</h4>
     <p>
        <br>Student Affairs Services, through the Student Affairs Office, ensure that all student
 activities are aligned with STI’s commitment to helping students achieve their
@@ -2607,7 +2673,7 @@ oneself, others, and to STI as an academic institution.
 <ol type="1" class="list-decimal list-inside space-y-2"><br>
   <li>For lost IDs, secure a temporary gate pass from the school guard.</li>
   <li>Secure and fill out an Application for ID Replacement Form from the Registrar’s Office.</li>
-  <li>Submit the accomplished form to the Registrar’s Office together with the notarized affidavit of loss or the damaged ID.</li>
+  <li>Submit the accomplished form to the Registrar’s Office with the notarized affidavit of loss or damaged ID.</li>
   <li>Pay the corresponding replacement fee to the Cashier.</li>
   <li>Obtain your temporary ID by presenting the official receipt to the Registrar’s Office.</li>
 </ol>
@@ -2634,15 +2700,15 @@ be higher than three (3) inches from the knee and slits should not reach the upp
 
 <ul class="list-disc list-inside space-y-2">
   <li>Shorts, miniskirts, low riding pants, ripped jeans/pants with slips, rips, or holes higher than 7 inches above the knee</li>
-  <li>Outfits or accessories with offensive images or language such as the promotion of drugs, tobacco, alcohol, glorification of death and mutilation, statements or implications of profanity, sexual or pornographic activity</li>
-  <li>Blouses or dresses with plunging necklines, see-through, backless, strapless, body-hugging, or skin-tight outfits</li>
+  <li>Outfits or accessories with offensive image/s or language such as the promotion of drugs, tobacco, alcohol, glorification of death and mutilation, statement or implication of profanity, sexual or pornographic activity</li>
+  <li>Blouses or dress with plunging necklines, see-through, backless, strapless, body huggers, and skin-tight outfits</li>
   <li>Midriffs, halter or crop tops, sando/tank tops or sleeveless, and tube-type shirts and blouses</li>
   <li>Skirt hemlines should not be higher than three (3) inches from the knee, and slits should not reach the upper thighs</li>
   <li>Use of wooden clogs, rubber or plastic slippers, and open-toe footwear</li>
 </ul>
 
 <p class="mt-4">
-  Clothing must always be neat, clean, and worn as traditionally intended. Students may opt to wear uniforms or wash day clothes in accordance with their gender identity but must follow the set guidelines. They may consult their Discipline Officer or School Administrator for the process. Once confirmed, the student is expected to continue wearing their gender-affirming clothing throughout their stay with the institution.
+  Clothing must always be neat, clean, and worn as traditionally intended. Students may opt to wear uniforms or wash day clothes in accordance with their gender identity but would need to follow the set guidelines. They may consult their Discipline Officer or School Administrator for the process. Once confirmed, the student is expected to continue wearing their gender-affirming clothing throughout their stay with the institution.
 </p>
 
   </div>
@@ -2654,13 +2720,13 @@ be higher than three (3) inches from the knee and slits should not reach the upp
   <li>Hair must be kept neat, clean, and well-groomed.</li>
   <li>Colored hair is allowed.</li>
   <li>Makeup must be light and natural-looking.</li>
-  <li>Wearing of items with offensive images or language, statements or implications of profanity, sexual or pornographic activity, or anything deemed by the school to be dangerous or a distraction to the learning environment is not acceptable.</li>
+  <li>Wearing of items with offensive images or language, statements or implications of profanity, sexual or pornographic activity deemed by the school to be dangerous or a distraction to the learning environment is not acceptable.</li>
   <li>Sunglasses, bandannas, or caps are not to be worn indoors.</li>
-  <li>Attire that may be used as a weapon should not be worn (e.g., steel-toed boots, chains, “dog collars,” or any items with spikes or studs).</li>
+  <li>Attire, which may be used as a weapon, should not be worn (i.e., steel-toed boots, chains, “dog collars,” or any items with spikes or studs).</li>
 </ul>
 
 <p class="mt-4">
-  Specific programs, courses, or activities may require additional mandates for student appearance. For such cases, notices shall be provided by STI accordingly.
+  Specific programs, courses, or activities may require specific mandates for student appearance. For such, notices shall be provided by STI accordingly.
 </p>
 
     </div>
@@ -2682,7 +2748,7 @@ be higher than three (3) inches from the knee and slits should not reach the upp
   </li>
 
   <li>
-    Observe the usual norms of courtesy and etiquette in all areas of interpersonal relationships. Any act to the contrary, including unfavorable or offensive remarks about other persons regardless of their sex, creed, race, status, or political affiliation, may be deemed prejudicial to the enrollment or alumni status of the students concerned.
+    Observe the usual norms of courtesy and etiquette in all areas of interpersonal relationships. Any act to the contrary, including unfavorable or offensive remarks about other persons regardless of their sex, creed, race, status, and political affiliation may be deemed prejudicial to the enrollment of the students concerned or to their status as alumni.
   </li>
   <li>
     Strive for student development by joining and actively participating in various activities sponsored by the school and recognized student organizations. It is strictly prohibited to form or be a member of any organization, fraternity, or sorority that is known to advocate, tolerate, or engage in violence or immoral behavior.
@@ -2694,13 +2760,13 @@ be higher than three (3) inches from the knee and slits should not reach the upp
     Refrain from exhibiting boisterous conduct, such as loitering, whistling, loud talking, or any other action that may distract others from their studies.
   </li>
   <li>
-    Strive to develop healthy interactions with other students. However, acts or gestures which tend to offend other members of the community, including public displays of physical intimacy of the opposite or same sex, are not tolerated.
+    Strive to develop healthy interaction with other students. However, acts or gestures which tend to offend other members of the community, including public display of physical intimacy of the opposite or same sex, are not tolerated.
   </li>
   <li>
     Inform their parent or guardian of the following:
     <ul class="list-disc list-inside mt-2 space-y-1">
       <li>Rules and regulations expressed in this handbook</li>
-      <li>Their academic standing and the possible consequences of excessive absences, dropping, failures, or gross misconduct</li>
+      <li>Their academic standing and the possible consequences of their excessive absences, dropping, failures, or gross misconduct</li>
     </ul>
   </li>
 </ol>
@@ -2727,8 +2793,8 @@ refer to acts of cruelty committed using the internet or any form of electronic 
 technology that has the effect of stripping one’s dignity or causing reasonable fear of
 physical or emotional harm.<br><br>
 
-Strategies and mechanisms against bullying and cyberbullying (e.g., conducting antibullying/cyberbullying orientations to students and personnel, academic and discipline
-policies, guidance and counseling, information dissemination through student-teacherparent leaflets, etc.) are meant to increase awareness and address the unacceptable
+strategies and mechanisms against bullying and cyberbullying (e.g., conducting anti-bullying/cyberbullying orientations to students and personnel, academic and discipline
+policies, guidance and counseling, information dissemination through student-teacher-parent leaflets, etc.) are meant to increase awareness and address the unacceptable
 nature of bullying in and around the school.<br><br>
 
 Bullying and cyberbullying behavior are confronted clearly and pursued beyond the
@@ -2766,7 +2832,7 @@ procedure in the investigation and imposition of administrative sanctions in suc
   </div>
 
   <div id="gender-development">
-    <h4 class="font-semibold text-2xl">Gender & Development Policy</h4>
+    <h4 class="font-semibold text-2xl">Gender and Development Policy</h4>
     <p>
       <br>STI recognizes gender sensitivity as it pertains to one’s effort to show how gender shapes
 the role of women and men in society, including their role in the development and how
@@ -2795,7 +2861,7 @@ or Illegal Substances, and Dangerous Weapons</h4>
   <li>Engage students in meaningful programs and activities that promote their welfare and development.</li>
   <li>Conduct random drug tests for students every term in accordance with the provisions of Republic Act 9165, otherwise known as the “Comprehensive Dangerous Drugs Act of 2002.”</li>
   <li>Conduct bag inspection of those coming in and out of the school premises.</li>
-  <li>Ban smoking, sale, or distribution of e-cigarette or tobacco products in compliance with the provisions of Republic Act 9211, otherwise known as the “Tobacco Regulation Act of 2003,” and Executive Order No. 26, Series of 2017, “Providing for the Establishment of Smoke-Free Environment in Public and Enclosed Places.”</li>
+  <li>Ban smoking, sale, or distribution of e-cigarette or tobacco products in compliance with the provisions of Republic Act 9211, otherwise known as the “Tobacco Regulation Act of 2003,” and (Executive Order No. 26, Series of 2017, “Providing for the Establishment of Smoke-Free Environment in Public and Enclosed Places.”)</li>
 </ol>
   </div>
 
@@ -2836,19 +2902,23 @@ expulsion in accordance with the STI Drug Testing Policy.
     </div>
   </div>  
 
+   <div id="use-school-facilities">
+    <h4 class="font-semibold text-2xl">Use of School Facilities</h4>
+    <p>
+      <br>Students should strive to keep their classrooms clean, pleasant, and conducive to learning. Chairs and tables must be aligned at all times. Lights, electric fans, and air conditioners should be turned off whenever the students leave the room or if not in use.<br><br>
+
+      Students are also encouraged to keep the school building, study areas, and areas within the school property clean.<br><br>
+
+      In any incident of destruction, damaging, tampering, or losing of school property, the school reserves the right to charge to the concerned student/s the cost of damage, including labor or repair.
+    </p>
+  </div>
+
    <div id="electronic-gadget-rule">
     <h4 class="font-semibold text-2xl">Electronic Gadget Rule</h4>
     <p>
-      <br>Students should strive to keep their classrooms clean, pleasant, and conducive to learning.
-Chairs and tables must be aligned at all times. Lights, electric fans, and air conditioners
-should be turned off whenever the students leave the room or if not in use. <br><br>
+      <br>STI allows the students to bring and use laptops and other electronic gadgets relevant to learning inside the campus. However, using electronic gadgets for non-educational purposes during class hours is strictly prohibited. Gadgets must be turned off or put in a silent mode to prevent class disruption unless advised to use them for educational purposes. Proper etiquette in using various electronic gadgets shall also be carried out. Students may use their mobile phones for urgent purposes and during break time.<br><br>
 
-Students are also encouraged to keep the school building, study areas, and areas within the
-school property clean.<br><br>
-
-In any incident of destruction, damaging, tampering, or losing of school property, the school
-reserves the right to charge to the concerned student/s the cost of damage, including labor
-or repair.</p>
+      Safekeeping of gadgets brought to school is the student owner's responsibility. The school will not be liable for any loss or damage to electronic gadgets.</p>
   </div>
 
    <div id="social-media-policy">
@@ -3218,10 +3288,10 @@ and institutional rules and regulations.
       Disruption of classes, school-sanctioned activities, and peace and order such as but not limited to:<br>
       <ul class="list-disc list-inside ml-6 mt-1">
         <li>Failure to turn off or put into silent mode mobile phones and other similar gadgets<br></li>
+        <li>Unauthorized use of social media, digital messaging, or any form of user account<br></li>
+        <li>Unruly behavior (boisterous laughter, loitering, loud banter, uncontrolled giggling, and intentional misbehavior) or conduct during assemblies and the like<br></li>
       </ul>
     </li>
-    <li>Unauthorized use of social media, digital messaging, or any form of user account<br></li>
-    <li>Unruly behavior (boisterous laughter, loitering, loud banter, uncontrolled giggling, and intentional misbehavior) or conduct during assemblies and the like<br></li>
     <li>Exhibiting displays of affection that negatively affect the reputation of the individuals<br></li>
     <li>Violation of classroom, laboratory, library, and other school offices procedure<br></li>
     <li>Possession of cigarettes or vapes<br></li>
@@ -3388,11 +3458,11 @@ and institutional rules and regulations.
         </ul>
       </li>
       <li>Embezzlement and malversation of school or organization funds or property<br></li>
-      <li>Disruption of academic functions or school activities through illegal assemblies, demonstrations, boycotts, pickets, or mass actions or related activities, with the intent to create public disorder or disturbance<br></li>
+      <li>Disruption of academic functions or school activities through illegal assemblies, demonstrations, boycotts, pickets, or mass actions or related activities, which tend to create public disorder or disturbance<br></li>
       <li>Any act of immorality<br></li>
       <li>Any act of bullying (such as but not limited to physical, cyber, and verbal)<br></li>
       <li>Participation in brawls or infliction of physical injuries within or outside school premises, whether in school uniform or not<br></li>
-      <li>Physical assault upon or threats to any member within or outside the school premises, whether in school uniform or not<br></li>
+      <li>Physical assault upon another within or outside the school premises, whether in school uniform or not<br></li>
       <li>Use of prohibited drugs or chemicals in any form within and outside the school premises, whether in uniform or not<br></li>
       <li>Giving false or malicious fire alarms and bomb threats<br></li>
       <li>Use of fire protective or firefighting equipment of the school other than for firefighting except in other emergencies where their use is justified<br></li>
@@ -3546,7 +3616,7 @@ learning environment and of the STI Community.</p>
           </div>
     
         <!-- Table of Contents Sidebar (Sticky) -->
-        <aside class="hidden lg:block w-80 flex-shrink-0 sticky top-[7rem]">
+        <aside id="handbookToc" class="hidden lg:block w-80 flex-shrink-0">
           <div class="max-h-[calc(100vh-9rem)] overflow-y-auto bg-gray-100 dark:bg-[#111827] rounded-lg border border-gray-300 dark:border-slate-700 custom-scrollbar">
             
             <!-- Search Container -->
@@ -3569,6 +3639,15 @@ learning environment and of the STI Community.</p>
     </h3>
 
     <ul class="space-y-4 pb-4">
+      <li>
+        <a href="#introduction" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl pl-4">
+          Introduction
+        </a>
+        <ul class="pl-6 mt-2 space-y-2">
+          <li><a href="#welcome-to-sti" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Welcome to STI!</a></li>
+        </ul>
+      </li>
+
       <!-- GENERAL INFORMATION -->
       <li>
         <a href="#general-info" class="text-gray-800 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 font-semibold block text-xl pl-4">
@@ -3579,7 +3658,7 @@ learning environment and of the STI Community.</p>
           <li><a href="#sti-vision" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Vision</a></li>
           <li><a href="#sti-mission" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Mission</a></li>
           <li><a href="#sti-seal" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Academic Seal</a></li>
-          <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
+          <li><a href="#sti-philosophy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Educational Philosophy</a></li>
           <li><a href="#sti-way" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">STI Way of Educating</a></li>
           <li><a href="#character" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Character</a></li>
           <li><a href="#critical-thinker" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Critical Thinker</a></li>
@@ -3600,7 +3679,7 @@ learning environment and of the STI Community.</p>
     Academic Policies & Procedures
   </a>
   <ul class="pl-6 mt-2 space-y-2">
-    <li><a href="#school-student-relationship" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">School-Student Relationship</a></li>
+    <li><a href="#school-student-relationship" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">School-Student Relationship: A Legal Contract</a></li>
     <li><a href="#admission-policy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Admission Policy and Requirements</a></li>
     <li><a href="#incoming-freshmen" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Incoming Freshmen</a></li>
     <li><a href="#transferees" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Transferees</a></li>
@@ -3617,7 +3696,7 @@ learning environment and of the STI Community.</p>
     <li><a href="#awol-status" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">AWOL Status</a></li>
     <li><a href="#cross-enrollment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Cross Enrollment</a></li>
     <li><a href="#conditions-cross-enrollment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Conditions for STI Students Cross Enrolling to Another School</a></li>
-    <li><a href="#requirements-cross-enrollment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Requirements for Students Cross Enrolling to Other School</a></li>
+    <li><a href="#requirements-cross-enrollment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Requirements for Students Cross Enrolling from Other Schools</a></li>
     <li><a href="#school-year" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">School Year</a></li>
     <li><a href="#student-classification" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Classification</a></li>
     <li><a href="#study-load" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Study Load</a></li>
@@ -3649,7 +3728,7 @@ learning environment and of the STI Community.</p>
     <li><a href="#change-of-courses-schedules" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Change of Courses or Schedules</a></li>
     <li><a href="#dropping-of-courses" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Dropping of Courses</a></li>
     <li><a href="#shifting-of-academic-program" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Shifting of Academic Program</a></li>
-    <li><a href="#fees-payments" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Fees & Payments</a></li>
+    <li><a href="#fees-payments" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Fees and Payments</a></li>
     <li><a href="#payment-schemes" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Payment Schemes</a></li>
     <li><a href="#installment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Installment</a></li>
     <li><a href="#refund-of-payment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Refund of Payment</a></li>
@@ -3693,14 +3772,14 @@ learning environment and of the STI Community.</p>
           Student Services
         </a>
         <ul class="pl-6 mt-2 space-y-2">
-        <li><a href="#guidance" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Guidance & Counseling</a></li>
-        <li><a href="#student-records" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Records</a></li>
+        <li><a href="#guidance" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Guidance & Counseling Services</a></li>
+        <li><a href="#student-records" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Records Services</a></li>
         <li><a href="#ict-services" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">ICT Services</a></li>
         <li><a href="#library-services" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Library</a></li>
-        <li><a href="#sports" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Sports Development</a></li>
+        <li><a href="#sports" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Sports Development Services</a></li>
         <li><a href="#health-services" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Health Services</a></li>
-        <li><a href="#special-needs" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Special Needs & PWD</a></li>
-        <li><a href="#student-affairs" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Affairs</a></li>
+        <li><a href="#special-needs" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Services for Students with Special Needs and Persons with Disabilities</a></li>
+        <li><a href="#student-affairs" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Affairs Services</a></li>
         <li><a href="#offcampus-activities" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Off-Campus Activities</a></li>
         <li><a href="#student-orgs" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Organizations</a></li>
         <li><a href="#student-publications" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Student Publications</a></li>
@@ -3736,9 +3815,10 @@ learning environment and of the STI Community.</p>
     <li><a href="#anti-bullying" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Anti-Bullying & Anti-Cyberbullying Law Policy</a></li>
     <li><a href="#anti-hazing" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Anti-Hazing Law Policy</a></li>
     <li><a href="#anti-harassment" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Anti-Sexual Harassment Policy</a></li>
-    <li><a href="#gender-development" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Gender & Development Policy</a></li>
+    <li><a href="#gender-development" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Gender and Development Policy</a></li>
     <li><a href="#prohibited-items" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Prohibited Items & Substances</a></li>
     <li><a href="#random-drug-testing" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Random Drug Testing</a></li>
+    <li><a href="#use-school-facilities" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Use of School Facilities</a></li>
     <li><a href="#electronic-gadget-rule" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Electronic Gadget Rule</a></li>
     <li><a href="#social-media-policy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Social Media Policy</a></li>
     <li><a href="#data-privacy-policy" class="text-gray-700 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 text-lg">Data Privacy Policy</a></li>
@@ -3789,6 +3869,54 @@ learning environment and of the STI Community.</p>
   </div>
     </main>
   </div>
+
+<div id="mobileTocPanel" class="hidden fixed inset-0 z-40 lg:hidden" aria-hidden="true">
+  <button
+    type="button"
+    onclick="toggleMobileToc(false)"
+    aria-label="Close table of contents"
+    class="absolute inset-0 bg-black/50"
+  ></button>
+  <div class="relative ml-auto h-full w-[min(22rem,90vw)] overflow-y-auto bg-white dark:bg-[#111827] shadow-xl">
+    <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#111827] px-4 py-3">
+      <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Table of Contents</h2>
+      <button
+        type="button"
+        onclick="toggleMobileToc(false)"
+        aria-label="Close table of contents"
+        class="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
+      >
+        <span class="text-2xl leading-none" aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div id="mobileTocContent"></div>
+  </div>
+</div>
+
+<script>
+function toggleMobileToc(forceOpen) {
+  const panel = document.getElementById('mobileTocPanel');
+  const content = document.getElementById('mobileTocContent');
+  const toggleButton = document.querySelector('[aria-controls="mobileTocPanel"]');
+  if (!panel || !content) return;
+
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.classList.contains('hidden');
+  if (shouldOpen && !content.hasChildNodes()) {
+    const toc = document.getElementById('handbookToc');
+    if (toc) content.innerHTML = toc.innerHTML;
+  }
+
+  panel.classList.toggle('hidden', !shouldOpen);
+  panel.setAttribute('aria-hidden', String(!shouldOpen));
+  if (toggleButton) toggleButton.setAttribute('aria-expanded', String(shouldOpen));
+}
+
+document.addEventListener('click', (event) => {
+  const link = event.target.closest('#mobileTocPanel a[href^="#"]');
+  if (!link) return;
+  toggleMobileToc(false);
+});
+</script>
 
 <!-- Handbook Edit Modal -->
 <?php if ($isSuperAdmin): ?>
@@ -3849,10 +3977,16 @@ function initializeEditIcons() {
   
   editableSections.forEach(section => {
     const sectionId = section.getAttribute('data-section-id');
-    const heading = section.querySelector('h4');
+    const contentWrapper = section.querySelector(':scope > .handbook-content');
+    let heading = section.querySelector('h4');
     
     if (!heading) {
       return;
+    }
+
+    // Keep the editable content separate from the title and its controls.
+    if (contentWrapper && contentWrapper.contains(heading)) {
+      contentWrapper.parentNode.insertBefore(heading, contentWrapper);
     }
     
     if (heading.parentElement.classList.contains('handbook-header-wrapper')) return;
