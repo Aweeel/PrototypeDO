@@ -594,7 +594,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                                                  OR LOWER(s.sanction_name) LIKE '%community service%'
                                                  OR LOWER(s.sanction_name) LIKE '%suspension from class%'
                                              )
-                                             AND cs.duration_days > 0
                                              AND EXISTS (
                                                  SELECT 1
                                                  FROM community_service_submissions css

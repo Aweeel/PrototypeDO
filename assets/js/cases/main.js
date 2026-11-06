@@ -481,7 +481,7 @@ function loadCasesFromDB() {
     }
     
     
-    fetch(window.appUrl('/modules/do/cases.php'), {
+    return fetch(window.appUrl('/modules/do/cases.php'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

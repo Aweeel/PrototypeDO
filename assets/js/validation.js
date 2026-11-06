@@ -44,9 +44,9 @@
             message = `This field must not exceed ${rule.maxLength} characters.`;
         } else if (rule?.fixedDigits && value !== '' && !new RegExp(`^\\d{${rule.fixedDigits}}$`).test(value)) {
             message = `Enter exactly ${rule.fixedDigits} numbers.`;
-        } else if (rule?.studentNumber && value !== '' && !/^\\d{11}$/.test(value)) {
+        } else if (rule?.studentNumber && value !== '' && !/^\d{11}$/.test(value)) {
             message = 'Student Number must contain exactly 11 numbers.';
-        } else if (rule?.contactNumber && value !== '' && !/^0\\d{3} \\d{3} \\d{4}$/.test(value)) {
+        } else if (rule?.contactNumber && value !== '' && !/^0\d{3} \d{3} \d{4}$/.test(value)) {
             message = 'Use the contact number format 0XXX XXX XXXX.';
         } else if (rule?.emailDomain && value !== '') {
             const parts = value.split('@');
@@ -56,7 +56,7 @@
         }
 
         if (!message && (element.type === 'date' || element.type === 'time' || element.type === 'datetime-local') && value) {
-            if (value.startsWith('-') || (element.type === 'time' && !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value))) {
+            if (value.startsWith('-') || (element.type === 'time' && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))) {
                 message = 'Enter a valid non-negative date or time.';
             }
         }
