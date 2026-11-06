@@ -135,6 +135,24 @@ async function loadLogs() {
     }
 }
 
+document.addEventListener('table:sort', (event) => {
+    if (event.target?.dataset?.sortSource !== 'audit') {
+        return;
+    }
+
+    const fields = ['id', 'user', 'role', 'action', 'timestamp', 'recordId'];
+    const field = fields[event.detail.columnIndex];
+    if (!field) {
+        return;
+    }
+    const direction = event.detail.direction === 'ascending' ? 1 : -1;
+    filteredLogs.sort((left, right) => String(left[field] ?? '')
+        .localeCompare(String(right[field] ?? ''), undefined, { numeric: true, sensitivity: 'base' }) * direction);
+    currentPage = 1;
+    renderTable();
+    updatePagination();
+});
+
 // Render table
 function renderTable() {
     const tbody = document.getElementById('logsTableBody');

@@ -139,6 +139,24 @@ function setupLostFoundFilters() {
     const paginationButtons = document.getElementById('paginationButtons');
     const perPage = 10;
     let currentPage = 1;
+    let activeColumnSort = null;
+    const table = form.closest('main').querySelector('table[data-sort-source="lost-found"]');
+
+    table?.addEventListener('table:sort', (event) => {
+        const index = event.detail.columnIndex;
+        const direction = event.detail.direction === 'ascending' ? 1 : -1;
+        activeColumnSort = { index, direction };
+        rows.sort((left, right) => {
+            const leftValue = left.cells[index]?.textContent.trim() || '';
+            const rightValue = right.cells[index]?.textContent.trim() || '';
+            return leftValue.localeCompare(rightValue, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            }) * direction;
+        });
+        currentPage = 1;
+        render();
+    });
 
     const render = () => {
         const searchValue = (searchInput?.value || '').trim().toLowerCase();
@@ -154,10 +172,12 @@ function setupLostFoundFilters() {
                 && (!statusValue || row.dataset.status === statusValue)
                 && (!categoryValue || row.dataset.category === categoryValue);
         });
-        filteredRows.sort((a, b) => {
-            const result = String(a.dataset.dateFound).localeCompare(String(b.dataset.dateFound));
-            return dateSortValue === 'oldest' ? result : -result;
-        });
+        if (activeColumnSort === null) {
+            filteredRows.sort((a, b) => {
+                const result = String(a.dataset.dateFound).localeCompare(String(b.dataset.dateFound));
+                return dateSortValue === 'oldest' ? result : -result;
+            });
+        }
         const totalPages = Math.max(1, Math.ceil(filteredRows.length / perPage));
         currentPage = Math.min(currentPage, totalPages);
         rows.forEach((row) => row.classList.add('hidden'));
@@ -179,8 +199,15 @@ function setupLostFoundFilters() {
 
     form.addEventListener('submit', (event) => event.preventDefault());
     [searchInput, statusSelect, categorySelect, dateSortSelect].forEach((control) => {
-        control?.addEventListener('input', () => { currentPage = 1; render(); });
-        control?.addEventListener('change', () => { currentPage = 1; render(); });
+        const resetColumnSort = () => {
+            if (control === dateSortSelect) {
+                activeColumnSort = null;
+            }
+            currentPage = 1;
+            render();
+        };
+        control?.addEventListener('input', resetColumnSort);
+        control?.addEventListener('change', resetColumnSort);
     });
 
     lostFoundFilterBound = true;
