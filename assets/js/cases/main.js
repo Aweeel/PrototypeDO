@@ -290,6 +290,41 @@ function renderCases() {
     renderPagination();
 }
 
+document.addEventListener('table:sort', (event) => {
+    if (event.target?.dataset?.sortSource !== 'cases' || typeof filteredCases === 'undefined') {
+        return;
+    }
+
+    const header = event.target.tHead?.rows[0]?.cells[event.detail.columnIndex];
+    const label = header?.textContent?.replace(/[↑↓↕]/g, '').trim().toLowerCase();
+    const fields = {
+        'case id': 'id',
+        student: 'student',
+        type: 'type',
+        offense: 'offenseNumber',
+        'date reported': 'date',
+        'assigned to': 'assignedTo',
+        status: 'status'
+    };
+    const field = fields[label];
+    if (!field) {
+        return;
+    }
+    const direction = event.detail.direction === 'ascending' ? 1 : -1;
+    filteredCases.sort((left, right) => {
+        if (field === 'date') {
+            const leftDate = Date.parse(left.dateSort || left.date || '');
+            const rightDate = Date.parse(right.dateSort || right.date || '');
+            if (Number.isFinite(leftDate) && Number.isFinite(rightDate)) {
+                return (leftDate - rightDate) * direction;
+            }
+        }
+        return String(left[field] ?? '')
+            .localeCompare(String(right[field] ?? ''), undefined, { numeric: true, sensitivity: 'base' }) * direction;
+    });
+    renderCases();
+});
+
 // Render table rows with Sanctions button
 function renderTableRows() {
     const tbody = document.getElementById('casesTableBody');

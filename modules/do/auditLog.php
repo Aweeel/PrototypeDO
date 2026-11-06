@@ -519,14 +519,14 @@ table.w-full th, table.w-full td {
 
                 <!-- Table -->
                 <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
-                    <table class="w-full min-w-[720px]">
+                    <table class="w-full min-w-[720px]" data-table-controls data-sort-source="audit">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Log ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">User</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Action</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
+                            <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">User</th>
+                            <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                            <th data-resizable="true" data-min-width="190" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Action</th>
+                            <th data-resizable="true" data-min-width="230" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Record ID</th>
                         </tr>
                         </thead>
@@ -737,6 +737,7 @@ table.w-full th, table.w-full td {
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/main.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/filters.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/modals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/tableControls.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 </body>
 </html>

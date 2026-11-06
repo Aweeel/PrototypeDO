@@ -203,7 +203,7 @@ $perPage = 10;
 
                     <!-- Items Table -->
                     <div class="overflow-x-auto max-w-full">
-                        <table class="w-full">
+                        <table class="w-full" data-table-controls data-table-sort-only data-sort-source="lost-found">
                             <thead class="bg-gray-50 dark:bg-[#0F1623] border-b border-gray-200 dark:border-slate-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item ID</th>
@@ -216,7 +216,7 @@ $perPage = 10;
                                     <?php else: ?>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                                     <?php endif; ?>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                    <th data-fixed-column="true" data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -549,5 +549,6 @@ $perPage = 10;
 
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/lostAndFound.js?v=<?= (int) @filemtime(__DIR__ . '/../../assets/js/lostAndFound.js') ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/tableControls.js"></script>
 </body>
 </html>

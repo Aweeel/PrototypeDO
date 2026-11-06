@@ -620,6 +620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'offenseNumber' => intval($case['minor_offense_number'] ?? 0),
                     'escalationSeen' => !empty($case['minor_escalation_seen']),
                     'date' => formatDate($case['date_reported']),
+                    'dateSort' => $case['date_reported'],
                     'status' => $case['status'],
                     'assignedTo' => $case['assigned_to_name'] ?? 'Unassigned',
                     'statusColor' => getStatusColor($case['status']),
@@ -2364,20 +2365,20 @@ $adminName = getFormattedUserName() ?? 'User';
                 <!-- Table -->
                 <div
                     class="min-w-0 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
-                    <table class="w-max min-w-full bg-white dark:bg-[#111827]">
+                    <table class="w-max min-w-full bg-white dark:bg-[#111827]" data-table-controls data-sort-source="cases">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                             <tr>
-                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Case ID</th>
-                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Student</th>
-                                <th class="pl-5 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Type</th>
+                                <th data-min-width="150" class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Case ID</th>
+                                <th data-min-width="280" class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Student</th>
+                                <th data-min-width="300" class="pl-5 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Type</th>
                                 <?php if ($caseSeverity === 'Minor'): ?>
                                 <th class="pl-2 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Offense</th>
                                 <?php endif; ?>
                                 <th class="pl-2 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Date Reported</th>
                                 <th class="pl-4 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-36">Assigned to</th>
-                                <th class="pl-4 pr-1 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Status</th>
-                                <th class="pl-0 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-56">Actions</th>
-                                <th class="checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20"></th>
+                                <th data-min-width="140" class="pl-4 pr-1 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Status</th>
+                                <th data-fixed-column="true" data-min-width="170" class="pl-0 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-56">Actions</th>
+                                <th data-fixed-column="true" class="checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20"></th>
                             </tr>
                         </thead>
                         <tbody id="casesTableBody"
@@ -2413,6 +2414,7 @@ $adminName = getFormattedUserName() ?? 'User';
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/modals/checkin.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/pagination.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/cases/main.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/tableControls.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
     
 </body>
