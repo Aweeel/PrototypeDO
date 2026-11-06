@@ -56,11 +56,6 @@ function getCaseResolutionBlockReason(caseData) {
         return 'Cannot mark as resolved: Check-in is not complete.';
     }
 
-    if ((caseData.hasCorrectiveService || caseData.hasSuspensionFromClass)
-        && caseData.hasCorrectivePortfolioSubmission === false) {
-        return 'Cannot mark as resolved: Student has not submitted a completion report.';
-    }
-
     if (caseData.hasSuspensionFromClass && !caseData.hasSuspensionFromClassCompleted) {
         return 'Cannot mark as resolved: Suspension from class is not complete.';
     }

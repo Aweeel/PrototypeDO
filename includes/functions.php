@@ -3290,12 +3290,11 @@ function getCaseResolutionEligibility($caseId) {
                       FROM case_sanctions cs
                       JOIN sanctions s ON cs.sanction_id = s.sanction_id
                       WHERE cs.case_id = ?
-                        AND (
-                            LOWER(s.sanction_name) LIKE '%corrective%'
-                            OR LOWER(s.sanction_name) LIKE '%community service%'
-                            OR LOWER(s.sanction_name) LIKE '%suspension from class%'
-                        )
-                        AND cs.duration_days > 0";
+                      AND (
+                          LOWER(s.sanction_name) LIKE '%corrective%'
+                          OR LOWER(s.sanction_name) LIKE '%community service%'
+                      )
+                      AND cs.duration_days > 0";
     $correctiveRows = fetchAll($correctiveSql, [$caseId]);
 
     foreach ($correctiveRows as $row) {
@@ -3322,6 +3321,7 @@ function getCaseResolutionEligibility($caseId) {
            AND (
                LOWER(s.sanction_name) LIKE '%corrective%'
                OR LOWER(s.sanction_name) LIKE '%community service%'
+               OR LOWER(s.sanction_name) LIKE '%suspension from class%'
            )
            AND LOWER(COALESCE(css.review_status, '')) = 'rejected'",
         [$caseId]
@@ -3342,14 +3342,14 @@ function getCaseResolutionEligibility($caseId) {
            AND (
                LOWER(s.sanction_name) LIKE '%corrective%'
                OR LOWER(s.sanction_name) LIKE '%community service%'
+               OR LOWER(s.sanction_name) LIKE '%suspension from class%'
            )
-           AND cs.duration_days > 0
            AND NOT EXISTS (
                SELECT 1
                FROM community_service_submissions css
                WHERE css.case_id = cs.case_id
                  AND css.case_sanction_id = cs.case_sanction_id
-                 AND css.review_status = 'approved'
+                 AND LOWER(COALESCE(css.review_status, '')) = 'approved'
             )",
         [$caseId]
     );

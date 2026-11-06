@@ -968,6 +968,9 @@ async function reviewCommunityServiceSubmission(submissionId, caseId, decision, 
       : await fetchPortfolioSubmissionList(caseId, null);
 
     openCommunityServiceSubmissionsModal(caseId, activeSanctionId || null, refreshedSubmissions);
+    if (decision === 'approved' && typeof loadCasesFromDB === 'function') {
+      await loadCasesFromDB();
+    }
 
 if (typeof showNotification === 'function') {
       // Keeps the backend result.message ("Portfolio rejected successfully") while triggering a 'success' status
