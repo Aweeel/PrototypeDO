@@ -330,16 +330,13 @@ function renderUsers() {
             const statusText = isActive ? 'Active' : 'Inactive';
             const details = [];
 
-            if (user.role === 'student' && user.student_id) {
-                details.push('Student ID: ' + escapeHtml(user.student_id));
-            }
-
-            if (user.role === 'teacher' && user.teacher_id) {
-                details.push('Teacher ID: ' + escapeHtml(user.teacher_id));
-            }
-
-            if (user.role === 'discipline_office' && user.do_id) {
-                details.push('DO ID: ' + escapeHtml(user.do_id));
+            const roleId = user.role === 'system_manager'
+                ? user.manager_id
+                : user.role === 'security'
+                    ? user.security_id
+                    : user.role_id;
+            if (roleId) {
+                details.push((user.role === 'system_manager' ? 'Manager ID' : user.role === 'security' ? 'Security ID' : 'Role ID') + ': ' + escapeHtml(roleId));
             }
 
             const detailsMarkup = [
@@ -654,6 +651,23 @@ function editUser(userId) {
         document.getElementById('edit_last_name').value = user.last_name || (nameParts.pop() || '');
         document.getElementById('edit_middle_name').value = user.middle_name || nameParts.join(' ');
         document.getElementById('edit_role').value = user.role;
+        const roleIdFields = {
+            system_manager: 'edit_manager_id',
+            security: 'edit_security_id',
+            teacher: 'edit_teacher_id',
+            discipline_office: 'edit_do_id',
+            student: 'edit_student_id'
+        };
+        const roleIdField = document.getElementById(roleIdFields[user.role]);
+        if (roleIdField) {
+                roleIdField.value = user.role === 'student'
+                ? (user.role_id || user.student_id || '').replace(/^02000/, '')
+                    : user.role === 'system_manager'
+                        ? (user.manager_id || '')
+                        : user.role === 'security'
+                            ? (user.security_id || '')
+                            : (user.role_id || user.teacher_id || user.do_id || '');
+        }
         document.getElementById('edit_contact_number').value = (user.contact_number || '')
             .replace(/\D/g, '')
             .replace(/^09/, '')
@@ -1073,7 +1087,7 @@ function formatRole(role) {
         'security': 'Security',
         'student': 'Student'
     };
-    return roles[role] || role;
+    return roles[role] || String(role || '').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
 function formatTeacherSubrole(subrole) {

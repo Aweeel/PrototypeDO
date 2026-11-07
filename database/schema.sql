@@ -35,6 +35,9 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     full_name VARCHAR(100) NOT NULL,
+    role_id VARCHAR(20) NULL,
+    manager_id VARCHAR(20) NULL,
+    security_id VARCHAR(20) NULL,
     teacher_id VARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id REGEXP '^01000[0-9]{6}$'),
     do_id VARCHAR(20) NULL CHECK (do_id IS NULL OR do_id REGEXP '^03000[0-9]{6}$'),
     teacher_subrole VARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
@@ -916,6 +919,25 @@ SELECT
     CASE WHEN case_kind = 'A' THEN 1 ELSE 0 END,
     CASE WHEN case_kind = 'A' THEN TIMESTAMP(DATE_ADD('2026-04-06', INTERVAL (n - 1) DAY), '10:00:00') ELSE NULL END
 FROM beta_cases;
+
+UPDATE users
+SET manager_id = CONCAT('05000', LPAD(user_id, 6, '0'))
+WHERE role = 'system_manager' AND manager_id IS NULL;
+
+UPDATE users
+SET security_id = CONCAT('04000', LPAD(user_id, 6, '0'))
+WHERE role = 'security' AND security_id IS NULL;
+
+UPDATE users
+SET role_id = CASE
+    WHEN role = 'teacher' THEN teacher_id
+    WHEN role = 'discipline_office' THEN do_id
+    WHEN role = 'student' THEN (
+        SELECT student_id FROM students WHERE students.user_id = users.user_id LIMIT 1
+    )
+    ELSE NULL
+END
+WHERE role_id IS NULL AND role NOT IN ('system_manager', 'security');
 
 INSERT INTO case_sanctions (case_id, sanction_id, applied_date, duration_days, is_completed, completion_date, notes, scheduled_date, scheduled_time, scheduled_end_time, schedule_notes)
 SELECT case_id, 1, date_reported, NULL, 0, NULL, 'Minor warning recorded for beta workflow testing.', NULL, NULL, NULL, NULL
