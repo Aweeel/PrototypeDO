@@ -96,9 +96,9 @@ function formatValue(value) {
                 let inner = `<div class="border border-gray-300 dark:border-gray-600 rounded p-3 mb-2 bg-white dark:bg-slate-800">`;
                 inner += `<div class="text-xs text-gray-500 dark:text-gray-400 mb-2 font-semibold">Item ${index + 1}</div>`;
                 for (const [k, v] of Object.entries(item)) {
-                    inner += `<div class="grid grid-cols-[minmax(120px,160px)_minmax(0,1fr)] gap-3 items-start mb-2">
+                    inner += `                    <div class="min-w-0 grid grid-cols-[minmax(0,40%)_minmax(0,1fr)] gap-3 items-start mb-2">
                         <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">${formatLabel(k)}:</span>
-                        <span class="min-w-0 text-xs text-gray-900 dark:text-gray-100">${formatValue(v)}</span>
+                        <span class="min-w-0 break-words [overflow-wrap:anywhere] text-xs text-gray-900 dark:text-gray-100">${formatValue(v)}</span>
                     </div>`;
                 }
                 inner += `</div>`;
@@ -110,9 +110,9 @@ function formatValue(value) {
     if (typeof value === 'object') {
         let inner = `<div class="border border-gray-300 dark:border-gray-600 rounded p-3 bg-white dark:bg-slate-800">`;
         for (const [k, v] of Object.entries(value)) {
-            inner += `<div class="grid grid-cols-[minmax(120px,160px)_minmax(0,1fr)] gap-3 items-start mb-2">
+            inner += `            <div class="min-w-0 grid grid-cols-[minmax(0,40%)_minmax(0,1fr)] gap-3 items-start mb-2">
                 <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">${formatLabel(k)}:</span>
-                <span class="min-w-0 text-xs text-gray-900 dark:text-gray-100">${formatValue(v)}</span>
+                <span class="min-w-0 break-words [overflow-wrap:anywhere] text-xs text-gray-900 dark:text-gray-100">${formatValue(v)}</span>
             </div>`;
         }
         inner += `</div>`;
@@ -148,11 +148,11 @@ function formatDataSection(data, bgColor) {
     
     for (const [key, value] of Object.entries(data)) {
         html += `
-            <div class="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)] gap-4 items-start">
+            <div class="min-w-0 grid grid-cols-[minmax(0,40%)_minmax(0,1fr)] gap-4 items-start">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">${formatLabel(key)}:</label>
                 </div>
-                <div class="min-w-0 text-sm text-gray-900 dark:text-gray-100">
+                <div class="min-w-0 break-words [overflow-wrap:anywhere] text-sm text-gray-900 dark:text-gray-100">
                     ${formatValue(formatValueLabel(key, value))}
                 </div>
             </div>

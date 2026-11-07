@@ -29,6 +29,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+});
+
+document.addEventListener('themechange', function(event) {
+    if (!auditActivityChart) {
+        return;
+    }
+
+    const color = event.detail.isDark ? '#f3f4f6' : '#111827';
+    auditActivityChart.options.plugins.legend.labels.color = color;
+    auditActivityChart.update();
 });
 
 // Load roles for the role filter dropdown
@@ -139,10 +150,18 @@ async function loadLogs() {
             }, {});
             const labels = Object.keys(totals);
             const colors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea', '#0891b2', '#db2777', '#4b5563'];
+            const totalLogs = filteredLogs.length;
+            const today = new Date().toDateString();
+            const actionsToday = filteredLogs.filter(log => new Date(log.timestamp).toDateString() === today).length;
+            const commonAction = labels.sort((a, b) => totals[b] - totals[a])[0] || 'N/A';
+
+            document.getElementById('totalLogsStat').textContent = totalLogs;
+            document.getElementById('actionsTodayStat').textContent = actionsToday;
+            document.getElementById('commonActionStat').textContent = commonAction;
 
             if (auditActivityChart) auditActivityChart.destroy();
             auditActivityChart = new Chart(canvas, {
-                type: 'pie',
+                type: 'doughnut',
                 data: {
                     labels,
                     datasets: [{
@@ -156,7 +175,25 @@ async function loadLogs() {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right' },
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                color: document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#111827',
+                                generateLabels: chart => {
+                                    const legendTextColor = document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#111827';
+                                    const total = chart.data.datasets[0].data.reduce((sum, value) => sum + value, 0);
+                                    return chart.data.labels.map((label, index) => ({
+                                        text: `${label} (${chart.data.datasets[0].data[index]} - ${total ? Math.round(chart.data.datasets[0].data[index] / total * 100) : 0}%)`,
+                                        fillStyle: chart.data.datasets[0].backgroundColor[index],
+                                        strokeStyle: chart.data.datasets[0].backgroundColor[index],
+                                        fontColor: legendTextColor,
+                                        color: legendTextColor,
+                                        index
+                                    }));
+                                }
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: context => ` ${context.label}: ${context.raw}`
@@ -232,7 +269,7 @@ function renderTable() {
     }
     tableContainer?.classList.replace('overflow-x-hidden', 'overflow-x-auto');
     let tableHTML = logsToShow.map(log => `
-      <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="openLogDetailModal(${JSON.stringify(log).replace(/"/g, '&quot;')})">
+      <tr data-log-id="${log.id}" class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">#${log.id}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">${log.user}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${formatValueLabel('role', log.role || 'N/A')}</td>
@@ -255,6 +292,14 @@ function renderTable() {
     }
 
     tbody.innerHTML = tableHTML;
+    tbody.querySelectorAll('tr[data-log-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            const log = allLogs.find(item => String(item.id) === row.dataset.logId);
+            if (log) {
+                openLogDetailModal(log);
+            }
+        });
+    });
 }
 
 // Filter logs
