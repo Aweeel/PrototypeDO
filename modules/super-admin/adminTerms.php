@@ -5,10 +5,10 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Terms and Conditions";
 $adminName = getFormattedUserName() ?? ($_SESSION['admin_name'] ?? 'Admin');
-$isSuperAdmin = $_SESSION['user_role'] === 'super_admin';
+$isSystemManager = $_SESSION['user_role'] === 'system_manager';
 
-// Only super admins can access this page
-if (!$isSuperAdmin) {
+// Only system managers can access this page
+if (!$isSystemManager) {
     header('Location: ' . BASE_URL . '/index.php');
     exit;
 }

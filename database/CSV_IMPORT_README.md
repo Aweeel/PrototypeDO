@@ -2,7 +2,7 @@
 
 ## User Import
 
-The live user CSV importer is available on the super-admin user page and is handled by `modules/super-admin/adminUsers.php`.
+The live user CSV importer is available on the system manager user page and is handled by `modules/super-admin/adminUsers.php`.
 
 Use this column order (the student columns are required for student rows):
 
@@ -14,7 +14,7 @@ Required fields are `first_name`, `last_name`, `role`, `role_id`, and `email`. E
 
 Role ID formats are `02000xxxxxx` for students, `01000xxxxxx` for teachers, and `03000xxxxxx` for discipline-office staff.
 
-Supported roles are `teacher`, `discipline_office`, `security`, `student`, and `super_admin`.
+Supported roles are `teacher`, `discipline_office`, `security`, `student`, and `system_manager`.
 
 Teacher-specific rules:
 
@@ -22,7 +22,7 @@ Teacher-specific rules:
 - A `department_head` must have one of these programs: `BSCS`, `BSIT`, `BSCpE`, `BSMA`, `BSA`, `BSHM`, `BMMA`, `BACOMM`, `BAPsych`, `BSTM`, or `BSCRIM`.
 - A regular teacher must leave `program` blank.
 
-The importer creates new accounts with the default password `password`. Use [users_import_test.csv](test_fixtures/users_import_test.csv) for local testing. Its records are synthetic and should be removed or reset before rerunning the import.
+The importer creates new accounts with the default password `password`. Existing student IDs are updated and reactivated. After a successful import, active students whose IDs are missing from the new CSV are archived together with their linked accounts; the preview lists those students before any changes are made. Use [users_import_test.csv](test_fixtures/users_import_test.csv) for local testing. Its records are synthetic and should be removed or reset before rerunning the import.
 
 ## Student Import Schema
 
@@ -32,7 +32,7 @@ The following schema is documented for student imports:
 student_id,first_name,last_name,middle_name,grade_year,track_course,section,student_type,guardian_name,guardian_contact
 ```
 
-The current `modules/do/studentHistory.php` does not contain a CSV upload handler, so this is not an active UI import workflow at present. The schema fixture is available at [students_import_test.csv](test_fixtures/students_import_test.csv) for a restored or external importer.
+The DO student list has an archive view. System-manager user imports maintain the student archive state, and DO staff can archive or restore individual students from that view.
 
 ### Required Fields
 - `student_id` - Student number/ID (must be exactly 11 digits and unique)

@@ -14,7 +14,7 @@ $termsLastUpdated = 'April 23, 2026';
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $role = $_SESSION['user_role'] ?? 'do';
     
-    if ($role === 'super_admin') {
+    if ($role === 'system_manager') {
         header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
     } elseif ($role === 'discipline_office' || $role === 'do') {
         header('Location: ' . BASE_URL . '/modules/do/doDashboard.php');

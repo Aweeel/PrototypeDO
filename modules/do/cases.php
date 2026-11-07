@@ -568,13 +568,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     }
                 }
 
-                $newSubmissionCountRow = fetchOne(
-                    "SELECT COUNT(*) AS cnt
+                $submissionCountRow = fetchOne(
+                    "SELECT COUNT(*) AS total_cnt,
+                            SUM(CASE WHEN css.is_seen_by_do = 0 THEN 1 ELSE 0 END) AS new_cnt
                      FROM community_service_submissions css
                      JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
                      JOIN sanctions s ON s.sanction_id = cs.sanction_id
                      WHERE css.case_id = ?
-                       AND css.is_seen_by_do = 0
+                       AND LOWER(COALESCE(css.review_status, 'pending')) = 'pending'
                        AND (
                             LOWER(s.sanction_name) LIKE '%corrective%'
                                                         OR LOWER(s.sanction_name) LIKE '%community service%'
@@ -582,7 +583,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                        )",
                     [$case['case_id']]
                 );
-                $hasNewCommunityServiceSubmission = intval($newSubmissionCountRow['cnt'] ?? 0) > 0;
+                $hasCommunityServiceSubmission = intval($submissionCountRow['total_cnt'] ?? 0) > 0;
+                $hasNewCommunityServiceSubmission = intval($submissionCountRow['new_cnt'] ?? 0) > 0;
 
                                 $correctivePortfolioCountRow = fetchOne(
                                         "SELECT COUNT(*) AS cnt
@@ -630,6 +632,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'hasCorrectiveService' => $hasCorrectiveService,
                     'hasCorrectiveServiceCompleted' => $hasCorrectiveServiceCompleted,
                     'hasCorrectivePortfolioSubmission' => $hasCorrectivePortfolioSubmission,
+                    'hasCommunityServiceSubmission' => $hasCommunityServiceSubmission,
                     'hasNewCommunityServiceSubmission' => $hasNewCommunityServiceSubmission,
                     'hasSuspensionFromClass' => $hasSuspensionFromClass,
                     'hasSuspensionFromClassCompleted' => $hasSuspensionFromClassCompleted
@@ -1218,7 +1221,8 @@ if ($_POST['action'] === 'getCheckInHistory') {
             $newSubmissionCountRow = fetchOne(
                 "SELECT COUNT(*) AS cnt
                  FROM community_service_submissions
-                 WHERE case_id = ? AND case_sanction_id = ? AND is_seen_by_do = 0",
+                 WHERE case_id = ? AND case_sanction_id = ?
+                   AND LOWER(COALESCE(review_status, 'pending')) = 'pending'",
                 [$caseId, $csId]
             );
 
@@ -1253,7 +1257,10 @@ if ($_POST['action'] === 'markCommunityServiceSubmissionsViewed') {
     
     // Count submissions being marked as viewed for audit logging
     $countResult = fetchOne(
-        "SELECT COUNT(*) AS cnt FROM community_service_submissions WHERE case_id = ? AND is_seen_by_do = 0",
+        "SELECT COUNT(*) AS cnt
+         FROM community_service_submissions
+         WHERE case_id = ?
+           AND LOWER(COALESCE(review_status, 'pending')) = 'pending'",
         [$caseId]
     );
     $submissionCount = intval($countResult['cnt'] ?? 0);
@@ -1297,8 +1304,13 @@ if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
         exit;
     }
 
+    if (mb_strlen($reviewNotes) > 250) {
+        echo json_encode(['success' => false, 'error' => 'The rejection reason must not exceed 250 characters']);
+        exit;
+    }
+
     $currentUserRole = $_SESSION['user_role'] ?? '';
-    if (!in_array($currentUserRole, ['do', 'discipline_office', 'super_admin'], true)) {
+    if (!in_array($currentUserRole, ['do', 'discipline_office', 'system_manager'], true)) {
         echo json_encode(['success' => false, 'error' => 'You do not have permission to review submissions']);
         exit;
     }
@@ -1369,7 +1381,7 @@ if ($_POST['action'] === 'reviewCommunityServiceSubmission') {
 
 if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
     $currentUserRole = $_SESSION['user_role'] ?? '';
-    if (!in_array($currentUserRole, ['do', 'discipline_office', 'super_admin'], true)) {
+    if (!in_array($currentUserRole, ['do', 'discipline_office', 'system_manager'], true)) {
         echo json_encode(['success' => false, 'error' => 'Only DO users can upload community service portfolios']);
         exit;
     }

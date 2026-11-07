@@ -48,9 +48,9 @@ try {
         exit;
     }
     
-    // Password reset notifications are handled by super admins only.
+    // Password reset notifications are handled by system managers only.
     $adminSql = "SELECT user_id, email, full_name FROM users 
-                 WHERE role = 'super_admin' AND is_active = 1";
+                 WHERE role = 'system_manager' AND is_active = 1";
     $admins = fetchAll($adminSql);
     
     if (empty($admins)) {

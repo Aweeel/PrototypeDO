@@ -13,7 +13,7 @@ if (!isset($_SESSION['user'], $_SESSION['user_id'])) {
 
 $role = $_SESSION['user_role'] ?? $_SESSION['user']['role'] ?? '';
 $roleLandingPages = [
-    'super_admin' => '/modules/super-admin/systemControl.php',
+    'system_manager' => '/modules/super-admin/systemControl.php',
     'discipline_office' => '/modules/do/doDashboard.php',
     'do' => '/modules/do/doDashboard.php',
     'student' => '/modules/student/studentDashboard.php',

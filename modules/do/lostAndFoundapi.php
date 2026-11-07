@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/lostAndFoundFunctions.php';
 
 // FIXED: Use user_role instead of role
-if (!in_array($_SESSION['user_role'], ['discipline_office', 'super_admin'])) {
+if (!in_array($_SESSION['user_role'], ['discipline_office', 'system_manager'])) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;

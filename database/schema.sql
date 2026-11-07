@@ -39,7 +39,7 @@ CREATE TABLE users (
     do_id VARCHAR(20) NULL CHECK (do_id IS NULL OR do_id REGEXP '^03000[0-9]{6}$'),
     teacher_subrole VARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
     program VARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering')),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'discipline_office', 'teacher', 'security', 'student')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('system_manager', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number VARCHAR(20),
     is_active TINYINT(1) DEFAULT 1,
     is_archived TINYINT(1) NOT NULL DEFAULT 0,
@@ -77,6 +77,8 @@ CREATE TABLE students (
     last_incident_date DATE,
     guardian_name VARCHAR(100),
     guardian_contact VARCHAR(20),
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
+    archived_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT chk_students_student_id CHECK (student_id REGEXP '^[0-9]{11}$'),
@@ -450,7 +452,7 @@ DELIMITER ;
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number)
 VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
- 'admin@sti.edu', 'System Administrator', NULL, NULL, 'super_admin', '09123456789'),
+ 'admin@sti.edu', 'System Administrator', NULL, NULL, 'system_manager', '09123456789'),
 ('do_staff', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
  'do@sti.edu', 'John Doe', NULL, '03000000001', 'discipline_office', '09187654321'),
 ('teacher', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 
@@ -598,10 +600,10 @@ VALUES
 -- ============================================
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
 VALUES
--- Super Admin (3)
-('test1SA', '$2y$10$F4QgBalAg1GU7Ku1ucMpMO4YMM2lcBYr3YjUO14OcWLIJPlXBOdre', 'test1SA@sti.edu', 'Isabella Rivera', NULL, NULL, NULL, NULL, 'super_admin', '09990000001', 1),
-('test2SA', '$2y$10$cJjwLOLeHPJKNDHTDwt50e.7VflC1PyjyEjKzBBlh9uz11TOAayJy', 'test2SA@sti.edu', 'Gabriel Santos', NULL, NULL, NULL, NULL, 'super_admin', '09990000002', 1),
-('test3SA', '$2y$10$nk0CJ985N950zyV2uaC40OVf5mYNaApr8.KHT6tVCWHum7WEBmv6S', 'test3SA@sti.edu', 'Mateo Cruz', NULL, NULL, NULL, NULL, 'super_admin', '09990000003', 1),
+-- System Manager (3)
+('test1SA', '$2y$10$F4QgBalAg1GU7Ku1ucMpMO4YMM2lcBYr3YjUO14OcWLIJPlXBOdre', 'test1SA@sti.edu', 'Isabella Rivera', NULL, NULL, NULL, NULL, 'system_manager', '09990000001', 1),
+('test2SA', '$2y$10$cJjwLOLeHPJKNDHTDwt50e.7VflC1PyjyEjKzBBlh9uz11TOAayJy', 'test2SA@sti.edu', 'Gabriel Santos', NULL, NULL, NULL, NULL, 'system_manager', '09990000002', 1),
+('test3SA', '$2y$10$nk0CJ985N950zyV2uaC40OVf5mYNaApr8.KHT6tVCWHum7WEBmv6S', 'test3SA@sti.edu', 'Mateo Cruz', NULL, NULL, NULL, NULL, 'system_manager', '09990000003', 1),
 -- Discipline Office (3)
 ('test1DO', '$2y$10$PDw3RFdUeggxnfPxyur1o.HtrHQelcLazuZH5bIN1RVb10YMvH1BC', 'test1DO@sti.edu', 'Camille Navarro', NULL, '03000000004', NULL, NULL, 'discipline_office', '09990000004', 1),
 ('test2DO', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2DO@sti.edu', 'Alpha Test Discipline Office 2', NULL, '03000000005', NULL, NULL, 'discipline_office', '09990000005', 1),
@@ -715,8 +717,8 @@ SELECT
     CONCAT('admin', LPAD(n, 2, '0'), '@sti.edu'),
     '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
     CONCAT('admin', LPAD(n, 2, '0'), '@sti.edu'),
-    CONCAT('Beta Super Admin ', LPAD(n, 2, '0')),
-    NULL, NULL, 'super_admin',
+    CONCAT('Beta System Manager ', LPAD(n, 2, '0')),
+    NULL, NULL, 'system_manager',
     CONCAT('0917006', LPAD(n, 3, '0')), 1
 FROM beta_numbers;
 

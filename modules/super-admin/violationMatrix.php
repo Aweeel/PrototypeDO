@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
-if (($_SESSION['user_role'] ?? '') !== 'super_admin') { header('Location: ' . BASE_URL . '/index.php'); exit; }
+if (($_SESSION['user_role'] ?? '') !== 'system_manager') { header('Location: ' . BASE_URL . '/index.php'); exit; }
 $modalMessage = null; $modalError = null;
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {

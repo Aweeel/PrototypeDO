@@ -23,8 +23,8 @@ $sidebarItems = get_sidebar_items($role);
 
 // Set badge letters based on role
 switch ($role) {
-    case 'super_admin':
-        $badgeShort = 'SA';
+    case 'system_manager':
+        $badgeShort = 'SM';
         break;
     case 'discipline_office':
         $badgeShort = 'DO';

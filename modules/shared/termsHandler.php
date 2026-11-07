@@ -10,10 +10,10 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Handle content updates - Only super admins can do this
+// Handle content updates - Only system managers can do this
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'updateContent') {
-    // Only super admins can update
-    if ($_SESSION['user_role'] !== 'super_admin') {
+    // Only system managers can update
+    if ($_SESSION['user_role'] !== 'system_manager') {
         echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
         exit;
     }
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($pdo) {
                 // Increment TERMS_VERSION in a config or get current max and increment
                 // For now, we'll just reset all users' terms_accepted_version to force re-acceptance
-                $pdo->exec("UPDATE users SET terms_accepted_version = 0 WHERE role != 'super_admin'");
+                $pdo->exec("UPDATE users SET terms_accepted_version = 0 WHERE role != 'system_manager'");
             }
         } catch (Exception $dbError) {
             // Log but don't fail the save

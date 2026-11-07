@@ -12,7 +12,7 @@ if (!$diagnosticEnabled) {
     exit;
 }
 
-if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+if (($_SESSION['user_role'] ?? '') !== 'system_manager') {
     http_response_code(403);
     exit('Forbidden');
 }
