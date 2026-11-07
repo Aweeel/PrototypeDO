@@ -87,6 +87,41 @@ function ensureUsersTeacherSubroleColumn() {
     $initialized = true;
 }
 
+function ensureUsersRoleIdColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'role_id'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE users ADD COLUMN role_id VARCHAR(20) NULL");
+    }
+
+    foreach (['manager_id', 'security_id'] as $column) {
+        $columnInfo = fetchOne(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_NAME = 'users' AND COLUMN_NAME = ?",
+            [$column]
+        );
+        if (!$columnInfo) {
+            executeQuery("ALTER TABLE users ADD COLUMN {$column} VARCHAR(20) NULL");
+        }
+    }
+
+    executeQuery("UPDATE users SET manager_id = CONCAT('05000', LPAD(user_id, 6, '0')) WHERE role = 'system_manager' AND manager_id IS NULL");
+    executeQuery("UPDATE users SET security_id = CONCAT('04000', LPAD(user_id, 6, '0')) WHERE role = 'security' AND security_id IS NULL");
+
+    $initialized = true;
+}
+
 function ensureUsersArchiveColumn() {
     static $initialized = false;
 

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
@@ -10,6 +10,7 @@ if ($_SESSION['user_role'] !== 'system_manager') {
 }
 
 ensureUsersTeacherSubroleColumn();
+ensureUsersRoleIdColumn();
 ensureUsersArchiveColumn();
 ensureStudentsArchiveColumn();
 
@@ -22,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export_csv'])) {
                 COALESCE(s.grade_year, '') AS grade_year, COALESCE(s.track_course, '') AS track_course,
                 COALESCE(s.section, '') AS section, COALESCE(s.student_type, '') AS student_type,
                 COALESCE(s.guardian_name, '') AS guardian_name, COALESCE(s.guardian_contact, '') AS guardian_contact,
+                COALESCE(u.role_id, '') AS role_id, COALESCE(u.manager_id, '') AS manager_id, COALESCE(u.security_id, '') AS security_id,
                 COALESCE(u.teacher_id, '') AS teacher_id, COALESCE(u.do_id, '') AS do_id,
                 COALESCE(u.teacher_subrole, '') AS teacher_subrole, COALESCE(u.program, '') AS program
          FROM users u LEFT JOIN students s ON s.user_id = u.user_id
@@ -33,41 +35,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export_csv'])) {
     $output = fopen('php://output', 'w');
     fputcsv($output, ['role_id', 'email', 'teacher_subrole', 'program', 'first_name', 'last_name', 'middle_name', 'contact_number', 'role', 'grade_year', 'track_course', 'section', 'student_type', 'guardian_name', 'guardian_contact']);
     foreach ($rows as $row) {
-        $roleId = $row['role'] === 'student' ? $row['student_id'] : ($row['role'] === 'teacher' ? $row['teacher_id'] : ($row['role'] === 'discipline_office' ? $row['do_id'] : ''));
+        $roleId = $row['role'] === 'system_manager' ? $row['manager_id'] : ($row['role'] === 'security' ? $row['security_id'] : ($row['role_id'] !== '' ? $row['role_id'] : ($row['role'] === 'student' ? $row['student_id'] : ($row['role'] === 'teacher' ? $row['teacher_id'] : $row['do_id']))));
         fputcsv($output, [$roleId, $row['email'], $row['teacher_subrole'], $row['program'], $row['first_name'], $row['last_name'], $row['middle_name'], $row['contact_number'], $row['role'], $row['grade_year'], $row['track_course'], $row['section'], $row['student_type'], $row['guardian_name'], $row['guardian_contact']]);
     }
     fclose($output);
     exit;
 }
 
-function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
-    if ($role === 'teacher') {
-        if ($teacherId === '') {
-            return 'Teacher ID is required for teacher accounts';
-        }
-        if (!preg_match('/^01000\d{6}$/', $teacherId)) {
-            return 'Teacher ID must use the 01000xxxxxx format';
-        }
+function validateUserRoleIds($role, $roleId) {
+    $prefixes = [
+        'teacher' => ['01000', 'Teacher ID'],
+        'discipline_office' => ['03000', 'Discipline Office ID'],
+        'security' => ['04000', 'Security ID'],
+        'student' => ['02000', 'Student ID'],
+        'system_manager' => ['05000', 'System Manager ID']
+    ];
+
+    if (!isset($prefixes[$role])) {
+        return null;
     }
 
-    if ($role === 'discipline_office') {
-        if ($doId === '') {
-            return 'Discipline Office ID is required for discipline office accounts';
-        }
-        if (!preg_match('/^03000\d{6}$/', $doId)) {
-            return 'Discipline Office ID must use the 03000xxxxxx format';
-        }
+    [$prefix, $label] = $prefixes[$role];
+    if ($roleId === '') {
+        return "{$label} is required for {$role} accounts";
+    }
+    if (!preg_match('/^' . $prefix . '\d{6}$/', $roleId)) {
+        return "{$label} must use the {$prefix}xxxxxx format";
     }
 
-    if ($role === 'student') {
-        if ($studentId === '') {
-            return 'Student ID is required for student accounts';
-        }
-        if (!preg_match('/^02000\d{6}$/', $studentId)) {
-            return 'Student ID must use the 02000xxxxxx format';
+    return null;
+}
+
+function validateUserFields($email, $firstName, $middleName, $lastName, $contactNumber, $guardianName, $guardianContact, $userId = null) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^[A-Za-z0-9._%+\-]+@sti\.edu$/i', $email)) {
+        return 'Please enter a valid STI email address';
+    }
+    foreach ([$firstName => 'First name', $lastName => 'Last name'] as $value => $label) {
+        if ($value === '' || !preg_match("/^[\p{L}][\p{L} .'-]*$/u", $value)) {
+            return "{$label} contains invalid characters";
         }
     }
-
+    if ($middleName !== '' && !preg_match("/^[\p{L}][\p{L} .'-]*$/u", $middleName)) {
+        return 'Middle name contains invalid characters';
+    }
+    if ($contactNumber !== '' && !preg_match('/^09\d{9}$/', $contactNumber)) {
+        return 'Contact number must contain 11 digits';
+    }
+    if ($guardianName !== '' && !preg_match("/^[\p{L}][\p{L} .'-]*$/u", $guardianName)) {
+        return 'Guardian name contains invalid characters';
+    }
+    if ($guardianContact !== '' && !preg_match('/^\d+$/', $guardianContact)) {
+        return 'Guardian contact must contain numbers only';
+    }
+    if ($userId !== null && !ctype_digit((string) $userId)) {
+        return 'User ID must contain numbers only';
+    }
     return null;
 }
 
@@ -266,6 +288,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             $studentId = ($role === 'student') ? $roleId : '';
             $teacherId = ($role === 'teacher') ? $roleId : '';
             $doId = ($role === 'discipline_office') ? $roleId : '';
+            $managerId = ($role === 'system_manager') ? $roleId : '';
+            $securityId = ($role === 'security') ? $roleId : '';
+            $storedRoleId = in_array($role, ['system_manager', 'security'], true) ? null : $roleId;
 
             $teacherSubrole = trim(strtolower($data['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($data['program'] ?? '');
@@ -307,24 +332,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 }
             }
 
-            // Validate mandatory role_id by role type
-            if ($role === 'student' && $studentId === '') {
-                $errors[] = "Row skipped: role_id is required for student rows";
+            $roleIdError = validateUserRoleIds($role, $roleId);
+            if ($roleIdError) {
+                $errors[] = "Row skipped: {$roleIdError}";
                 $skipped++;
                 continue;
             }
             if ($role === 'student') {
                 $incomingStudentIds[$studentId] = true;
-            }
-            if ($role === 'teacher' && $teacherId === '') {
-                $errors[] = "Row skipped: role_id is required for teacher rows";
-                $skipped++;
-                continue;
-            }
-            if ($role === 'discipline_office' && $doId === '') {
-                $errors[] = "Row skipped: role_id is required for discipline_office rows";
-                $skipped++;
-                continue;
             }
 
             $roleIdKey = $role . ':' . $roleId;
@@ -374,6 +389,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 $skipped++;
                 continue;
             }
+            if ($roleId !== '' && fetchOne("SELECT user_id FROM users WHERE role_id = ?", [$roleId])) {
+                $errors[] = "Row skipped: role_id '{$roleId}' already exists";
+                $skipped++;
+                continue;
+            }
             if (fetchOne("SELECT user_id FROM users WHERE email = ?", [$email])) {
                 $errors[] = "Row skipped: email '{$email}' already exists";
                 $skipped++;
@@ -398,13 +418,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 $defaultPassword = 'password';
                 $passwordHash = password_hash($defaultPassword, PASSWORD_DEFAULT);
 
-                $userSql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
-                            VALUES (?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
+                $userSql = "INSERT INTO users (username, password_hash, email, full_name, role_id, manager_id, security_id, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
+                            VALUES (?, ?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
                 executeQuery($userSql, [
                     $username,
                     $passwordHash,
                     $email,
                     $fullName,
+                    $storedRoleId,
+                    $managerId !== '' ? $managerId : null,
+                    $securityId !== '' ? $securityId : null,
                     $teacherId !== '' ? $teacherId : null,
                     $doId !== '' ? $doId : null,
                     $teacherSubrole !== '' ? $teacherSubrole : null,
@@ -507,8 +530,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $idSearchPrefixes = [
                 '02000' => ['role' => 'student', 'column' => 'student_id'],
-                '01000' => ['role' => 'teacher', 'column' => 'teacher_id'],
-                '03000' => ['role' => 'discipline_office', 'column' => 'do_id']
+                '01000' => ['role' => 'teacher', 'column' => 'role_id'],
+                '03000' => ['role' => 'discipline_office', 'column' => 'do_id'],
+                '04000' => ['role' => 'security', 'column' => 'security_id'],
+                '05000' => ['role' => 'system_manager', 'column' => 'manager_id']
             ];
 
             $matchedIdSearch = null;
@@ -528,6 +553,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 COALESCE(u.email, 'N/A') as email,
                                 COALESCE(u.full_name, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name)) as full_name,
                                 COALESCE(u.role, 'student') as role,
+                                COALESCE(u.role_id, s.student_id, '') as role_id,
+                                u.manager_id, u.security_id,
                                 COALESCE(u.contact_number, '') as contact_number,
                                 COALESCE(u.is_active, 1) as is_active,
                                 u.last_login,
@@ -577,6 +604,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 u.email,
                                 u.full_name,
                                 u.role,
+                                u.role_id, u.manager_id, u.security_id,
                                 u.contact_number,
                                 u.is_active,
                                 u.last_login,
@@ -625,7 +653,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     }
                 }
             } else {
-                $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.contact_number,
+                $sql = "SELECT u.user_id, u.email, u.full_name, u.role, u.role_id, u.manager_id, u.security_id, u.contact_number,
                                    (SELECT first_name FROM students WHERE user_id = u.user_id LIMIT 1) as first_name,
                                    (SELECT middle_name FROM students WHERE user_id = u.user_id LIMIT 1) as middle_name,
                                    (SELECT last_name FROM students WHERE user_id = u.user_id LIMIT 1) as last_name,
@@ -697,6 +725,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'middle_name' => $user['middle_name'] ?? null,
                     'last_name' => $user['last_name'] ?? null,
                     'role' => $user['role'],
+                    'role_id' => $user['role_id'] ?? null,
+                    'manager_id' => $user['manager_id'] ?? null,
+                    'security_id' => $user['security_id'] ?? null,
                     'contact_number' => $user['contact_number'] ?? 'N/A',
                     'student_id' => $user['student_id'] ?? null,
                     'teacher_id' => $user['teacher_id'] ?? null,
@@ -761,16 +792,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($_POST['program'] ?? '');
-            $teacherId = trim($_POST['teacher_id'] ?? '');
-            $doId = trim($_POST['do_id'] ?? '');
-            $studentId = trim($_POST['student_id'] ?? '');
-            $gradeYear = trim($_POST['grade_year'] ?? '');
-            $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
-            $section = trim($_POST['section'] ?? '');
-            $studentType = trim($_POST['student_type'] ?? '');
-            $guardianName = trim($_POST['guardian_name'] ?? '');
-            $guardianContact = trim($_POST['guardian_contact'] ?? '');
-            $studentId = trim($_POST['student_id'] ?? '');
+            $roleId = trim($_POST['role_id'] ?? '');
+            $teacherId = $role === 'teacher' ? $roleId : '';
+            $doId = $role === 'discipline_office' ? $roleId : '';
+            $studentId = $role === 'student' ? $roleId : '';
+            $managerId = $role === 'system_manager' ? $roleId : '';
+            $securityId = $role === 'security' ? $roleId : '';
+            $storedRoleId = in_array($role, ['system_manager', 'security'], true) ? null : $roleId;
             $gradeYear = trim($_POST['grade_year'] ?? '');
             $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
             $section = trim($_POST['section'] ?? '');
@@ -804,18 +832,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 echo json_encode(['success' => false, 'error' => 'Email, first name, last name and role are required']);
                 exit;
             }
-
-            if ($role === 'teacher' && $teacherId === '') {
-                echo json_encode(['success' => false, 'error' => 'Teacher ID is required for teacher accounts']);
+            $fieldError = validateUserFields($email, $firstName, $middleName, $lastName, $contact_number, $guardianName, $guardianContact);
+            if ($fieldError) {
+                echo json_encode(['success' => false, 'error' => $fieldError]);
                 exit;
             }
 
-            if ($role === 'discipline_office' && $doId === '') {
-                echo json_encode(['success' => false, 'error' => 'Discipline Office ID is required for discipline office accounts']);
-                exit;
-            }
-
-            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, $studentId);
+            $roleIdError = validateUserRoleIds($role, $roleId);
             if ($roleIdError) {
                 echo json_encode(['success' => false, 'error' => $roleIdError]);
                 exit;
@@ -838,6 +861,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 echo json_encode(['success' => false, 'error' => 'Email already exists']);
                 exit;
             }
+            if (fetchOne("SELECT user_id FROM users WHERE role_id = ?", [$roleId])) {
+                echo json_encode(['success' => false, 'error' => 'Role ID already exists']);
+                exit;
+            }
 
             // generate a username using the email (kept for compatibility and uniqueness)
             $username = $email;
@@ -846,9 +873,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
             // Insert new user record
-            $sql = "INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
-                    VALUES (?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
-            executeQuery($sql, [$username, $password_hash, $email, $full_name, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
+            $sql = "INSERT INTO users (username, password_hash, email, full_name, role_id, manager_id, security_id, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), NULLIF(CAST(? AS CHAR), ''), ?, ?, 1, NOW())";
+            executeQuery($sql, [$username, $password_hash, $email, $full_name, $storedRoleId, $managerId, $securityId, $teacherId, $doId, $teacherSubrole, $program, $role, $contact_number]);
 
             // Get the new user ID (lookup by email since it's guaranteed unique)
             $newUserId = fetchValue("SELECT user_id FROM users WHERE email = ?", [$email]);
@@ -878,19 +905,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'full_name' => $full_name,
                 'role' => $role
             ];
-            if (isset($studentId)) {
-                $logData['student_id'] = $studentId;
+            $roleIdFields = [
+                'student' => ['student_id', $studentId],
+                'teacher' => ['teacher_id', $teacherId],
+                'discipline_office' => ['do_id', $doId],
+                'system_manager' => ['manager_id', $managerId],
+                'security' => ['security_id', $securityId],
+            ];
+            if (isset($roleIdFields[$role])) {
+                [$field, $value] = $roleIdFields[$role];
+                $logData[$field] = $value;
             }
-            if (isset($teacherId)) {
-                $logData['teacher_id'] = $teacherId;
-            }
-            if (isset($doId)) {
-                $logData['do_id'] = $doId;
-            }
-            if (isset($teacherSubrole)) {
+            if ($role === 'teacher' && $teacherSubrole !== null) {
                 $logData['teacher_subrole'] = $teacherSubrole;
             }
-            if (isset($program)) {
+            if ($role === 'teacher' && $program !== null) {
                 $logData['program'] = $program;
             }
             auditCreate('users', $newUserId, $logData);
@@ -927,15 +956,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $contact_number = trim($_POST['contact_number'] ?? '');
             $teacherSubrole = trim(strtolower($_POST['teacher_subrole'] ?? ''));
             $program = normalizeTeacherProgram($_POST['program'] ?? '');
-            $teacherId = trim($_POST['teacher_id'] ?? '');
-            $doId = trim($_POST['do_id'] ?? '');
-            $studentId = trim($_POST['student_id'] ?? '');
+            $roleId = trim($_POST['role_id'] ?? '');
+            $teacherId = $role === 'teacher' ? $roleId : '';
+            $doId = $role === 'discipline_office' ? $roleId : '';
+            $studentId = $role === 'student' ? $roleId : '';
+            $managerId = $role === 'system_manager' ? $roleId : null;
+            $securityId = $role === 'security' ? $roleId : null;
+            $storedRoleId = in_array($role, ['system_manager', 'security'], true) ? null : $roleId;
             $gradeYear = trim($_POST['grade_year'] ?? '');
             $trackCourse = normalizeStudentTrackCourse($_POST['track_course'] ?? '');
             $section = trim($_POST['section'] ?? '');
             $studentType = trim($_POST['student_type'] ?? '');
             $guardianName = trim($_POST['guardian_name'] ?? '');
             $guardianContact = trim($_POST['guardian_contact'] ?? '');
+
+            $fieldError = validateUserFields($email, $firstName, $middleName, $lastName, $contact_number, $guardianName, $guardianContact, $_POST['user_id'] ?? null);
+            if ($fieldError) {
+                echo json_encode(['success' => false, 'error' => $fieldError]);
+                exit;
+            }
 
             if ($role !== 'teacher') {
                 $teacherSubrole = null;
@@ -955,17 +994,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 }
             }
 
-            if ($role === 'teacher' && $teacherId === '') {
-                echo json_encode(['success' => false, 'error' => 'Teacher ID is required for teacher accounts']);
-                exit;
-            }
-
-            if ($role === 'discipline_office' && $doId === '') {
-                echo json_encode(['success' => false, 'error' => 'Discipline Office ID is required for discipline office accounts']);
-                exit;
-            }
-
-            $roleIdError = validateUserRoleIds($role, $teacherId, $doId, $studentId);
+            $roleIdError = validateUserRoleIds($role, $roleId);
             if ($roleIdError) {
                 echo json_encode(['success' => false, 'error' => $roleIdError]);
                 exit;
@@ -993,13 +1022,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 echo json_encode(['success' => false, 'error' => 'Email already exists']);
                 exit;
             }
+            if (fetchOne("SELECT user_id FROM users WHERE role_id = ? AND user_id != ?", [$roleId, $user_id])) {
+                echo json_encode(['success' => false, 'error' => 'Role ID already exists']);
+                exit;
+            }
 
             // Update user
             $sql = "UPDATE users 
-                    SET email = ?, full_name = ?, role = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS CHAR), ''), do_id = NULLIF(CAST(? AS CHAR), ''), teacher_subrole = NULLIF(CAST(? AS CHAR), ''), program = NULLIF(CAST(? AS CHAR), ''), is_active = ?, updated_at = NOW()
+                    SET email = ?, full_name = ?, role = ?, role_id = ?, manager_id = ?, security_id = ?, contact_number = ?, teacher_id = NULLIF(CAST(? AS CHAR), ''), do_id = NULLIF(CAST(? AS CHAR), ''), teacher_subrole = NULLIF(CAST(? AS CHAR), ''), program = NULLIF(CAST(? AS CHAR), ''), is_active = ?, updated_at = NOW()
                     WHERE user_id = CAST(? AS SIGNED)";
             
-            executeQuery($sql, [$email, $full_name, $role, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
+            executeQuery($sql, [$email, $full_name, $role, $storedRoleId, $managerId, $securityId, $contact_number, $teacherId !== '' ? $teacherId : null, $doId !== '' ? $doId : null, $teacherSubrole, $program, $is_active, $user_id]);
 
             // if becoming a student and no corresponding student record exists, create one
             if ($role === 'student') {
@@ -1286,6 +1319,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     }
 }
 
+$roleLabels = [
+    'system_manager' => 'System Manager',
+    'discipline_office' => 'Discipline Office',
+    'teacher' => 'Teacher',
+    'security' => 'Security',
+    'student' => 'Student'
+];
+$roleOptions = fetchAll("SELECT DISTINCT role FROM users WHERE role IS NOT NULL AND role <> '' ORDER BY role");
+$hasDepartmentHeads = fetchValue("SELECT COUNT(*) FROM users WHERE role = 'teacher' AND teacher_subrole = 'department_head'") > 0;
 $pageTitle = "User Management";
 $adminName = getFormattedUserName();
 ?>
@@ -1375,7 +1417,7 @@ $adminName = getFormattedUserName();
                             Import Users
                         </button>
                         <button onclick="exportUsersCsv()"
-                           class="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors sm:w-auto">
+                           class="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors sm:w-auto">
                            Export CSV
                         </button>
 
@@ -1398,12 +1440,13 @@ $adminName = getFormattedUserName();
                     <select id="roleFilter" onchange="filterUsers()"
                         class="min-w-0 max-w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                         <option value="">All Roles</option>
-                        <option value="super_admin">Super Admin</option>
-                        <option value="discipline_office">Discipline Office</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="department_head">Department Head</option>
-                        <option value="security">Security</option>
-                        <option value="student">Student</option>
+                        <?php foreach ($roleOptions as $roleOption): ?>
+                            <?php $roleValue = $roleOption['role']; ?>
+                            <option value="<?= htmlspecialchars($roleValue) ?>"><?= htmlspecialchars($roleLabels[$roleValue] ?? ucwords(str_replace('_', ' ', $roleValue))) ?></option>
+                        <?php endforeach; ?>
+                        <?php if ($hasDepartmentHeads): ?>
+                            <option value="department_head">Department Head</option>
+                        <?php endif; ?>
                     </select>
 
                     <select id="statusFilter" onchange="filterUsers()"
@@ -1544,7 +1587,7 @@ $adminName = getFormattedUserName();
             </code>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-2">Required: <strong>first_name, last_name, role, role_id, email</strong>.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">For students, <strong>grade_year</strong> and <strong>student_type</strong> are also required. <strong>track_course, section, guardian_name</strong>, and <strong>guardian_contact</strong> are optional.</p>
-            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>).</p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>), Security (<code>04000xxxxxx</code>), System Manager (<code>05000xxxxxx</code>).</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM</strong></p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is required in the CSV and must be unique. Default password: <code>password</code>.</p>
@@ -1609,7 +1652,14 @@ $adminName = getFormattedUserName();
             document.getElementById('importUsersModal').classList.add('hidden');
         }
 
-        function exportUsersCsv() {
+        async function exportUsersCsv() {
+            const confirmed = await showConfirmDialog({
+                message: 'Export the current user list as a CSV file?',
+                confirmText: 'Export CSV',
+                confirmClass: 'bg-blue-600 hover:bg-blue-700'
+            });
+            if (!confirmed) return;
+
             const archive = typeof archiveMode !== 'undefined' && archiveMode ? '1' : '0';
             window.location.href = `${window.location.pathname}?export_csv=1&archive=${archive}`;
         }

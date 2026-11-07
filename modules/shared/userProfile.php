@@ -19,8 +19,8 @@ $pdo = getDBConnection();
 // Fetch user information
 $user = null;
 $studentInfo = null;
-$staffId = null;
-$staffIdLabel = '';
+$profileId = null;
+$profileIdLabel = 'User ID';
 
 if ($pdo && $userId) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
@@ -32,13 +32,16 @@ if ($pdo && $userId) {
         $stmt = $pdo->prepare("SELECT * FROM students WHERE user_id = ?");
         $stmt->execute([$userId]);
         $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-    } elseif ($userRole === 'teacher') {
-        $staffId = $user['teacher_id'] ?? null;
-        $staffIdLabel = 'Teacher ID';
-    } elseif ($userRole === 'discipline_office') {
-        $staffId = $user['do_id'] ?? null;
-        $staffIdLabel = 'Discipline Office ID';
     }
+
+    $profileIdMap = [
+        'student' => [$studentInfo['student_id'] ?? null, 'Student ID'],
+        'teacher' => [$user['teacher_id'] ?? null, 'Teacher ID'],
+        'discipline_office' => [$user['do_id'] ?? null, 'Discipline Office ID'],
+        'security' => [$user['security_id'] ?? null, 'Security ID'],
+        'system_manager' => [$user['manager_id'] ?? null, 'System Manager ID']
+    ];
+    [$profileId, $profileIdLabel] = $profileIdMap[$userRole] ?? [$user['role_id'] ?? null, 'User ID'];
 }
 
 // Set admin name for header
@@ -240,13 +243,13 @@ if ($user) {
                         </div>
                     </div>
 
-                    <?php if ($staffId !== null): ?>
+                    <?php if ($profileId !== null): ?>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                <?php echo htmlspecialchars($staffIdLabel); ?>
+                                <?php echo htmlspecialchars($profileIdLabel); ?>
                             </label>
                             <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-all text-sm sm:text-base">
-                                <?php echo htmlspecialchars($staffId); ?>
+                                <?php echo htmlspecialchars($profileId); ?>
                             </p>
                         </div>
                     <?php endif; ?>
@@ -272,15 +275,6 @@ if ($user) {
                                     </label>
                                     <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-words text-sm sm:text-base">
                                         <?php echo htmlspecialchars($studentInfo['last_name'] ?? ''); ?>
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                        Student ID
-                                    </label>
-                                    <p class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white break-all text-sm sm:text-base">
-                                        <?php echo htmlspecialchars($studentInfo['student_id'] ?? ''); ?>
                                     </p>
                                 </div>
 

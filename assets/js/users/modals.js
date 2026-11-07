@@ -36,6 +36,12 @@ function formatContactSuffix(input) {
         });
 }
 
+document.addEventListener('input', function(event) {
+    if (event.target.matches('[id$="_manager_id"], [id$="_security_id"], [id$="_teacher_id"], [id$="_do_id"], [id$="_student_id"]')) {
+        event.target.value = event.target.value.replace(/\D/g, '');
+    }
+});
+
 function openAddModal() {
     const modal = document.getElementById('addModal');
     if (!modal) {
@@ -110,13 +116,23 @@ function createAddModal() {
                 </div>
                 <div id="add_teacher_id_container" class="hidden">
                     <label for="add_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
-                    <input type="text" id="add_teacher_id" name="teacher_id" placeholder="01000000001"
+                    <input type="text" id="add_teacher_id" name="teacher_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="01000000001"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for teacher accounts.</p>
                 </div>
+                <div id="add_manager_id_container" class="hidden">
+                    <label for="add_manager_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Manager ID *</label>
+                    <input type="text" id="add_manager_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="05000000001"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div id="add_security_id_container" class="hidden">
+                    <label for="add_security_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Security ID *</label>
+                    <input type="text" id="add_security_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="04000000001"
+                        class="w-full px-4 py-2 border border-gray-300 dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
                 <div id="add_do_id_container" class="hidden">
                     <label for="add_do_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discipline Office ID *</label>
-                    <input type="text" id="add_do_id" name="do_id" placeholder="03000000001"
+                    <input type="text" id="add_do_id" name="do_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="03000000001"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for discipline office accounts.</p>
                 </div>
@@ -176,7 +192,7 @@ function createAddModal() {
                 <div id="email_container">
                     <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                     <div class="flex">
-                        <input type="text" id="add_email" name="email" required pattern="[A-Za-z0-9._%+-]+" placeholder="name"
+                        <input type="text" id="add_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name"
                             class="min-w-0 flex-1 rounded-l-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100">
                         <span class="inline-flex items-center rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 px-3 text-gray-700 dark:border-slate-600 dark:bg-slate-600 dark:text-gray-200">@sti.edu</span>
                     </div>
@@ -212,6 +228,23 @@ function createAddModal() {
     document.body.appendChild(modal);
 }
 
+function getRoleIdValue(formType, role) {
+    const fields = {
+        system_manager: 'manager_id',
+        security: 'security_id',
+        teacher: 'teacher_id',
+        discipline_office: 'do_id',
+        student: 'student_id'
+    };
+    const input = document.getElementById(`${formType}_${fields[role]}`);
+    if (!input) return '';
+    if (role === 'student') {
+        const value = input.value.replace(/\D/g, '');
+        return value ? `02000${value}` : '';
+    }
+    return input.value.trim();
+}
+
 async function submitAddUser(event) {
     event.preventDefault();
     
@@ -221,6 +254,7 @@ async function submitAddUser(event) {
     const middle_name = document.getElementById('add_middle_name').value;
     const last_name = document.getElementById('add_last_name').value;
     const role = document.getElementById('add_role').value;
+    const role_id = getRoleIdValue('add', role);
     const contactSuffix = document.getElementById('add_contact_number').value.replace(/\D/g, '');
     const contact_number = contactSuffix.length === 9 ? `09${contactSuffix}` : '';
     const teacher_subrole = document.getElementById('add_teacher_subrole')?.value || '';
@@ -245,6 +279,7 @@ async function submitAddUser(event) {
     formData.append('middle_name', middle_name);
     formData.append('last_name', last_name);
     formData.append('role', role);
+    formData.append('role_id', role_id);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
     formData.append('program', program);
@@ -308,7 +343,7 @@ function createEditModal() {
                     <div>
                         <label for="edit_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                         <div class="flex">
-                            <input type="text" id="edit_email" name="email" required pattern="[A-Za-z0-9._%+-]+" placeholder="name"
+                            <input type="text" id="edit_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name"
                                 class="min-w-0 flex-1 rounded-l-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100">
                             <span class="inline-flex items-center rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 px-3 text-gray-700 dark:border-slate-600 dark:bg-slate-600 dark:text-gray-200">@sti.edu</span>
                         </div>
@@ -358,17 +393,27 @@ function createEditModal() {
                     </div>
                     <div id="edit_teacher_id_container" class="hidden">
                         <label for="edit_teacher_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teacher ID *</label>
-                        <input type="text" id="edit_teacher_id" name="teacher_id" placeholder="01000000001"
+                        <input type="text" id="edit_teacher_id" name="teacher_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="01000000001"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div id="edit_manager_id_container" class="hidden">
+                        <label for="edit_manager_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Manager ID *</label>
+                        <input type="text" id="edit_manager_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="05000000001"
+                            class="w-full px-4 py-2 border border-gray-300 dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div id="edit_security_id_container" class="hidden">
+                        <label for="edit_security_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Security ID *</label>
+                        <input type="text" id="edit_security_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="04000000001"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div id="edit_do_id_container" class="hidden">
                         <label for="edit_do_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discipline Office ID *</label>
-                        <input type="text" id="edit_do_id" name="do_id" placeholder="03000000001"
+                        <input type="text" id="edit_do_id" name="do_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="03000000001"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div id="edit_student_id_container" class="hidden">
                         <label for="edit_student_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student ID *</label>
-                        <input type="text" id="edit_student_id" name="student_id" placeholder="02000000001"
+                        <input type="text" id="edit_student_id" name="student_id" inputmode="numeric" pattern="[0-9]+" maxlength="11" placeholder="02000000001"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div id="edit_student_details_container" class="hidden space-y-4">
@@ -447,6 +492,7 @@ async function submitEditUser(event) {
     const middle_name = document.getElementById('edit_middle_name').value;
     const last_name = document.getElementById('edit_last_name').value;
     const role = document.getElementById('edit_role').value;
+    const role_id = getRoleIdValue('edit', role);
     const editContactSuffix = document.getElementById('edit_contact_number').value.replace(/\D/g, '');
     const contact_number = editContactSuffix.length === 9 ? `09${editContactSuffix}` : '';
     const teacher_subrole = document.getElementById('edit_teacher_subrole')?.value || '';
@@ -470,6 +516,7 @@ async function submitEditUser(event) {
     formData.append('middle_name', middle_name);
     formData.append('last_name', last_name);
     formData.append('role', role);
+    formData.append('role_id', role_id);
     formData.append('contact_number', contact_number);
     formData.append('teacher_subrole', teacher_subrole);
     formData.append('program', program);
@@ -606,11 +653,31 @@ function syncTeacherSubroleField(formType, roleValue, subroleValue = '') {
     const studentDetailsContainer = document.getElementById(`${formType}_student_details_container`);
     const gradeYearInput = document.getElementById(`${formType}_grade_year`);
     const studentTypeInput = document.getElementById(`${formType}_student_type`);
+    const roleInputs = {
+        system_manager: document.getElementById(`${formType}_manager_id`),
+        security: document.getElementById(`${formType}_security_id`),
+        teacher: document.getElementById(`${formType}_teacher_id`),
+        discipline_office: document.getElementById(`${formType}_do_id`),
+        student: document.getElementById(`${formType}_student_id`)
+    };
+    const roleContainers = {
+        system_manager: document.getElementById(`${formType}_manager_id_container`),
+        security: document.getElementById(`${formType}_security_id_container`)
+    };
 
     const isTeacher = roleValue === 'teacher';
     const isDo = roleValue === 'discipline_office';
     const isStudent = roleValue === 'student';
     const isDepartmentHead = isTeacher && subroleValue === 'department_head';
+
+    Object.entries(roleContainers).forEach(([role, container]) => {
+        const input = roleInputs[role];
+        if (container && input) {
+            container.classList.toggle('hidden', roleValue !== role);
+            input.required = roleValue === role;
+            if (roleValue !== role) input.value = '';
+        }
+    });
 
     if (subroleContainer && subroleSelect) {
         subroleContainer.classList.toggle('hidden', !isTeacher);
