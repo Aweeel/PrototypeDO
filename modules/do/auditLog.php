@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $filters = [
                 'search' => $_POST['search'] ?? '',
                 'action_type' => $_POST['actionType'] ?? '',
-                'user_id' => $_POST['user'] ?? '',
+                'role' => $_POST['role'] ?? '',
                 'date_from' => $_POST['dateFrom'] ?? '',
                 'date_to' => $_POST['dateTo'] ?? '',
             ];
@@ -52,9 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params[] = $filters['action_type'];
             }
 
-            if (!empty($filters['user_id'])) {
-                $sql .= " AND al.user_id = ?";
-                $params[] = $filters['user_id'];
+            if (!empty($filters['role'])) {
+                $sql .= " AND u.role = ?";
+                $params[] = $filters['role'];
             }
 
             if (!empty($filters['date_from'])) {
@@ -99,13 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             exit;
         }
 
-        // Get DO users for the audit-log user filter.
-        if ($_POST['action'] === 'getUsers') {
-            $sql = "SELECT user_id, full_name FROM users
-                    WHERE role IN ('do', 'discipline_office')
-                    ORDER BY full_name";
-            $users = fetchAll($sql, []) ?? [];
-            echo json_encode(['success' => true, 'users' => $users]);
+        // Get roles for the audit-log role filter.
+        if ($_POST['action'] === 'getRoles') {
+            $sql = "SELECT DISTINCT role FROM users
+                    ORDER BY role";
+            $roles = fetchAll($sql, []) ?? [];
+            echo json_encode(['success' => true, 'roles' => $roles]);
             exit;
         }
 
@@ -132,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $filters = [
                 'search' => $_POST['search'] ?? '',
                 'action_type' => $_POST['actionType'] ?? '',
-                'user_id' => $_POST['user'] ?? '',
+                'role' => $_POST['role'] ?? '',
                 'date_from' => $_POST['dateFrom'] ?? '',
                 'date_to' => $_POST['dateTo'] ?? '',
                 'table_name' => $_POST['tableName'] ?? ''
@@ -164,9 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 $params[] = $filters['action_type'];
             }
 
-            if (!empty($filters['user_id'])) {
-                $sql .= " AND al.user_id = ?";
-                $params[] = $filters['user_id'];
+            if (!empty($filters['role'])) {
+                $sql .= " AND u.role = ?";
+                $params[] = $filters['role'];
             }
 
             if (!empty($filters['table_name'])) {
@@ -201,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             fputcsv($output, ['Date & Time:', date('F d, Y h:i A')]);
             fputcsv($output, []);
             
-            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp']);
+            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp', 'IP Address']);
 
             foreach ($logs as $log) {
                 fputcsv($output, [
@@ -210,7 +209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $log['action'],
                     $log['table_name'],
                     $log['record_id'],
-                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s')
+                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s'),
+                    $log['ip_address'] ?? 'N/A'
                 ]);
             }
 
@@ -482,7 +482,7 @@ table.w-full th, table.w-full td {
                         <!-- User Filter -->
                         <select id="userFilter" onchange="filterLogs()"
                             class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
-                            <option value="">All Users</option>
+                            <option value="">All Roles</option>
                             <!-- Populated by JS -->
                         </select>
 
@@ -517,13 +517,21 @@ table.w-full th, table.w-full td {
                     </div>
                 </div>
 
+                <!-- Audit Activity Summary -->
+                <div class="mb-6 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Audit Activity Totals</h2>
+                    <div class="relative h-72">
+                        <canvas id="auditActivityChart" aria-label="Audit log activity totals" role="img"></canvas>
+                    </div>
+                </div>
+
                 <!-- Table -->
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
-                    <table class="w-full min-w-[720px]" data-table-controls data-sort-source="audit">
+                <div id="auditTableContainer" class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-x-auto">
+                    <table class="w-full" data-table-controls data-sort-source="audit">
                         <thead class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Log ID</th>
-                            <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">User</th>
+                            <th data-min-width="210" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">User</th>
                             <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Role</th>
                             <th data-resizable="true" data-min-width="190" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Action</th>
                             <th data-resizable="true" data-min-width="230" class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
@@ -638,7 +646,7 @@ table.w-full th, table.w-full td {
 
     <!-- Audit Log Detail Modal -->
     <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
             <!-- Modal Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Audit Log Detail - <span id="detailLogId"></span></h3>
@@ -670,7 +678,7 @@ table.w-full th, table.w-full td {
                         <p class="text-gray-900 dark:text-gray-100" id="detailTimestamp"></p>
                     </div>
                     <div>
-                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Module</h4>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Table</h4>
                         <p class="text-gray-900 dark:text-gray-100" id="detailTable"></p>
                     </div>
                     <div>
@@ -695,16 +703,16 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Old Values -->
-                <div id="oldValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 id="oldValuesTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
+                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
                     <div id="oldValuesSection">
-                        <p class="text-gray-500 dark:text-gray-400 italic">No previous values</p>
+                        <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
                     </div>
                 </div>
 
                 <!-- New Values -->
-                <div id="newValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 id="newValuesTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
+                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
                     <div id="newValuesSection">
                         <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
                     </div>
@@ -734,6 +742,7 @@ table.w-full th, table.w-full td {
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/main.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/filters.js"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/audit_log/modals.js"></script>

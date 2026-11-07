@@ -34,6 +34,16 @@ document.getElementById('maintenanceStatusButton')?.addEventListener('click', as
 
         const isEnabled = Boolean(data.enabled);
         button.dataset.enabled = isEnabled ? '1' : '0';
+        const importButton = document.getElementById('importBackupButton');
+        if (importButton) {
+            importButton.dataset.maintenanceEnabled = isEnabled ? '1' : '0';
+            if (!isEnabled) {
+                importButton.disabled = true;
+                importButton.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                document.getElementById('backup_file')?.dispatchEvent(new Event('change'));
+            }
+        }
         button.setAttribute('aria-pressed', String(isEnabled));
         button.setAttribute('aria-label', isEnabled ? 'Disable maintenance mode' : 'Enable maintenance mode');
         button.className = `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
@@ -73,6 +83,7 @@ document.getElementById('backup_file')?.addEventListener('change', (event) => {
     const input = event.currentTarget;
     const label = document.getElementById('backupFileLabel');
     const importButton = document.getElementById('importBackupButton');
+    const maintenanceEnabled = importButton?.dataset.maintenanceEnabled === '1';
     const file = input.files?.[0];
     if (label) label.textContent = file ? file.name : 'Choose .sql file';
     if (!file) {
@@ -134,9 +145,10 @@ document.getElementById('backup_file')?.addEventListener('change', (event) => {
             }
         }
         if (importButton) {
-            importButton.disabled = !rowsByTable.size;
-            importButton.classList.toggle('opacity-50', !rowsByTable.size);
-            importButton.classList.toggle('cursor-not-allowed', !rowsByTable.size);
+            const canImport = maintenanceEnabled && rowsByTable.size > 0;
+            importButton.disabled = !canImport;
+            importButton.classList.toggle('opacity-50', !canImport);
+            importButton.classList.toggle('cursor-not-allowed', !canImport);
         }
     };
     reader.readAsText(file);

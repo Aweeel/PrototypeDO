@@ -192,7 +192,7 @@ if ($user) {
                             <span class="font-semibold">Role:</span> <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $userRole))); ?>
                         </p>
                         <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 truncate">
-                            <span class="font-semibold">Username:</span> <?php echo htmlspecialchars($user['username'] ?? ''); ?>
+                            <span class="font-semibold">Email:</span> <?php echo htmlspecialchars($user['email'] ?? ''); ?>
                         </p>
                     </div>
                 </div>

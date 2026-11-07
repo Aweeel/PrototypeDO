@@ -2383,10 +2383,10 @@ $adminName = getFormattedUserName() ?? 'User';
                                 <th data-min-width="280" class="px-5 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Student</th>
                                 <th data-min-width="300" class="pl-5 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-48">Type</th>
                                 <?php if ($caseSeverity === 'Minor'): ?>
-                                <th class="pl-2 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Offense</th>
+                                <th data-min-width="120" class="pl-2 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Offense</th>
                                 <?php endif; ?>
-                                <th class="pl-2 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Date Reported</th>
-                                <th class="pl-4 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-36">Assigned to</th>
+                                <th data-min-width="150" class="pl-2 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Date Reported</th>
+                                <th data-min-width="140" class="pl-4 pr-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-36">Assigned to</th>
                                 <th data-min-width="140" class="pl-4 pr-1 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Status</th>
                                 <th data-fixed-column="true" data-min-width="170" class="pl-0 pr-2 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-56">Actions</th>
                                 <th data-fixed-column="true" class="checkbox-header px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-20"></th>

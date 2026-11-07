@@ -129,6 +129,11 @@ function createAddModal() {
                     </div>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter the 6-digit number after the fixed 02000 prefix.</p>
                 </div>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <input type="text" id="add_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <input type="text" id="add_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    <input type="text" id="add_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                </div>
                 <div id="add_student_details_container" class="hidden space-y-4">
                     <div>
                         <label for="add_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
@@ -167,11 +172,6 @@ function createAddModal() {
                         <input type="tel" id="add_guardian_contact" name="guardian_contact"
                             class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
-                </div>
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <input type="text" id="add_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                    <input type="text" id="add_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                    <input type="text" id="add_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                 </div>
                 <div id="email_container">
                     <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
