@@ -448,9 +448,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         $originalName = trim((string)($file['name'] ?? ''));
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExtensions = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'];
+        $allowedExtensions = ['pdf', 'doc', 'docx'];
         if (!in_array($extension, $allowedExtensions, true)) {
-            echo json_encode(['success' => false, 'error' => 'Invalid file type. Allowed: PDF, DOC, DOCX, PNG, JPG']);
+            echo json_encode(['success' => false, 'error' => 'Invalid file type. Allowed: PDF, DOCX, DOC']);
             exit;
         }
 
@@ -1355,8 +1355,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                 <div class="grid grid-cols-1 gap-3">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Upload File</label>
-                                        <input id="portfolioFileInput" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-xs md:text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
-                                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOC, DOCX, PNG, JPG. Max size: 10MB.</p>
+                                        <input id="portfolioFileInput" type="file" accept=".pdf,.docx,.doc" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full text-xs md:text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-white ${canUploadPortfolio ? 'file:bg-blue-600 hover:file:bg-blue-700' : 'file:bg-gray-400 cursor-not-allowed opacity-50'}" />
+                                        <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOCX, DOC. Max size: 10MB.</p>
                                     </div>
                                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                                         <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>

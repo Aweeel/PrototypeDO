@@ -62,7 +62,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             type="button"
             class="fixed top-2 right-4 z-50 rounded-full border border-amber-700 bg-amber-500 px-2 py-1 text-xs font-semibold text-slate-950 shadow-sm hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-slate-700 sm:px-3"
             aria-label="Show announcement"
-            title="Show announcement"><svg class="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5Zm7.07 3.93a5 5 0 0 1 0 6.14M21 6.5a9 9 0 0 1 0 11"/></svg><span class="hidden sm:inline">Show announcement</span></button>
+            title="Show announcement"><svg class="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3 11 18-5v12L3 13v-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg><span class="hidden sm:inline">Show announcement</span></button>
     <?php endif; ?>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261105-6"></script>
     <div class="flex flex-col lg:flex-row h-full min-h-screen lg:min-h-0">

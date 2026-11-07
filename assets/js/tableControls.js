@@ -36,16 +36,56 @@
             [data-table-controls] td { white-space: nowrap; }
             [data-table-controls] th > .table-control-sort {
                 display: block; width: 100%; padding: 0; border: 0; background: transparent;
-                color: inherit; font: inherit; text-align: inherit; cursor: pointer;
+                color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit;
+                line-height: inherit; letter-spacing: inherit; text-transform: inherit;
+                text-align: inherit; cursor: pointer;
             }
             [data-table-controls] th[data-fixed-column="true"] > .table-control-sort {
                 cursor: default;
+            }
+            [data-table-controls] .table-control-sort-indicator {
+                display: inline-block;
+                position: relative;
+                width: 10px;
+                height: 12px;
+                margin-left: 4px;
+                vertical-align: middle;
+                opacity: .55;
+            }
+            [data-table-controls] .table-control-sort-indicator::before,
+            [data-table-controls] .table-control-sort-indicator::after {
+                content: '';
+                position: absolute;
+                left: 2px;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+            }
+            [data-table-controls] .table-control-sort-indicator::before {
+                top: 0;
+                border-bottom: 4px solid currentColor;
+            }
+            [data-table-controls] .table-control-sort-indicator::after {
+                bottom: 0;
+                border-top: 4px solid currentColor;
+            }
+            [data-table-controls] .table-control-sort-indicator.is-active {
+                opacity: 1;
+            }
+            [data-table-controls] .table-control-sort-indicator.is-descending::before {
+                opacity: .3;
+            }
+            [data-table-controls] .table-control-sort-indicator.is-ascending::after {
+                opacity: .3;
             }
             [data-table-controls] .table-control-resizer {
                 position: absolute; z-index: 2; top: 0; right: 0; width: ${RESIZER_WIDTH}px;
                 height: 100%; cursor: col-resize; touch-action: none; user-select: none;
                 border-left: 1px solid rgb(209 213 219 / .7);
                 background: rgb(229 231 235 / .7);
+            }
+            .dark [data-table-controls] .table-control-resizer {
+                border-left-color: rgb(71 85 105 / .7);
+                background: rgb(71 85 105 / .7);
             }
             [data-table-controls] .table-control-resizer.is-resizing,
             [data-table-controls] .table-control-resizer:hover {
@@ -86,8 +126,12 @@
 
     function getMinimumWidth(table, header, index) {
         const configuredMinimum = Number(header.dataset.minWidth);
+        const label = textOf(header).replace(/\s+/g, ' ').trim().toLowerCase();
+        const matrixMinimum = table.dataset.sortSource === 'matrix'
+            ? label === 'category' ? 140 : label === 'status' ? 120 : 0
+            : 0;
         if (Number.isFinite(configuredMinimum) && configuredMinimum > 0) {
-            return Math.max(MIN_COLUMN_WIDTH, configuredMinimum);
+            return Math.max(MIN_COLUMN_WIDTH, configuredMinimum, matrixMinimum);
         }
         const style = getComputedStyle(header);
         const horizontalPadding = parseFloat(style.paddingLeft || '0')
@@ -99,7 +143,7 @@
             .reduce((maximum, cell) => {
                 return Math.max(maximum, measureText(textOf(cell), cell) + horizontalPadding + 12);
             }, 0);
-        return Math.max(MIN_COLUMN_WIDTH, Math.min(520, Math.max(cellWidth, headerWidth)));
+        return Math.max(MIN_COLUMN_WIDTH, matrixMinimum, Math.min(520, Math.max(cellWidth, headerWidth)));
     }
 
     function expandToAvailableWidth(table, widths, fixedColumns) {
@@ -194,7 +238,7 @@
                 content.forEach((node) => button.appendChild(node));
                 const indicator = document.createElement('span');
                 indicator.className = 'table-control-sort-indicator';
-                indicator.textContent = ' ↕';
+                indicator.setAttribute('aria-hidden', 'true');
                 button.appendChild(indicator);
                 button.addEventListener('click', () => {
                         const direction = header.dataset.sortDirection === 'ascending'
@@ -205,12 +249,12 @@
                         }));
                         headers.forEach((item) => {
                             item.dataset.sortDirection = 'none';
-                            item.querySelector('.table-control-sort-indicator')?.replaceChildren(
-                                document.createTextNode(' ↕')
+                            item.querySelector('.table-control-sort-indicator')?.classList.remove(
+                                'is-active', 'is-ascending', 'is-descending'
                             );
                         });
                         header.dataset.sortDirection = direction;
-                        indicator.textContent = direction === 'ascending' ? ' ↑' : ' ↓';
+                        indicator.classList.add('is-active', `is-${direction}`);
                         if (table.dataset.sortSource
                             && !['matrix'].includes(table.dataset.sortSource)) {
                             return;
@@ -245,6 +289,12 @@
                 event.preventDefault();
                 event.stopPropagation();
                 const startX = event.clientX;
+                columns.forEach((column, columnIndex) => {
+                    const renderedWidth = column.getBoundingClientRect().width;
+                    if (renderedWidth > 0) {
+                        widths[columnIndex] = renderedWidth;
+                    }
+                });
                 const leftStart = widths[index];
                 const rightStart = widths[index + 1];
                 const pairTotal = leftStart + rightStart;
@@ -293,7 +343,17 @@
             const bodyObserver = new MutationObserver(() => {
                 window.clearTimeout(table.tableControlRefresh);
                 table.tableControlRefresh = window.setTimeout(() => {
-                    headers.forEach((header, index) => {
+                        if (table.dataset.tableControlReset === 'true') {
+                            delete table.dataset.tableControlReset;
+                            columns.forEach((column) => {
+                                column.style.width = '';
+                            });
+                            table.style.width = '';
+                            table.style.minWidth = '';
+                            installTable(table);
+                            return;
+                        }
+                        headers.forEach((header, index) => {
                         const minimum = getMinimumWidth(table, header, index);
                         if (widths[index] < minimum) {
                             widths[index] = minimum;

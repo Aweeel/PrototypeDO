@@ -4,10 +4,11 @@ let filteredLogs = [];
 let currentPage = 1;
 const logsPerPage = 10;
 let ADMIN_NAME = '';
+let auditActivityChart = null;
 let currentFilters = {
     search: '',
     actionType: '',
-    user: '',
+    role: '',
     dateFrom: '',
     dateTo: ''
 };
@@ -15,7 +16,7 @@ let currentFilters = {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     ADMIN_NAME = window.ADMIN_NAME || document.querySelector('meta[data-admin-name]')?.content || 'User';
-    loadUsers();
+    loadRoles();
     loadActionTypes();
     loadLogs();
     
@@ -30,29 +31,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Load DO users for the user filter dropdown
-async function loadUsers() {
+// Load roles for the role filter dropdown
+async function loadRoles() {
     try {
         const formData = new FormData();
         formData.append('ajax', '1');
-        formData.append('action', 'getUsers');
+        formData.append('action', 'getRoles');
 
         const response = await fetch(window.location.href, { method: 'POST', body: formData });
         const data = await response.json();
 
         if (data.success) {
-            const userFilter = document.getElementById('userFilter');
-            data.users.forEach(user => {
+            const roleFilter = document.getElementById('userFilter');
+            const roleLabels = new Set();
+            data.roles.forEach(role => {
+                const label = formatValueLabel('role', role.role);
+                if (roleLabels.has(label)) {
+                    return;
+                }
                 const option = document.createElement('option');
-                option.value = user.user_id;
-                option.textContent = user.full_name;
-                userFilter.appendChild(option);
+                option.value = role.role;
+                option.textContent = label;
+                roleFilter.appendChild(option);
+                roleLabels.add(label);
             });
         } else {
-            console.error('Failed to load users:', data.error);
+            console.error('Failed to load roles:', data.error);
         }
     } catch (error) {
-        console.error('Error loading users:', error);
+        console.error('Error loading roles:', error);
     }
 }
 
@@ -90,7 +97,7 @@ async function loadLogs() {
         formData.append('action', 'getAuditLogs');
         formData.append('search', currentFilters.search);
         formData.append('actionType', currentFilters.actionType);
-        formData.append('user', currentFilters.user);
+        formData.append('role', currentFilters.role);
         formData.append('dateFrom', currentFilters.dateFrom);
         formData.append('dateTo', currentFilters.dateTo);
 
@@ -106,6 +113,7 @@ async function loadLogs() {
             allLogs = data.logs;
             filteredLogs = [...allLogs];
             currentPage = 1;
+            updateAuditActivityChart();
             renderTable();
             updatePagination();
         } else {
@@ -119,6 +127,44 @@ async function loadLogs() {
                     </td>
                 </tr>`;
             document.getElementById('paginationInfo').textContent = 'Error loading logs';
+        }
+
+        function updateAuditActivityChart() {
+            const canvas = document.getElementById('auditActivityChart');
+            if (!canvas || typeof Chart === 'undefined') return;
+
+            const totals = filteredLogs.reduce((counts, log) => {
+                counts[log.action] = (counts[log.action] || 0) + 1;
+                return counts;
+            }, {});
+            const labels = Object.keys(totals);
+            const colors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea', '#0891b2', '#db2777', '#4b5563'];
+
+            if (auditActivityChart) auditActivityChart.destroy();
+            auditActivityChart = new Chart(canvas, {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: labels.map(label => totals[label]),
+                        backgroundColor: labels.map((_, index) => colors[index % colors.length]),
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' },
+                        tooltip: {
+                            callbacks: {
+                                label: context => ` ${context.label}: ${context.raw}`
+                            }
+                        }
+                    }
+                }
+            });
         }
     } catch (error) {
         console.error('Error loading logs:', error);
@@ -156,11 +202,17 @@ document.addEventListener('table:sort', (event) => {
 // Render table
 function renderTable() {
     const tbody = document.getElementById('logsTableBody');
+    const tableContainer = document.getElementById('auditTableContainer');
+    const table = tableContainer?.querySelector('table[data-table-controls]');
     const startIndex = (currentPage - 1) * logsPerPage;
     const endIndex = startIndex + logsPerPage;
     const logsToShow = filteredLogs.slice(startIndex, endIndex);
 
     if (logsToShow.length === 0) {
+        if (table) {
+            table.dataset.tableControlReset = 'true';
+        }
+        tableContainer?.classList.replace('overflow-x-auto', 'overflow-x-hidden');
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
@@ -175,6 +227,10 @@ function renderTable() {
         return;
     }
 
+    if (table) {
+        table.dataset.tableControlReset = 'true';
+    }
+    tableContainer?.classList.replace('overflow-x-hidden', 'overflow-x-auto');
     let tableHTML = logsToShow.map(log => `
       <tr class="h-[72px] hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="openLogDetailModal(${JSON.stringify(log).replace(/"/g, '&quot;')})">
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">#${log.id}</td>
@@ -437,7 +493,7 @@ function exportLogs() {
                     const filters = [];
                     if (currentFilters.search) filters.push(`Search: "${currentFilters.search}"`);
                     if (currentFilters.actionType) filters.push(`Action: ${currentFilters.actionType}`);
-                    if (currentFilters.user) filters.push(`User: ${document.querySelector(`#userFilter option[value="${currentFilters.user}"]`)?.textContent || currentFilters.user}`);
+                    if (currentFilters.role) filters.push(`Role: ${document.querySelector(`#userFilter option[value="${currentFilters.role}"]`)?.textContent || currentFilters.role}`);
                     if (currentFilters.dateFrom) filters.push(`From: ${currentFilters.dateFrom}`);
                     if (currentFilters.dateTo) filters.push(`To: ${currentFilters.dateTo}`);
                     

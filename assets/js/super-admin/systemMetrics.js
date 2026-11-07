@@ -16,6 +16,8 @@ function openSystemMetrics() {
                     ${metricCard('Database Size', `${metrics.databaseSize ?? 'Unavailable'} MB`)}
                     ${metricCard('Active User Sessions', metrics.activeSessions ?? 0)}
                     ${metricCard('Audit Events Today', metrics.auditEventsToday ?? 0)}
+                    ${metricCard('Failed Login Attempts', metrics.failedLoginCount ?? 0)}
+                    ${metricCard('Total Events', metrics.totalEvents ?? 0)}
                 </div>
                 <section class="md:col-span-2"><h3 class="mb-2 font-semibold text-gray-900 dark:text-gray-100">Failed Login Attempts</h3>${failedTable(metrics.failedLogins || [])}</section>
                 <section><h3 class="mb-2 font-semibold text-gray-900 dark:text-gray-100">Peak Usage Hours</h3>${peakTable(metrics.peakHours || [])}</section>`;

@@ -314,7 +314,7 @@ if (!isset($adminName) || empty($adminName)) {
         class="fixed top-[5.25rem] right-4 md:right-8 z-20 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900 sm:px-3"
         aria-label="Show announcement"
         title="Show announcement"
-        hidden><svg class="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5Zm7.07 3.93a5 5 0 0 1 0 6.14M21 6.5a9 9 0 0 1 0 11"/></svg><span class="hidden sm:inline">Show announcement</span></button>
+        hidden><svg class="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3 11 18-5v12L3 13v-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg><span class="hidden sm:inline">Show announcement</span></button>
 
 <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/globalBanner.js?v=20261105-7"></script>
 <script>

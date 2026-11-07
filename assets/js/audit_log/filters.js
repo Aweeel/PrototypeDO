@@ -8,7 +8,7 @@
 function filterLogs() {
     currentFilters.search = document.getElementById('searchInput').value.trim();
     currentFilters.actionType = document.getElementById('actionTypeFilter').value;
-    currentFilters.user = document.getElementById('userFilter').value;
+    currentFilters.role = document.getElementById('userFilter').value;
     currentPage = 1;
     loadLogs();
 }
@@ -57,7 +57,7 @@ function clearAllFilters() {
     // Reset filter object
     currentFilters.search = '';
     currentFilters.actionType = '';
-    currentFilters.user = '';
+    currentFilters.role = '';
     currentFilters.dateFrom = '';
     currentFilters.dateTo = '';
     

@@ -32,6 +32,7 @@ document.querySelectorAll('.edit-sanction').forEach((button) => button.addEventL
 document.querySelectorAll('[data-tab-target]').forEach((tab) => tab.addEventListener('click', () => {
     setActiveCatalogTab(tab);
     document.querySelectorAll('#violationCatalogPanel, #penaltyGuidelinesPanel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== tab.dataset.tabTarget));
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     document.querySelectorAll('input[name="active_tab"]').forEach((input) => { input.value = tab.dataset.tabTarget; });
     moveCatalogToolbar(tab.dataset.tabTarget);
 }));
