@@ -363,6 +363,7 @@ function getActionColor($action) {
         const html = document.documentElement;
         const isDark = html.classList.toggle("dark");
         localStorage.setItem("theme", isDark ? "dark" : "light");
+        document.dispatchEvent(new CustomEvent("themechange", { detail: { isDark } }));
     }
 </script>
 <style>
@@ -518,10 +519,26 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Audit Activity Summary -->
-                <div class="mb-6 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Audit Activity Totals</h2>
-                    <div class="relative h-72">
-                        <canvas id="auditActivityChart" aria-label="Audit log activity totals" role="img"></canvas>
+                <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
+                    <div class="lg:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Logs</p>
+                            <p id="totalLogsStat" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">0</p>
+                        </div>
+                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Actions Today</p>
+                            <p id="actionsTodayStat" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">0</p>
+                        </div>
+                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Most Common Action</p>
+                            <p id="commonActionStat" class="mt-2 truncate text-lg font-semibold text-gray-900 dark:text-gray-100">N/A</p>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">Audit Activity Totals</h2>
+                        <div class="relative h-[180px]">
+                            <canvas id="auditActivityChart" aria-label="Audit log activity totals" role="img"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -645,11 +662,11 @@ table.w-full th, table.w-full td {
     </div>
 
     <!-- Audit Log Detail Modal -->
-    <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+    <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[calc(100vh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden">
             <!-- Modal Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Audit Log Detail - <span id="detailLogId"></span></h3>
+            <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                <h3 class="min-w-0 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">Audit Log Detail - <span id="detailLogId"></span></h3>
                 <button onclick="closeLogDetailModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -658,9 +675,9 @@ table.w-full th, table.w-full td {
             </div>
 
             <!-- Modal Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6">
                 <!-- Basic Information -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">User</h4>
                         <p class="text-gray-900 dark:text-gray-100" id="detailUser"></p>
@@ -690,7 +707,7 @@ table.w-full th, table.w-full td {
                 <!-- Network Information -->
                 <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Network Information</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <div>
                             <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">IP Address</h4>
                             <p class="text-gray-900 dark:text-gray-100 font-mono text-sm" id="detailIpAddress"></p>
@@ -703,39 +720,39 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Old Values -->
-                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
-                    <div id="oldValuesSection">
+                <div id="oldValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <h3 id="oldValuesTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Previous Values</h3>
+                    <div id="oldValuesSection" class="overflow-x-auto">
                         <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
                     </div>
                 </div>
 
                 <!-- New Values -->
-                <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
+                <div id="newValuesBlock" class="border-t border-gray-200 dark:border-slate-700 pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Values</h3>
-                    <div id="newValuesSection">
+                    <div id="newValuesSection" class="overflow-x-auto">
                         <p class="text-gray-500 dark:text-gray-400 italic">Loading...</p>
                     </div>
                 </div>
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex justify-between gap-3">
-                <div class="flex gap-3">
-                    <button onclick="exportDetailAsCSV()" class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
+            <div class="px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="grid grid-cols-2 sm:flex gap-3 w-full sm:w-auto">
+                    <button onclick="exportDetailAsCSV()" class="w-full justify-center px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Export CSV
                     </button>
-                    <button onclick="printDetailAsPDF()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    <button onclick="printDetailAsPDF()" class="w-full justify-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                         </svg>
                         Print / Save PDF
                     </button>
                 </div>
-                <button onclick="closeLogDetailModal()" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors">
+                <button onclick="closeLogDetailModal()" class="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors">
                     Close
                 </button>
             </div>

@@ -13,6 +13,7 @@ if (!function_exists('initializeGlobalTheme')) {
                     const isDark = !document.documentElement.classList.contains("dark");
                     document.documentElement.classList.toggle("dark", isDark);
                     localStorage.setItem("theme", isDark ? "dark" : "light");
+                    document.dispatchEvent(new CustomEvent("themechange", { detail: { isDark } }));
                 };
             })();
         </script>';
