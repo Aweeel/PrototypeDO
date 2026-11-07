@@ -4,7 +4,7 @@
     const rules = [
         { selector: '#globalBannerText', maxLength: 250, counter: true },
         { selector: '#offense_name, #sanction_name', maxLength: 50 },
-        { selector: '#add_email', emailDomain: 'sti.edu', localPartMaxLength: 64 },
+        { selector: '#add_email, #edit_email', emailDomain: 'sti.edu', localPartMaxLength: 64, localPartOnly: true },
         { selector: '#add_contact_number, input[name="contact_number"]', contactNumber: true },
         { selector: '#newStudentNumber, #studentNumber, input[name="student_number"]', studentNumber: true },
         { selector: '#add_do_id, input[name="do_id"]', fixedDigits: 11 },
@@ -47,11 +47,12 @@
             message = `Enter exactly ${rule.fixedDigits} numbers.`;
         } else if (rule?.studentNumber && value !== '' && !/^\d{11}$/.test(value)) {
             message = 'Student Number must contain exactly 11 numbers.';
-        } else if (rule?.contactNumber && value !== '' && !/^0\d{3} \d{3} \d{4}$/.test(value)) {
-            message = 'Use the contact number format 0XXX XXX XXXX.';
+        } else if (rule?.contactNumber && value !== '' && !/^\d{2} \d{3} \d{4}$/.test(value)) {
+            message = 'Use the 9-digit contact suffix format XX XXX XXXX.';
         } else if (rule?.emailDomain && value !== '') {
-            const parts = value.split('@');
-            if (parts.length !== 2 || parts[0].length > rule.localPartMaxLength || parts[1].toLowerCase() !== rule.emailDomain) {
+            const localPart = rule.localPartOnly ? value : value.split('@')[0];
+            const isValidLocalPart = /^[A-Za-z0-9._%+-]+$/.test(localPart);
+            if (!isValidLocalPart || localPart.length > rule.localPartMaxLength) {
                 message = `Use an email with at most ${rule.localPartMaxLength} characters before @${rule.emailDomain}.`;
             }
         }
@@ -73,8 +74,8 @@
                     element.maxLength = rule.maxLength;
                 }
                 if (rule.contactNumber) {
-                    element.maxLength = 13;
-                    element.pattern = '0[0-9]{3} [0-9]{3} [0-9]{4}';
+                    element.maxLength = 11;
+                    element.pattern = '[0-9]{2} [0-9]{3} [0-9]{4}';
                     element.inputMode = 'numeric';
                 }
                 if (rule.fixedDigits || rule.studentNumber) {
@@ -155,8 +156,8 @@
     document.addEventListener('input', (event) => {
         validateElement(event.target);
         if (event.target.matches('#add_contact_number, input[name="contact_number"]')) {
-            const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
-            event.target.value = digits.replace(/^(\d{4})(\d{0,3})(\d{0,4}).*$/, (_, first, middle, last) =>
+            const digits = event.target.value.replace(/\D/g, '').slice(0, 9);
+            event.target.value = digits.replace(/^(\d{0,2})(\d{0,3})(\d{0,4}).*$/, (_, first, middle, last) =>
                 first + (middle ? ` ${middle}` : '') + (last ? ` ${last}` : ''));
             validateElement(event.target);
         }
