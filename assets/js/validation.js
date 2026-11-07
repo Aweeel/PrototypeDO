@@ -3,7 +3,7 @@
 
     const rules = [
         { selector: '#globalBannerText', maxLength: 250, counter: true },
-        { selector: '#offense_name, #sanction_name', maxLength: 50 },
+        { selector: '#offense_name, #sanction_name', maxLength: 50, counter: true },
         { selector: '#add_email, #edit_email', emailDomain: 'sti.edu', localPartMaxLength: 64, localPartOnly: true },
         { selector: '#add_contact_number, input[name="contact_number"]', contactNumber: true },
         { selector: '#newStudentNumber, #studentNumber, input[name="student_number"]', studentNumber: true },
@@ -12,7 +12,9 @@
         { selector: '#sanctionNotes, #editSanctionNotes', maxLength: 250, counter: true },
         { selector: '#addItemForm input[name="item_name"], #editItemForm input[name="item_name"]', maxLength: 50 },
         { selector: '#addItemForm input[name="location"], #editItemForm input[name="location"]', maxLength: 50 },
-        { selector: '#addItemForm textarea[name="description"], #editItemForm textarea[name="description"]', maxLength: 250 },
+        { selector: '#newCategoryDescription', maxLength: 500, counter: true },
+        { selector: '#addItemForm textarea[name="description"], #editItemForm textarea[name="description"]', maxLength: 250, counter: true },
+        { selector: '#offense_description, #sanction_description', maxLength: 500, counter: true },
         { selector: '#eventName, #editEventName', maxLength: 100 },
         { selector: '#eventLocation, #editEventLocation', maxLength: 100 },
         { selector: '#eventDescription, #editEventDescription', maxLength: 250, counter: true },
@@ -108,7 +110,7 @@
         container.appendChild(element);
 
         const counter = document.createElement('span');
-        counter.className = 'pointer-events-none absolute bottom-1 right-2 text-[10px] leading-3 text-gray-400 dark:text-gray-500';
+        counter.className = 'pointer-events-none absolute bottom-2 right-2 text-[10px] leading-3 text-gray-400 dark:text-gray-500';
         counter.setAttribute('aria-live', 'polite');
         container.appendChild(counter);
 
