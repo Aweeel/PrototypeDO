@@ -117,7 +117,7 @@ $currentPath = '/' . ltrim($currentPath, '/');
 
 // Authorization is enforced here because every protected module includes this file.
 $roleModulePrefixes = [
-    'super_admin' => [
+    'system_manager' => [
         '/modules/super-admin/',
         '/modules/shared/',
         '/modules/do/auditLog.php'
@@ -188,7 +188,7 @@ if (!$hasModuleAccess && strpos($currentPath, '/modules/') === 0) {
     exit;
 }
 
-if ($currentRole !== 'super_admin' && isMaintenanceModeEnabled()
+if ($currentRole !== 'system_manager' && isMaintenanceModeEnabled()
     && basename($currentPath) !== 'maintenance.php') {
     header('Location: ' . BASE_URL . '/modules/shared/maintenance.php');
     exit;

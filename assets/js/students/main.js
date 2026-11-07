@@ -4,6 +4,7 @@ let filteredStudents = [];
 let currentPage = 1;
 const studentsPerPage = 6;
 let currentStudentId = null;
+let archiveMode = false;
 
 // ====== Initialization ======
 document.addEventListener('DOMContentLoaded', function () {
@@ -30,7 +31,7 @@ async function loadStudents() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `ajax=1&action=getStudents&search=${encodeURIComponent(searchTerm)}&grade=${encodeURIComponent(gradeFilter)}&status=${encodeURIComponent(statusFilter)}`
+            body: `ajax=1&action=getStudents&archive=${archiveMode ? 1 : 0}&search=${encodeURIComponent(searchTerm)}&grade=${encodeURIComponent(gradeFilter)}&status=${encodeURIComponent(statusFilter)}`
         });
 
         
@@ -134,6 +135,22 @@ function renderStudents() {
 
     updatePaginationInfo();
     updatePaginationButtons();
+}
+
+function setStudentArchiveMode(isArchived) {
+    archiveMode = isArchived;
+    const activeTab = document.getElementById('activeStudentsTab');
+    const archivedTab = document.getElementById('archivedStudentsTab');
+    [activeTab, archivedTab].forEach((tab) => {
+        tab?.classList.toggle('bg-blue-600', tab === (isArchived ? archivedTab : activeTab));
+        tab?.classList.toggle('text-white', tab === (isArchived ? archivedTab : activeTab));
+        tab?.classList.toggle('bg-white', tab !== (isArchived ? archivedTab : activeTab));
+        tab?.classList.toggle('text-gray-700', tab !== (isArchived ? archivedTab : activeTab));
+        tab?.classList.toggle('dark:bg-slate-700', tab !== (isArchived ? archivedTab : activeTab));
+        tab?.classList.toggle('dark:text-gray-300', tab !== (isArchived ? archivedTab : activeTab));
+    });
+    currentPage = 1;
+    loadStudents();
 }
 
 // Get status badge HTML

@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
-if (($_SESSION['user_role'] ?? '') !== 'super_admin') { header('Location: ' . BASE_URL . '/index.php'); exit; }
+if (($_SESSION['user_role'] ?? '') !== 'system_manager') { header('Location: ' . BASE_URL . '/index.php'); exit; }
 function healthRows($sql) { try { return fetchAll($sql); } catch (Throwable $e) { return []; } }
 $databaseSize = healthRows("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb FROM information_schema.tables WHERE table_schema = DATABASE()")[0]['size_mb'] ?? null;
 $activeSessions = healthRows("SELECT COUNT(*) AS total FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")[0]['total'] ?? 0;

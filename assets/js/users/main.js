@@ -185,6 +185,17 @@ async function loadUsers() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        function exportUsersCsv() {
+            const params = new URLSearchParams({
+                export_csv: '1',
+                archive: archiveMode ? '1' : '0',
+                search: document.getElementById('searchInput')?.value || '',
+                role: document.getElementById('roleFilter')?.value || '',
+                status: document.getElementById('statusFilter')?.value || ''
+            });
+            window.location.href = `${window.location.pathname}?${params.toString()}`;
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -637,13 +648,19 @@ function editUser(userId) {
 
     try {
         document.getElementById('edit_user_id').value = user.user_id;
-        document.getElementById('edit_email').value = user.email;
+        document.getElementById('edit_email').value = (user.email || '').replace(/@sti\.edu(?:\.ph)?$/i, '');
         const nameParts = (user.full_name || '').trim().split(/\s+/);
         document.getElementById('edit_first_name').value = user.first_name || nameParts.shift() || '';
         document.getElementById('edit_last_name').value = user.last_name || (nameParts.pop() || '');
         document.getElementById('edit_middle_name').value = user.middle_name || nameParts.join(' ');
         document.getElementById('edit_role').value = user.role;
-        document.getElementById('edit_contact_number').value = user.contact_number || '';
+        document.getElementById('edit_contact_number').value = (user.contact_number || '')
+            .replace(/\D/g, '')
+            .replace(/^09/, '')
+            .slice(0, 9)
+            .replace(/^(\d{0,2})(\d{0,3})(\d{0,4}).*$/, function(_, a, b, c) {
+                return a + (b ? ' ' + b : '') + (c ? ' ' + c : '');
+            });
         const editTeacherId = document.getElementById('edit_teacher_id');
         const editDoId = document.getElementById('edit_do_id');
         const editStudentId = document.getElementById('edit_student_id');
@@ -1050,7 +1067,7 @@ function escapeHtml(text) {
 
 function formatRole(role) {
     const roles = {
-        'super_admin': 'Super Admin',
+        'system_manager': 'System Manager',
         'discipline_office': 'Discipline Office',
         'teacher': 'Teacher',
         'security': 'Security',
@@ -1069,7 +1086,7 @@ function formatTeacherSubrole(subrole) {
 
 function getRoleBadgeClass(role) {
     const classes = {
-        'super_admin': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-semibold',
+        'system_manager': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-semibold',
         'discipline_office': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-semibold',
         'teacher': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-semibold',
         'security': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 font-semibold',

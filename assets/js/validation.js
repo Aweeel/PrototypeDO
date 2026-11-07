@@ -2,21 +2,22 @@
     'use strict';
 
     const rules = [
-        { selector: '#globalBannerText', maxLength: 250 },
+        { selector: '#globalBannerText', maxLength: 250, counter: true },
         { selector: '#offense_name, #sanction_name', maxLength: 50 },
         { selector: '#add_email', emailDomain: 'sti.edu', localPartMaxLength: 64 },
         { selector: '#add_contact_number, input[name="contact_number"]', contactNumber: true },
         { selector: '#newStudentNumber, #studentNumber, input[name="student_number"]', studentNumber: true },
         { selector: '#add_do_id, input[name="do_id"]', fixedDigits: 11 },
-        { selector: '#newNotes, #editNotes, #notes', maxLength: 250 },
+        { selector: '#newNotes, #editNotes, #notes', maxLength: 250, counter: true },
+        { selector: '#sanctionNotes, #editSanctionNotes', maxLength: 250, counter: true },
         { selector: '#addItemForm input[name="item_name"], #editItemForm input[name="item_name"]', maxLength: 50 },
         { selector: '#addItemForm input[name="location"], #editItemForm input[name="location"]', maxLength: 50 },
         { selector: '#addItemForm textarea[name="description"], #editItemForm textarea[name="description"]', maxLength: 250 },
         { selector: '#eventName, #editEventName', maxLength: 100 },
         { selector: '#eventLocation, #editEventLocation', maxLength: 100 },
-        { selector: '#eventDescription, #editEventDescription', maxLength: 250 },
+        { selector: '#eventDescription, #editEventDescription', maxLength: 250, counter: true },
         { selector: '#itemImageInput', fileTypes: ['image/png', 'image/jpeg', 'image/webp'] },
-        { selector: '#rejectCommunityServiceNote', requiredText: true }
+        { selector: '#rejectCommunityServiceNote', requiredText: true, maxLength: 250, counter: true }
     ];
 
     function setValidity(element, message) {
@@ -83,9 +84,47 @@
                 if (rule.emailDomain) {
                     element.maxLength = rule.localPartMaxLength + rule.emailDomain.length + 1;
                 }
+                if (rule.counter) {
+                    initializeCharacterCounter(element, rule.maxLength);
+                }
                 validateElement(element);
             });
         });
+    }
+
+    function initializeCharacterCounter(element, maxLength) {
+        if (!maxLength || element.dataset.characterCounterInitialized === 'true') {
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'relative';
+        if (element.classList.contains('flex-1')) {
+            container.classList.add('flex-1');
+            element.classList.remove('flex-1');
+        }
+        element.parentNode.insertBefore(container, element);
+        container.appendChild(element);
+
+        const counter = document.createElement('span');
+        counter.className = 'pointer-events-none absolute bottom-1 right-2 text-[10px] leading-3 text-gray-400 dark:text-gray-500';
+        counter.setAttribute('aria-live', 'polite');
+        container.appendChild(counter);
+
+        if (element instanceof HTMLTextAreaElement) {
+            element.classList.add('pb-5');
+        }
+        element.dataset.characterCounterInitialized = 'true';
+
+        const updateCounter = () => {
+            counter.textContent = `${element.value.length}/${maxLength}`;
+            counter.classList.toggle('text-red-500', element.value.length >= maxLength);
+            counter.classList.toggle('text-gray-400', element.value.length < maxLength);
+            counter.classList.toggle('dark:text-gray-500', element.value.length < maxLength);
+        };
+
+        element.addEventListener('input', updateCounter);
+        updateCounter();
     }
 
     function validateAcademicTerms(form) {

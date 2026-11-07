@@ -1,16 +1,44 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-// Check if user is super admin
-if ($_SESSION['user_role'] !== 'super_admin') {
+// Check if user is a system manager
+if ($_SESSION['user_role'] !== 'system_manager') {
     header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 
 ensureUsersTeacherSubroleColumn();
 ensureUsersArchiveColumn();
+ensureStudentsArchiveColumn();
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export_csv'])) {
+    $archive = ($_GET['archive'] ?? '0') === '1' ? 1 : 0;
+    $rows = fetchAll(
+        "SELECT u.email, u.full_name, u.role, u.contact_number,
+                COALESCE(s.student_id, '') AS student_id, COALESCE(s.first_name, '') AS first_name,
+                COALESCE(s.last_name, '') AS last_name, COALESCE(s.middle_name, '') AS middle_name,
+                COALESCE(s.grade_year, '') AS grade_year, COALESCE(s.track_course, '') AS track_course,
+                COALESCE(s.section, '') AS section, COALESCE(s.student_type, '') AS student_type,
+                COALESCE(s.guardian_name, '') AS guardian_name, COALESCE(s.guardian_contact, '') AS guardian_contact,
+                COALESCE(u.teacher_id, '') AS teacher_id, COALESCE(u.do_id, '') AS do_id,
+                COALESCE(u.teacher_subrole, '') AS teacher_subrole, COALESCE(u.program, '') AS program
+         FROM users u LEFT JOIN students s ON s.user_id = u.user_id
+         WHERE u.is_archived = ? ORDER BY u.full_name",
+        [$archive]
+    );
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="users-' . ($archive ? 'archived' : 'active') . '.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['role_id', 'email', 'teacher_subrole', 'program', 'first_name', 'last_name', 'middle_name', 'contact_number', 'role', 'grade_year', 'track_course', 'section', 'student_type', 'guardian_name', 'guardian_contact']);
+    foreach ($rows as $row) {
+        $roleId = $row['role'] === 'student' ? $row['student_id'] : ($row['role'] === 'teacher' ? $row['teacher_id'] : ($row['role'] === 'discipline_office' ? $row['do_id'] : ''));
+        fputcsv($output, [$roleId, $row['email'], $row['teacher_subrole'], $row['program'], $row['first_name'], $row['last_name'], $row['middle_name'], $row['contact_number'], $row['role'], $row['grade_year'], $row['track_course'], $row['section'], $row['student_type'], $row['guardian_name'], $row['guardian_contact']]);
+    }
+    fclose($output);
+    exit;
+}
 
 function validateUserRoleIds($role, $teacherId, $doId, $studentId) {
     if ($role === 'teacher') {
@@ -187,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             return strtolower($cleaned);
         }, $header);
 
-        $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'super_admin'];
+        $allowedRoles = ['teacher', 'discipline_office', 'security', 'student', 'system_manager'];
         $allowedTeacherSubroles = ['department_head'];
         $imported = 0;
         $errors = [];
@@ -196,6 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
         $previewRows = [];
         $seenEmails = [];
         $seenRoleIds = [];
+        $incomingStudentIds = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             // Skip empty rows
@@ -284,6 +313,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
                 $skipped++;
                 continue;
             }
+            if ($role === 'student') {
+                $incomingStudentIds[$studentId] = true;
+            }
             if ($role === 'teacher' && $teacherId === '') {
                 $errors[] = "Row skipped: role_id is required for teacher rows";
                 $skipped++;
@@ -312,9 +344,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             }
 
             // Check for existing IDs
-            if ($studentId !== '' && fetchOne("SELECT student_id FROM students WHERE CAST(student_id AS CHAR) = ?", [$studentId])) {
-                $errors[] = "Row skipped: student_id '{$studentId}' already exists";
-                $skipped++;
+            $existingStudent = $studentId !== ''
+                ? fetchOne("SELECT student_id, user_id FROM students WHERE CAST(student_id AS CHAR) = ?", [$studentId])
+                : null;
+            if ($existingStudent) {
+                if (!$preview) {
+                    executeQuery("UPDATE students SET is_archived = 0, archived_at = NULL WHERE student_id = ?", [$studentId]);
+                    if (!empty($existingStudent['user_id'])) {
+                        executeQuery("UPDATE users SET is_archived = 0, is_active = 1 WHERE user_id = ?", [$existingStudent['user_id']]);
+                    }
+                }
+                $previewRows[] = [
+                    'name' => trim($data['first_name'] . ' ' . ($data['middle_name'] ?? '') . ' ' . $data['last_name']),
+                    'email' => $email,
+                    'role' => $role,
+                    'role_id' => $roleId,
+                    'change' => 'restored'
+                ];
+                $imported++;
                 continue;
             }
             if ($teacherId !== '' && fetchOne("SELECT user_id FROM users WHERE CAST(teacher_id AS CHAR) = ?", [$teacherId])) {
@@ -407,13 +454,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['import_csv']) || iss
             }
         }
         fclose($handle);
+        $missingStudents = [];
+        if ($incomingStudentIds) {
+            $placeholders = implode(',', array_fill(0, count($incomingStudentIds), '?'));
+            $missingStudents = fetchAll("SELECT student_id, CONCAT_WS(' ', first_name, NULLIF(middle_name, ''), last_name) AS full_name FROM students WHERE is_archived = 0 AND student_id NOT IN ({$placeholders})", array_keys($incomingStudentIds));
+            if (!$preview && $missingStudents) {
+                executeQuery("UPDATE students s LEFT JOIN users u ON u.user_id = s.user_id SET s.is_archived = 1, s.archived_at = NOW(), u.is_archived = 1, u.is_active = 0 WHERE s.is_archived = 0 AND s.student_id NOT IN ({$placeholders})", array_keys($incomingStudentIds));
+            }
+        }
         echo json_encode([
             'success' => true,
             'imported' => $imported,
             'skipped' => $skipped,
             'errors' => $errors,
             'preview' => $preview,
-            'preview_rows' => $previewRows
+            'preview_rows' => $previewRows,
+            'archived_students' => $preview ? 0 : count($missingStudents),
+            'would_archive_students' => $preview ? $missingStudents : []
         ]);
         exit;
     } catch (Exception $e) {
@@ -1034,6 +1091,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             $newArchiveState = $isArchiving ? 1 : 0;
             executeQuery("UPDATE users SET is_archived = ?, is_active = CASE WHEN ? = 1 THEN 0 ELSE 1 END, updated_at = NOW() WHERE user_id = ?", [$newArchiveState, $newArchiveState, $user_id]);
+            if (($userData['role'] ?? '') === 'student') {
+                executeQuery(
+                    "UPDATE students
+                     SET is_archived = ?, archived_at = CASE WHEN ? = 1 THEN NOW() ELSE NULL END, updated_at = NOW()
+                     WHERE user_id = ?",
+                    [$newArchiveState, $newArchiveState, $user_id]
+                );
+            }
             logAudit($_SESSION['user_id'], $isArchiving ? 'User Archived' : 'User Restored', 'users', $user_id, sanitizeAuditData($userData), ['is_archived' => $newArchiveState]);
 
             echo json_encode(['success' => true, 'message' => $isArchiving ? 'User archived successfully' : 'User restored successfully']);
@@ -1187,6 +1252,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
                     $newArchiveState = $isArchiving ? 1 : 0;
                     executeQuery("UPDATE users SET is_archived = ?, is_active = CASE WHEN ? = 1 THEN 0 ELSE 1 END, updated_at = NOW() WHERE user_id = ?", [$newArchiveState, $newArchiveState, $userId]);
+                    $userData = fetchOne("SELECT role FROM users WHERE user_id = ?", [$userId]);
+                    if (($userData['role'] ?? '') === 'student') {
+                        executeQuery(
+                            "UPDATE students
+                             SET is_archived = ?, archived_at = CASE WHEN ? = 1 THEN NOW() ELSE NULL END, updated_at = NOW()
+                             WHERE user_id = ?",
+                            [$newArchiveState, $newArchiveState, $userId]
+                        );
+                    }
                     logAudit($_SESSION['user_id'], $isArchiving ? 'User Archived (Bulk)' : 'User Restored (Bulk)', 'users', $userId, null, ['is_archived' => $newArchiveState]);
 
                     $successCount++;
@@ -1299,6 +1373,10 @@ $adminName = getFormattedUserName();
                                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                             </svg>
                             Import Users
+                        </button>
+                        <button onclick="exportUsersCsv()"
+                           class="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors sm:w-auto">
+                           Export CSV
                         </button>
 
                         <button onclick="openAddModal()"
@@ -1531,6 +1609,11 @@ $adminName = getFormattedUserName();
             document.getElementById('importUsersModal').classList.add('hidden');
         }
 
+        function exportUsersCsv() {
+            const archive = typeof archiveMode !== 'undefined' && archiveMode ? '1' : '0';
+            window.location.href = `${window.location.pathname}?export_csv=1&archive=${archive}`;
+        }
+
         document.getElementById('usersCsvFile').addEventListener('change', function() {
             const form = document.getElementById('importUsersForm');
             form.dataset.previewReady = 'false';
@@ -1585,6 +1668,11 @@ $adminName = getFormattedUserName();
                     
                     if (result.skipped > 0) {
                         html += `<p class="text-sm text-yellow-700 dark:text-yellow-400 mt-2">⚠ ${result.skipped} row(s) skipped</p>`;
+                    }
+                    if (isPreview && result.would_archive_students && result.would_archive_students.length > 0) {
+                        html += `<p class="text-sm text-orange-700 dark:text-orange-400 mt-2">⚠ ${result.would_archive_students.length} student(s) are missing and will be archived.</p>`;
+                    } else if (!isPreview && result.archived_students > 0) {
+                        html += `<p class="text-sm text-orange-700 dark:text-orange-400 mt-2">⚠ ${result.archived_students} missing student(s) were archived.</p>`;
                     }
 
                     if (result.errors && result.errors.length > 0) {

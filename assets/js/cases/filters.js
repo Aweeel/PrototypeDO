@@ -138,6 +138,13 @@ function applyClientSideFilters() {
             return caseDate >= fromDate && caseDate <= toDate;
         });
     }
+
+    if (!casesTableSortActive) {
+        filteredCases.sort((left, right) =>
+            Number(Boolean(right.hasCommunityServiceSubmission))
+            - Number(Boolean(left.hasCommunityServiceSubmission))
+        );
+    }
     
     // Re-render
     updateActiveTabPage(1);

@@ -108,6 +108,38 @@ function ensureUsersArchiveColumn() {
     $initialized = true;
 }
 
+function ensureStudentsArchiveColumn() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $columnInfo = fetchOne(
+        "SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'students'
+           AND COLUMN_NAME = 'is_archived'"
+    );
+
+    if (!$columnInfo) {
+        executeQuery("ALTER TABLE students ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0");
+    }
+
+    $archivedAtInfo = fetchOne(
+        "SELECT COLUMN_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'students'
+           AND COLUMN_NAME = 'archived_at'"
+    );
+
+    if (!$archivedAtInfo) {
+        executeQuery("ALTER TABLE students ADD COLUMN archived_at DATETIME NULL");
+    }
+
+    $initialized = true;
+}
+
 function ensureCalendarTargetUserColumn() {
     static $initialized = false;
 
@@ -2517,7 +2549,7 @@ function get_sidebar_items($role) {
         $teacherSubrole = $currentUser['teacher_subrole'] ?? $teacherSubrole;
     }
     
-    if ($role === 'super_admin') {
+    if ($role === 'system_manager') {
         $items = [
             [
                 'label' => 'System Settings',

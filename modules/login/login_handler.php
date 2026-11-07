@@ -88,8 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Log to audit_logs database table
             logLogin($user['user_id']);
 
-            // Redirect based on role
-            if ($user['role'] === 'super_admin') {
+            // Redirect system managers to the system control page.
+            if ($user['role'] === 'system_manager') {
                 header('Location: ' . BASE_URL . '/modules/super-admin/systemControl.php');
             } elseif ($user['role'] === 'discipline_office') {
                 header('Location: ' . BASE_URL . '/modules/do/doDashboard.php');

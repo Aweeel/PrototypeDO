@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
+ensureStudentsArchiveColumn();
 
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
@@ -15,11 +16,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     }
 
     try {
+        if ($_POST['action'] === 'archiveStudent' || $_POST['action'] === 'restoreStudent') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Student archive changes are managed by the system manager']);
+            exit;
+        }
+
         // Get students with filters
         if ($_POST['action'] === 'getStudents') {
             $search = $_POST['search'] ?? '';
             $grade = $_POST['grade'] ?? '';
             $status = $_POST['status'] ?? '';
+            $archive = ($_POST['archive'] ?? '0') === '1';
 
             // ── Sync student statuses based on handbook offense categories ──
             //
@@ -133,9 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                         s.status,
                         (SELECT COUNT(*) FROM cases c WHERE c.student_id = s.student_id AND c.is_archived = 1) AS archived_cases
                     FROM students s
-                    WHERE 1=1";
+                    WHERE s.is_archived = ?";
             
-            $params = [];
+            $params = [$archive ? 1 : 0];
 
             // Search filter
             if (!empty($search)) {
@@ -274,6 +282,10 @@ $adminName = getFormattedUserName();
                     </div>
 
                     <div class="flex w-full flex-wrap gap-3 items-center sm:w-auto">
+                        <div class="flex overflow-hidden rounded-lg border border-gray-300 dark:border-slate-600">
+                            <button id="activeStudentsTab" onclick="setStudentArchiveMode(false)" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white">Active Students</button>
+                            <button id="archivedStudentsTab" onclick="setStudentArchiveMode(true)" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
+                        </div>
                         <!-- Grade Filter -->
                         <select id="gradeFilter" onchange="filterStudents()"
                             class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">

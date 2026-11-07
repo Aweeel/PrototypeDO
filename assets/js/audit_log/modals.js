@@ -31,7 +31,7 @@ function formatValueLabel(key, value) {
         role: {
             do: 'Discipline Office',
             discipline_office: 'Discipline Office',
-            super_admin: 'Super Admin',
+            system_manager: 'System Manager',
             admin: 'Administrator',
             teacher: 'Teacher',
             student: 'Student'

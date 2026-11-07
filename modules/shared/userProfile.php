@@ -96,10 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_profile') {
-    $contactNumber = preg_replace('/\D/', '', (string)($_POST['contact_number'] ?? ''));
+    $contactNumberSuffix = preg_replace('/\D/', '', (string)($_POST['contact_number'] ?? ''));
+    $contactNumber = '09' . $contactNumberSuffix;
     
-    if (!preg_match('/^0\d{10}$/', $contactNumber)) {
-        $message = "Contact number must contain 11 digits and start with 0.";
+    if (!preg_match('/^09\d{9}$/', $contactNumber)) {
+        $message = "Contact number must contain 9 digits after the fixed 09 prefix.";
         $messageType = "error";
     } else {
         try {
@@ -226,14 +227,17 @@ if ($user) {
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Contact Number *
                         </label>
-                        <input type="tel" name="contact_number" required
-                               pattern="0[0-9]{3} [0-9]{3} [0-9]{4}" maxlength="13" inputmode="numeric"
-                               title="Use 11 digits starting with 0"
-                               value="<?php echo htmlspecialchars(preg_replace('/^(\d{4})(\d{3})(\d{4})$/', '$1 $2 $3', preg_replace('/\D/', '', $user['contact_number'] ?? ''))); ?>"
-                               oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11).replace(/^(\d{4})(\d{0,3})(\d{0,4}).*$/, function(_, a, b, c) { return a + (b ? ' ' + b : '') + (c ? ' ' + c : ''); });"
-                               id="contactNumber"
-                               readonly
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
+                        <div class="flex">
+                            <span class="inline-flex items-center rounded-l-lg border border-r-0 border-gray-300 bg-gray-100 px-3 text-gray-700 dark:border-gray-600 dark:bg-gray-600 dark:text-gray-200">09</span>
+                            <input type="tel" name="contact_number" required
+                                   pattern="[0-9]{2} [0-9]{3} [0-9]{4}" maxlength="11" inputmode="numeric"
+                                   title="Enter 9 digits after the fixed 09 prefix"
+                                   value="<?php echo htmlspecialchars(preg_replace('/^(\d{2})(\d{3})(\d{4})$/', '$1 $2 $3', substr(preg_replace('/\D/', '', $user['contact_number'] ?? ''), 2))); ?>"
+                                   oninput="this.value = this.value.replace(/\D/g, '').slice(0, 9).replace(/^(\d{0,2})(\d{0,3})(\d{0,4}).*$/, function(_, a, b, c) { return a + (b ? ' ' + b : '') + (c ? ' ' + c : ''); });"
+                                   id="contactNumber"
+                                   readonly
+                                   class="min-w-0 flex-1 rounded-r-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm sm:text-base" />
+                        </div>
                     </div>
 
                     <?php if ($staffId !== null): ?>

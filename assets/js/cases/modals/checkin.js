@@ -632,7 +632,6 @@ async function markCommunityServiceSubmissionsViewed(caseId, caseSanctionId, san
     });
     const result = await response.json();
     if (result.success) {
-      updateCaseCheckInAlert(caseId, false, sanctionType);
       await refreshCheckInModalContent(caseId, sanctionType);
     }
   } catch (error) {

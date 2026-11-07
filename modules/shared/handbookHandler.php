@@ -25,7 +25,7 @@ if (!isset($_SESSION['user_id'])) {
 
 // Handle PDF Upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'uploadPDF') {
-    if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+    if (($_SESSION['user_role'] ?? '') !== 'system_manager') {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
         exit;
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle content updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'updateContent') {
-    if (($_SESSION['user_role'] ?? '') !== 'super_admin') {
+    if (($_SESSION['user_role'] ?? '') !== 'system_manager') {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
         exit;

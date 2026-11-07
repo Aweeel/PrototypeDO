@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 $pageTitle = "Student Handbook";
 $adminName = trim((string) ($_SESSION['admin_name'] ?? '')) ?: 'Admin';
-$isSuperAdmin = ($_SESSION['user_role'] ?? '') === 'super_admin';
+$isSystemManager = ($_SESSION['user_role'] ?? '') === 'system_manager';
 
 // Load saved handbook content from JSON file
 $handbookContent = [];
@@ -535,7 +535,7 @@ function getHandbookSection($sectionId, $defaultContent) {
             >
               Download PDF
             </a>
-            <?php if ($isSuperAdmin): ?>
+            <?php if ($isSystemManager): ?>
               <button
                 onclick="openUploadPDFModal()"
                 class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
@@ -3919,7 +3919,7 @@ document.addEventListener('click', (event) => {
 </script>
 
 <!-- Handbook Edit Modal -->
-<?php if ($isSuperAdmin): ?>
+<?php if ($isSystemManager): ?>
 <script>
 function createContentWrappers() {
   const innerContent = document.querySelector('main .flex-1.bg-white, main .flex-1.dark\\:bg-\\[\\#111827\\]');
@@ -4172,7 +4172,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
-<?php if ($isSuperAdmin): ?>
+<?php if ($isSystemManager): ?>
 <script>
 function openUploadPDFModal() {
   document.getElementById('uploadPDFModal').classList.remove('hidden');

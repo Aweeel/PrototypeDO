@@ -12,7 +12,7 @@ It includes one row for each supported role:
 - `discipline_office`
 - `student`
 - `security`
-- `super_admin`
+- `system_manager`
 
 The user importer creates accounts with the default password `password`. Use a database reset or otherwise remove the synthetic records before rerunning the fixture.
 

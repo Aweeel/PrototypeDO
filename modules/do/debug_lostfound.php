@@ -73,7 +73,7 @@ require_once __DIR__ . '/../../includes/auth_check.php';
             <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
                 <h2 class="text-xl font-semibold text-green-900 mb-3">✅ Access Check Results</h2>
                 <?php
-                $allowed_roles = ['discipline_office', 'do', 'super_admin'];
+                $allowed_roles = ['discipline_office', 'do', 'system_manager'];
                 $current_role = $_SESSION['role'] ?? 'NONE';
                 $has_access = in_array($current_role, $allowed_roles);
                 ?>
