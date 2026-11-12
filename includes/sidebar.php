@@ -21,6 +21,10 @@ $displayRole = ucwords(str_replace('_', ' ', $role));
 // Fetch sidebar items
 $sidebarItems = get_sidebar_items($role);
 
+$homeUrl = !empty($sidebarItems[0]['path']) 
+    ? $sidebarItems[0]['path'] 
+    : (BASE_URL . '/modules/login/login.php');
+
 // Set badge letters based on role
 switch ($role) {
     case 'system_manager':
@@ -51,8 +55,13 @@ switch ($role) {
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">
-        <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/logos/STI-logo.png" alt="STI Logo" class="w-30 h-auto" />
-    </div>
+    <a href="<?= htmlspecialchars($homeUrl) ?>" 
+       class="transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none">
+        <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/logos/STI-logo.png" 
+             alt="STI Logo - Home" 
+             class="w-30 h-auto" />
+    </a>
+</div>
 
     <!-- Department Badge -->
     <div class="px-4 pt-2 justify-center flex items-center space-x-2 mx-4 mb-4">
