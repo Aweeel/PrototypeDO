@@ -85,7 +85,7 @@ if (!isset($adminName) || empty($adminName)) {
 </script>
 
 <header
-    class="fixed top-0 left-0 lg:left-64 right-0 z-30
+    class="fixed top-0 left-0 md:left-64 right-0 z-30
            bg-white dark:bg-[#111827]
            border-b border-gray-200 dark:border-gray-700
            px-4 sm:px-6 md:px-8 py-3 md:py-4
@@ -104,7 +104,7 @@ if (!isset($adminName) || empty($adminName)) {
             <!-- Mobile Hamburger Menu Button -->
             <button type="button" 
                     onclick="toggleSidebar()" 
-                    class="lg:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg focus:outline-none transition-colors"
+                    class="md:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg focus:outline-none transition-colors"
                     aria-label="Toggle Sidebar">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -121,7 +121,7 @@ if (!isset($adminName) || empty($adminName)) {
         <div class="flex items-center space-x-2 sm:space-x-3">
             <!-- Theme Toggle -->
             <button onclick="toggleDarkMode()" id="theme-toggle"
-                class="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition transform hover:scale-105">
+                class="w-9 h-9 flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition transform hover:scale-105">
                 <div class="w-7 h-7 relative flex items-center justify-center">
                     <img id="theme-toggle-light-icon" src="../../assets/images/icons/dark-mode-icon.png"
                         alt="Light Mode Icon" class="absolute inset-0 w-7 h-7 dark:hidden" />
@@ -130,12 +130,13 @@ if (!isset($adminName) || empty($adminName)) {
                 </div>
             </button>
 
+            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center relative">
             <?php if ($showNotifications): ?>
             <!-- Notifications -->
             <div class="relative">
                 <button
                     onclick="toggleNotificationPanel()"
-                    class="p-2 rounded-full transition-colors duration-300 hover:bg-gray-200 dark:hover:bg-slate-700 active:scale-95 relative">
+                    class="w-10 h-10 p-2 rounded-full transition-colors duration-300 hover:bg-gray-200 dark:hover:bg-slate-700 active:scale-95 relative">
                     <div class="relative w-6 h-6 flex items-center justify-center">
                         <img src="../../assets/images/icons/notification-dark-icon.png" alt="Notification icon"
                             class="absolute inset-0 w-6 h-6 block dark:hidden">
@@ -196,14 +197,15 @@ if (!isset($adminName) || empty($adminName)) {
                 </div>
             </div>
             <?php endif; ?>
+            </div>
 
             <!-- Admin Info - Profile Link -->
             <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/shared/userProfile.php" 
-               class="flex items-center space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-                <span class="hidden sm:inline text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+               class="w-10 sm:w-auto flex-shrink-0 flex items-center justify-end space-x-2 hover:opacity-80 transition-opacity active:scale-95 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                <span class="hidden sm:inline whitespace-nowrap text-m text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                     <?php echo isset($adminName) ? htmlspecialchars($adminName) : 'User'; ?>
                 </span>
-                <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center cursor-pointer">
+                <div class="w-8 h-8 min-w-8 flex-shrink-0 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center cursor-pointer">
                     <span class="text-xs font-bold text-white">
                         <?php 
                         $adminName = isset($adminName) ? htmlspecialchars($adminName) : 'U';

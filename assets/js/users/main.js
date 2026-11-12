@@ -310,7 +310,10 @@ function renderUsers() {
         : [...filteredUsers];
     document.querySelectorAll('button[data-sort]').forEach(button => {
         const active = button.dataset.sort === sortColumn;
-        button.textContent = `${button.dataset.label} ${active ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}`;
+        const indicator = button.querySelector('.table-control-sort-indicator');
+        indicator?.classList.toggle('is-active', active);
+        indicator?.classList.toggle('is-ascending', active && sortDirection === 'asc');
+        indicator?.classList.toggle('is-descending', active && sortDirection === 'desc');
         button.setAttribute('aria-sort', active ? sortDirection : 'none');
     });
 
