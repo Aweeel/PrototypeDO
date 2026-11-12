@@ -1364,6 +1364,47 @@ $adminName = getFormattedUserName();
             position: relative;
         }
 
+        .users-table .table-control-sort-indicator {
+            display: inline-block;
+            position: relative;
+            width: 10px;
+            height: 12px;
+            margin-left: 4px;
+            vertical-align: middle;
+            opacity: .55;
+        }
+
+        .users-table .table-control-sort-indicator::before,
+        .users-table .table-control-sort-indicator::after {
+            content: '';
+            position: absolute;
+            left: 2px;
+            border-left: 3px solid transparent;
+            border-right: 3px solid transparent;
+        }
+
+        .users-table .table-control-sort-indicator::before {
+            top: 0;
+            border-bottom: 4px solid currentColor;
+        }
+
+        .users-table .table-control-sort-indicator::after {
+            bottom: 0;
+            border-top: 4px solid currentColor;
+        }
+
+        .users-table .table-control-sort-indicator.is-active {
+            opacity: 1;
+        }
+
+        .users-table .table-control-sort-indicator.is-descending::before {
+            opacity: .3;
+        }
+
+        .users-table .table-control-sort-indicator.is-ascending::after {
+            opacity: .3;
+        }
+
         .users-table .column-resizer {
             position: absolute;
             right: 0;
@@ -1534,7 +1575,7 @@ $adminName = getFormattedUserName();
                                 ?>
                                 <th class="relative px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                                     <button type="button" data-sort="<?= htmlspecialchars($column['key']) ?>" data-label="<?= htmlspecialchars($column['label']) ?>" aria-sort="none" class="w-full text-left">
-                                        <?= htmlspecialchars($column['label']) ?> ↕
+                                        <span class="user-sort-label"><?= htmlspecialchars($column['label']) ?></span><span class="table-control-sort-indicator" aria-hidden="true"></span>
                                     </button>
                                     <?php if ($index < count($sortableColumns) - 1): ?>
                                     <span class="column-resizer z-10 border-l border-gray-300 bg-gray-200/70 hover:bg-blue-500 dark:border-slate-600 dark:bg-slate-600/70 dark:hover:bg-blue-400" data-column-index="<?= $index ?>" title="Drag to resize column"></span>

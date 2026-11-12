@@ -47,7 +47,7 @@ switch ($role) {
 <aside id="sidebar" 
        class="w-64 flex flex-col fixed top-0 left-0 h-screen border-r border-slate-700 dark:border-gray-800
               max-h-[100dvh] overflow-hidden bg-[#1E2B3B] dark:bg-[#030712] text-white z-40
-              -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+              -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
 
     <!-- Logo -->
     <div class="justify-center pt-2 flex items-center space-x-3">
@@ -86,7 +86,7 @@ switch ($role) {
 
     <!-- Log Out Button -->
     <div class="flex-shrink-0 p-4 border-t border-[#374151] dark:border-gray-800">
-        <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php" class="w-full flex items-center justify-center space-x-2 
+        <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php" data-logout-link class="w-full flex items-center justify-center space-x-2 
                   bg-[#33475F] hover:bg-[#991B1B] 
                   dark:bg-[#111827] dark:hover:bg-[#7F1D1D] 
                   text-white font-medium py-2 px-4 rounded-lg 
@@ -100,11 +100,54 @@ switch ($role) {
 
 <div id="globalSidebarOverlay"
      onclick="toggleSidebar()"
-     class="fixed inset-0 z-[35] hidden bg-black/50 lg:hidden transition-opacity"
+     class="fixed inset-0 z-[35] hidden bg-black/50 md:hidden transition-opacity"
      aria-hidden="true"></div>
 
 <style>
-    @media (max-width: 1023px) {
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .overflow-x-auto {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    input:not([type="hidden"]),
+    select,
+    textarea {
+        color-scheme: light;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .dark input:not([type="hidden"]),
+    .dark select,
+    .dark textarea {
+        color-scheme: dark;
+    }
+
+    @media (max-width: 767px) {
+        .flex-1 {
+            min-width: 0;
+        }
+
+        input:not([type="hidden"]),
+        select,
+        textarea {
+            min-height: 2.75rem;
+            font-size: 1rem;
+        }
+
         #sidebar {
             transform: translateX(-100%);
         }
@@ -125,25 +168,6 @@ switch ($role) {
             margin-left: 0 !important;
         }
 
-        .ml-64 {
-            margin-left: 0 !important;
-        }
-
-        .flex-1 {
-            min-width: 0;
-        }
-
-        .overflow-x-auto {
-            min-width: 0;
-            max-width: 100%;
-        }
-
-        table {
-            max-width: none;
-        }
-    }
-
-    @media (max-width: 767px) {
         .ml-64 {
             margin-left: 0 !important;
         }

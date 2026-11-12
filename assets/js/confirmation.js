@@ -82,4 +82,22 @@
             form.submit();
         }
     });
+
+    document.addEventListener('click', async (event) => {
+        const link = event.target.closest('a[data-logout-link]');
+        if (!link) {
+            return;
+        }
+
+        event.preventDefault();
+        const confirmed = await window.showConfirmDialog({
+            message: 'Are you sure you want to log out?',
+            confirmText: 'Log Out',
+            confirmClass: 'bg-red-600 hover:bg-red-700'
+        });
+
+        if (confirmed) {
+            window.location.href = link.href;
+        }
+    });
 })();

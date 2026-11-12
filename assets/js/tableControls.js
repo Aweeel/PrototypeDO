@@ -32,6 +32,10 @@
         style.id = 'table-controls-styles';
         style.textContent = `
             [data-table-controls] { table-layout: fixed !important; }
+            [data-table-controls][data-table-sort-only] {
+                width: max-content;
+                min-width: 760px;
+            }
             [data-table-controls] th { position: relative; }
             [data-table-controls] td { white-space: nowrap; }
             [data-table-controls] th > .table-control-sort {
@@ -334,6 +338,13 @@
                 columns[index].style.width = `${width}px`;
             });
             const tableWidth = widths.reduce((total, width) => total + width, 0);
+            table.style.width = `${tableWidth}px`;
+            table.style.minWidth = `${tableWidth}px`;
+        } else {
+            const tableWidth = Math.max(
+                widths.reduce((total, width) => total + width, 0),
+                760
+            );
             table.style.width = `${tableWidth}px`;
             table.style.minWidth = `${tableWidth}px`;
         }

@@ -270,9 +270,9 @@ function fmtDate(d) {
 }
 
 function statCards(cards) {
-    return `<div class="flex flex-wrap gap-2.5 mb-5">
+    return `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
         ${cards.map(c=>`
-            <div class="flex-1 min-w-28 p-3.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-center">
+            <div class="min-w-0 p-3.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-center">
                 <div class="text-2xl font-bold leading-none" style="color:${c.color}">${c.value}</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">${c.label}</div>
             </div>

@@ -479,7 +479,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         #print-root { display: none; }
         .preview-wrap { font-family: Arial, sans-serif; color: #111827; }
         .dark .preview-wrap { color: #f1f5f9; }
+        .preview-wrap { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
         .tab-panel > div > div:last-child { min-width: 0; }
+        .preview-wrap table { width: max-content; min-width: 100%; }
+        .preview-wrap .overflow-x-auto {
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
         /* Print styles */
         @media print {

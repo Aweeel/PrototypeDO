@@ -183,6 +183,56 @@ $caseTypeDescriptionMap = array_combine(
             localStorage.setItem("theme", isDark ? "dark" : "light"); 
         } 
     </script> 
+    <style>
+        #reportForm input:not([type="hidden"]),
+        #reportForm select,
+        #reportForm textarea {
+            color-scheme: light;
+            -webkit-text-fill-color: #111827;
+        }
+
+        #reportForm input:not([type="hidden"])::placeholder,
+        #reportForm textarea::placeholder {
+            color: #6b7280;
+            opacity: 1;
+        }
+
+        .dark #reportForm input:not([type="hidden"]),
+        .dark #reportForm select,
+        .dark #reportForm textarea {
+            color-scheme: dark;
+            -webkit-text-fill-color: #f3f4f6;
+        }
+
+        .dark #reportForm input:not([type="hidden"])::placeholder,
+        .dark #reportForm textarea::placeholder {
+            color: #cbd5e1;
+        }
+
+        #reportForm input:disabled,
+        #reportForm textarea:disabled {
+            -webkit-text-fill-color: #4b5563;
+            opacity: 1;
+        }
+
+        .dark #reportForm input:disabled,
+        .dark #reportForm textarea:disabled {
+            -webkit-text-fill-color: #e2e8f0;
+        }
+
+        @media (max-width: 639px) {
+            #reportForm input:not([type="hidden"]),
+            #reportForm select,
+            #reportForm textarea {
+                min-height: 3rem;
+                font-size: 1rem;
+            }
+
+            #reportForm textarea {
+                min-height: 6rem;
+            }
+        }
+    </style>
 </head> 
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]"> 
