@@ -118,16 +118,15 @@ switch ($role) {
         --app-viewport-height: 100vh;
     }
 
-    @supports (height: 100svh) {
+    @supports (height: 100dvh) {
         :root {
-            --app-viewport-height: 100svh;
+            --app-viewport-height: 100dvh;
         }
     }
 
     html,
     body {
-        max-width: 100%;
-        overflow-x: hidden;
+        overflow-x: clip;
     }
 
     :root {
@@ -139,32 +138,12 @@ switch ($role) {
         color-scheme: dark;
     }
 
-    input,
-    select,
-    textarea,
-    button {
-        -webkit-appearance: none;
-        appearance: none;
-        font: inherit;
-        box-sizing: border-box;
-        max-width: 100%;
-        min-width: 0;
-    }
-
-    input,
-    select,
-    textarea {
-        background-color: #ffffff;
-        color: #111827;
-        -webkit-text-fill-color: currentColor;
-    }
-
-    .dark input,
-    .dark select,
-    .dark textarea {
-        background-color: #1e293b;
-        color: #e5e7eb;
-        -webkit-text-fill-color: currentColor;
+    @layer base {
+        :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+            -webkit-appearance: none;
+            appearance: none;
+            font: inherit;
+        }
     }
 
     input[type="date"],
@@ -182,24 +161,8 @@ switch ($role) {
         color: inherit;
     }
 
-    button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     #sidebar {
         max-height: var(--app-viewport-height);
-    }
-
-    .overflow-x-auto {
-        display: block;
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-x: contain;
     }
 
     input,
@@ -209,14 +172,14 @@ switch ($role) {
         -webkit-tap-highlight-color: transparent;
     }
 
-    input:not([type="hidden"]),
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
     select,
     textarea {
         color-scheme: light;
         -webkit-text-size-adjust: 100%;
     }
 
-    .dark input:not([type="hidden"]),
+    .dark input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
     .dark select,
     .dark textarea {
         color-scheme: dark;
@@ -248,7 +211,7 @@ switch ($role) {
             min-width: 0;
         }
 
-        input:not([type="hidden"]),
+        input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
         select,
         textarea {
             min-height: 2.75rem;

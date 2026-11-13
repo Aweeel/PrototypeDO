@@ -46,16 +46,18 @@ document.getElementById('maintenanceStatusButton')?.addEventListener('click', as
         }
         button.setAttribute('aria-pressed', String(isEnabled));
         button.setAttribute('aria-label', isEnabled ? 'Disable maintenance mode' : 'Enable maintenance mode');
-        button.className = `relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+        button.className = `relative inline-flex h-8 w-16 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
             isEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
         }`;
         const knob = button.querySelector('span');
         if (knob) {
-            knob.className = `pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${
-                isEnabled ? 'translate-x-5' : 'translate-x-0'
+            knob.className = `pointer-events-none absolute left-0 top-1/2 inline-block h-7 w-7 -translate-y-1/2 rounded-full bg-white shadow transform transition ${
+                isEnabled ? 'translate-x-8' : 'translate-x-0'
             }`;
         }
-        const status = button.parentElement.querySelector('p');
+        const toggleLabel = document.getElementById('maintenanceToggleLabel');
+        if (toggleLabel) toggleLabel.textContent = isEnabled ? 'On' : 'Off';
+        const status = button.closest('section')?.querySelector('p');
         if (status) status.textContent = `Current status: ${isEnabled ? 'Enabled' : 'Disabled'}`;
     } catch (error) {
         window.alert(error instanceof Error ? error.message : `Unable to ${actionLabel} maintenance mode.`);
