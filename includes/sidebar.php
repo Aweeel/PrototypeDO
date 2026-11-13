@@ -222,6 +222,7 @@ switch ($role) {
             -webkit-overflow-scrolling: touch;
         }
 
+        body > .app-shell,
         body > .flex.h-screen,
         body > .flex.h-screen.overflow-hidden {
             height: auto !important;
@@ -229,6 +230,7 @@ switch ($role) {
             overflow: visible !important;
         }
 
+        body > .app-shell > .flex-1.overflow-y-auto,
         body > .flex.h-screen > .flex-1.overflow-y-auto,
         body > .flex.h-screen.overflow-hidden > .flex-1.overflow-y-auto {
             min-height: var(--app-viewport-height);
@@ -253,6 +255,7 @@ switch ($role) {
             max-height: none;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         #sidebarLogout {
@@ -260,7 +263,8 @@ switch ($role) {
             bottom: 0;
             z-index: 1;
             background: #1E2B3B;
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            margin-bottom: env(safe-area-inset-bottom);
+            padding-bottom: 1rem;
         }
 
         .dark #sidebarLogout {

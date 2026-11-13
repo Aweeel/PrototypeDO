@@ -50,31 +50,24 @@ document.querySelectorAll('.catalog-search').forEach((input) => input.addEventLi
 
 function moveCatalogToolbar(panelId) {
     const panel = document.getElementById(panelId);
-    const tabs = document.querySelector('.tab-button')?.parentElement;
     const rowSelector = panelId === 'violationCatalogPanel' ? '.offense-row' : '.sanction-row';
     const search = document.querySelector(`.catalog-search[data-row-selector="${rowSelector}"]`);
     const addButton = document.querySelector(`[onclick="openCatalogModal('${panelId === 'violationCatalogPanel' ? 'offense' : 'sanction'}')"]`);
-    if (!panel || !tabs || !search || !addButton) return;
-
-    let toolbar = document.getElementById('catalogToolbar');
-    if (!toolbar) {
-        toolbar = document.createElement('div');
-        toolbar.id = 'catalogToolbar';
-        toolbar.className = 'catalog-toolbar flex w-full min-w-0 items-stretch gap-2 sm:w-auto sm:items-center';
-        tabs.appendChild(toolbar);
-    }
+    const toolbar = document.getElementById('catalogToolbar');
+    const controls = toolbar?.querySelector('.catalog-controls');
+    if (!panel || !toolbar || !controls || !search || !addButton) return;
 
     if (!search.dataset.toolbarReady) {
         search.dataset.toolbarReady = '1';
         search.dataset.catalogPanel = panelId;
-        search.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none');
-        toolbar.appendChild(search);
+        search.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none', 'placeholder:text-gray-400');
+        controls.appendChild(search);
     }
     if (!addButton.dataset.toolbarReady) {
         addButton.dataset.toolbarReady = '1';
         addButton.dataset.catalogPanel = panelId;
         addButton.classList.add('min-w-0', 'flex-1', 'sm:w-auto', 'sm:flex-none');
-        toolbar.appendChild(addButton);
+        controls.appendChild(addButton);
     }
 
     const sanctionSearch = document.querySelector('.catalog-search[data-row-selector=".sanction-row"]');
@@ -82,14 +75,14 @@ function moveCatalogToolbar(panelId) {
     if (sanctionSearch && !sanctionSearch.dataset.toolbarReady) {
         sanctionSearch.dataset.toolbarReady = '1';
         sanctionSearch.dataset.catalogPanel = 'penaltyGuidelinesPanel';
-        sanctionSearch.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none');
-        toolbar.appendChild(sanctionSearch);
+        sanctionSearch.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none', 'placeholder:text-gray-400');
+        controls.appendChild(sanctionSearch);
     }
     if (sanctionButton && !sanctionButton.dataset.toolbarReady) {
         sanctionButton.dataset.toolbarReady = '1';
         sanctionButton.dataset.catalogPanel = 'penaltyGuidelinesPanel';
         sanctionButton.classList.add('min-w-0', 'flex-1', 'sm:w-auto', 'sm:flex-none');
-        toolbar.appendChild(sanctionButton);
+        controls.appendChild(sanctionButton);
     }
 
     toolbar.querySelectorAll('[data-catalog-panel]').forEach((control) => {
