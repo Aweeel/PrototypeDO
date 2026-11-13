@@ -139,10 +139,39 @@ switch ($role) {
     }
 
     @layer base {
-        :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+        :root {
+            color-scheme: light;
+            --field-bg: #fff;
+            --field-fg: #111827;
+            --line: #e2e8f0;
+        }
+
+        :root.dark,
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --field-bg: #1e293b;
+            --field-fg: #e5e7eb;
+            --line: #334155;
+        }
+
+        :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="button"]):not([type="submit"]), select, textarea) {
             -webkit-appearance: none;
             appearance: none;
             font: inherit;
+            background-color: var(--field-bg);
+            color: var(--field-fg);
+        }
+
+        input:disabled,
+        textarea:disabled {
+            opacity: .6;
+            -webkit-text-fill-color: currentColor;
+        }
+
+        *,
+        ::after,
+        ::before {
+            border-color: var(--line);
         }
     }
 
