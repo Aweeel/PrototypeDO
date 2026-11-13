@@ -145,11 +145,14 @@ function createAddModal() {
                     </div>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter the 6-digit number after the fixed 02000 prefix.</p>
                 </div>
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <input type="text" id="add_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                    <input type="text" id="add_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                    <input type="text" id="add_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                </div>
+                <fieldset class="border-0 p-0">
+                    <legend class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</legend>
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <input type="text" id="add_first_name" aria-label="First Name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <input type="text" id="add_middle_name" aria-label="Middle Name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                        <input type="text" id="add_last_name" aria-label="Last Name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </fieldset>
                 <div id="add_student_details_container" class="hidden space-y-4">
                     <div>
                         <label for="add_student_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Student Type *</label>
@@ -192,7 +195,7 @@ function createAddModal() {
                 <div id="email_container">
                     <label for="add_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                     <div class="flex">
-                        <input type="text" id="add_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name"
+                        <input type="text" id="add_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name.xxxxxx"
                             class="min-w-0 flex-1 rounded-l-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100">
                         <span class="inline-flex items-center rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 px-3 text-gray-700 dark:border-slate-600 dark:bg-slate-600 dark:text-gray-200">@sti.edu</span>
                     </div>
@@ -343,18 +346,19 @@ function createEditModal() {
                     <div>
                         <label for="edit_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                         <div class="flex">
-                            <input type="text" id="edit_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name"
+                            <input type="text" id="edit_email" name="email" required pattern="[A-Za-z0-9._%+\-]+" placeholder="name.xxxxxx"
                                 class="min-w-0 flex-1 rounded-l-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100">
                             <span class="inline-flex items-center rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 px-3 text-gray-700 dark:border-slate-600 dark:bg-slate-600 dark:text-gray-200">@sti.edu</span>
                         </div>
                     </div>
-                    <div>
+                    <fieldset class="border-0 p-0">
+                        <legend class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Name *</legend>
                         <div class="grid gap-4 sm:grid-cols-3">
-                            <input type="text" id="edit_first_name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                            <input type="text" id="edit_middle_name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
-                            <input type="text" id="edit_last_name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <input type="text" id="edit_first_name" aria-label="First Name" placeholder="First Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <input type="text" id="edit_middle_name" aria-label="Middle Name" placeholder="Middle Name" class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
+                            <input type="text" id="edit_last_name" aria-label="Last Name" placeholder="Last Name *" required class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100">
                         </div>
-                    </div>
+                    </fieldset>
                     <div>
                         <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
                         <select id="edit_role" name="role" required 

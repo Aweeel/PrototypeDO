@@ -64,6 +64,25 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
           scrolling="yes"
           class="h-full min-h-full w-full border-0"
         ></iframe>
+        <div class="hidden handbook-mobile-fallback">
+          <div class="flex flex-col items-center text-center">
+            <div class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-300" aria-hidden="true">
+              <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 3.75h7.25L19 8.5v11.75A1.75 1.75 0 0 1 17.25 22h-10.5A1.75 1.75 0 0 1 5 20.25V5.5A1.75 1.75 0 0 1 7 3.75Z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 3.75V9h5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 14.25h8M8 17.25h5"/>
+              </svg>
+            </div>
+            <p class="mb-2 text-base font-semibold text-gray-900 dark:text-white">STI_TER_HANDBOOK.pdf</p>
+            <p class="mb-8 text-sm text-gray-500 dark:text-gray-400">Open the handbook in your device's PDF viewer.</p>
+          <a
+            href="<?php echo htmlspecialchars($pdfUrl . '?v=' . rawurlencode($pdfVersion)); ?>"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex min-w-48 justify-center rounded-xl bg-blue-600 px-8 py-4 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
+          >Open</a>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -138,5 +157,40 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
       });
     </script>
   <?php endif; ?>
+  <style>
+    @media (max-width: 767px), (hover: none) and (pointer: coarse) {
+      .handbook-mobile-fallback {
+        display: flex;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 0;
+        box-sizing: border-box;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1.5rem;
+        background: #202124;
+      }
+
+      main {
+        height: auto !important;
+        min-height: calc(100svh - 5rem);
+        overflow: visible !important;
+      }
+
+      main > div {
+        min-height: calc(100svh - 7rem);
+      }
+
+      main > div > div:nth-child(2) {
+        display: flex;
+        flex-direction: column;
+      }
+
+      main iframe {
+        display: none;
+      }
+    }
+
+  </style>
 </body>
 </html>

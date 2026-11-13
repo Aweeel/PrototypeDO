@@ -184,6 +184,25 @@ $caseTypeDescriptionMap = array_combine(
         } 
     </script> 
     <style>
+        :root {
+            color-scheme: light;
+        }
+
+        :root.dark,
+        html.dark {
+            color-scheme: dark;
+        }
+
+        #reportForm input,
+        #reportForm select,
+        #reportForm textarea {
+            -webkit-appearance: none;
+            appearance: none;
+            box-sizing: border-box;
+            max-width: 100%;
+            min-width: 0;
+        }
+
         #reportForm input:not([type="hidden"]),
         #reportForm select,
         #reportForm textarea {
@@ -226,10 +245,24 @@ $caseTypeDescriptionMap = array_combine(
             #reportForm textarea {
                 min-height: 3rem;
                 font-size: 1rem;
+                max-width: 100%;
+                box-sizing: border-box;
+                -webkit-appearance: none;
+                background-color: #fff;
+                color: #111827;
+                -webkit-text-fill-color: #111827;
             }
 
             #reportForm textarea {
                 min-height: 6rem;
+            }
+
+            .dark #reportForm input:not([type="hidden"]),
+            .dark #reportForm select,
+            .dark #reportForm textarea {
+                background-color: #1e293b;
+                color: #f3f4f6;
+                -webkit-text-fill-color: #f3f4f6;
             }
         }
     </style>
@@ -238,11 +271,6 @@ $caseTypeDescriptionMap = array_combine(
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]"> 
 
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?> 
-
-    <!-- Mobile Overlay Backdrop -->
-    <div id="sidebarOverlay" 
-         onclick="toggleSidebar()" 
-         class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
 
     <div class="flex h-screen overflow-hidden"> 
         <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300"> 

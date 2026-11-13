@@ -50,8 +50,20 @@
         try {
             const response = await fetch(config.notificationsUrl, {
                 credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
                 cache: 'no-store'
             });
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error(`Notification request returned ${contentType || 'an unexpected response'}`);
+            }
+            if (response.status === 401 || response.status === 409) {
+                const sessionData = await response.json();
+                if (sessionData.redirect) {
+                    window.location.assign(sessionData.redirect);
+                }
+                return;
+            }
             if (!response.ok) throw new Error(`Notification request failed (${response.status})`);
 
             const data = await response.json();

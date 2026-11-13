@@ -164,10 +164,18 @@ $adminName = getFormattedUserName();
     <style>
         input[type="date"] {
             color-scheme: light;
+            -webkit-appearance: none;
+            appearance: none;
+            -webkit-text-fill-color: #111827;
+            background-color: #ffffff;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .dark input[type="date"] {
             color-scheme: dark;
+            -webkit-text-fill-color: #f3f4f6;
+            background-color: #1e293b;
         }
 
         @media (max-width: 639px) {
@@ -176,6 +184,27 @@ $adminName = getFormattedUserName();
             input[type="text"] {
                 min-height: 3.25rem;
                 font-size: 1rem;
+            }
+
+            main {
+                overflow-x: hidden;
+            }
+
+            main > form,
+            main > section {
+                min-width: 0;
+            }
+
+            main > form section,
+            main > section {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            main button,
+            main input {
+                max-width: 100%;
+                box-sizing: border-box;
             }
         }
     </style>

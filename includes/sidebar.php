@@ -85,7 +85,8 @@ switch ($role) {
     </nav>
 
     <!-- Log Out Button -->
-    <div class="flex-shrink-0 p-4 border-t border-[#374151] dark:border-gray-800">
+    <div id="sidebarLogout"
+         class="flex-shrink-0 p-4 border-t border-[#374151] dark:border-gray-800">
         <a href="<?= htmlspecialchars(BASE_URL) ?>/modules/login/logout.php" data-logout-link class="w-full flex items-center justify-center space-x-2 
                   bg-[#33475F] hover:bg-[#991B1B] 
                   dark:bg-[#111827] dark:hover:bg-[#7F1D1D] 
@@ -120,14 +121,76 @@ switch ($role) {
         overflow-x: hidden;
     }
 
+    :root {
+        color-scheme: light;
+    }
+
+    :root.dark,
+    html.dark {
+        color-scheme: dark;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+        -webkit-appearance: none;
+        appearance: none;
+        font: inherit;
+        box-sizing: border-box;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    input,
+    select,
+    textarea {
+        background-color: #ffffff;
+        color: #111827;
+        -webkit-text-fill-color: currentColor;
+    }
+
+    .dark input,
+    .dark select,
+    .dark textarea {
+        background-color: #1e293b;
+        color: #e5e7eb;
+        -webkit-text-fill-color: currentColor;
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+        display: block;
+        width: 100%;
+        min-height: 2.75rem;
+    }
+
+    input[type="date"]::-webkit-date-and-time-value,
+    input[type="time"]::-webkit-date-and-time-value,
+    input[type="datetime-local"]::-webkit-date-and-time-value {
+        text-align: left;
+        color: inherit;
+    }
+
+    button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     #sidebar {
         max-height: var(--app-viewport-height);
     }
 
     .overflow-x-auto {
+        display: block;
+        width: 100%;
+        min-width: 0;
         max-width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
     }
 
     input,
@@ -185,6 +248,22 @@ switch ($role) {
 
         #sidebar {
             transform: translateX(-100%);
+            height: var(--app-viewport-height);
+            max-height: none;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #sidebarLogout {
+            position: sticky;
+            bottom: 0;
+            z-index: 1;
+            background: #1E2B3B;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        }
+
+        .dark #sidebarLogout {
+            background: #030712;
         }
 
         #sidebar.translate-x-0 {
@@ -213,11 +292,25 @@ switch ($role) {
 
         table {
             display: table;
-            width: max-content;
-            min-width: 100%;
+            box-sizing: border-box;
             max-width: none;
             table-layout: auto !important;
             white-space: nowrap;
+        }
+
+        .overflow-x-auto > table {
+            width: max-content;
+            min-width: 100%;
+        }
+
+        [data-table-controls] {
+            margin: 0;
+            transform: none !important;
+        }
+
+        [data-table-controls] th,
+        [data-table-controls] td {
+            box-sizing: border-box;
         }
     }
 </style>
