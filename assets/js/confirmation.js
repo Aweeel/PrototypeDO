@@ -27,15 +27,15 @@
 
             const modal = document.createElement('div');
             modal.id = 'globalConfirmDialog';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[1200] flex items-center justify-center p-4';
+            modal.className = 'fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4';
             modal.innerHTML = `
-                <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-600 bg-[#111827] text-gray-100 shadow-xl" style="color-scheme: dark;">
                     <div class="p-6">
-                        <p class="text-base font-medium text-gray-900 dark:text-gray-100">${escapeHtml(message)}</p>
+                        <p class="text-base font-medium text-gray-100">${escapeHtml(message)}</p>
                     </div>
                     <div class="flex gap-3 p-6 pt-0 justify-end">
-                        <button type="button" data-confirm-cancel class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">${escapeHtml(cancelText)}</button>
-                        <button type="button" data-confirm-ok class="px-4 py-2 rounded-lg text-white transition-colors ${escapeHtml(confirmClass)}">${escapeHtml(confirmText)}</button>
+                        <button type="button" data-confirm-cancel class="appearance-none rounded-lg border border-slate-600 bg-transparent px-4 py-2 text-gray-300 transition-colors hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" style="-webkit-appearance: none; appearance: none;">${escapeHtml(cancelText)}</button>
+                        <button type="button" data-confirm-ok class="appearance-none rounded-lg border border-transparent px-4 py-2 text-white transition-colors ${escapeHtml(confirmClass)} focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400" style="-webkit-appearance: none; appearance: none;">${escapeHtml(confirmText)}</button>
                     </div>
                 </div>
             `;

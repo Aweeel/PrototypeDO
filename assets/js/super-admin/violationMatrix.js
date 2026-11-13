@@ -60,7 +60,7 @@ function moveCatalogToolbar(panelId) {
     if (!search.dataset.toolbarReady) {
         search.dataset.toolbarReady = '1';
         search.dataset.catalogPanel = panelId;
-        search.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none', 'placeholder:text-gray-400');
+        search.classList.add('min-w-0', 'sm:w-40', 'placeholder:text-gray-400');
         controls.appendChild(search);
     }
     if (!addButton.dataset.toolbarReady) {
@@ -75,7 +75,7 @@ function moveCatalogToolbar(panelId) {
     if (sanctionSearch && !sanctionSearch.dataset.toolbarReady) {
         sanctionSearch.dataset.toolbarReady = '1';
         sanctionSearch.dataset.catalogPanel = 'penaltyGuidelinesPanel';
-        sanctionSearch.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none', 'placeholder:text-gray-400');
+        sanctionSearch.classList.add('min-w-0', 'sm:w-40', 'placeholder:text-gray-400');
         controls.appendChild(sanctionSearch);
     }
     if (sanctionButton && !sanctionButton.dataset.toolbarReady) {
