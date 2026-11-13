@@ -60,18 +60,20 @@ function moveCatalogToolbar(panelId) {
     if (!toolbar) {
         toolbar = document.createElement('div');
         toolbar.id = 'catalogToolbar';
-        toolbar.className = 'ml-auto flex items-center gap-2';
+        toolbar.className = 'catalog-toolbar flex w-full min-w-0 items-stretch gap-2 sm:w-auto sm:items-center';
         tabs.appendChild(toolbar);
     }
 
     if (!search.dataset.toolbarReady) {
         search.dataset.toolbarReady = '1';
         search.dataset.catalogPanel = panelId;
+        search.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none');
         toolbar.appendChild(search);
     }
     if (!addButton.dataset.toolbarReady) {
         addButton.dataset.toolbarReady = '1';
         addButton.dataset.catalogPanel = panelId;
+        addButton.classList.add('min-w-0', 'flex-1', 'sm:w-auto', 'sm:flex-none');
         toolbar.appendChild(addButton);
     }
 
@@ -80,11 +82,13 @@ function moveCatalogToolbar(panelId) {
     if (sanctionSearch && !sanctionSearch.dataset.toolbarReady) {
         sanctionSearch.dataset.toolbarReady = '1';
         sanctionSearch.dataset.catalogPanel = 'penaltyGuidelinesPanel';
+        sanctionSearch.classList.add('min-w-0', 'flex-1', 'sm:w-40', 'sm:flex-none');
         toolbar.appendChild(sanctionSearch);
     }
     if (sanctionButton && !sanctionButton.dataset.toolbarReady) {
         sanctionButton.dataset.toolbarReady = '1';
         sanctionButton.dataset.catalogPanel = 'penaltyGuidelinesPanel';
+        sanctionButton.classList.add('min-w-0', 'flex-1', 'sm:w-auto', 'sm:flex-none');
         toolbar.appendChild(sanctionButton);
     }
 
@@ -95,9 +99,16 @@ function moveCatalogToolbar(panelId) {
 
 function setActiveCatalogTab(tab) {
     document.querySelectorAll('.tab-button').forEach((item) => {
-        item.className = item === tab
-            ? 'tab-button px-4 py-2 bg-blue-600 text-white rounded-lg font-medium border border-blue-600'
-            : 'tab-button px-4 py-2 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-200 rounded-lg border border-gray-300 dark:border-slate-600';
+        const isActive = item === tab;
+        item.classList.toggle('bg-blue-600', isActive);
+        item.classList.toggle('text-white', isActive);
+        item.classList.toggle('border-blue-600', isActive);
+        item.classList.toggle('bg-white', !isActive);
+        item.classList.toggle('dark:bg-[#111827]', !isActive);
+        item.classList.toggle('text-gray-700', !isActive);
+        item.classList.toggle('dark:text-gray-200', !isActive);
+        item.classList.toggle('border-gray-300', !isActive);
+        item.classList.toggle('dark:border-slate-600', !isActive);
     });
 }
 

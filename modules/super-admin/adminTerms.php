@@ -466,7 +466,7 @@ if (!$isSystemManager) {
         <div class="w-full h-full">
           <div class="bg-white dark:bg-[#111827] border border-gray-200 dark:border-slate-700 
                 rounded-lg shadow-sm p-4 md:pl-20 md:pb-20 md:pr-20 md:pt-8
-                overflow-y-auto max-h-[calc(100vh-9rem)] custom-scrollbar">
+                overflow-y-auto max-h-[calc(var(--app-viewport-height)-9rem)] custom-scrollbar">
 
             <!-- Header title -->
             <div class="flex justify-between items-center mb-6 flex-wrap gap-3">

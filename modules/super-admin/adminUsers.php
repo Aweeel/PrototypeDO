@@ -1611,7 +1611,7 @@ $adminName = getFormattedUserName();
 
 <!-- Import Users Modal -->
 <div id="importUsersModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800">
+    <div class="max-h-[calc(var(--app-viewport-height)-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Users from CSV</h3>
             <button onclick="closeImportUsersModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -1751,11 +1751,15 @@ $adminName = getFormattedUserName();
                 if (result.success) {
                     const resultDiv = document.getElementById('importUsersResult');
                     const isPreview = result.preview === true;
+                    const hasValidUsers = Number(result.imported) > 0;
                     let html = `<div class="p-4 ${isPreview ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'} border rounded-lg">
-                        <h4 class="font-semibold ${isPreview ? 'text-blue-900 dark:text-blue-300' : 'text-green-900 dark:text-green-300'} mb-2">${isPreview ? 'Import Preview' : 'Import Completed!'}</h4>
-                        <p class="text-sm text-green-800 dark:text-green-400">
-                            ${isPreview ? '✓' : '✓'} ${result.imported} valid user(s) ${isPreview ? 'ready to import' : 'imported successfully'}
+                        <h4 class="font-semibold ${isPreview && !hasValidUsers ? 'text-yellow-900 dark:text-yellow-300' : isPreview ? 'text-blue-900 dark:text-blue-300' : 'text-green-900 dark:text-green-300'} mb-2">${isPreview && !hasValidUsers ? 'Changes needed before import' : isPreview ? 'Import Preview' : 'Import Completed!'}</h4>`;
+
+                    if (hasValidUsers) {
+                        html += `<p class="text-sm text-green-800 dark:text-green-400">
+                            ✓ ${result.imported} valid user(s) ${isPreview ? 'ready to import' : 'imported successfully'}
                         </p>`;
+                    }
                     
                     if (result.skipped > 0) {
                         html += `<p class="text-sm text-yellow-700 dark:text-yellow-400 mt-2">⚠ ${result.skipped} row(s) skipped</p>`;
@@ -1767,9 +1771,14 @@ $adminName = getFormattedUserName();
                     }
 
                     if (result.errors && result.errors.length > 0) {
+                        const errorCounts = new Map();
+                        result.errors.forEach(error => {
+                            errorCounts.set(error, (errorCounts.get(error) || 0) + 1);
+                        });
                         html += `<div class="mt-3 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900 p-2 rounded max-h-48 overflow-y-auto">`;
-                        result.errors.forEach(err => {
-                            html += `<p class="text-yellow-700 dark:text-yellow-400">• ${escapeImportHtml(err)}</p>`;
+                        errorCounts.forEach((count, error) => {
+                            const countLabel = count > 1 ? ` (${count} rows)` : '';
+                            html += `<p class="text-yellow-700 dark:text-yellow-400">• ${escapeImportHtml(error)}${countLabel}</p>`;
                         });
                         html += `</div>`;
                     }

@@ -104,10 +104,24 @@ switch ($role) {
      aria-hidden="true"></div>
 
 <style>
+    :root {
+        --app-viewport-height: 100vh;
+    }
+
+    @supports (height: 100svh) {
+        :root {
+            --app-viewport-height: 100svh;
+        }
+    }
+
     html,
     body {
         max-width: 100%;
         overflow-x: hidden;
+    }
+
+    #sidebar {
+        max-height: var(--app-viewport-height);
     }
 
     .overflow-x-auto {
@@ -137,6 +151,27 @@ switch ($role) {
     }
 
     @media (max-width: 767px) {
+        html,
+        body {
+            min-height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        body > .flex.h-screen,
+        body > .flex.h-screen.overflow-hidden {
+            height: auto !important;
+            min-height: var(--app-viewport-height);
+            overflow: visible !important;
+        }
+
+        body > .flex.h-screen > .flex-1.overflow-y-auto,
+        body > .flex.h-screen.overflow-hidden > .flex-1.overflow-y-auto {
+            min-height: var(--app-viewport-height);
+            overflow: visible !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .flex-1 {
             min-width: 0;
         }

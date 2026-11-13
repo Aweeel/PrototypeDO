@@ -663,7 +663,7 @@ table.w-full th, table.w-full td {
 
     <!-- Audit Log Detail Modal -->
     <div id="logDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[calc(100vh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-xl max-w-3xl w-full max-h-[calc(var(--app-viewport-height)-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden">
             <!-- Modal Header -->
             <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
                 <h3 class="min-w-0 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">Audit Log Detail - <span id="detailLogId"></span></h3>

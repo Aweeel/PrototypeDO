@@ -225,7 +225,7 @@ if (!isset($adminName) || empty($adminName)) {
 <style>
     .app-content-scroll {
         box-sizing: border-box;
-        height: calc(100vh - var(--app-header-height));
+        height: calc(var(--app-viewport-height, 100vh) - var(--app-header-height));
         margin-top: var(--app-header-height);
         min-height: 0;
         overflow-y: auto;
