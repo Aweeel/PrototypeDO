@@ -74,7 +74,7 @@ switch ($role) {
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 min-h-0 px-3 py-1 space-y-1 overflow-y-auto">
+    <nav class="flex-1 min-h-0 px-3 py-1 space-y-1 overflow-hidden">
         <?php foreach ($sidebarItems as $item):
             $itemPath = parse_url($item['path'], PHP_URL_PATH) ?: $item['path'];
             $itemQuery = [];
@@ -250,21 +250,24 @@ switch ($role) {
         }
 
         #sidebar {
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
             transform: translateX(-100%);
             height: var(--app-viewport-height);
             max-height: none;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            overflow: hidden;
             padding-bottom: env(safe-area-inset-bottom);
         }
 
         #sidebarLogout {
-            position: sticky;
-            bottom: 0;
-            z-index: 1;
-            background: #1E2B3B;
-            margin-bottom: env(safe-area-inset-bottom);
-            padding-bottom: 1rem;
+            position: relative;
+            flex-shrink: 0;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        }
+
+        #sidebar nav {
+            overflow: hidden;
+            min-height: 0;
         }
 
         .dark #sidebarLogout {
@@ -281,6 +284,12 @@ switch ($role) {
 
         #globalSidebarOverlay:not(.hidden) {
             display: block;
+        }
+
+        html.sidebar-open,
+        body.sidebar-open {
+            overflow: hidden;
+            overscroll-behavior: none;
         }
 
         [class~="md:ml-64"] {
@@ -332,6 +341,7 @@ switch ($role) {
             overlay.classList.toggle('hidden', !isOpen);
             overlay.setAttribute('aria-hidden', String(!isOpen));
         }
-        document.body.classList.toggle('overflow-hidden', isOpen);
+        document.documentElement.classList.toggle('sidebar-open', isOpen);
+        document.body.classList.toggle('sidebar-open', isOpen);
     };
 </script>
