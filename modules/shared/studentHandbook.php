@@ -37,7 +37,7 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
 
   <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-  <main class="h-screen overflow-hidden p-4 pt-24 md:ml-64 md:p-6 md:pt-28">
+  <main class="h-[var(--app-viewport-height)] overflow-hidden p-4 pt-24 md:ml-64 md:p-6 md:pt-28">
     <div class="mx-auto flex h-full w-full flex-col">
       <div class="flex shrink-0 justify-end gap-3 pb-3">
         <a
@@ -57,11 +57,12 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
           </button>
         <?php endif; ?>
       </div>
-      <div class="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-[#111827]">
+      <div class="min-h-0 flex-1 overflow-auto overscroll-contain rounded-xl border border-gray-200 bg-white shadow-lg [-webkit-overflow-scrolling:touch] dark:border-slate-700 dark:bg-[#111827]">
         <iframe
           title="<?php echo htmlspecialchars($pageTitle); ?>"
           src="<?php echo htmlspecialchars($pdfUrl . '?v=' . rawurlencode($pdfVersion)); ?>"
-          class="h-full w-full border-0"
+          scrolling="yes"
+          class="h-full min-h-full w-full border-0"
         ></iframe>
       </div>
     </div>

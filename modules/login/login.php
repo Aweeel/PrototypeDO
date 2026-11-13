@@ -7,8 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $globalBannerEnabled = strtolower(trim((string)getSystemSetting('global_banner_enabled', 'disabled'))) === 'enabled';
 $globalBannerText = getSystemSetting('global_banner_text', '');
-$maintenanceModeEnabled = isMaintenanceModeEnabled();
-$termsLastUpdated = 'April 23, 2026';
+$lastUpdated = date('F j, Y');
 
 // Redirect if already logged in
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
@@ -214,11 +213,11 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                 <div class="hidden lg:block mt-12 pt-8 border-t border-gray-200">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">System Information</h3>
                     <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 <?= $maintenanceModeEnabled ? 'bg-amber-500' : 'bg-green-500' ?> rounded-full"></div>
-                        <span class="text-sm text-gray-600"><?= $maintenanceModeEnabled ? 'System Maintenance' : 'System Online' ?></span>
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span class="text-sm text-gray-600">System Online</span>
                         <div class="ml-auto flex items-center gap-2">
                             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span class="text-sm text-gray-600">Last Update: <?= htmlspecialchars($termsLastUpdated) ?></span>
+                            <span class="text-sm text-gray-600">Last Update: <?= htmlspecialchars($lastUpdated) ?></span>
                         </div>
                     </div>
                 </div>
