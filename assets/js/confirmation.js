@@ -27,13 +27,51 @@
 
             const modal = document.createElement('div');
             modal.id = 'globalConfirmDialog';
-            modal.className = 'fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4';
+            modal.className = 'global-confirm-overlay fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
             modal.innerHTML = `
-                <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-600 bg-[#111827] text-gray-100 shadow-xl" style="color-scheme: dark;">
+                <style>
+                    #globalConfirmDialog {
+                        -webkit-text-size-adjust: 100%;
+                        text-size-adjust: 100%;
+                    }
+
+                    #globalConfirmDialog .global-confirm-panel {
+                        box-sizing: border-box;
+                        width: min(398px, calc(100vw - 32px));
+                        color-scheme: dark;
+                        font-family: inherit;
+                    }
+
+                    #globalConfirmDialog .global-confirm-message {
+                        margin: 0;
+                        font-size: 16px;
+                        line-height: 1.5;
+                    }
+
+                    #globalConfirmDialog .global-confirm-actions {
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 12px;
+                    }
+
+                    #globalConfirmDialog button {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        box-sizing: border-box;
+                        min-height: 42px;
+                        font: inherit;
+                        font-size: 14px;
+                        line-height: 1.25;
+                        white-space: nowrap;
+                    }
+                </style>
+                <div class="global-confirm-panel overflow-hidden rounded-lg border border-slate-600 bg-[#111827] text-gray-100 shadow-xl">
                     <div class="p-6">
-                        <p class="text-base font-medium text-gray-100">${escapeHtml(message)}</p>
+                        <p class="global-confirm-message font-medium text-gray-100">${escapeHtml(message)}</p>
                     </div>
-                    <div class="flex gap-3 p-6 pt-0 justify-end">
+                    <div class="global-confirm-actions p-6 pt-0">
                         <button type="button" data-confirm-cancel class="appearance-none rounded-lg border border-slate-600 bg-transparent px-4 py-2 text-gray-300 transition-colors hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" style="-webkit-appearance: none; appearance: none;">${escapeHtml(cancelText)}</button>
                         <button type="button" data-confirm-ok class="appearance-none rounded-lg border border-transparent px-4 py-2 text-white transition-colors ${escapeHtml(confirmClass)} focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400" style="-webkit-appearance: none; appearance: none;">${escapeHtml(confirmText)}</button>
                     </div>
