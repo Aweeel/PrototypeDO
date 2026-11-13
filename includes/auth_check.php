@@ -6,6 +6,9 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/functions.php';
 
+$isJsonRequest = strcasecmp($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') === 0
+    || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+
 // Prevent caching so back button won't load protected page
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
@@ -17,6 +20,16 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     if (!$currentUser
         || (int)($currentUser['is_active'] ?? 0) !== 1
         || (int)($currentUser['is_archived'] ?? 0) !== 0) {
+        if ($isJsonRequest) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'error' => 'Your account is no longer active.',
+                'redirect' => BASE_URL . '/modules/login/login.php?error=deactivated'
+            ]);
+            exit;
+        }
         setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
         session_unset();
         session_destroy();
@@ -27,6 +40,16 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $sessionUsername = $_SESSION['user']['username'] ?? '';
     if (!isSimultaneousLoginExempt($sessionUsername)
         && hasActiveSessionChanged($_SESSION['user_id'], session_id())) {
+        if ($isJsonRequest) {
+            http_response_code(409);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'error' => 'This account was signed in from another browser.',
+                'redirect' => BASE_URL . '/modules/login/simultaneous_logins_detected.php'
+            ]);
+            exit;
+        }
         setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
         session_unset();
         session_destroy();
@@ -88,6 +111,16 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
             $stmt->execute([$user['user_id']]);
         } else {
             // Token is invalid or expired, clear the cookie
+            if ($isJsonRequest) {
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Your session has expired.',
+                    'redirect' => BASE_URL . '/modules/login/login.php?session=expired'
+                ]);
+                exit;
+            }
             setcookie('remember_me_token', '', time() - 3600, '/', '', false, true);
             session_unset();
             session_destroy();
@@ -101,6 +134,16 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     }
 } else {
     // No valid session or remember me cookie, redirect to login
+    if ($isJsonRequest) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'error' => 'Your session has expired.',
+            'redirect' => BASE_URL . '/modules/login/login.php?session=expired'
+        ]);
+        exit;
+    }
     session_unset();
     session_destroy();
     header("Location: " . BASE_URL . "/modules/login/login.php");

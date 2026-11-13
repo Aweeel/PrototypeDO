@@ -249,6 +249,12 @@ if (!isset($adminName) || empty($adminName)) {
         padding-top: 1rem;
     }
 
+    .overflow-x-auto {
+        min-width: 0;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
     @media (min-width: 768px) {
         .app-content-scroll > main {
             padding-top: 2rem;

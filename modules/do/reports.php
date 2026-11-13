@@ -487,11 +487,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
+        [id$="-preview"] > [id$="-empty"] { order: 0; }
+        [id$="-preview"] > [id$="-content"] { order: 1; }
+        [id$="-preview"] > [id$="-actions"] { order: 2; }
 
         /* Print styles */
         @media print {
             body > * { display: none !important; }
             #print-root { display: block !important; font-family: Arial, sans-serif; font-size: 9pt; color: #111827; }
+            #print-root::before { content: none; }
             #print-root .preview-wrap { width: 100%; }
             #print-root .overflow-x-auto { display: block; overflow: visible !important; page-break-inside: auto; break-inside: avoid; }
             #print-root .border-l-4 { break-after: avoid; page-break-after: avoid; }
@@ -505,6 +509,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             .page-break-inside { page-break-inside: avoid; }
             h1, h2, h3 { page-break-after: avoid; margin: 0.25rem 0; }
             @page { margin: 10mm; size: A4 landscape; }
+        }
+
+        @media (max-width: 767px) {
+            #print-root { width: 100%; }
+            .preview-wrap { overflow-wrap: anywhere; }
         }
     </style>
 </head>

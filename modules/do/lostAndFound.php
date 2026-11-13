@@ -61,6 +61,66 @@ $perPage = 10;
             localStorage.setItem("theme", isDark ? "dark" : "light");
         }
     </script>
+    <style>
+        input,
+        select,
+        textarea,
+        button {
+            -webkit-appearance: none;
+            appearance: none;
+            font: inherit;
+            box-sizing: border-box;
+        }
+
+        input,
+        select,
+        textarea {
+            background-color: #ffffff;
+            color: #111827;
+            -webkit-text-fill-color: currentColor;
+        }
+
+        .dark input,
+        .dark select,
+        .dark textarea {
+            background-color: #1e293b;
+            color: #e5e7eb;
+            -webkit-text-fill-color: currentColor;
+        }
+
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 767px) {
+            main {
+                overflow-x: hidden;
+            }
+
+            #lostFoundFilterForm,
+            #lostFoundFilterForm > div,
+            #lostFoundFilterForm input,
+            #lostFoundFilterForm select {
+                min-width: 0;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            .overflow-x-auto {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .overflow-x-auto table {
+                min-width: 760px;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased [scrollbar-gutter:stable]">
