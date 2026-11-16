@@ -96,8 +96,8 @@ $lastUpdated = date('F j, Y');
             </div>
 
             <div class="w-full max-w-md bg-white lg:bg-transparent p-6 sm:p-8 lg:p-0 rounded-2xl lg:rounded-none shadow-sm lg:shadow-none border border-slate-200/60 lg:border-none">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Contact Administrator</h2>
-                <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let administrator reset
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Contact System Manager</h2>
+                <p class="text-gray-500 mb-8">Please provide the email address associated with your account to let the system manager reset
                     your password.</p>
 
                 <!-- Success/Error Message -->
