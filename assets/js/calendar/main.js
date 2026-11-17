@@ -12,11 +12,6 @@ let currentCalendarView = 'shared';
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                     'July', 'August', 'September', 'October', 'November', 'December'];
 
-// If the strikethrough line still looks off in your browser after the
-// background-based fix, it's no longer a centering bug (background-position:
-// center is exact, math can't drift) — it's most likely font rendering on
-// your system. Nudge this up/down in 1px steps until it looks right; positive
-// moves the line down, negative moves it up.
 const STRIKETHROUGH_OFFSET_PX = 0;
 
 // Category colors
@@ -109,7 +104,6 @@ function renderCalendar() {
     }
 
     // Next month days
-    // Decide whether to render 5 or 6 rows (35 or 42 cells)
     const totalNeeded = firstDay + daysInMonth; // prev month blanks + current month days
     const cells = totalNeeded > 35 ? 42 : 35;
     const totalCells = grid.children.length;
@@ -120,19 +114,6 @@ function renderCalendar() {
     }
 }
 
-// Native text-decoration:line-through renders inconsistently at 12px next to a
-// left border (it sits too high). Draw a manually centered line instead.
-//
-// FIX: earlier versions positioned a separate <span> line with
-// `top: 50%; transform: translateY(-50%)` inside a wrapper. That measures
-// against the wrapper's own box, which can shift by a pixel depending on
-// layout context (e.g. it landed differently in the "today" cell than in
-// a plain cell, because of the badge circle changing surrounding layout).
-// A CSS background is centered directly against the element's own padding
-// box by the layout engine, with no extra child element to mis-measure,
-// so it can't drift between cells. `inline` shrinks the box to fit the
-// text (for untruncated single-line labels); omit it for elements that
-// should already span their full row width (e.g. a truncated event pill).
 function renderStrikethroughText(container, text, { inline = false } = {}) {
     container.textContent = text;
     container.style.backgroundImage = 'linear-gradient(currentColor, currentColor)';
@@ -145,7 +126,7 @@ function renderStrikethroughText(container, text, { inline = false } = {}) {
     }
 }
 
-// Create day cell - FIXED VERSION
+// Create day cell
 function createDayCell(day, isOtherMonth, date) {
     const cell = document.createElement('div');
     const today = new Date();
@@ -167,7 +148,7 @@ function createDayCell(day, isOtherMonth, date) {
     dayNumber.textContent = day;
     cell.appendChild(dayNumber);
 
-    // Add events for this day - FIX: Use local date string
+    // Add events for this day
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const dayStr = String(date.getDate()).padStart(2, '0');

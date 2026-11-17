@@ -25,6 +25,20 @@ $homeUrl = !empty($sidebarItems[0]['path'])
     ? $sidebarItems[0]['path'] 
     : (BASE_URL . '/modules/login/login.php');
 
+$teacherSubrole = $_SESSION['teacher_subrole'] ?? ($_SESSION['user']['teacher_subrole'] ?? null);
+$manualFilename = match (true) {
+    $role === 'system_manager' => 'STI DOMS - System Manager User Manual.pdf',
+    $role === 'discipline_office' || $role === 'do' => 'STI DOMS - Discipline Office User Manual.pdf',
+    $role === 'student' => 'STI DOMS - Student User Manual.pdf',
+    $role === 'teacher' && $teacherSubrole === 'department_head' => 'STI DOMS - Department Head User Manual.pdf',
+    $role === 'teacher' => 'STI DOMS - Teacher User Manual.pdf',
+    $role === 'security' => 'STI DOMS – Security User Manual.pdf',
+    default => null,
+};
+$manualUrl = $manualFilename === null
+    ? null
+    : ASSETS_URL . '/PDF/' . rawurlencode($manualFilename);
+
 // Set badge letters based on role
 switch ($role) {
     case 'system_manager':
@@ -92,6 +106,26 @@ switch ($role) {
             </a>
         <?php endforeach; ?>
     </nav>
+
+<?php if ($manualUrl !== null): ?>
+    <div class="flex-shrink-0 px-4 pb-2">
+        <a href="<?= htmlspecialchars($manualUrl) ?>"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="w-full flex items-center justify-center space-x-2
+                  bg-transparent hover:bg-gray-100
+                  dark:hover:bg-gray-800
+                  text-[#33475F] hover:text-[#2563EB]
+                  dark:text-gray-200 dark:hover:text-blue-400
+                  font-medium py-2 px-4 rounded-lg
+                  transition-all duration-200 active:scale-95">
+            <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/icons/Student-handbook-icon.png"
+                 alt="User Manual icon"
+                 class="w-5 h-5" />
+            <span>User Manual</span>
+        </a>
+    </div>
+<?php endif; ?>
 
     <!-- Log Out Button -->
     <div id="sidebarLogout"
