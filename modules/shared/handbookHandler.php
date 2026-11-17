@@ -32,6 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     try {
+        $handbookType = strtoupper(trim((string)($_POST['handbook_type'] ?? 'TERTIARY')));
+        if (!in_array($handbookType, ['TERTIARY', 'SHS'], true)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid handbook type']);
+            exit;
+        }
+
         if (!isset($_FILES['pdf_file']) || $_FILES['pdf_file']['error'] !== UPLOAD_ERR_OK) {
             echo json_encode(['success' => false, 'error' => 'No file uploaded or upload error occurred']);
             exit;
@@ -59,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Define target directory and file path
         $targetDir = __DIR__ . '/../../assets/PDF/';
-        $targetFile = $targetDir . 'STI_TER_HANDBOOK.pdf';
+        $targetFile = $targetDir . ($handbookType === 'SHS' ? 'STI_SHS_HANDBOOK.pdf' : 'STI_TER_HANDBOOK.pdf');
         $previousFile = null;
         if (file_exists($targetFile)) {
             $previousFile = [
@@ -76,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 mkdir($backupDir, 0755, true);
             }
             $timestamp = date('YmdHis');
-            $backupFile = $backupDir . 'STI_TER_HANDBOOK_backup_' . $timestamp . '.pdf';
+            $backupFile = $backupDir . pathinfo($targetFile, PATHINFO_FILENAME) . '_backup_' . $timestamp . '.pdf';
             copy($targetFile, $backupFile);
         }
 

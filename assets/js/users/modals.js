@@ -243,7 +243,9 @@ function getRoleIdValue(formType, role) {
     if (!input) return '';
     if (role === 'student') {
         const value = input.value.replace(/\D/g, '');
-        return value ? `02000${value}` : '';
+        return value
+            ? (/^02000\d{6}$/.test(value) ? value : `02000${value}`)
+            : '';
     }
     return input.value.trim();
 }
@@ -757,9 +759,13 @@ async function loadStudentOptions(formType) {
     ['grade_year', 'track_course', 'section'].forEach(field => {
         const select = document.getElementById(`${formType}_${field}`);
         const current = select.value;
+        const options = data.options[field] || [];
+        if (current && !options.includes(current)) {
+            options.push(current);
+        }
         select.innerHTML = `<option value="">-- Select ${field === 'grade_year' ? 'Grade/Year' : field === 'track_course' ? 'Track/Course' : 'Section'} --</option>`;
-        (data.options[field] || []).forEach(value => select.add(new Option(value, value)));
-        if ((data.options[field] || []).includes(current)) {
+        options.forEach(value => select.add(new Option(value, value)));
+        if (current) {
             select.value = current;
         }
     });
@@ -785,7 +791,7 @@ async function handleRoleChange(formType = 'add') {
         document.getElementById(`${formType}_teacher_subrole`)?.value || ''
     );
     if (roleSelect.value === 'student') {
-        loadStudentOptions(formType);
+        await loadStudentOptions(formType);
     }
 }
 

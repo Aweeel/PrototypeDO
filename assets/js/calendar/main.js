@@ -622,6 +622,9 @@ function viewEvent(event) {
     const dateStr = eventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const linkedCaseId = extractCaseIdFromHearingEvent(event);
     const isPersonalCalendar = currentCalendarView === 'personal';
+    const caseDetails = event.caseDetails;
+    const isInvitation = isPersonalCalendar && event.targetUserId;
+    const rsvpSummary = event.rsvpSummary || { attend: 0, unavailable: 0, responses: [] };
 
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
@@ -681,10 +684,54 @@ function viewEvent(event) {
                         <div class="text-sm text-gray-700 dark:text-gray-300">Scheduled by: ${event.createdBy}</div>
                     </div>
                 ` : ''}
+
+                ${caseDetails ? `
+                    <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
+                        <div class="mb-3 text-sm font-semibold text-red-800 dark:text-red-200">Case Information</div>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div><div class="text-xs text-gray-500 dark:text-gray-400">Case</div><div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.caseId || '—'}</div></div>
+                            <div><div class="text-xs text-gray-500 dark:text-gray-400">Case Type</div><div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.caseType || '—'}</div></div>
+                            <div><div class="text-xs text-gray-500 dark:text-gray-400">Severity</div><div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.severity || '—'}</div></div>
+                            <div><div class="text-xs text-gray-500 dark:text-gray-400">Status</div><div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.status || '—'}</div></div>
+                            <div><div class="text-xs text-gray-500 dark:text-gray-400">Student ID</div><div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.studentId || '—'}</div></div>
+                        </div>
+                        <div class="mt-3 text-sm">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Student</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">${caseDetails.studentName || '—'}${caseDetails.trackCourse ? ` <span class="font-normal text-gray-500 dark:text-gray-400">(${caseDetails.trackCourse})</span>` : ''}</div>
+                        </div>
+                        ${caseDetails.offense ? `<div class="mt-3 text-sm"><div class="text-xs text-gray-500 dark:text-gray-400">Offense</div><div class="text-gray-700 dark:text-gray-300">${caseDetails.offense}</div></div>` : ''}
+                        ${caseDetails.description ? `<div class="mt-3 text-sm"><div class="text-xs text-gray-500 dark:text-gray-400">Case Description</div><div class="whitespace-pre-line text-gray-700 dark:text-gray-300">${caseDetails.description}</div></div>` : ''}
+                        ${caseDetails.actionTaken ? `<div class="mt-3 text-sm"><div class="text-xs text-gray-500 dark:text-gray-400">Action Taken</div><div class="whitespace-pre-line text-gray-700 dark:text-gray-300">${caseDetails.actionTaken}</div></div>` : ''}
+                        ${caseDetails.notes ? `<div class="mt-3 text-sm"><div class="text-xs text-gray-500 dark:text-gray-400">Notes</div><div class="whitespace-pre-line text-gray-700 dark:text-gray-300">${caseDetails.notes}</div></div>` : ''}
+                    </div>
+                ` : ''}
+
+                ${!isPersonalCalendar && event.category === 'Hearing' ? `
+                    <details class="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
+                        <summary class="cursor-pointer text-sm font-semibold text-blue-800 dark:text-blue-200">
+                            Department Head Responses
+                            <span class="ml-2 font-normal text-green-700 dark:text-green-300">Attend: ${rsvpSummary.attend}</span>
+                            <span class="ml-2 font-normal text-red-700 dark:text-red-300">Unavailable: ${rsvpSummary.unavailable}</span>
+                        </summary>
+                        <div class="mt-3">
+                            ${rsvpSummary.responses.length ? `
+                                <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                    ${rsvpSummary.responses.map(response => `<div><span class="${response.status === 'attend' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}">${response.status === 'attend' ? 'Attend' : 'Unavailable'}</span> — ${response.name}</div>`).join('')}
+                                </div>
+                            ` : '<div class="text-sm text-gray-500 dark:text-gray-400">No responses yet.</div>'}
+                        </div>
+                    </details>
+                ` : ''}
             </div>
 
             <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-slate-700">
                 ${isPersonalCalendar ? `
+                    ${isInvitation ? `
+                        <div class="mr-auto flex items-center gap-2">
+                            <button onclick="respondToEvent(${event.id}, 'attend')" class="rounded-lg border border-green-600 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20 ${event.rsvpStatus === 'attend' ? 'ring-2 ring-green-300 dark:ring-green-700' : ''}">Attend</button>
+                            <button onclick="respondToEvent(${event.id}, 'unavailable')" class="rounded-lg border border-red-600 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ${event.rsvpStatus === 'unavailable' ? 'ring-2 ring-red-300 dark:ring-red-700' : ''}">Unavailable</button>
+                        </div>
+                    ` : ''}
                     <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                         Close
                     </button>
@@ -713,6 +760,47 @@ function viewEvent(event) {
         </div>
     `;
     document.body.appendChild(modal);
+}
+
+async function respondToEvent(eventId, response) {
+    const responseLabel = response === 'attend' ? 'Attend' : 'Unavailable';
+    const confirmed = await window.showConfirmDialog({
+        message: `Confirm that you are marking this invitation as "${responseLabel}"?`,
+        confirmText: responseLabel,
+        confirmClass: response === 'attend'
+            ? 'bg-green-600 hover:bg-green-700'
+            : 'bg-red-600 hover:bg-red-700'
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('ajax', '1');
+    formData.append('action', 'rsvpEvent');
+    formData.append('eventId', eventId);
+    formData.append('response', response);
+
+    try {
+        const result = await fetch(window.location.href, { method: 'POST', body: formData });
+        const data = await result.json();
+        if (!data.success) {
+            showToast(data.error || 'Unable to save RSVP', 'error');
+            return;
+        }
+
+        const event = allEvents.find(item => String(item.id) === String(eventId));
+        if (event) {
+            event.rsvpStatus = data.response;
+        }
+        document.querySelector('[data-calendar-modal="view-event"]')?.remove();
+        showToast('RSVP updated', 'success');
+        loadEvents();
+    } catch (error) {
+        console.error('Error updating RSVP:', error);
+        showToast('Unable to save RSVP', 'error');
+    }
 }
 
 // Delete event

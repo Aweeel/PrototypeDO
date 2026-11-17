@@ -197,6 +197,30 @@ function ensureCalendarTargetUserColumn() {
     $initialized = true;
 }
 
+function ensureCalendarRsvpTable() {
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    executeQuery(
+        "CREATE TABLE IF NOT EXISTS calendar_event_rsvps (
+            rsvp_id INT AUTO_INCREMENT PRIMARY KEY,
+            event_id INT NOT NULL,
+            user_id INT NOT NULL,
+            response VARCHAR(20) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_calendar_event_rsvp (event_id, user_id),
+            CONSTRAINT fk_calendar_rsvp_event FOREIGN KEY (event_id) REFERENCES calendar_events(event_id) ON DELETE CASCADE,
+            CONSTRAINT fk_calendar_rsvp_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )"
+    );
+
+    $initialized = true;
+}
+
 function ensureNotificationRelatedIdColumn() {
     static $initialized = false;
 
@@ -2931,10 +2955,7 @@ function applySanctionToCase($caseId, $sanctionId, $durationDays = null, $notes 
                 
                 $eventName = "Sanction: {$sanctionName} - {$studentName} (Case {$caseId})";
                 $description = $scheduleNotes ?: "Scheduled sanction event for Case {$caseId}";
-                $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
-                $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
-                $departmentHead = $program ? getDepartmentHeadTeacherForProgram($program) : null;
-                $targetUserId = $departmentHead['user_id'] ?? null;
+                $targetUserId = null;
                 $eventId = null;
                 
                 // Create calendar event

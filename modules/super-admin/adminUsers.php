@@ -664,6 +664,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                    ORDER BY created_at ASC
                                    LIMIT 1
                                ) ELSE NULL END as student_id,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT grade_year FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as grade_year,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT track_course FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as track_course,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT section FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as section,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT student_type FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as student_type,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT guardian_name FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as guardian_name,
+                               CASE WHEN u.role = 'student' THEN (
+                                   SELECT guardian_contact FROM students
+                                   WHERE user_id = u.user_id
+                                   ORDER BY created_at ASC
+                                   LIMIT 1
+                               ) ELSE NULL END as guardian_contact,
                                u.teacher_id,
                                u.do_id,
                                u.teacher_subrole,
@@ -1662,8 +1698,8 @@ $adminName = getFormattedUserName();
         </form>
     </div>
 </div>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/main.js"></script>
-    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/modals.js"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/main.js?v=<?= (int) @filemtime(__DIR__ . '/../../assets/js/users/main.js') ?>"></script>
+    <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/users/modals.js?v=<?= (int) @filemtime(__DIR__ . '/../../assets/js/users/modals.js') ?>"></script>
     <script src="<?= htmlspecialchars(ASSETS_URL) ?>/js/protect_pages.js"></script>
 
     <script>

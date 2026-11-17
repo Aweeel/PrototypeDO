@@ -3,9 +3,25 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 
 $pageTitle = 'Student Handbook';
+$userRole = $_SESSION['user_role'] ?? ($_SESSION['user']['role'] ?? '');
 $isSystemManager = ($_SESSION['user_role'] ?? '') === 'system_manager';
-$pdfPath = __DIR__ . '/../../assets/PDF/STI_TER_HANDBOOK.pdf';
-$pdfUrl = '../../assets/PDF/STI_TER_HANDBOOK.pdf';
+$isStudent = $userRole === 'student';
+$studentRecord = $isStudent ? getStudentRecordForUser($_SESSION['user_id'] ?? null) : null;
+$requestedHandbookType = strtoupper(trim((string)($_GET['type'] ?? 'TERTIARY')));
+$handbookType = $isStudent
+  ? (strtoupper((string)($studentRecord['student_type'] ?? 'COLLEGE')) === 'SHS' ? 'SHS' : 'TERTIARY')
+  : ($requestedHandbookType === 'SHS' ? 'SHS' : 'TERTIARY');
+$handbookFiles = [
+  'TERTIARY' => 'STI_TER_HANDBOOK.pdf',
+  'SHS' => 'STI_SHS_HANDBOOK.pdf'
+];
+$handbookLabels = [
+  'TERTIARY' => 'Tertiary',
+  'SHS' => 'SHS'
+];
+$pdfFileName = $handbookFiles[$handbookType];
+$pdfPath = __DIR__ . '/../../assets/PDF/' . $pdfFileName;
+$pdfUrl = '../../assets/PDF/' . $pdfFileName;
 $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) time();
 ?>
 <!DOCTYPE html>
@@ -39,10 +55,26 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
 
   <main class="h-[var(--app-viewport-height)] overflow-hidden p-4 pt-24 md:ml-64 md:p-6 md:pt-28">
     <div class="mx-auto flex h-full w-full flex-col">
+      <?php if (!$isStudent): ?>
+        <div class="flex shrink-0 gap-2 pb-3" role="tablist" aria-label="Handbook type">
+          <?php foreach ($handbookLabels as $type => $label): ?>
+            <a
+              href="?type=<?php echo strtolower($type); ?>"
+              role="tab"
+              aria-selected="<?php echo $handbookType === $type ? 'true' : 'false'; ?>"
+              class="rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm <?php echo $handbookType === $type
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-gray-200 dark:hover:bg-slate-600'; ?>"
+            >
+              <?php echo htmlspecialchars($label); ?>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
       <div class="flex shrink-0 justify-end gap-3 pb-3">
         <a
           href="<?php echo htmlspecialchars($pdfUrl . '?v=' . rawurlencode($pdfVersion)); ?>"
-          download="STI_TER_HANDBOOK.pdf"
+          download="<?php echo htmlspecialchars($pdfFileName); ?>"
           class="rounded-lg bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow hover:bg-blue-700"
         >
           Download PDF
@@ -50,7 +82,7 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
         <?php if ($isSystemManager): ?>
           <button
             type="button"
-            onclick="openUploadPDFModal()"
+            onclick="openUploadPDFModal('<?php echo htmlspecialchars($handbookType, ENT_QUOTES, 'UTF-8'); ?>')"
             class="rounded-lg bg-green-600 px-6 py-3 text-base font-semibold text-white shadow hover:bg-green-700"
           >
             Upload PDF
@@ -73,7 +105,7 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 14.25h8M8 17.25h5"/>
               </svg>
             </div>
-            <p class="mb-2 text-base font-semibold text-gray-900 dark:text-white">STI_TER_HANDBOOK.pdf</p>
+            <p class="mb-2 text-base font-semibold text-gray-900 dark:text-white"><?php echo htmlspecialchars($pdfFileName); ?></p>
             <p class="mb-8 text-sm text-gray-500 dark:text-gray-400">Open the handbook in your device's PDF viewer.</p>
           <a
             href="<?php echo htmlspecialchars($pdfUrl . '?v=' . rawurlencode($pdfVersion)); ?>"
@@ -90,7 +122,7 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
   <?php if ($isSystemManager): ?>
     <div id="uploadPDFModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/50">
       <div class="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg dark:bg-[#111827]">
-        <h2 class="mb-4 text-2xl font-bold">Upload Student Handbook PDF</h2>
+        <h2 class="mb-4 text-2xl font-bold">Upload <span id="uploadHandbookLabel"><?php echo htmlspecialchars($handbookLabels[$handbookType]); ?></span> Handbook PDF</h2>
         <input id="pdfFileInput" type="file" accept=".pdf,application/pdf" class="w-full rounded-lg border border-gray-400 px-3 py-2 text-gray-900 dark:border-slate-500 dark:bg-slate-700 dark:text-white">
         <p class="mt-2 text-sm text-gray-500">Maximum file size: 50MB</p>
         <div id="uploadStatus" class="my-4 text-sm"></div>
@@ -105,8 +137,12 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
       const uploadModal = document.getElementById('uploadPDFModal');
       const uploadStatus = document.getElementById('uploadStatus');
       const fileInput = document.getElementById('pdfFileInput');
+      const uploadHandbookLabel = document.getElementById('uploadHandbookLabel');
+      let uploadHandbookType = '<?php echo htmlspecialchars($handbookType, ENT_QUOTES, 'UTF-8'); ?>';
 
-      function openUploadPDFModal() {
+      function openUploadPDFModal(handbookType) {
+        uploadHandbookType = handbookType;
+        uploadHandbookLabel.textContent = handbookType === 'SHS' ? 'SHS' : 'Tertiary';
         uploadModal.classList.remove('hidden');
         uploadModal.classList.add('flex');
         uploadStatus.textContent = '';
@@ -136,6 +172,7 @@ $pdfVersion = file_exists($pdfPath) ? (string) filemtime($pdfPath) : (string) ti
         uploadStatus.textContent = 'Uploading...';
         const formData = new FormData();
         formData.append('action', 'uploadPDF');
+        formData.append('handbook_type', uploadHandbookType);
         formData.append('pdf_file', file);
 
         fetch('handbookHandler.php', { method: 'POST', body: formData })
