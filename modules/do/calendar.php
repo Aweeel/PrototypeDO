@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 ensureCalendarTargetUserColumn();
+ensureCalendarRsvpTable();
 
 $isDepartmentHead = (($_SESSION['user_role'] ?? '') === 'teacher')
     && (($_SESSION['user']['teacher_subrole'] ?? $_SESSION['teacher_subrole'] ?? null) === 'department_head');
@@ -66,9 +67,44 @@ if ($_POST['action'] === 'getEvents') {
         // (including leading/trailing days from adjacent months)
         $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
                        ce.category, ce.description, ce.location, ce.created_by, ce.target_user_id,
-                       u.full_name as created_by_name
+               u.full_name as created_by_name,
+               c.case_id, c.case_type, c.severity, c.status as case_status,
+               c.description as case_description, c.action_taken, c.notes as case_notes,
+               s.student_id, s.first_name, s.middle_name, s.last_name, s.track_course,
+               ot.offense_name,
+               (SELECT cer.response FROM calendar_event_rsvps cer
+                WHERE cer.event_id = ce.event_id AND cer.user_id = " . (int)$currentUserId . "
+                LIMIT 1) as rsvp_status,
+               (SELECT COUNT(*)
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL
+                  AND cer.response = 'attend') as rsvp_attend_count,
+               (SELECT COUNT(*)
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL
+                  AND cer.response = 'unavailable') as rsvp_unavailable_count,
+               (SELECT GROUP_CONCAT(CONCAT(cer.response, ':', rsvp_user.full_name) SEPARATOR '|')
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                INNER JOIN users rsvp_user ON rsvp_user.user_id = cer.user_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL) as rsvp_responses
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
+        LEFT JOIN cases c ON ce.category = 'Hearing'
+            AND ce.event_name LIKE CONCAT('%Case ', c.case_id, '%')
+        LEFT JOIN students s ON c.student_id = s.student_id
+        LEFT JOIN offense_types ot ON c.offense_id = ot.offense_id
                 WHERE (ce.event_date >= ? AND ce.event_date <= ?";
         $params = [$startDate, $endDate];
         if ($pendingEventId !== '' && ctype_digit($pendingEventId)) {
@@ -83,6 +119,18 @@ if ($_POST['action'] === 'getEvents') {
         if ($isDepartmentHead) {
             $sql .= " AND ce.target_user_id = ?";
             $params[] = $currentUserId;
+        } else {
+            $sql .= " AND (
+                ce.target_user_id IS NULL
+                OR ce.event_id = (
+                    SELECT MIN(invitation.event_id)
+                    FROM calendar_events invitation
+                    WHERE invitation.event_name = ce.event_name
+                      AND invitation.event_date = ce.event_date
+                      AND invitation.category = ce.category
+                      AND invitation.target_user_id IS NOT NULL
+                )
+            )";
         }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
@@ -97,14 +145,61 @@ if ($_POST['action'] === 'getEvents') {
 
         $sql = "SELECT ce.event_id, ce.event_name, ce.event_date, ce.event_time, ce.event_end_time, 
                        ce.category, ce.description, ce.location, ce.created_by, ce.target_user_id,
-                       u.full_name as created_by_name
+               u.full_name as created_by_name,
+               c.case_id, c.case_type, c.severity, c.status as case_status,
+               c.description as case_description, c.action_taken, c.notes as case_notes,
+               s.student_id, s.first_name, s.middle_name, s.last_name, s.track_course,
+               ot.offense_name,
+               (SELECT cer.response FROM calendar_event_rsvps cer
+                WHERE cer.event_id = ce.event_id AND cer.user_id = " . (int)$currentUserId . "
+                LIMIT 1) as rsvp_status,
+               (SELECT COUNT(*)
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL
+                  AND cer.response = 'attend') as rsvp_attend_count,
+               (SELECT COUNT(*)
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL
+                  AND cer.response = 'unavailable') as rsvp_unavailable_count,
+               (SELECT GROUP_CONCAT(CONCAT(cer.response, ':', rsvp_user.full_name) SEPARATOR '|')
+                FROM calendar_event_rsvps cer
+                INNER JOIN calendar_events invitation ON invitation.event_id = cer.event_id
+                INNER JOIN users rsvp_user ON rsvp_user.user_id = cer.user_id
+                WHERE invitation.event_name = ce.event_name
+                  AND invitation.event_date = ce.event_date
+                  AND invitation.category = ce.category
+                  AND invitation.target_user_id IS NOT NULL) as rsvp_responses
                 FROM calendar_events ce
                 LEFT JOIN users u ON ce.created_by = u.user_id
+        LEFT JOIN cases c ON ce.category = 'Hearing'
+            AND ce.event_name LIKE CONCAT('%Case ', c.case_id, '%')
+        LEFT JOIN students s ON c.student_id = s.student_id
+        LEFT JOIN offense_types ot ON c.offense_id = ot.offense_id
                 WHERE MONTH(ce.event_date) = ? AND YEAR(ce.event_date) = ?";
         $params = [$month, $year];
         if ($isDepartmentHead) {
             $sql .= " AND ce.target_user_id = ?";
             $params[] = $currentUserId;
+        } else {
+            $sql .= " AND (
+                ce.target_user_id IS NULL
+                OR ce.event_id = (
+                    SELECT MIN(invitation.event_id)
+                    FROM calendar_events invitation
+                    WHERE invitation.event_name = ce.event_name
+                      AND invitation.event_date = ce.event_date
+                      AND invitation.category = ce.category
+                      AND invitation.target_user_id IS NOT NULL
+                )
+            )";
         }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
@@ -134,6 +229,35 @@ if ($_POST['action'] === 'getEvents') {
             'location' => $event['location'],
             'createdBy' => $event['created_by_name'],
             'createdById' => $event['created_by'],
+            'targetUserId' => $event['target_user_id'],
+            'rsvpStatus' => $event['rsvp_status'],
+            'rsvpSummary' => [
+                'attend' => (int)($event['rsvp_attend_count'] ?? 0),
+                'unavailable' => (int)($event['rsvp_unavailable_count'] ?? 0),
+                'responses' => !empty($event['rsvp_responses'])
+                    ? array_map(static function ($response) {
+                        [$status, $name] = array_pad(explode(':', $response, 2), 2, '');
+                        return ['status' => $status, 'name' => $name];
+                    }, explode('|', $event['rsvp_responses']))
+                    : []
+            ],
+            'caseDetails' => !empty($event['case_id']) ? [
+                'caseId' => $event['case_id'],
+                'caseType' => $event['case_type'],
+                'severity' => $event['severity'],
+                'status' => $event['case_status'],
+                'offense' => $event['offense_name'],
+                'description' => $event['case_description'],
+                'actionTaken' => $event['action_taken'],
+                'notes' => $event['case_notes'],
+                'studentId' => $event['student_id'],
+                'studentName' => trim(implode(' ', array_filter([
+                    $event['first_name'],
+                    $event['middle_name'],
+                    $event['last_name']
+                ]))),
+                'trackCourse' => $event['track_course']
+            ] : null,
             'color' => getCategoryColor($event['category'])
         ];
     }, $events);
@@ -141,6 +265,42 @@ if ($_POST['action'] === 'getEvents') {
     echo json_encode(['success' => true, 'events' => $formattedEvents]);
     exit;
 }
+
+        if ($_POST['action'] === 'rsvpEvent') {
+            if (!$isDepartmentHead) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Only department heads can RSVP to invitations']);
+                exit;
+            }
+
+            $eventId = filter_var($_POST['eventId'] ?? null, FILTER_VALIDATE_INT);
+            $response = strtolower(trim((string)($_POST['response'] ?? '')));
+            if (!$eventId || !in_array($response, ['attend', 'unavailable'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid RSVP response']);
+                exit;
+            }
+
+            $event = fetchOne(
+                "SELECT event_id FROM calendar_events WHERE event_id = ? AND target_user_id = ?",
+                [$eventId, $currentUserId]
+            );
+            if (!$event) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Invitation not found']);
+                exit;
+            }
+
+            executeQuery(
+                "INSERT INTO calendar_event_rsvps (event_id, user_id, response)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE response = ?, updated_at = NOW()",
+                [$eventId, $currentUserId, $response, $response]
+            );
+
+            echo json_encode(['success' => true, 'response' => $response]);
+            exit;
+        }
 
         // Get saved hearing schedule for a case
         if ($_POST['action'] === 'getCaseSchedule') {
@@ -235,12 +395,6 @@ if ($_POST['action'] === 'getEvents') {
                     $case = getCaseById($caseId);
                     if ($case) {
                         executeQuery("UPDATE cases SET assigned_to = ?, updated_at = NOW() WHERE case_id = ?", [$_SESSION['user_id'] ?? null, $caseId]);
-                        $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
-                        $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
-                        if ($program) {
-                            $departmentHead = getDepartmentHeadTeacherForProgram($program);
-                            $targetUserId = $departmentHead['user_id'] ?? null;
-                        }
                     }
                 }
             }
@@ -339,12 +493,7 @@ if ($_POST['action'] === 'getEvents') {
                 if ($caseId !== '') {
                     $case = getCaseById($caseId);
                     if ($case) {
-                        $student = fetchOne("SELECT track_course FROM students WHERE student_id = ?", [$case['student_id']]);
-                        $program = resolveDepartmentHeadProgramFromTrackCourse($student['track_course'] ?? '');
-                        if ($program) {
-                            $departmentHead = getDepartmentHeadTeacherForProgram($program);
-                            $targetUserId = $departmentHead['user_id'] ?? ($oldEvent['target_user_id'] ?? null);
-                        }
+                        $targetUserId = null;
                     }
                 }
             } else {
@@ -471,6 +620,8 @@ if ($_POST['action'] === 'getEvents') {
             if ($isDepartmentHead) {
                 $sql .= " WHERE target_user_id = ?";
                 $params[] = $currentUserId;
+            } else {
+                $sql .= " WHERE target_user_id IS NULL";
             }
             $sql .= " GROUP BY category";
             $counts = fetchAll($sql, $params) ?? [];

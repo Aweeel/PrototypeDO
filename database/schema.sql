@@ -331,6 +331,18 @@ CREATE TABLE calendar_events (
     CONSTRAINT fk_calendar_created_by FOREIGN KEY (created_by) REFERENCES users(user_id),
     CONSTRAINT fk_calendar_target_user FOREIGN KEY (target_user_id) REFERENCES users(user_id)
 );
+
+CREATE TABLE calendar_event_rsvps (
+    rsvp_id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    user_id INT NOT NULL,
+    response VARCHAR(20) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_calendar_event_rsvp (event_id, user_id),
+    CONSTRAINT fk_calendar_rsvp_event FOREIGN KEY (event_id) REFERENCES calendar_events(event_id) ON DELETE CASCADE,
+    CONSTRAINT fk_calendar_rsvp_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
 -- ============================================
 -- 12. HANDBOOK_SECTIONS TABLE (For editing)
 -- ============================================

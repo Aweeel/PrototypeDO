@@ -634,7 +634,7 @@ function goToPage(page) {
 }
 
 // ====== User Actions ======
-function editUser(userId) {
+async function editUser(userId) {
     const user = allUsers.find(u => u.user_id == userId);
     if (!user) {
         console.error('User not found:', userId);
@@ -690,12 +690,7 @@ function editUser(userId) {
         if (editStudentId) {
             editStudentId.value = user.student_id || '';
         }
-        document.getElementById('edit_grade_year').value = user.grade_year || '';
-        document.getElementById('edit_track_course').value = user.track_course || '';
-        document.getElementById('edit_section').value = user.section || '';
         document.getElementById('edit_student_type').value = user.student_type || '';
-        document.getElementById('edit_guardian_name').value = user.guardian_name || '';
-        document.getElementById('edit_guardian_contact').value = user.guardian_contact || '';
         const editTeacherSubrole = document.getElementById('edit_teacher_subrole');
         if (editTeacherSubrole) {
             editTeacherSubrole.value = user.teacher_subrole || '';
@@ -705,8 +700,16 @@ function editUser(userId) {
             editProgram.value = user.program || '';
         }
         if (typeof handleRoleChange === 'function') {
-            handleRoleChange('edit');
+            await handleRoleChange('edit');
         }
+        document.getElementById('edit_grade_year').value = user.grade_year || '';
+        document.getElementById('edit_track_course').value = user.track_course || '';
+        document.getElementById('edit_section').value = user.section || '';
+        if (user.student_type && typeof loadStudentOptions === 'function') {
+            await loadStudentOptions('edit');
+        }
+        document.getElementById('edit_guardian_name').value = user.guardian_name || '';
+        document.getElementById('edit_guardian_contact').value = user.guardian_contact || '';
         document.getElementById('editModal').classList.remove('hidden');
     } catch(e) {
         console.error('Error in editUser:', e);
