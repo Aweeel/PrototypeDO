@@ -112,16 +112,16 @@ switch ($role) {
         <a href="<?= htmlspecialchars($manualUrl) ?>"
            target="_blank"
            rel="noopener noreferrer"
-           class="w-full flex items-center justify-center space-x-2
+           class="w-full flex items-left justify-left space-x-2
                   bg-transparent hover:bg-gray-100
                   dark:hover:bg-gray-800
                   text-[#33475F] hover:text-[#2563EB]
                   dark:text-gray-200 dark:hover:text-blue-400
                   font-medium py-2 px-4 rounded-lg
                   transition-all duration-200 active:scale-95">
-            <img src="<?= htmlspecialchars(ASSETS_URL) ?>/images/icons/Student-handbook-icon.png"
-                 alt="User Manual icon"
-                 class="w-5 h-5" />
+            <span aria-hidden="true"
+                  class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-sm font-bold leading-none">?</span>
+            <span class="sr-only">User Manual icon</span>
             <span>User Manual</span>
         </a>
     </div>
