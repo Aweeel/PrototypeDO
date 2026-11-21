@@ -904,7 +904,13 @@ function setScheduleDateToToday() {
 }
 
 // Save schedule from popup
+let scheduleSaveInProgress = false;
+
 async function saveSchedule(forceNew = false) {
+    if (scheduleSaveInProgress) {
+        return;
+    }
+
     const date = document.getElementById('popupScheduleDate').value;
     const time = document.getElementById('popupScheduleTime').value;
     const endTime = document.getElementById('popupScheduleEndTime').value;
@@ -942,8 +948,10 @@ async function saveSchedule(forceNew = false) {
     document.getElementById('sanctionScheduleEndTime').value = endTime;
     document.getElementById('sanctionScheduleNotes').value = notes;
 
+    scheduleSaveInProgress = true;
     const caseId = window.currentCaseId;
     const saved = await saveScheduleToCalendar(caseId, date, time, endTime, notes, forceNew);
+    scheduleSaveInProgress = false;
     if (!saved) {
         showNotification('The schedule could not be saved because the calendar server did not return a valid response. Check your connection and try again.', 'error');
         return;
@@ -972,6 +980,7 @@ async function saveScheduleToCalendar(caseId, date, time, endTime, notes, forceN
         const formData = new FormData();
         formData.append('ajax', '1');
         formData.append('action', useUpdate ? 'updateEvent' : 'createEvent');
+        formData.append('forceNew', forceNew ? '1' : '0');
         if (useUpdate) {
             formData.append('eventId', existingEventId);
         }

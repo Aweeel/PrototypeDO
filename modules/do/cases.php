@@ -1411,6 +1411,12 @@ if ($_POST['action'] === 'uploadCommunityServicePortfolio') {
         exit;
     }
 
+    $caseStatus = fetchValue("SELECT status FROM cases WHERE case_id = ?", [$caseId]);
+    if (strtolower(trim((string)$caseStatus)) === 'resolved') {
+        echo json_encode(['success' => false, 'error' => 'This case is already resolved. Portfolio upload is no longer allowed']);
+        exit;
+    }
+
     if (!isset($_FILES['portfolioFile']) || !is_array($_FILES['portfolioFile'])) {
         echo json_encode(['success' => false, 'error' => 'Please select a file to upload']);
         exit;
