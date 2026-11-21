@@ -19,7 +19,7 @@ Supported roles are `teacher`, `discipline_office`, `security`, `student`, and `
 Teacher-specific rules:
 
 - `teacher_subrole` may be blank or `department_head`.
-- A `department_head` must have one of these programs: `BSCS`, `BSIT`, `BSCpE`, `BSMA`, `BSA`, `BSHM`, `BMMA`, `BACOMM`, `BAPsych`, `BSTM`, or `BSCRIM`.
+- A `department_head` must have one of these programs: `BSCS`, `BSIT`, `BSCpE`, `BSMA`, `BSA`, `BSHM`, `BMMA`, `BACOMM`, `BAPsych`, `BSTM`, `BSCRIM`, `STEM`, `ABM`, or `HUMSS`.
 - A regular teacher must leave `program` blank.
 
 The importer creates new accounts with the default password `password`. Existing student IDs are updated and reactivated. After a successful import, active students whose IDs are missing from the new CSV are archived together with their linked accounts; the preview lists those students before any changes are made. Use [users_import_test.csv](test_fixtures/users_import_test.csv) for local testing. Its records are synthetic and should be removed or reset before rerunning the import.

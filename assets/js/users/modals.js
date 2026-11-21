@@ -393,7 +393,10 @@ function createEditModal() {
                             <option value="Hospitality Management">Hospitality Management</option>
                             <option value="Business & Management">Business & Management</option>
                             <option value="Arts & Sciences">Arts & Sciences</option>
-                            <option value="Engineering">Engineering</option>
+                            <option value="Computer Engineering">Computer Engineering</option>
+                            <option value="STEM">STEM</option>
+                            <option value="ABM">ABM</option>
+                            <option value="HUMSS">HUMSS</option>
                         </select>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required for department head teachers.</p>
                     </div>

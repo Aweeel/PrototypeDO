@@ -38,7 +38,11 @@ document.addEventListener('themechange', function(event) {
     }
 
     const color = event.detail.isDark ? '#f3f4f6' : '#111827';
-    auditActivityChart.options.plugins.legend.labels.color = color;
+    const legend = document.getElementById('auditActivityLegend');
+    if (legend) {
+        legend.classList.toggle('text-gray-100', event.detail.isDark);
+        legend.classList.toggle('text-gray-900', !event.detail.isDark);
+    }
     auditActivityChart.update();
 });
 
@@ -154,10 +158,49 @@ async function loadLogs() {
             const today = new Date().toDateString();
             const actionsToday = filteredLogs.filter(log => new Date(log.timestamp).toDateString() === today).length;
             const commonAction = labels.sort((a, b) => totals[b] - totals[a])[0] || 'N/A';
+            const uniqueUsers = new Set(filteredLogs.map(log => log.userId).filter(Boolean)).size;
 
             document.getElementById('totalLogsStat').textContent = totalLogs;
             document.getElementById('actionsTodayStat').textContent = actionsToday;
             document.getElementById('commonActionStat').textContent = commonAction;
+            document.getElementById('uniqueUsersStat').textContent = uniqueUsers;
+
+            const legend = document.getElementById('auditActivityLegend');
+            if (legend) {
+                const legendTextClass = document.documentElement.classList.contains('dark')
+                    ? 'text-gray-100'
+                    : 'text-gray-900';
+                legend.className = `w-[210px] shrink-0 max-h-[240px] overflow-y-auto pr-2 text-xs ${legendTextClass}`;
+                legend.replaceChildren();
+                labels.forEach((label, index) => {
+                    const count = totals[label];
+                    const percentage = totalLogs ? Math.round(count / totalLogs * 100) : 0;
+                    const color = colors[index % colors.length];
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'flex w-full items-start gap-2 rounded px-1 py-1 text-left hover:bg-gray-100 dark:hover:bg-slate-700';
+                    item.setAttribute('aria-pressed', 'true');
+                    item.title = `Toggle ${label}`;
+                    const swatch = document.createElement('span');
+                    swatch.className = 'mt-0.5 h-3 w-3 shrink-0';
+                    swatch.style.backgroundColor = color;
+                    swatch.setAttribute('aria-hidden', 'true');
+                    const text = document.createElement('span');
+                    text.textContent = `${label} (${count} - ${percentage}%)`;
+                    item.append(swatch, text);
+                    item.addEventListener('click', () => {
+                        if (!auditActivityChart) return;
+                        const visible = item.getAttribute('aria-pressed') === 'true';
+                        const meta = auditActivityChart.getDatasetMeta(0);
+                        meta.data[index].hidden = visible;
+                        item.setAttribute('aria-pressed', visible ? 'false' : 'true');
+                        item.classList.toggle('opacity-40', visible);
+                        item.classList.toggle('line-through', visible);
+                        auditActivityChart.update();
+                    });
+                    legend.appendChild(item);
+                });
+            }
 
             if (auditActivityChart) auditActivityChart.destroy();
             auditActivityChart = new Chart(canvas, {
@@ -176,29 +219,26 @@ async function loadLogs() {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            position: 'right',
-                            labels: {
-                                boxWidth: 12,
-                                color: document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#111827',
-                                generateLabels: chart => {
-                                    const legendTextColor = document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#111827';
-                                    const total = chart.data.datasets[0].data.reduce((sum, value) => sum + value, 0);
-                                    return chart.data.labels.map((label, index) => ({
-                                        text: `${label} (${chart.data.datasets[0].data[index]} - ${total ? Math.round(chart.data.datasets[0].data[index] / total * 100) : 0}%)`,
-                                        fillStyle: chart.data.datasets[0].backgroundColor[index],
-                                        strokeStyle: chart.data.datasets[0].backgroundColor[index],
-                                        fontColor: legendTextColor,
-                                        color: legendTextColor,
-                                        index
-                                    }));
-                                }
-                            }
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
                                 label: context => ` ${context.label}: ${context.raw}`
                             }
                         }
+                    },
+                    onHover: (event, elements) => {
+                        event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                    },
+                    onClick: (event, elements) => {
+                        if (!elements.length) return;
+                        const action = labels[elements[0].index];
+                        const actionFilter = document.getElementById('actionTypeFilter');
+                        if (!actionFilter) return;
+                        actionFilter.value = action;
+                        currentFilters.actionType = action;
+                        currentPage = 1;
+                        loadLogs();
                     }
                 }
             });
