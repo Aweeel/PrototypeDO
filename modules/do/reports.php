@@ -192,13 +192,11 @@ function fetchLostFoundData($p) {
         'items'      => fetchAll("SELECT $itemColumns FROM lost_found_items l $where ORDER BY l.date_found DESC, l.item_id DESC", $params),
         'byCategory' => fetchAll("SELECT l.category, COUNT(*) AS total,
             SUM(CASE WHEN l.status='Claimed' THEN 1 ELSE 0 END) AS claimed,
-            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed,
-            SUM(CASE WHEN l.status='Disposed' THEN 1 ELSE 0 END) AS disposed
+            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed
             FROM lost_found_items l $where GROUP BY l.category ORDER BY total DESC, l.category", $params),
         'totals'     => fetchOne("SELECT COUNT(*) AS total,
             SUM(CASE WHEN l.status='Claimed' THEN 1 ELSE 0 END) AS claimed,
-            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed,
-            SUM(CASE WHEN l.status='Disposed' THEN 1 ELSE 0 END) AS disposed
+            SUM(CASE WHEN l.status='Unclaimed' THEN 1 ELSE 0 END) AS unclaimed
             FROM lost_found_items l $where", $params),
         'filters'    => $p];
 }
@@ -304,8 +302,8 @@ function buildCSVData($type, $params) {
             $rows[] = ['Exported By:', $exportedBy];
             $rows[] = [];
             $rows[] = ['SUMMARY BY CATEGORY'];
-            $rows[] = ['Category','Total','Claimed','Unclaimed','Disposed'];
-            foreach ($data['byCategory'] as $r) { $rows[] = [$r['category'], $r['total'], $r['claimed'], $r['unclaimed'], $r['disposed']]; }
+            $rows[] = ['Category','Total','Claimed','Unclaimed'];
+            foreach ($data['byCategory'] as $r) { $rows[] = [$r['category'], $r['total'], $r['claimed'], $r['unclaimed']]; }
             $rows[] = [];
             $rows[] = ['ITEM RECORDS'];
             $rows[] = ['Item ID','Name','Category','Location Found','Date Found','Status','Finder','Claimer','Date Claimed','Description'];

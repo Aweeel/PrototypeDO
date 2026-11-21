@@ -519,25 +519,32 @@ table.w-full th, table.w-full td {
                 </div>
 
                 <!-- Audit Activity Summary -->
-                <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
-                    <div class="lg:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Logs</p>
-                            <p id="totalLogsStat" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">0</p>
+                <div class="mb-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+                    <div class="lg:col-span-3 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                        <div class="h-[70px] bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-2">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Total Logs</p>
+                            <p id="totalLogsStat" class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">0</p>
                         </div>
-                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Actions Today</p>
-                            <p id="actionsTodayStat" class="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">0</p>
+                        <div class="h-[70px] bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-2">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Actions Today</p>
+                            <p id="actionsTodayStat" class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">0</p>
                         </div>
-                        <div class="bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Most Common Action</p>
-                            <p id="commonActionStat" class="mt-2 truncate text-lg font-semibold text-gray-900 dark:text-gray-100">N/A</p>
+                        <div class="h-[70px] bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-2">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Most Common Action</p>
+                            <p id="commonActionStat" class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">N/A</p>
+                        </div>
+                        <div class="h-[70px] bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-2">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Unique Users</p>
+                            <p id="uniqueUsersStat" class="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">0</p>
                         </div>
                     </div>
-                    <div class="lg:col-span-2 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
+                    <div class="lg:col-span-9 bg-white dark:bg-[#111827] rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">Audit Activity Totals</h2>
-                        <div class="relative h-[180px]">
-                            <canvas id="auditActivityChart" aria-label="Audit log activity totals" role="img"></canvas>
+                        <div class="flex h-[280px] items-center gap-4">
+                            <div class="relative min-w-0 flex-1 h-full">
+                                <canvas id="auditActivityChart" aria-label="Audit log activity totals" role="img"></canvas>
+                            </div>
+                            <div id="auditActivityLegend" class="w-[210px] shrink-0 max-h-[240px] overflow-y-auto pr-2 text-xs" role="list" aria-label="Audit activity legend"></div>
                         </div>
                     </div>
                 </div>

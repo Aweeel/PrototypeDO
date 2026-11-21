@@ -101,7 +101,10 @@ function validateTeacherProgram($teacherSubrole, $program) {
         'Hospitality Management',
         'Business & Management',
         'Arts & Sciences',
-        'Engineering'
+        'Computer Engineering',
+        'STEM',
+        'ABM',
+        'HUMSS'
     ];
     
     if ($teacherSubrole === 'department_head') {
@@ -130,7 +133,7 @@ function normalizeTeacherProgram($program) {
     $programMap = [
         'BSCS' => 'Information Technology',
         'BSIT' => 'Information Technology',
-        'BSCpE' => 'Engineering',
+        'BSCpE' => 'Computer Engineering',
         'BSMA' => 'Business & Management',
         'BSA' => 'Business & Management',
         'BSHM' => 'Hospitality Management',
@@ -139,9 +142,13 @@ function normalizeTeacherProgram($program) {
         'BAPsych' => 'Arts & Sciences',
         'BSTM' => 'Tourism Management',
         'BSCRIM' => 'Criminal Justice Education',
+        'STEM' => 'STEM',
+        'ABM' => 'ABM',
+        'HUMSS' => 'HUMSS',
         'Bachelor of Science in Computer Science' => 'Information Technology',
         'Bachelor of Science in Information Technology' => 'Information Technology',
-        'Bachelor of Science in Computer Engineering' => 'Engineering',
+        'Bachelor of Science in Computer Engineering' => 'Computer Engineering',
+        'Computer Engineering' => 'Computer Engineering',
         'Bachelor of Science in Management Accounting' => 'Business & Management',
         'Bachelor of Science in Accountancy' => 'Business & Management',
         'Bachelor of Science in Hospitality Management' => 'Hospitality Management',
@@ -152,7 +159,20 @@ function normalizeTeacherProgram($program) {
         'Bachelor of Science in Criminology' => 'Criminal Justice Education'
     ];
 
-    return $programMap[$program] ?? $program;
+    $canonicalKey = preg_replace('/[^a-z0-9]/', '', strtolower($program));
+    $shsAliases = [
+        'stem' => 'STEM',
+        'sciencetechnologyengineeringandmathematics' => 'STEM',
+        'sciencetechnologyengineeringmathematics' => 'STEM',
+        'abm' => 'ABM',
+        'accountancybusinessandmanagement' => 'ABM',
+        'accountancybusinessmanagement' => 'ABM',
+        'humss' => 'HUMSS',
+        'humanitiesandsocialsciences' => 'HUMSS',
+        'humanitiessocialsciences' => 'HUMSS'
+    ];
+
+    return $shsAliases[$canonicalKey] ?? $programMap[$program] ?? $program;
 }
 
 function normalizeStudentTrackCourse($trackCourse) {
@@ -177,8 +197,34 @@ function normalizeStudentTrackCourse($trackCourse) {
         'Tourism Management' => 'Bachelor of Science in Tourism Management',
         'BSCRIM' => 'Bachelor of Science in Criminology',
         'Criminal Justice Education' => 'Bachelor of Science in Criminology',
-        'Engineering' => 'Bachelor of Science in Computer Engineering'
+        'Computer Engineering' => 'Bachelor of Science in Computer Engineering',
+        'STEM' => 'STEM',
+        'Science, Technology, Engineering, and Mathematics' => 'STEM',
+        'Science Technology Engineering and Mathematics' => 'STEM',
+        'ABM' => 'ABM',
+        'Accountancy, Business, and Management' => 'ABM',
+        'Accountancy Business and Management' => 'ABM',
+        'HUMSS' => 'HUMSS',
+        'Humanities and Social Sciences' => 'HUMSS',
+        'Humanities, and Social Sciences' => 'HUMSS'
     ];
+
+    $canonicalKey = preg_replace('/[^a-z0-9]/', '', strtolower($value));
+    $shsAliases = [
+        'stem' => 'STEM',
+        'sciencetechnologyengineeringandmathematics' => 'STEM',
+        'sciencetechnologyengineeringmathematics' => 'STEM',
+        'abm' => 'ABM',
+        'accountancybusinessandmanagement' => 'ABM',
+        'accountancybusinessmanagement' => 'ABM',
+        'humss' => 'HUMSS',
+        'humanitiesandsocialsciences' => 'HUMSS',
+        'humanitiessocialsciences' => 'HUMSS'
+    ];
+    if (isset($shsAliases[$canonicalKey])) {
+        return $shsAliases[$canonicalKey];
+    }
+
     $key = strtoupper($value);
     $aliases = [];
     foreach ($map as $alias => $course) {
@@ -1666,7 +1712,7 @@ $adminName = getFormattedUserName();
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">For students, <strong>grade_year</strong> and <strong>student_type</strong> are also required. <strong>track_course, section, guardian_name</strong>, and <strong>guardian_contact</strong> are optional.</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">ID Formats (<code>role_id</code>): Student (<code>02000xxxxxx</code>), Teacher (<code>01000xxxxxx</code>), DO Staff (<code>03000xxxxxx</code>), Security (<code>04000xxxxxx</code>), System Manager (<code>05000xxxxxx</code>).</p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Teacher subrole is optional. Use <strong>department_head</strong> for teachers who should be eligible for hearing invitations.</p>
-            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM</strong></p>
+            <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Allowed program values for department heads: <strong>BSCS, BSIT, BSCpE, BSMA, BSA, BSHM, BMMA, BACOMM, BAPsych, BSTM, BSCRIM, STEM, ABM, HUMSS</strong></p>
             <p class="text-xs text-blue-700 dark:text-blue-400 mt-1">Email is required in the CSV and must be unique. Default password: <code>password</code>.</p>
         </div>
         <form id="importUsersForm" enctype="multipart/form-data">

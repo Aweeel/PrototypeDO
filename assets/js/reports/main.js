@@ -479,11 +479,10 @@ function lfHTML(d) {
         {label:'Total',    value:totals.total??0,    color:'#1d4ed8'},
         {label:'Unclaimed',value:totals.unclaimed??0,color:'#d97706'},
         {label:'Claimed',  value:totals.claimed??0,  color:'#16a34a'},
-        {label:'Disposed', value:totals.disposed??0, color:'#6b7280'},
     ]);
     html += h2('Summary by Category');
-    html += tbl(['Category','Total','Claimed','Unclaimed','Disposed'],
-        byCategory.map(r=>[esc(r.category),r.total,r.claimed,r.unclaimed,r.disposed]));
+    html += tbl(['Category','Total','Claimed','Unclaimed'],
+        byCategory.map(r=>[esc(r.category),r.total,r.claimed,r.unclaimed]));
     html += h2('Item Records');
     html += tbl(['Item ID','Name','Category','Location Found','Date Found','Status','Finder','Claimer','Date Claimed','Description'],
         items.map(i=>[esc(i.item_id),esc(i.item_name),esc(i.category),esc(i.found_location),

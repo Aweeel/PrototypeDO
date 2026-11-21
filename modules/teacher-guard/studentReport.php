@@ -211,9 +211,14 @@ $caseTypeDescriptionMap = array_combine(
         }
 
         #reportForm input:not([type="hidden"])::placeholder,
-        #reportForm textarea::placeholder {
-            color: #6b7280;
-            opacity: 1;
+        #reportForm textarea::placeholder,
+        #reportForm input:not([type="hidden"])::-webkit-input-placeholder,
+        #reportForm textarea::-webkit-input-placeholder,
+        #reportForm input:not([type="hidden"])::-moz-placeholder,
+        #reportForm textarea::-moz-placeholder {
+            color: #9ca3af !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #9ca3af !important;
         }
 
         .dark #reportForm input:not([type="hidden"]),
@@ -224,8 +229,50 @@ $caseTypeDescriptionMap = array_combine(
         }
 
         .dark #reportForm input:not([type="hidden"])::placeholder,
-        .dark #reportForm textarea::placeholder {
-            color: #cbd5e1;
+        .dark #reportForm textarea::placeholder,
+        .dark #reportForm input:not([type="hidden"])::-webkit-input-placeholder,
+        .dark #reportForm textarea::-webkit-input-placeholder,
+        .dark #reportForm input:not([type="hidden"])::-moz-placeholder,
+        .dark #reportForm textarea::-moz-placeholder {
+            color: #94a3b8 !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        #reportForm select:invalid {
+            color: #9ca3af !important;
+            -webkit-text-fill-color: #9ca3af !important;
+        }
+
+        #reportForm select:invalid option:not([value=""]) {
+            color: #111827;
+        }
+
+        .dark #reportForm select:invalid {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        .dark #reportForm select:invalid option:not([value=""]) {
+            color: #f3f4f6;
+        }
+
+        #reportForm select[data-placeholder="true"] {
+            color: #9ca3af !important;
+            -webkit-text-fill-color: #9ca3af !important;
+        }
+
+        #reportForm select[data-placeholder="true"] option[value=""] {
+            color: #9ca3af;
+        }
+
+        .dark #reportForm select[data-placeholder="true"] {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        .dark #reportForm select[data-placeholder="true"] option[value=""] {
+            color: #94a3b8;
         }
 
         #reportForm input:disabled,
@@ -263,6 +310,70 @@ $caseTypeDescriptionMap = array_combine(
                 background-color: #1e293b;
                 color: #f3f4f6;
                 -webkit-text-fill-color: #f3f4f6;
+            }
+        }
+
+        #reportForm input:placeholder-shown,
+        #reportForm textarea:placeholder-shown {
+            color: #9ca3af !important;
+            -webkit-text-fill-color: #9ca3af !important;
+            opacity: 1;
+        }
+
+        .dark #reportForm input:placeholder-shown,
+        .dark #reportForm textarea:placeholder-shown {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+            opacity: 1;
+        }
+
+        #reportForm input:placeholder-shown::placeholder,
+        #reportForm textarea:placeholder-shown::placeholder,
+        #reportForm input:placeholder-shown::-webkit-input-placeholder,
+        #reportForm textarea:placeholder-shown::-webkit-input-placeholder {
+            color: #9ca3af !important;
+            -webkit-text-fill-color: #9ca3af !important;
+            opacity: 1 !important;
+        }
+
+        .dark #reportForm input:placeholder-shown::placeholder,
+        .dark #reportForm textarea:placeholder-shown::placeholder,
+        .dark #reportForm input:placeholder-shown::-webkit-input-placeholder,
+        .dark #reportForm textarea:placeholder-shown::-webkit-input-placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+            opacity: 1 !important;
+        }
+
+        /* Keep native input/option rendering reliable in Safari on Apple devices. */
+        @supports (-webkit-touch-callout: none) {
+            #reportForm select {
+                -webkit-appearance: none;
+                appearance: none;
+            }
+
+            #reportForm input:not([type="hidden"]),
+            #reportForm textarea {
+                -webkit-text-fill-color: #111827;
+            }
+
+            #reportForm input:not([type="hidden"])::placeholder,
+            #reportForm textarea::placeholder,
+            #reportForm input:not([type="hidden"])::-webkit-input-placeholder,
+            #reportForm textarea::-webkit-input-placeholder {
+                -webkit-text-fill-color: #9ca3af;
+            }
+
+            .dark #reportForm input:not([type="hidden"]),
+            .dark #reportForm textarea {
+                -webkit-text-fill-color: #f3f4f6;
+            }
+
+            .dark #reportForm input:not([type="hidden"])::placeholder,
+            .dark #reportForm textarea::placeholder,
+            .dark #reportForm input:not([type="hidden"])::-webkit-input-placeholder,
+            .dark #reportForm textarea::-webkit-input-placeholder {
+                -webkit-text-fill-color: #94a3b8;
             }
         }
     </style>
@@ -351,9 +462,10 @@ $caseTypeDescriptionMap = array_combine(
                             </label> 
                             <select id="caseType"  
                                     required  
+                                    data-placeholder="true"
                                     onchange="handleCaseTypeChange()" 
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"> 
-                                <option value="">Select case type...</option> 
+                                <option value="" disabled selected>Select case type...</option> 
                                 <?php foreach ($caseTypesList as $caseType): ?> 
                                     <option value="<?php echo htmlspecialchars($caseType); ?>"><?php echo htmlspecialchars($caseType); ?></option> 
                                 <?php endforeach; ?> 
@@ -643,7 +755,9 @@ $caseTypeDescriptionMap = array_combine(
 
         // Handle case type change 
         function handleCaseTypeChange() { 
-            const caseType = document.getElementById('caseType').value; 
+            const caseTypeSelect = document.getElementById('caseType');
+            const caseType = caseTypeSelect.value;
+            caseTypeSelect.dataset.placeholder = caseType === '' ? 'true' : 'false';
             const description = document.getElementById('description'); 
             const descRequired = document.getElementById('descRequired'); 
             const severityInput = document.getElementById('severity'); 
@@ -689,6 +803,9 @@ $caseTypeDescriptionMap = array_combine(
                 descRequired.style.display = 'none'; 
             } 
         } 
+
+        // Initialize the select state in case Safari restores a previous form value.
+        handleCaseTypeChange();
 
         // Drag & Drop Handlers
         function handleDragOver(e) { 

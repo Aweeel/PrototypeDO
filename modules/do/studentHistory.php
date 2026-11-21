@@ -277,18 +277,18 @@ $adminName = getFormattedUserName();
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input type="text" id="searchInput" placeholder="Search students by name or ID..."
-                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                            class="h-12 w-full pl-10 pr-4 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
                             oninput="filterStudents()">
                     </div>
 
                     <div class="flex w-full flex-wrap gap-3 items-center sm:w-auto">
-                        <div class="flex overflow-hidden rounded-lg border border-gray-300 dark:border-slate-600">
-                            <button id="activeStudentsTab" onclick="setStudentArchiveMode(false)" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white">Active Students</button>
-                            <button id="archivedStudentsTab" onclick="setStudentArchiveMode(true)" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
+                        <div class="flex h-12 overflow-hidden rounded-lg border border-gray-300 dark:border-slate-600">
+                            <button id="activeStudentsTab" onclick="setStudentArchiveMode(false)" class="h-full px-4 text-sm font-medium bg-blue-600 text-white">Active Students</button>
+                            <button id="archivedStudentsTab" onclick="setStudentArchiveMode(true)" class="h-full px-4 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700">Archive</button>
                         </div>
                         <!-- Grade Filter -->
                         <select id="gradeFilter" onchange="filterStudents()"
-                            class="px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
+                            class="h-12 px-4 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 cursor-pointer">
                             <option value="">All Levels</option>
 
                             <!-- Senior High -->

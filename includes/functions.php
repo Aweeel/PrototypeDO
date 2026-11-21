@@ -248,7 +248,8 @@ function ensureNotificationRelatedIdColumn() {
 }
 
 function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
-    $normalized = strtolower(trim((string)$trackCourse));
+    $value = strtolower(trim((string)$trackCourse));
+    $normalized = preg_replace('/[^a-z0-9]/', '', $value);
 
     $mapping = [
         'bsit' => 'Information Technology',
@@ -262,8 +263,9 @@ function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
         'bachelor of science in hospitality management' => 'Hospitality Management',
         'bstm' => 'Tourism Management',
         'bachelor of science in tourism management' => 'Tourism Management',
-        'bscpe' => 'Engineering',
-        'bachelor of science in computer engineering' => 'Engineering',
+        'bscpe' => 'Computer Engineering',
+        'bachelor of science in computer engineering' => 'Computer Engineering',
+        'computer engineering' => 'Computer Engineering',
         'bacomm' => 'Arts & Sciences',
         'bmma' => 'Arts & Sciences',
         'ba in communication' => 'Arts & Sciences',
@@ -271,10 +273,25 @@ function resolveDepartmentHeadProgramFromTrackCourse($trackCourse) {
         'bachelor of multimedia arts' => 'Arts & Sciences',
         'bachelor of arts in psychology' => 'Arts & Sciences',
         'bs criminology' => 'Criminal Justice Education',
-        'bachelor of science in criminology' => 'Criminal Justice Education'
+        'bachelor of science in criminology' => 'Criminal Justice Education',
+        'stem' => 'STEM',
+        'abm' => 'ABM',
+        'humss' => 'HUMSS'
     ];
 
-    return $mapping[$normalized] ?? null;
+    $shsAliases = [
+        'stem' => 'STEM',
+        'sciencetechnologyengineeringandmathematics' => 'STEM',
+        'sciencetechnologyengineeringmathematics' => 'STEM',
+        'abm' => 'ABM',
+        'accountancybusinessandmanagement' => 'ABM',
+        'accountancybusinessmanagement' => 'ABM',
+        'humss' => 'HUMSS',
+        'humanitiesandsocialsciences' => 'HUMSS',
+        'humanitiessocialsciences' => 'HUMSS'
+    ];
+
+    return $shsAliases[$normalized] ?? $mapping[$value] ?? null;
 }
 
 function getDepartmentHeadTeachers($program = null) {
@@ -3703,7 +3720,7 @@ function normalizeProgramAbbreviation($input) {
         'bachelor of science in information technology'  => 'BSIT',
         'information technology'                        => 'BSIT',
         'bachelor of science in computer engineering'   => 'BSCpE',
-        'engineering'                                   => 'BSCpE',
+        'computer engineering'                          => 'BSCpE',
         'bachelor of science in management accounting'  => 'BSMA',
         'business & management'                         => 'BSMA',
         'bachelor of science in accountancy'            => 'BSA',

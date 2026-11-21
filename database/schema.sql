@@ -41,7 +41,7 @@ CREATE TABLE users (
     teacher_id VARCHAR(20) NULL CHECK (teacher_id IS NULL OR teacher_id REGEXP '^01000[0-9]{6}$'),
     do_id VARCHAR(20) NULL CHECK (do_id IS NULL OR do_id REGEXP '^03000[0-9]{6}$'),
     teacher_subrole VARCHAR(30) NULL CHECK (teacher_subrole IS NULL OR teacher_subrole = 'department_head'),
-    program VARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Engineering')),
+    program VARCHAR(50) NULL CHECK (program IS NULL OR program IN ('Information Technology', 'Tourism Management', 'Criminal Justice Education', 'Hospitality Management', 'Business & Management', 'Arts & Sciences', 'Computer Engineering', 'STEM', 'ABM', 'HUMSS')),
     role VARCHAR(20) NOT NULL CHECK (role IN ('system_manager', 'discipline_office', 'teacher', 'security', 'student')),
     contact_number VARCHAR(20),
     is_active TINYINT(1) DEFAULT 1,
@@ -244,7 +244,7 @@ CREATE TABLE lost_found_items (
     time_found TIME,
     finder_name VARCHAR(100),
     finder_student_id VARCHAR(20) NULL,
-    status VARCHAR(20) DEFAULT 'Unclaimed' CHECK (status IN ('Unclaimed', 'Claimed', 'Disposed')),
+    status VARCHAR(20) DEFAULT 'Unclaimed' CHECK (status IN ('Unclaimed', 'Claimed')),
     claimer_name VARCHAR(100),
     claimer_student_id VARCHAR(20) NULL,
     date_claimed DATE,
@@ -405,6 +405,7 @@ CREATE INDEX idx_lost_found_status ON lost_found_items(status);
 CREATE INDEX idx_case_sanctions_case ON case_sanctions(case_id);
 CREATE UNIQUE INDEX ux_users_teacher_id ON users(teacher_id);
 CREATE UNIQUE INDEX ux_users_do_id ON users(do_id);
+CREATE UNIQUE INDEX ux_users_department_head_program ON users(program);
 -- ============================================
 -- TRIGGERS for Data Integrity
 -- ============================================
@@ -597,9 +598,12 @@ VALUES
 ('business.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'business.head@sti.edu', 'Benjamin Santos', '01000000007', NULL, 'department_head', 'Business & Management', 'teacher', '09170000007', 1),
 ('hospitality.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'hospitality.head@sti.edu', 'Carla Mendoza', '01000000008', NULL, 'department_head', 'Hospitality Management', 'teacher', '09170000008', 1),
 ('tourism.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'tourism.head@sti.edu', 'Daniel Reyes', '01000000009', NULL, 'department_head', 'Tourism Management', 'teacher', '09170000009', 1),
-('engineering.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'engineering.head@sti.edu', 'Elena Cruz', '01000000010', NULL, 'department_head', 'Engineering', 'teacher', '09170000010', 1),
+('engineering.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'engineering.head@sti.edu', 'Elena Cruz', '01000000010', NULL, 'department_head', 'Computer Engineering', 'teacher', '09170000010', 1),
 ('arts.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'arts.head@sti.edu', 'Francis Lopez', '01000000011', NULL, 'department_head', 'Arts & Sciences', 'teacher', '09170000011', 1),
 ('cj.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'cj.head@sti.edu', 'Grace Navarro', '01000000012', NULL, 'department_head', 'Criminal Justice Education', 'teacher', '09170000012', 1),
+('stem.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'stem.head@sti.edu', 'Hannah Flores', '01000000019', NULL, 'department_head', 'STEM', 'teacher', '09170000019', 1),
+('abm.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'abm.head@sti.edu', 'Isaac Ramos', '01000000020', NULL, 'department_head', 'ABM', 'teacher', '09170000020', 1),
+('humss.head@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'humss.head@sti.edu', 'Julia Mercado', '01000000021', NULL, 'department_head', 'HUMSS', 'teacher', '09170000021', 1),
 ('navarro.000031@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'navarro.000031@sti.edu', 'Luna Navarro', NULL, NULL, NULL, NULL, 'student', '09191234016', 1),
 ('reyes.000032@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'reyes.000032@sti.edu', 'Marcus Reyes', NULL, NULL, NULL, NULL, 'student', '09191234017', 1),
 ('bautista.000033@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'bautista.000033@sti.edu', 'Sofia Bautista', NULL, NULL, NULL, NULL, 'student', '09191234018', 1),
@@ -641,10 +645,7 @@ VALUES
 ('test1T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1T@sti.edu', 'Alpha Test Teacher 1', '01000000013', NULL, NULL, NULL, 'teacher', '09990000007', 1),
 ('test2T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2T@sti.edu', 'Alpha Test Teacher 2', '01000000014', NULL, NULL, NULL, 'teacher', '09990000008', 1),
 ('test3T', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3T@sti.edu', 'Alpha Test Teacher 3', '01000000015', NULL, NULL, NULL, 'teacher', '09990000009', 1),
--- Teacher (Department Head) (3)
-('test1TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1TDH@sti.edu', 'Alpha Test Teacher Department Head 1', '01000000016', NULL, 'department_head', 'Information Technology', 'teacher', '09990000010', 1),
-('test2TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2TDH@sti.edu', 'Alpha Test Teacher Department Head 2', '01000000017', NULL, 'department_head', 'Information Technology', 'teacher', '09990000011', 1),
-('test3TDH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test3TDH@sti.edu', 'Alpha Test Teacher Department Head 3', '01000000018', NULL, 'department_head', 'Information Technology', 'teacher', '09990000012', 1),
+-- Department Head test accounts are seeded once in the default program/track records above.
 -- Security (3)
 ('test1Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test1Sec@sti.edu', 'Alpha Test Security 1', NULL, NULL, NULL, NULL, 'security', '09990000013', 1),
 ('test2Sec', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'test2Sec@sti.edu', 'Alpha Test Security 2', NULL, NULL, NULL, NULL, 'security', '09990000014', 1),
@@ -666,9 +667,6 @@ SET password_hash = CASE username
     WHEN 'test1T' THEN '$2y$10$Ia3XNoICRtKVza0seD9D5uOOCujazhQRuMvwYPeq6BOgJ1J24lIqe'
     WHEN 'test2T' THEN '$2y$10$.use6sp.DI3VT4AovZW/Q.NaC/5jbCMm9AizVSRkjECNQy2Zl1nse'
     WHEN 'test3T' THEN '$2y$10$iVBfezXHaH/sBOiIPJW6pOP4Jm8A2Ongd4y.3GkElGqrjJeDmJOF.'
-    WHEN 'test1TDH' THEN '$2y$10$TMTrx2aJAsLvbyTqk5d2.u2Ou8u5rbKvN9pX4IBeMYZzsMR8vpRc2'
-    WHEN 'test2TDH' THEN '$2y$10$JGrZqaIqnBTc4atSjr2cYeZqapkE0my7RTPBex0hWynb8eLlXaE9i'
-    WHEN 'test3TDH' THEN '$2y$10$BceR8C0yxVVb.4Tfbvurf.bMu0DiVFAbo038bf4gszLwBKzal5e.W'
     WHEN 'test1Sec' THEN '$2y$10$DvkLJOPOgr5EHX0LJiOwb.ErUBPXwYQtTTFjh4ih0cZnPHkwdjjtK'
     WHEN 'test2Sec' THEN '$2y$10$v8h7h/ZPp4/5CB1Js2pSw.YIQ.Ndl8CmKdIPwZRRMZETl5790jE8G'
     WHEN 'test3Sec' THEN '$2y$10$92Wo5.e9ldBtpaBZM3Ki8eqO9L4gKbjrbGM5vmWTodOTY6/GE7pOa'
@@ -680,11 +678,10 @@ full_name = CASE username
     WHEN 'test1SA' THEN 'Isabella Rivera' WHEN 'test2SA' THEN 'Gabriel Santos' WHEN 'test3SA' THEN 'Mateo Cruz'
     WHEN 'test1DO' THEN 'Camille Navarro' WHEN 'test2DO' THEN 'Nathan Mendoza' WHEN 'test3DO' THEN 'Leah Reyes'
     WHEN 'test1T' THEN 'Althea Garcia' WHEN 'test2T' THEN 'Julian Morales' WHEN 'test3T' THEN 'Nina Lopez'
-    WHEN 'test1TDH' THEN 'Bianca Dela Cruz' WHEN 'test2TDH' THEN 'Ethan Villanueva' WHEN 'test3TDH' THEN 'Sofia Castillo'
     WHEN 'test1Sec' THEN 'Marco Bautista' WHEN 'test2Sec' THEN 'Rafael Flores' WHEN 'test3Sec' THEN 'Diego Diaz'
     WHEN 'test1Stu' THEN 'Liam Lim' WHEN 'test2Stu' THEN 'Mia Torres' WHEN 'test3Stu' THEN 'Chloe Ramos'
 END
-WHERE username IN ('test1SA', 'test2SA', 'test3SA', 'test1DO', 'test2DO', 'test3DO', 'test1T', 'test2T', 'test3T', 'test1TDH', 'test2TDH', 'test3TDH', 'test1Sec', 'test2Sec', 'test3Sec', 'test1Stu', 'test2Stu', 'test3Stu');
+WHERE username IN ('test1SA', 'test2SA', 'test3SA', 'test1DO', 'test2DO', 'test3DO', 'test1T', 'test2T', 'test3T', 'test1Sec', 'test2Sec', 'test3Sec', 'test1Stu', 'test2Stu', 'test3Stu');
 
 INSERT INTO students (student_id, user_id, first_name, last_name, middle_name, grade_year, track_course, section, student_type, status)
 VALUES
@@ -712,14 +709,6 @@ SELECT
     CONCAT('0917009', LPAD(n, 3, '0')),
     1
 FROM beta_numbers;
-
-INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, teacher_subrole, program, role, contact_number, is_active)
-VALUES
-('head01@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head01@sti.edu', 'Beta Department Head 01', '01000092001', NULL, 'department_head', 'Business & Management', 'teacher', '0917008001', 1),
-('head02@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head02@sti.edu', 'Beta Department Head 02', '01000092002', NULL, 'department_head', 'Information Technology', 'teacher', '0917008002', 1),
-('head03@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head03@sti.edu', 'Beta Department Head 03', '01000092003', NULL, 'department_head', 'Hospitality Management', 'teacher', '0917008003', 1),
-('head04@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head04@sti.edu', 'Beta Department Head 04', '01000092004', NULL, 'department_head', 'Tourism Management', 'teacher', '0917008004', 1),
-('head05@sti.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'head05@sti.edu', 'Beta Department Head 05', '01000092005', NULL, 'department_head', 'Engineering', 'teacher', '0917008005', 1);
 
 INSERT INTO users (username, password_hash, email, full_name, teacher_id, do_id, role, contact_number, is_active)
 WITH RECURSIVE beta_numbers AS (
@@ -1164,7 +1153,7 @@ SELECT
     ELT(MOD(n - 1, 10) + 1, 'Electronics', 'Accessories', 'Books', 'Bags', 'ID/Documents', 'Accessories', 'Electronics', 'Clothing', 'Electronics', 'Keys'),
     ELT(MOD(n - 1, 10) + 1, 'Computer Lab 1', 'Main Gate', 'Library', 'Cafeteria', 'Building A Lobby', 'Gym', 'Computer Lab 2', 'Student Lounge', 'Room C-401', 'Parking Lot'),
     DATE_ADD('2026-05-01', INTERVAL (n - 1) DAY),
-    CASE WHEN MOD(n, 4) = 0 THEN 'Claimed' WHEN MOD(n, 11) = 0 THEN 'Disposed' ELSE 'Unclaimed' END,
+    CASE WHEN MOD(n, 4) = 0 THEN 'Claimed' ELSE 'Unclaimed' END,
     CONCAT('Beta testing lost-and-found item ', n, '; description and claim workflow record.'),
     CONCAT('Beta Finder ', n),
     CONCAT('02000000', LPAD(MOD(n - 1, 60) + 101, 3, '0'))
@@ -1230,9 +1219,9 @@ JOIN users u ON u.email = CONCAT('student', n, '@sti.edu');
 INSERT INTO calendar_events
     (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id)
 VALUES
-('Beta Hearing - Case 2026-1T-0254', '2026-11-10', '09:00:00', '10:00:00', 'Hearing', 'Beta testing hearing for Business & Management.', 'Room Beta 1', 2, (SELECT user_id FROM users WHERE username = 'head01@sti.edu')),
-('Beta Hearing - Case 2026-1T-0266', '2026-11-11', '10:00:00', '11:00:00', 'Hearing', 'Beta testing hearing for Information Technology.', 'Room Beta 2', 2, (SELECT user_id FROM users WHERE username = 'head02@sti.edu')),
-('Beta Hearing - Case 2026-1T-0278', '2026-11-12', '13:00:00', '14:00:00', 'Hearing', 'Beta testing hearing for Hospitality Management.', 'Room Beta 3', 2, (SELECT user_id FROM users WHERE username = 'head03@sti.edu'));
+('Beta Hearing - Case 2026-1T-0254', '2026-11-10', '09:00:00', '10:00:00', 'Hearing', 'Beta testing hearing for Business & Management.', 'Room Beta 1', 2, (SELECT user_id FROM users WHERE username = 'business.head@sti.edu')),
+('Beta Hearing - Case 2026-1T-0266', '2026-11-11', '10:00:00', '11:00:00', 'Hearing', 'Beta testing hearing for Information Technology.', 'Room Beta 2', 2, (SELECT user_id FROM users WHERE username = 'it.head@sti.edu')),
+('Beta Hearing - Case 2026-1T-0278', '2026-11-12', '13:00:00', '14:00:00', 'Hearing', 'Beta testing hearing for Hospitality Management.', 'Room Beta 3', 2, (SELECT user_id FROM users WHERE username = 'hospitality.head@sti.edu'));
 
 INSERT INTO notifications (user_id, title, message, type, related_id, is_read)
 SELECT
