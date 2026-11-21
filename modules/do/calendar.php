@@ -120,17 +120,7 @@ if ($_POST['action'] === 'getEvents') {
             $sql .= " AND ce.target_user_id = ?";
             $params[] = $currentUserId;
         } else {
-            $sql .= " AND (
-                ce.target_user_id IS NULL
-                OR ce.event_id = (
-                    SELECT MIN(invitation.event_id)
-                    FROM calendar_events invitation
-                    WHERE invitation.event_name = ce.event_name
-                      AND invitation.event_date = ce.event_date
-                      AND invitation.category = ce.category
-                      AND invitation.target_user_id IS NOT NULL
-                )
-            )";
+            $sql .= " AND ce.target_user_id IS NULL";
         }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
@@ -189,17 +179,7 @@ if ($_POST['action'] === 'getEvents') {
             $sql .= " AND ce.target_user_id = ?";
             $params[] = $currentUserId;
         } else {
-            $sql .= " AND (
-                ce.target_user_id IS NULL
-                OR ce.event_id = (
-                    SELECT MIN(invitation.event_id)
-                    FROM calendar_events invitation
-                    WHERE invitation.event_name = ce.event_name
-                      AND invitation.event_date = ce.event_date
-                      AND invitation.category = ce.category
-                      AND invitation.target_user_id IS NOT NULL
-                )
-            )";
+            $sql .= " AND ce.target_user_id IS NULL";
         }
         if (!empty($selectedUserId)) {
             $sql .= " AND ce.created_by = ?";
@@ -389,6 +369,48 @@ if ($_POST['action'] === 'getEvents') {
                 exit;
             }
 
+            $forceNew = ($_POST['forceNew'] ?? '0') === '1';
+            $calendarCreateLockName = null;
+            if ($category === 'Hearing' && !$forceNew && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+                $caseId = trim((string)($matches[1] ?? ''));
+                $lockName = "hearing:{$caseId}:{$eventDate}";
+                $lockAcquired = (int)fetchValue("SELECT GET_LOCK(?, 5)", [$lockName]);
+
+                if ($lockAcquired === 1) {
+                    $calendarCreateLockName = $lockName;
+                    $existingEvent = fetchOne(
+                        "SELECT event_id
+                         FROM calendar_events
+                         WHERE category = 'Hearing'
+                           AND event_date = ?
+                           AND event_name LIKE ?
+                         ORDER BY (target_user_id IS NULL) DESC, event_id DESC
+                         LIMIT 1",
+                        [$eventDate, "%Case {$caseId}%"]
+                    );
+
+                    if ($existingEvent) {
+                        $eventId = (int)$existingEvent['event_id'];
+                        executeQuery(
+                            "UPDATE calendar_events
+                             SET event_name = ?, event_time = ?, event_end_time = ?, description = ?, location = ?, updated_at = NOW()
+                             WHERE event_id = ?",
+                            [$eventName, $eventTime, $eventEndTime, $description, $location, $eventId]
+                        );
+                        shareHearingEventWithDepartmentHeads($eventId, $eventName, $eventDate);
+                        executeQuery("SELECT RELEASE_LOCK(?)", [$lockName]);
+                        $calendarCreateLockName = null;
+
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Event created successfully',
+                            'event_id' => $eventId
+                        ]);
+                        exit;
+                    }
+                }
+            }
+
             // Build SQL based on whether time is provided
             if ($eventTime !== null) {
                 $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
@@ -423,6 +445,11 @@ if ($_POST['action'] === 'getEvents') {
 
             $eventId = insertAndGetId($sql, $params);
             $eventId = $eventId !== '' ? (int)$eventId : null;
+
+            if ($calendarCreateLockName !== null) {
+                executeQuery("SELECT RELEASE_LOCK(?)", [$calendarCreateLockName]);
+                $calendarCreateLockName = null;
+            }
 
             if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
                 $caseId = trim((string)($matches[1] ?? ''));

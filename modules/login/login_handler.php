@@ -7,13 +7,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? $_POST['email'] ?? '');
     $password = (string)($_POST['password'] ?? '');
 
+    $maxFailedAttempts = 5;
+    $lockoutSeconds = 5 * 60;
+
+    $lockoutUntil = (int)($_SESSION['login_lockout_until'] ?? 0);
+    if ($lockoutUntil > 0 && $lockoutUntil <= time()) {
+        unset($_SESSION['login_lockout_until']);
+        unset($_SESSION['login_failed_attempts']);
+        unset($_SESSION['login_attempt_window_until']);
+        $lockoutUntil = 0;
+    }
+
+    if ($lockoutUntil > time()) {
+        write_log("LOGIN BLOCKED: Lockout active for '$username' from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
+        header('Location: ' . BASE_URL . '/modules/login/login.php?error=locked');
+        exit;
+    }
+
     if ($username !== '' && $password !== '' && trim($password) !== '') {
-        
         // Authenticate user against database
         $authentication = authenticateUserWithStatus($username, $password);
         $user = $authentication['user'];
         
         if ($user) {
+            unset($_SESSION['login_failed_attempts']);
+            unset($_SESSION['login_lockout_until']);
+            unset($_SESSION['login_attempt_window_until']);
+
             // Authentication successful
             session_regenerate_id(true);
 
@@ -110,6 +130,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Log failed login attempt to audit_logs
             logFailedLogin($username, $failureReason);
+
+            if ($errorCode === 'invalid') {
+                $attemptWindowUntil = (int)($_SESSION['login_attempt_window_until'] ?? 0);
+                if ($attemptWindowUntil <= time()) {
+                    $_SESSION['login_failed_attempts'] = 0;
+                    $_SESSION['login_attempt_window_until'] = time() + $lockoutSeconds;
+                }
+
+                $failedAttempts = (int)($_SESSION['login_failed_attempts'] ?? 0) + 1;
+                $_SESSION['login_failed_attempts'] = $failedAttempts;
+
+                if ($failedAttempts >= $maxFailedAttempts) {
+                    $_SESSION['login_lockout_until'] = time() + $lockoutSeconds;
+                    write_log("LOGIN LOCKOUT: '$username' locked for {$lockoutSeconds} seconds from IP: " . $_SERVER['REMOTE_ADDR'], 'login');
+                    header('Location: ' . BASE_URL . '/modules/login/login.php?error=locked');
+                    exit;
+                }
+
+                $remainingAttempts = $maxFailedAttempts - $failedAttempts;
+                header('Location: ' . BASE_URL . '/modules/login/login.php?error=invalid&attempts_remaining=' . $remainingAttempts);
+                exit;
+            }
             
             header('Location: ' . BASE_URL . '/modules/login/login.php?error=' . $errorCode);
             exit;

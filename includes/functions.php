@@ -3417,7 +3417,7 @@ function getCaseResolutionEligibility($caseId) {
         }
     }
 
-    $rejectedCorrectivePortfolioRow = fetchOne(
+    $approvedPortfolioRow = fetchOne(
         "SELECT COUNT(*) AS cnt
          FROM community_service_submissions css
          JOIN case_sanctions cs ON cs.case_sanction_id = css.case_sanction_id
@@ -3428,18 +3428,11 @@ function getCaseResolutionEligibility($caseId) {
                OR LOWER(s.sanction_name) LIKE '%community service%'
                OR LOWER(s.sanction_name) LIKE '%suspension from class%'
            )
-           AND LOWER(COALESCE(css.review_status, '')) = 'rejected'",
+           AND LOWER(COALESCE(css.review_status, '')) = 'approved'",
         [$caseId]
     );
 
-    if (intval($rejectedCorrectivePortfolioRow['cnt'] ?? 0) > 0) {
-        return [
-            'can_resolve' => false,
-            'error' => 'The completion report was rejected.'
-        ];
-    }
-
-    $missingCorrectivePortfolioRow = fetchOne(
+    $hasQualifyingSanctionRow = fetchOne(
         "SELECT COUNT(*) AS cnt
          FROM case_sanctions cs
          JOIN sanctions s ON cs.sanction_id = s.sanction_id
@@ -3448,18 +3441,14 @@ function getCaseResolutionEligibility($caseId) {
                LOWER(s.sanction_name) LIKE '%corrective%'
                OR LOWER(s.sanction_name) LIKE '%community service%'
                OR LOWER(s.sanction_name) LIKE '%suspension from class%'
-           )
-           AND NOT EXISTS (
-               SELECT 1
-               FROM community_service_submissions css
-               WHERE css.case_id = cs.case_id
-                 AND css.case_sanction_id = cs.case_sanction_id
-                 AND LOWER(COALESCE(css.review_status, '')) = 'approved'
-            )",
+           )",
         [$caseId]
     );
 
-    if (intval($missingCorrectivePortfolioRow['cnt'] ?? 0) > 0) {
+    if (
+        intval($hasQualifyingSanctionRow['cnt'] ?? 0) > 0
+        && intval($approvedPortfolioRow['cnt'] ?? 0) === 0
+    ) {
         return [
             'can_resolve' => false,
             'error' => 'Student does not have an approved completion report'

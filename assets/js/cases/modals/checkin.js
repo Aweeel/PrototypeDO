@@ -642,6 +642,10 @@ async function markCommunityServiceSubmissionsViewed(caseId, caseSanctionId, san
 function openCommunityServiceSubmissionsModal(caseId, caseSanctionId, submissionsOverride = null) {
   const checkInModal = document.querySelector('[data-checkin-modal="true"]');
   const sanctionType = checkInModal?.getAttribute('data-sanction-type') || 'corrective';
+  const caseData = typeof allCases !== 'undefined'
+    ? allCases.find((item) => String(item.id) === String(caseId))
+    : null;
+  const isResolvedCase = String(caseData?.status || '').toLowerCase() === 'resolved';
 
   let submissions = Array.isArray(submissionsOverride) ? submissionsOverride : [];
   if (submissions.length === 0) {
@@ -721,6 +725,10 @@ const reviewStatusClasses = {
           </svg>
         </button>
       </div>
+      ${isResolvedCase ? `
+      <div class="border-b border-gray-200 dark:border-slate-700 bg-red-50 dark:bg-red-900/20 p-4">
+        <p class="text-xs font-semibold text-red-700 dark:text-red-300">This case is resolved. Portfolio upload is no longer allowed.</p>
+      </div>` : `
       <div class="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40 p-4">
         <form data-do-portfolio-upload-form class="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div class="flex-1">
@@ -730,7 +738,7 @@ const reviewStatusClasses = {
           <button type="submit" class="px-3 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700">Upload</button>
         </form>
         <p data-do-portfolio-upload-status class="mt-2 text-xs text-gray-500 dark:text-gray-400">Upload a file here if the student needs a DO-submitted portfolio record.</p>
-      </div>
+      </div>`}
       <div class="overflow-y-auto">${listHtml}</div>
     </div>
   `;

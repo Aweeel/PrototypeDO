@@ -9,6 +9,15 @@ $globalBannerEnabled = strtolower(trim((string)getSystemSetting('global_banner_e
 $globalBannerText = getSystemSetting('global_banner_text', '');
 $lastUpdated = date('F j, Y');
 
+$loginLockoutUntil = (int)($_SESSION['login_lockout_until'] ?? 0);
+if ($loginLockoutUntil > 0 && $loginLockoutUntil <= time()) {
+    unset($_SESSION['login_lockout_until']);
+    unset($_SESSION['login_failed_attempts']);
+    unset($_SESSION['login_attempt_window_until']);
+    $loginLockoutUntil = 0;
+}
+$loginLockoutSeconds = max(0, $loginLockoutUntil - time());
+
 // Redirect if already logged in
 if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
     $role = $_SESSION['user_role'] ?? 'do';
@@ -162,6 +171,12 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
                                     echo 'Account Deactivated, Please contact support if this is a mistake';
                                 } elseif ($error === 'invalid') {
                                     echo 'Wrong email or password. Please try again.';
+                                    $attemptsRemaining = (int)($_GET['attempts_remaining'] ?? 0);
+                                    if ($attemptsRemaining > 0) {
+                                        echo ' ' . $attemptsRemaining . ' attempt(s) remaining.';
+                                    }
+                                } elseif ($error === 'locked') {
+                                    echo 'Too many failed login attempts. Please try again in 5 minutes.';
                                 } elseif ($error === 'empty') {
                                     echo 'Please enter both email and password.';
                                 } else {
@@ -204,9 +219,39 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_id'])) {
 
                     <!-- Sign In Button -->
                     <button type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition mb-6 shadow-sm hover:shadow">
+                        <?= $loginLockoutUntil > time() ? 'disabled' : '' ?>
+                        class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition mb-6 shadow-sm hover:shadow">
                         Sign In
                     </button>
+                    <?php if ($loginLockoutUntil > time()): ?>
+                        <p id="loginLockoutTimer" class="mb-6 text-center text-sm font-medium text-red-700"
+                           data-until="<?= $loginLockoutUntil ?>">
+                            Try again in <?= ceil($loginLockoutSeconds / 60) ?> minute(s).
+                        </p>
+                        <script>
+                            (() => {
+                                const timer = document.getElementById('loginLockoutTimer');
+                                const submit = timer?.parentElement?.querySelector('button[type="submit"]');
+                                if (!timer) return;
+                                const until = Number(timer.dataset.until) * 1000;
+
+                                const update = () => {
+                                    const seconds = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+                                    if (seconds <= 0) {
+                                        timer.remove();
+                                        if (submit) submit.disabled = false;
+                                        return;
+                                    }
+                                    const minutes = Math.floor(seconds / 60);
+                                    const remainingSeconds = seconds % 60;
+                                    timer.textContent = `Try again in ${minutes}:${String(remainingSeconds).padStart(2, '0')}.`;
+                                };
+
+                                update();
+                                setInterval(update, 1000);
+                            })();
+                        </script>
+                    <?php endif; ?>
                 </form>
 
                 <!-- System Information (Hidden on screens smaller than lg) -->

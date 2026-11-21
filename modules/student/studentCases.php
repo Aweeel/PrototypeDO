@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         }
 
         $ownedCase = fetchOne(
-            "SELECT c.case_id, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name
+            "SELECT c.case_id, c.status, CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name) AS student_name
              FROM cases c
              JOIN students s ON s.student_id = c.student_id
              WHERE c.case_id = ? AND c.student_id = ?",
@@ -346,6 +346,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             'success' => true,
             'progress' => [
                 'case_id' => $caseId,
+                'case_status' => $ownedCase['status'] ?? null,
                 'case_sanction_id' => $caseSanctionId,
                 'student_name' => $ownedCase['student_name'],
                 'sanction_name' => $sanction['sanction_name'],
@@ -389,6 +390,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
         if (!$ownedCase) {
             echo json_encode(['success' => false, 'error' => 'You cannot upload to this case']);
+            exit;
+        }
+
+        if (strtolower(trim((string)($ownedCase['status'] ?? ''))) === 'resolved') {
+            echo json_encode(['success' => false, 'error' => 'This case is already resolved. Portfolio upload is no longer allowed']);
             exit;
         }
 
@@ -1198,7 +1204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             const dayCards = Array.isArray(progress.days) ? progress.days : [];
             const displayDays = Math.max(1, Number(progress.display_total_days || dayCards.length || 1));
             const dayMap = new Map(dayCards.map((item) => [Number(item.day), item]));
-            const canUploadPortfolio = !!progress.is_completed;
+            const isResolvedCase = String(progress.case_status || '').toLowerCase() === 'resolved';
+            const canUploadPortfolio = !!progress.is_completed && !isResolvedCase;
             const portfolioSubmissions = Array.isArray(progress.portfolio_submissions) ? progress.portfolio_submissions : [];
             const hasRejectedPortfolio = portfolioSubmissions.some((submission) => String(submission?.review_status || '').toLowerCase() === 'rejected');
 
@@ -1359,7 +1366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                                         <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">Allowed: PDF, DOCX, DOC. Max size: 10MB.</p>
                                     </div>
                                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                                        <p id="portfolioUploadStatus" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                                        <p id="portfolioUploadStatus" class="text-xs ${isResolvedCase ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}">${isResolvedCase ? 'This case is resolved. Portfolio upload is no longer allowed.' : ''}</p>
                                         <button onclick="uploadCommunityServicePortfolio('${escapeHtml(progress.case_id)}', '${escapeHtml(progress.case_sanction_id)}')" ${!canUploadPortfolio ? 'disabled' : ''} class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs md:text-sm prevent-double ${!canUploadPortfolio ? 'opacity-50 cursor-not-allowed' : ''}">
                                             Submit Completion Report
                                         </button>
