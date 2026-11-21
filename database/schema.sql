@@ -883,8 +883,7 @@ INSERT INTO sanctions (sanction_name, severity_level, description) VALUES
 ('Preventive Suspension', 3, 'Suspended during investigation period'),
 ('Non-readmission', 4, 'Denied enrollment for next term'),
 ('Exclusion', 5, 'Immediately removed from school'),
-('Expulsion', 5, 'Disqualified from all Philippine institutions'),
-('Community Service', 2, 'Supervised service hours assigned as a restorative corrective action');
+('Expulsion', 5, 'Disqualified from all Philippine institutions');
 
 -- ============================================
 -- INSERT BETA CASES AND SANCTIONS
