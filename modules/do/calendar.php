@@ -389,16 +389,6 @@ if ($_POST['action'] === 'getEvents') {
                 exit;
             }
 
-            if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
-                $caseId = trim((string)($matches[1] ?? ''));
-                if ($caseId !== '') {
-                    $case = getCaseById($caseId);
-                    if ($case) {
-                        executeQuery("UPDATE cases SET assigned_to = ?, updated_at = NOW() WHERE case_id = ?", [$_SESSION['user_id'] ?? null, $caseId]);
-                    }
-                }
-            }
-            
             // Build SQL based on whether time is provided
             if ($eventTime !== null) {
                 $sql = "INSERT INTO calendar_events (event_name, event_date, event_time, event_end_time, category, description, location, created_by, target_user_id, created_at)
@@ -433,6 +423,20 @@ if ($_POST['action'] === 'getEvents') {
 
             $eventId = insertAndGetId($sql, $params);
             $eventId = $eventId !== '' ? (int)$eventId : null;
+
+            if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+                $caseId = trim((string)($matches[1] ?? ''));
+                if ($caseId !== '') {
+                    $case = getCaseById($caseId);
+                    if ($case) {
+                        $newStatus = (($case['severity'] ?? '') === 'Minor') ? 'Recorded' : 'On Going';
+                        executeQuery(
+                            "UPDATE cases SET status = ?, assigned_to = ?, updated_at = NOW() WHERE case_id = ?",
+                            [$newStatus, $_SESSION['user_id'] ?? null, $caseId]
+                        );
+                    }
+                }
+            }
 
             // Audit and notifications must not turn a successful event insert into a
             // misleading scheduling error if either non-critical operation fails.
@@ -530,6 +534,20 @@ if ($_POST['action'] === 'getEvents') {
             ];
             
             executeQuery($sql, $params);
+
+            if ($category === 'Hearing' && preg_match('/Case\s+([A-Za-z0-9-]+)/i', $eventName, $matches)) {
+                $caseId = trim((string)($matches[1] ?? ''));
+                if ($caseId !== '') {
+                    $case = getCaseById($caseId);
+                    if ($case) {
+                        $newStatus = (($case['severity'] ?? '') === 'Minor') ? 'Recorded' : 'On Going';
+                        executeQuery(
+                            "UPDATE cases SET status = ?, assigned_to = ?, updated_at = NOW() WHERE case_id = ?",
+                            [$newStatus, $_SESSION['user_id'] ?? null, $caseId]
+                        );
+                    }
+                }
+            }
             
             // 🧾 Audit Log - Use specialized calendar audit function
             if ($oldEvent) {
@@ -594,6 +612,27 @@ if ($_POST['action'] === 'getEvents') {
             
             $sql = "DELETE FROM calendar_events WHERE event_id = ?";
             executeQuery($sql, [$eventId]);
+
+            if ($event && ($event['category'] ?? '') === 'Hearing') {
+                if (preg_match('/Case\s+([A-Za-z0-9-]+)/i', (string)($event['event_name'] ?? ''), $matches)) {
+                    $caseId = trim((string)($matches[1] ?? ''));
+                    if ($caseId !== '') {
+                        $case = getCaseById($caseId);
+                        if ($case && ($case['severity'] ?? '') === 'Major') {
+                            $hasSanction = fetchValue(
+                                "SELECT COUNT(*) FROM case_sanctions WHERE case_id = ?",
+                                [$caseId]
+                            );
+                            if ((int)$hasSanction === 0) {
+                                executeQuery(
+                                    "UPDATE cases SET status = 'Pending', updated_at = NOW() WHERE case_id = ?",
+                                    [$caseId]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
             
             // 🧾 Audit Log - Use specialized calendar audit function
             if ($event) {

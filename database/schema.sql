@@ -408,7 +408,7 @@ CREATE UNIQUE INDEX ux_users_do_id ON users(do_id);
 -- ============================================
 -- TRIGGERS for Data Integrity
 -- ============================================
--- Enforce sanction requirement for active cases: 'On Going' or 'Resolved' require at least one sanction
+-- Enforce sanction requirement for resolved cases. Major cases may become On Going after a hearing is scheduled.
 -- Note: Only enforced on UPDATE to allow initial schema data load. Application layer validates on INSERT.
 DELIMITER $$
 
@@ -416,10 +416,24 @@ CREATE TRIGGER trg_enforce_sanction_on_active_case
 BEFORE UPDATE ON cases
 FOR EACH ROW
 BEGIN
-    IF NEW.status IN ('On Going', 'Resolved')
+    IF NEW.status = 'Resolved'
        AND NOT EXISTS (SELECT 1 FROM case_sanctions WHERE case_id = NEW.case_id) THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Cannot mark a case as On Going or Resolved without an applied sanction.';
+            SET MESSAGE_TEXT = 'Cannot mark a case as Resolved without an applied sanction.';
+    END IF;
+    IF NEW.status = 'On Going'
+       AND NOT EXISTS (SELECT 1 FROM case_sanctions WHERE case_id = NEW.case_id)
+       AND NOT (
+           NEW.severity = 'Major'
+           AND EXISTS (
+               SELECT 1
+               FROM calendar_events
+               WHERE category = 'Hearing'
+                 AND event_name LIKE CONCAT('%Case ', NEW.case_id, '%')
+           )
+       ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Cannot mark a case as On Going without an applied sanction or a scheduled hearing.';
     END IF;
 END$$
 -- Auto-set preset deadline for corrective reinforcement sanctions when missing.

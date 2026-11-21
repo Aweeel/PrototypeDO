@@ -200,7 +200,7 @@ async function manageSanctions(caseId) {
                     <div id="scheduleDisplay" class="hidden mt-3 p-3 bg-white dark:bg-slate-700 rounded border border-green-300 dark:border-green-700">
                         <div class="flex items-center justify-between">
                             <span id="scheduleDisplayText" class="text-green-800 dark:text-green-300 text-sm font-medium"></span>
-                            <button type="button" onclick="clearSchedule()" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200">
+                            <button type="button" onclick="clearSchedule(true)" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -992,6 +992,23 @@ async function saveScheduleToCalendar(caseId, date, time, endTime, notes, forceN
         if (result.success && result.event_id && eventIdInput) {
             eventIdInput.value = result.event_id;
         }
+        if (result.success) {
+            const caseIndex = allCases.findIndex(c => c.id === caseId);
+            if (caseIndex !== -1 && allCases[caseIndex].severity !== 'Minor') {
+                allCases[caseIndex].status = 'On Going';
+                allCases[caseIndex].statusColor = 'blue';
+            }
+
+            if (typeof applyClientSideFilters === 'function') {
+                applyClientSideFilters();
+            } else if (typeof renderCases === 'function') {
+                renderCases();
+            }
+
+            if (typeof loadCasesFromDB === 'function') {
+                loadCasesFromDB();
+            }
+        }
         return !!result.success;
     } catch (error) {
         console.error('Error saving schedule to calendar:', error);
@@ -1090,9 +1107,48 @@ function disableFormSections() {
 }
 
 // Clear schedule data
-function clearSchedule() {
+async function clearSchedule(confirmRemoval = false) {
     const dateEl = document.getElementById('sanctionScheduleDate');
     if (!dateEl) return; // Minor-case forms have no schedule UI to clear
+
+    const eventId = document.getElementById('sanctionScheduleEventId')?.value || '';
+    if (confirmRemoval && eventId) {
+        const confirmed = window.showConfirmDialog
+            ? await window.showConfirmDialog({
+                message: 'Remove this scheduled hearing? The hearing will also be removed from the calendar.',
+                confirmText: 'Remove Hearing',
+                cancelText: 'Cancel',
+                confirmClass: 'bg-red-600 hover:bg-red-700'
+            })
+            : window.confirm('Remove this scheduled hearing?');
+
+        if (!confirmed) return;
+
+        showLoadingToast('Removing hearing...');
+        try {
+            const formData = new FormData();
+            formData.append('ajax', '1');
+            formData.append('action', 'deleteEvent');
+            formData.append('eventId', eventId);
+
+            const response = await fetch(window.appUrl('/modules/do/calendar.php'), {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            closeLoadingToast();
+
+            if (!result.success) {
+                showErrorToast(result.error || 'Unable to remove the hearing.');
+                return;
+            }
+        } catch (error) {
+            closeLoadingToast();
+            console.error('Error removing hearing:', error);
+            showErrorToast('Unable to remove the hearing.');
+            return;
+        }
+    }
 
     document.getElementById('sanctionScheduleDate').value = '';
     document.getElementById('sanctionScheduleTime').value = '';
@@ -1111,6 +1167,26 @@ function clearSchedule() {
     const scheduleSection = document.getElementById('scheduleSection');
     if (scheduleSection) {
         disableFormSections();
+    }
+
+    if (confirmRemoval && eventId) {
+        const caseIndex = allCases.findIndex(c => c.id === window.currentCaseId);
+        if (caseIndex !== -1 && allCases[caseIndex].severity !== 'Minor') {
+            allCases[caseIndex].status = 'Pending';
+            allCases[caseIndex].statusColor = 'yellow';
+        }
+
+        if (typeof applyClientSideFilters === 'function') {
+            applyClientSideFilters();
+        } else if (typeof renderCases === 'function') {
+            renderCases();
+        }
+
+        if (typeof loadCasesFromDB === 'function') {
+            loadCasesFromDB();
+        }
+
+        showSuccessToast('Hearing removed successfully!');
     }
 }
 
