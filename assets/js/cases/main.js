@@ -386,7 +386,7 @@ function renderTableRows() {
                             Sanctions
                         </button>
                         ` : ''}
-                        ${caseItem.severity === 'Minor' && caseItem.status === 'Unrecorded' && caseItem.offenseNumber >= 3 && !caseItem.escalationSeen ? `
+                        ${caseItem.severity === 'Minor' && caseItem.status === 'Unrecorded' && caseItem.offenseNumber === (caseItem.escalationThreshold || 3) && !caseItem.escalationSeen ? `
                         <button onclick="openMinorEscalation('${caseItem.id}')" title="Escalate minor offense to Major"
                             class="inline-flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 dark:text-orange-300 dark:hover:text-orange-200 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 rounded transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -663,7 +663,7 @@ function openMinorEscalation(caseId) {
     modal.innerHTML = `
         <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
             <p class="text-base text-gray-900 dark:text-gray-100 mb-6">
-                This student has commited ${formatOffenseCountInWords(caseData.offenseNumber)} (${caseData.offenseNumber}) minor offenses.<br><br>
+                This student has committed ${formatOffenseCountInWords(caseData.offenseNumber)} (${caseData.offenseNumber}) minor offenses.<br><br>
                 Escalate case to major?
             </p>
             <div class="flex justify-end gap-3">

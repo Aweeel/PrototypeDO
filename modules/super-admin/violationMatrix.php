@@ -31,7 +31,13 @@ try {
             if ((int)(fetchOne($duplicateSql, $duplicateParams)['count'] ?? 0) > 0) throw new RuntimeException('A sanction with this name already exists.');
             if (!empty($_POST['sanction_id'])) { executeQuery('UPDATE sanctions SET sanction_name = ?, severity_level = ?, description = ?, is_active = ? WHERE sanction_id = ?', [$name, $level, $description, $active, (int)$_POST['sanction_id']]); $modalMessage = 'Sanction updated.'; }
             else { executeQuery('INSERT INTO sanctions (sanction_name, severity_level, description, is_active) VALUES (?, ?, ?, ?)', [$name, $level, $description, $active]); $modalMessage = 'Sanction added.'; }
-        } elseif ($action === 'save_escalation') { setSystemSetting('escalation_minor_count', max(1, (int)($_POST['escalation_minor_count'] ?? 3))); $modalMessage = 'Escalation rule saved.'; }
+        } elseif ($action === 'save_escalation') {
+            $threshold = max(1, (int)($_POST['escalation_minor_count'] ?? 3));
+            setSystemSetting('escalation_minor_count', $threshold);
+            ensureMinorEscalationSeenColumn();
+            executeQuery("UPDATE cases SET minor_escalation_seen = 0 WHERE severity = 'Minor' AND is_archived = 0");
+            $modalMessage = 'Escalation rule saved.';
+        }
     }
 } catch (Throwable $e) { $modalError = $e->getMessage(); }
 $offenses = fetchAll('SELECT offense_id, offense_name, category, description, is_active FROM offense_types ORDER BY category, offense_name');

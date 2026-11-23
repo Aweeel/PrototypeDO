@@ -331,9 +331,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
         if ($_POST['action'] === 'escalateMinorCase') {
             ensureMinorEscalationSeenColumn();
             $caseId = trim((string)($_POST['caseId'] ?? ''));
-            $case = fetchOne("SELECT case_id, student_id, severity, status FROM cases WHERE case_id = ?", [$caseId]);
+            $case = fetchOne("SELECT case_id, student_id, severity, status, date_reported, created_at FROM cases WHERE case_id = ?", [$caseId]);
             if (!$case || $case['severity'] !== 'Minor') {
                 echo json_encode(['success' => false, 'error' => 'Minor case not found']);
+                exit;
+            }
+            $minorCount = (int)fetchValue(
+                "SELECT COUNT(*) FROM cases c2
+                 WHERE c2.student_id = ?
+                   AND c2.severity = 'Minor'
+                   AND c2.is_archived = 0
+                   AND c2.status IN ('Recorded', 'Unrecorded')
+                   AND (
+                       c2.date_reported < ?
+                       OR (c2.date_reported = ? AND c2.created_at < ?)
+                       OR (c2.date_reported = ? AND c2.created_at = ? AND c2.case_id <= ?)
+                   )",
+                [
+                   $case['student_id'],
+                   $case['date_reported'],
+                   $case['date_reported'],
+                   $case['created_at'],
+                   $case['date_reported'],
+                   $case['created_at'],
+                   $caseId
+                ]
+            );
+            $threshold = getMinorEscalationThreshold();
+            if ($minorCount !== $threshold) {
+                echo json_encode(['success' => false, 'error' => 'The configured minor offense threshold has not been reached.']);
                 exit;
             }
 
@@ -628,6 +654,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                     'description' => $case['description'] ?? '',
                     'notes' => $case['notes'] ?? '',
                     'severity' => $case['severity'] ?? 'Minor',
+                    'escalationThreshold' => getMinorEscalationThreshold(),
                     'attachments' => $attachments,
                     'hasCorrectiveService' => $hasCorrectiveService,
                     'hasCorrectiveServiceCompleted' => $hasCorrectiveServiceCompleted,
@@ -639,7 +666,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['ajax']) || isset($_P
                 ];
             }, $cases);
 
-            $payload = ['success' => true, 'cases' => $formattedCases];
+            $payload = [
+                'success' => true,
+                'cases' => $formattedCases,
+                'escalationThreshold' => getMinorEscalationThreshold()
+            ];
             $json = json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE);
 
             if ($json === false) {

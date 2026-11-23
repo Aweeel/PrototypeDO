@@ -750,8 +750,12 @@ function getAllCases($filters = []) {
          WHERE c2.student_id = c.student_id
            AND c2.severity = 'Minor'
            AND c2.is_archived = 0
-           AND (c2.status = 'Recorded'
-                OR (c2.case_id = c.case_id AND c.status = 'Unrecorded'))) AS minor_offense_number,
+           AND c2.status IN ('Recorded', 'Unrecorded')
+           AND (
+                c2.date_reported < c.date_reported
+                OR (c2.date_reported = c.date_reported AND c2.created_at < c.created_at)
+                OR (c2.date_reported = c.date_reported AND c2.created_at = c.created_at AND c2.case_id <= c.case_id)
+           )) AS minor_offense_number,
         u.full_name as assigned_to_name
         FROM cases c
         LEFT JOIN students s ON c.student_id = s.student_id
@@ -1254,11 +1258,16 @@ function getMajorOffenseNamesByCategory($category) {
     return $categoryMap[$category] ?? $categoryMap['A'];
 }
 
+function getMinorEscalationThreshold() {
+    $threshold = (int)getSystemSetting('escalation_minor_count', '3');
+    return max(1, $threshold);
+}
+
 /**
  * Get recommended sanction based on student's offense history
  * Following STI Student Handbook escalation rules:
  * - Major offense escalation is based on total major offenses within the same category
- * - Minor offense escalation to major triggers at 3 total minor offenses (any type)
+ * - Minor offense escalation to major uses the configured system threshold
  *
  * @param string $studentId The student ID
  * @param string $currentOffenseType The current offense type (matches cases.case_type)
@@ -1290,11 +1299,11 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity, $exc
 
     // Count active (non-archived) minor offenses across all types.
     // Minor cases are tracked as Recorded/Unrecorded instead of On Going/Resolved,
-    // so we include Recorded in the historical count and add the current case separately.
+    // so we include Recorded and Unrecorded in the historical count and add the current case separately.
     $totalMinorCountSql = "SELECT COUNT(*) FROM cases
                            WHERE student_id = ?
                              AND severity = 'Minor'
-                             AND status IN ('Recorded', 'On Going', 'Resolved')
+                             AND status IN ('Recorded', 'Unrecorded')
                              AND is_archived = 0";
     $totalMinorCountParams = [$studentId];
     if ($excludeCaseId) {
@@ -1307,7 +1316,20 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity, $exc
 
     // For Minor Offenses — escalate based on total minor count across offense types.
     if ($severity === 'Minor') {
-        if ($totalMinorCount === 1) {
+        $minorEscalationThreshold = getMinorEscalationThreshold();
+        if ($totalMinorCount >= $minorEscalationThreshold) {
+            return [
+                'sanction_name' => 'Corrective Reinforcement (3-7 days)',
+                'reason' => 'Minor offense threshold reached (' . $totalMinorCount . '/' . $minorEscalationThreshold . ') — escalates to Major (Repeated Minor Offenses)',
+                'offense_count' => $totalMinorCount,
+                'category' => 'Major',
+                'subcategory' => 'A',
+                'duration_days' => 3,
+                'duration_range' => '3-7 days',
+                'escalated_to_major' => true,
+                'archived_same_type_count' => $archivedSameTypeCount
+            ];
+        } elseif ($totalMinorCount === 1) {
             return [
                 'sanction_name' => 'Verbal/Oral Warning',
                 'reason' => 'First minor offense',
@@ -1328,16 +1350,13 @@ function getRecommendedSanction($studentId, $currentOffenseType, $severity, $exc
                 'archived_same_type_count' => $archivedSameTypeCount
             ];
         } else {
-            // 3rd or more minor offense (any type) escalates to Major (Repeated Minor Offenses).
             return [
-                'sanction_name' => 'Corrective Reinforcement (3-7 days)',
-                'reason' => 'Third or more minor offense — escalates to Major (Repeated Minor Offenses)',
+                'sanction_name' => 'Written Reprimand',
+                'reason' => 'Minor offense ' . $totalMinorCount . ' — escalation threshold is ' . $minorEscalationThreshold,
                 'offense_count' => $totalMinorCount,
-                'category' => 'Major',
-                'subcategory' => 'A',
-                'duration_days' => 3,
-                'duration_range' => '3-7 days',
-                'escalated_to_major' => true,
+                'category' => 'Minor',
+                'subcategory' => null,
+                'duration_days' => null,
                 'archived_same_type_count' => $archivedSameTypeCount
             ];
         }
