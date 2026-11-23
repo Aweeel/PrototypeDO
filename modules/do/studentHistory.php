@@ -31,13 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
             // ── Sync student statuses based on handbook offense categories ──
             //
+            $minorEscalationThreshold = getMinorEscalationThreshold();
+
             // Category A (1st = Corrective Reinforcement, 2nd = Suspension, 3rd = Non-readmission)
             // Category B (1st = Suspension, 2nd = Non-readmission)
             // Category C (1st = Suspension 7-10d, 2nd = Non-readmission)
             // Category D (1st = Exclusion / Expulsion)
             //
             // On Probation : 1+ active Cat B/C/D  OR  2+ active Cat A
-            // On Watch     : 1 active Cat A  OR  3+ active minor  (if not On Probation)
+            // On Watch     : 1 active Cat A  OR threshold-reached active minor  (if not On Probation)
             // Good Standing: everything else
 
             // Step 1 – Elevate to On Probation (highest priority, overwrites any lower status)
@@ -67,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     WHEN (SELECT COUNT(*) FROM cases c
                           WHERE c.student_id = students.student_id
                             AND c.severity = 'Minor'
-                            AND c.is_archived = 0) >= 3
+                            AND c.is_archived = 0) >= ?
                          OR
                          (SELECT COUNT(*) FROM cases c
                           WHERE c.student_id = students.student_id
@@ -87,11 +89,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                      WHERE c.student_id = students.student_id
                        AND c.severity = 'Major'
                        AND c.offense_category = 'Category A'
-                       AND c.is_archived = 0) < 2"
+                       AND c.is_archived = 0) < 2",
+                [$minorEscalationThreshold]
             );
 
             // Step 3 – Set On Watch (not already On Probation)
-            //          3+ active minor  OR  1 active Category A major
+            //          threshold-reached active minor  OR  1 active Category A major
             executeQuery(
                 "UPDATE students
                 SET status = 'On Watch'
@@ -100,14 +103,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     (SELECT COUNT(*) FROM cases c
                      WHERE c.student_id = students.student_id
                        AND c.severity = 'Minor'
-                       AND c.is_archived = 0) >= 3
+                       AND c.is_archived = 0) >= ?
                     OR
                     (SELECT COUNT(*) FROM cases c
                      WHERE c.student_id = students.student_id
                        AND c.severity = 'Major'
                        AND c.offense_category = 'Category A'
                        AND c.is_archived = 0) >= 1
-                )"
+                )",
+                [$minorEscalationThreshold]
             );
 
             // Step 4 – Revert On Watch to Good Standing if below both thresholds
@@ -118,12 +122,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 AND (SELECT COUNT(*) FROM cases c
                      WHERE c.student_id = students.student_id
                        AND c.severity = 'Minor'
-                       AND c.is_archived = 0) < 3
+                       AND c.is_archived = 0) < ?
                 AND (SELECT COUNT(*) FROM cases c
                      WHERE c.student_id = students.student_id
                        AND c.severity = 'Major'
                        AND c.offense_category = 'Category A'
-                       AND c.is_archived = 0) < 1"
+                       AND c.is_archived = 0) < 1",
+                [$minorEscalationThreshold]
             );
 
             // Build SQL query with filters

@@ -105,7 +105,7 @@ async function manageSanctions(caseId) {
                             <h5 class="font-semibold ${textColor} mb-2 text-sm"> Recommendation</h5>
                             ${recommendationData.escalated_to_major ? `
                                 <p class="text-xs font-semibold mb-2 px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-700">
-                                    ⚠️ Escalated to Major — 3rd minor offense
+                                    ⚠️ Escalated to Major — minor offense threshold reached
                                 </p>
                             ` : ''}
                             <p class="text-xs ${textColor} mb-2">
