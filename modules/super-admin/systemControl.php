@@ -253,15 +253,6 @@ $adminName = getFormattedUserName();
             padding: 1.5rem;
         }
 
-        .system-control-page main > form + section,
-        .system-control-page main > section + section {
-            margin-top: 1.5rem;
-        }
-
-        .system-control-page main > section > * + * {
-            margin-top: 1rem;
-        }
-
         .banner-toggle {
             display: inline-flex;
             align-items: center;

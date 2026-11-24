@@ -245,6 +245,22 @@ switch ($role) {
         -webkit-tap-highlight-color: transparent;
     }
 
+    @supports (-webkit-touch-callout: none) {
+        html,
+        body {
+            -webkit-text-size-adjust: 100%;
+        }
+
+        button,
+        input[type="button"],
+        input[type="reset"],
+        input[type="submit"] {
+            -webkit-appearance: none;
+            appearance: none;
+            font: inherit;
+        }
+    }
+
     input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
     select,
     textarea {

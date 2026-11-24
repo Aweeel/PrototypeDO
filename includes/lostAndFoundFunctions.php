@@ -71,10 +71,10 @@ function handleLostFoundImageUpload($file, $item_id) {
         return ['success' => false, 'error' => 'No valid file uploaded'];
     }
     
-    // Check file size (5MB limit)
-    $maxSize = 5 * 1024 * 1024;
+    // Check file size (20MB limit)
+    $maxSize = 20 * 1024 * 1024;
     if ($file['size'] > $maxSize) {
-        return ['success' => false, 'error' => 'File size exceeds 5MB limit'];
+        return ['success' => false, 'error' => 'File size exceeds 20MB limit'];
     }
     
     // Validate MIME type
@@ -483,9 +483,10 @@ function searchLostItems($searchTerm, $category = null) {
     FROM lost_found_items
     WHERE is_archived = 0 
     AND status = 'Unclaimed'
-    AND (item_name LIKE ? OR category LIKE ?)";
+    AND (item_name LIKE ? OR category LIKE ? OR found_location LIKE ?)";
     
     $params = [
+        '%' . $searchTerm . '%',
         '%' . $searchTerm . '%',
         '%' . $searchTerm . '%'
     ];

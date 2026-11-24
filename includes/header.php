@@ -278,6 +278,24 @@ if (!isset($adminName) || empty($adminName)) {
             padding-top: 1rem !important;
         }
     }
+
+    @supports (-webkit-touch-callout: none) {
+        @media (max-width: 767px) {
+            header.fixed {
+                position: sticky;
+                top: 0;
+                left: auto;
+                right: auto;
+                width: 100%;
+            }
+
+            .app-content-scroll {
+                height: auto;
+                margin-top: 0;
+                min-height: var(--app-viewport-height);
+            }
+        }
+    }
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

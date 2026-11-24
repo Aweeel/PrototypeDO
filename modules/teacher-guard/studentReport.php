@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php'; 
 require_once __DIR__ . '/../../includes/auth_check.php'; 
 require_once __DIR__ . '/../../includes/functions.php'; 
+$maxImageAttachments = 3;
 
 // Handle AJAX requests 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) { 
@@ -42,6 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     } 
 
     if ($_POST['action'] === 'submitReport') { 
+        $uploadedImageNames = $_FILES['images']['name'] ?? [];
+        $uploadedImageCount = is_array($uploadedImageNames)
+            ? count(array_filter($uploadedImageNames, static fn($name) => is_string($name) && $name !== ''))
+            : 0;
+        if ($uploadedImageCount > $maxImageAttachments) {
+            echo json_encode(['success' => false, 'error' => "You can attach up to {$maxImageAttachments} images."]);
+            exit;
+        }
+
         $data = [ 
             'student_number' => $_POST['studentNumber'], 
             'student_name' => $_POST['studentName'], 
@@ -386,19 +396,6 @@ $caseTypeDescriptionMap = array_combine(
     <div class="flex h-screen overflow-hidden"> 
         <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300"> 
             
-            <!-- Mobile Navigation Bar with Hamburger Icon -->
-            <div class="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-4 z-20">
-                <button type="button" 
-                        onclick="toggleSidebar()" 
-                        class="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg focus:outline-none">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
-                <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">STI Discipline Office</span>
-                <div class="w-6"></div>
-            </div>
-
             <?php include __DIR__ . '/../../includes/header.php'; ?> 
 
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300"> 
@@ -529,7 +526,7 @@ $caseTypeDescriptionMap = array_combine(
                                        accept="image/*" 
                                        capture="environment" 
                                        onchange="handleImageSelect()" 
-                                       class="hidden"> 
+                                       class="sr-only">
 
                                 <div class="text-center"> 
                                     <svg class="mx-auto h-8 w-8 md:h-12 md:w-12 text-gray-400 dark:text-gray-500 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48"> 
@@ -538,15 +535,14 @@ $caseTypeDescriptionMap = array_combine(
                                         <path d="M35 12l-8 8m0 0l-8-8m8 8v-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> 
                                     </svg> 
                                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300"> 
-                                        <button type="button"  
-                                                onclick="document.getElementById('imageAttachments').click()" 
-                                                class="text-blue-600 dark:text-blue-400 hover:underline"> 
+                                        <label for="imageAttachments"
+                                               class="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
                                             Click to upload 
-                                        </button> 
+                                        </label>
                                         or drag and drop 
                                     </p> 
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1"> 
-                                        JPG, PNG, WebP (Max 5MB each) 
+                                        Up to 3 images (Max 20MB each)
                                     </p> 
                                 </div> 
                             </div> 
@@ -576,6 +572,8 @@ $caseTypeDescriptionMap = array_combine(
     </div> 
 
     <script> 
+        const MAX_IMAGE_ATTACHMENTS = <?= json_encode($maxImageAttachments) ?>;
+
         // Severity and description mappings from server 
         const caseTypeSeverityMap = <?php echo json_encode($caseTypeSeverityMap); ?>; 
         const caseTypeDescriptionMap = <?php echo json_encode($caseTypeDescriptionMap); ?>; 
@@ -841,7 +839,15 @@ $caseTypeDescriptionMap = array_combine(
         function handleImageSelect() { 
             const fileInput = document.getElementById('imageAttachments'); 
             const previewContainer = document.getElementById('imagePreviewContainer'); 
-            const files = fileInput.files; 
+            let files = Array.from(fileInput.files);
+
+            if (files.length > MAX_IMAGE_ATTACHMENTS) {
+                const dataTransfer = new DataTransfer();
+                files.slice(0, MAX_IMAGE_ATTACHMENTS).forEach((file) => dataTransfer.items.add(file));
+                fileInput.files = dataTransfer.files;
+                files = Array.from(fileInput.files);
+                showNotification(`You can attach up to ${MAX_IMAGE_ATTACHMENTS} images. Only the first ${MAX_IMAGE_ATTACHMENTS} were kept.`, 'error');
+            }
 
             previewContainer.innerHTML = ''; 
 
@@ -852,9 +858,9 @@ $caseTypeDescriptionMap = array_combine(
 
             previewContainer.classList.remove('hidden'); 
 
-            Array.from(files).forEach((file, index) => { 
-                if (file.size > 5 * 1024 * 1024) { 
-                    showNotification(`File "${file.name}" exceeds 5MB limit`, 'error'); 
+            files.forEach((file, index) => {
+                if (file.size > 20 * 1024 * 1024) {
+                    showNotification(`File "${file.name}" exceeds 20MB limit`, 'error');
                     return; 
                 } 
 
