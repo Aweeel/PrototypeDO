@@ -65,7 +65,7 @@ if ($studentId) {
         AND EXISTS (
             SELECT 1 FROM cases c 
             WHERE c.student_id = ?
-            AND ce.event_name LIKE CONCAT('%Case ', c.case_id, ')%')
+            AND ce.event_name LIKE CONCAT('%Case ', c.case_id, '%')
         )
         ORDER BY ce.event_date ASC, ce.event_time ASC
         LIMIT 1
