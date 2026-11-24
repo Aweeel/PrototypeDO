@@ -171,7 +171,7 @@ try {
             $auditEventsToday = fetchValue("SELECT COUNT(*) FROM audit_log WHERE timestamp >= CURRENT_DATE");
             $failedLoginCount = fetchValue("SELECT COUNT(*) FROM audit_log WHERE action = 'Failed Login'");
             $totalEvents = fetchValue("SELECT COUNT(*) FROM audit_log");
-            $failedLogins = fetchAll("SELECT ip_address, timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.reason')) AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 10");
+            $failedLogins = fetchAll("SELECT timestamp, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.username')) AS attempted_username, JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.reason')) AS reason FROM audit_log WHERE action = 'Failed Login' ORDER BY timestamp DESC LIMIT 10");
             foreach ($failedLogins as &$failedLogin) {
                 $failedLogin['timestamp'] = formatDatabaseDateTime($failedLogin['timestamp']);
             }
