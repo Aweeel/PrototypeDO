@@ -218,6 +218,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                                                     <span>Date found: <strong><?php echo date('M d, Y', strtotime($item['date_found'])); ?></strong></span>
                                                 </div>
                                                 <div class="flex items-center text-gray-700 dark:text-gray-300">
+                                                    <i class="fas fa-map-marker-alt w-5 text-gray-500 dark:text-gray-400"></i>
+                                                    <span>Location found: <strong><?php echo htmlspecialchars($item['found_location']); ?></strong></span>
+                                                </div>
+                                                <div class="flex items-center text-gray-700 dark:text-gray-300">
                                                     <i class="fas fa-info-circle w-5 text-gray-500 dark:text-gray-400"></i>
                                                     <span>ID: <strong><?php echo htmlspecialchars($item['item_id']); ?></strong></span>
                                                 </div>
