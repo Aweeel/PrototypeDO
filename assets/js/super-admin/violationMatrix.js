@@ -16,6 +16,10 @@ function openCatalogModal(type, data = null) {
         document.getElementById('offense_id').value = data?.id || '';
         document.getElementById('offense_name').value = data?.name || '';
         document.getElementById('offense_category').value = data?.category || 'Minor';
+        ensureMajorCategorySelect();
+        const majorCategory = String(data?.majorCategory || '').match(/[ABCD]$/i)?.[0]?.toUpperCase() || '';
+        document.getElementById('major_category').value = majorCategory;
+        toggleMajorCategorySelect();
         document.getElementById('offense_description').value = data?.description || '';
         document.getElementById('offense_active').checked = data ? data.active === '1' : true;
     } else {
@@ -26,8 +30,38 @@ function openCatalogModal(type, data = null) {
         document.getElementById('sanction_active').checked = data ? data.active === '1' : true;
     }
 }
+function ensureMajorCategorySelect() {
+    if (document.getElementById('major_category')) return;
+    const categorySelect = document.getElementById('offense_category');
+    const wrapper = document.createElement('label');
+    wrapper.id = 'majorCategoryField';
+    wrapper.className = 'block text-sm font-semibold';
+    wrapper.innerHTML = `
+        Major offense category
+        <select name="major_category" id="major_category" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700" required>
+            <option value="">Select A, B, C, or D</option>
+            <option value="A">Category A</option>
+            <option value="B">Category B</option>
+            <option value="C">Category C</option>
+            <option value="D">Category D</option>
+        </select>`;
+    categorySelect.closest('label').after(wrapper);
+}
+
+function toggleMajorCategorySelect() {
+    const category = document.getElementById('offense_category')?.value;
+    const field = document.getElementById('majorCategoryField');
+    const select = document.getElementById('major_category');
+    if (!field || !select) return;
+    const isMajor = category === 'Major';
+    field.classList.toggle('hidden', !isMajor);
+    select.required = isMajor;
+    select.disabled = !isMajor;
+}
+
 function closeCatalogModal() { document.getElementById('catalogModal').classList.add('hidden'); }
 document.querySelectorAll('.edit-offense').forEach((button) => button.addEventListener('click', () => openCatalogModal('offense', button.dataset)));
+document.getElementById('offense_category')?.addEventListener('change', toggleMajorCategorySelect);
 document.querySelectorAll('.edit-sanction').forEach((button) => button.addEventListener('click', () => openCatalogModal('sanction', button.dataset)));
 document.querySelectorAll('[data-tab-target]').forEach((tab) => tab.addEventListener('click', () => {
     setActiveCatalogTab(tab);

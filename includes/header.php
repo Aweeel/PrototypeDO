@@ -457,6 +457,14 @@ if (!isset($adminName) || empty($adminName)) {
                                 url.searchParams.set('case_id', hearingCaseId);
                             }
                             window.location.href = url.toString();
+                        } else if (relatedId.startsWith('hearing_rsvp:')) {
+                            const rsvpParts = relatedId.split(':');
+                            const rsvpCaseId = rsvpParts.length > 1 ? rsvpParts[1] : null;
+                            if (rsvpCaseId) {
+                                window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(rsvpCaseId)}&highlightCaseId=${encodeURIComponent(rsvpCaseId)}&highlightCase=1&viewCase=1`;
+                            } else {
+                                window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php`;
+                            }
                         } else if (isPortfolioNotification && userRole === 'student') {
                             window.location.href = `${window.APP_BASE_URL}/modules/student/studentCases.php?case_id=${encodeURIComponent(relatedCaseId)}&highlightCase=1`;
                         } else if (isPortfolioNotification) {
@@ -472,7 +480,15 @@ if (!isset($adminName) || empty($adminName)) {
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
-            if (relatedId && relatedId.startsWith('hearing:')) {
+        if (relatedId && relatedId.startsWith('hearing_rsvp:')) {
+            const rsvpParts = relatedId.split(':');
+            const rsvpCaseId = rsvpParts.length > 1 ? rsvpParts[1] : null;
+            if (rsvpCaseId) {
+                window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php?caseId=${encodeURIComponent(rsvpCaseId)}&highlightCaseId=${encodeURIComponent(rsvpCaseId)}&highlightCase=1&viewCase=1`;
+            } else {
+                window.location.href = `${window.APP_BASE_URL}/modules/do/cases.php`;
+            }
+        } else if (relatedId && relatedId.startsWith('hearing:')) {
                 const hearingParts = relatedId.split(':');
                 const fallbackUrl = new URL(`${window.APP_BASE_URL}/modules/do/calendar.php`, window.location.origin);
                 fallbackUrl.searchParams.set('calendar_view', 'personal');

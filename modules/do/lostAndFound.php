@@ -94,6 +94,35 @@ $perPage = 10;
             justify-content: center;
         }
 
+        [data-sort-source="lost-found"] {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+
+        [data-sort-source="lost-found"] th,
+        [data-sort-source="lost-found"] td {
+            box-sizing: border-box;
+        }
+
+        [data-sort-source="lost-found"] col:nth-child(1) { width: 12% !important; }
+        [data-sort-source="lost-found"] col:nth-child(2) { width: 16% !important; }
+        [data-sort-source="lost-found"] col:nth-child(3) { width: 14% !important; }
+        [data-sort-source="lost-found"] col:nth-child(4) { width: 18% !important; }
+        [data-sort-source="lost-found"] col:nth-child(5) { width: 14% !important; }
+        [data-sort-source="lost-found"] col:nth-child(6) { width: 16% !important; }
+        [data-sort-source="lost-found"] col:nth-child(7) { width: 180px !important; }
+
+        [data-sort-source="lost-found"] td:nth-child(2),
+        [data-sort-source="lost-found"] td:nth-child(4) {
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+        }
+
+        [data-sort-source="lost-found"] th:nth-child(7),
+        [data-sort-source="lost-found"] td:nth-child(7) {
+            width: 180px;
+        }
+
         @media (max-width: 767px) {
             main {
                 overflow-x: hidden;
@@ -235,7 +264,7 @@ $perPage = 10;
                                         class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                                     <option value="">All Categories</option>
                                     <?php foreach ($categories as $cat): ?>
-                                        <option value="<?php echo $cat; ?>" <?php echo $filterCategory === $cat ? 'selected' : ''; ?>>
+                                        <option value="<?php echo htmlspecialchars(strtolower($cat)); ?>" <?php echo strtolower($filterCategory) === strtolower($cat) ? 'selected' : ''; ?>>
                                             <?php echo $cat; ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -264,17 +293,26 @@ $perPage = 10;
                     <!-- Items Table -->
                     <div class="overflow-x-auto max-w-full">
                         <table class="w-full" data-table-controls data-table-sort-only data-sort-source="lost-found">
+                            <colgroup>
+                                <col style="width: 12%">
+                                <col style="width: 16%">
+                                <col style="width: 14%">
+                                <col style="width: 18%">
+                                <col style="width: 14%">
+                                <col style="width: 16%">
+                                <col style="width: 180px">
+                            </colgroup>
                             <thead class="bg-gray-50 dark:bg-[#0F1623] border-b border-gray-200 dark:border-slate-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item ID</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location Found</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Found</th>
+                                    <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item Name</th>
+                                    <th data-min-width="140" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
+                                    <th data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location Found</th>
+                                    <th data-min-width="140" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Found</th>
                                     <?php if ($view === 'archived'): ?>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Archived On</th>
+                                        <th data-min-width="140" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Archived On</th>
                                     <?php else: ?>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th data-min-width="140" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                                     <?php endif; ?>
                                     <th data-fixed-column="true" data-min-width="180" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>

@@ -18,4 +18,4 @@ The user importer creates accounts with the default password `password`. Use a d
 
 ## Student import schema
 
-`students_import_test.csv` follows the documented student CSV format in `database/CSV_IMPORT_README.md` and covers SHS plus first- through fourth-year college rows. The current `modules/do/studentHistory.php` does not contain a CSV upload handler, so this fixture is for the documented schema and any restored or external student importer.
+The documented student CSV format is described in `database/CSV_IMPORT_README.md`. There is currently no student CSV fixture or upload handler in this repository; use the documented sample row with an external or restored importer if needed.

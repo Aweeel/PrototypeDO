@@ -278,6 +278,12 @@ if ($_POST['action'] === 'getEvents') {
                 [$eventId, $currentUserId, $response, $response]
             );
 
+            try {
+                notifyDisciplineOfficeOnHearingRsvp($eventId, (int)$currentUserId, $response);
+            } catch (Throwable $e) {
+                error_log("Hearing RSVP notification failed for event {$eventId}: " . $e->getMessage());
+            }
+
             echo json_encode(['success' => true, 'response' => $response]);
             exit;
         }

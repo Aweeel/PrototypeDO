@@ -35,13 +35,6 @@ function printReport(type) {
         // The report banner already shows the date and author, so no extra print header.
         printRoot.innerHTML = `<div class="preview-wrap">${buildHTML(type, cached.data)}</div>`;
 
-        // Paper is white: switch off dark mode while printing, then restore it.
-        const wasDark = document.documentElement.classList.contains('dark');
-        document.documentElement.classList.remove('dark');
-        window.addEventListener('afterprint', () => {
-            if (wasDark) document.documentElement.classList.add('dark');
-        }, { once: true });
-
         window.print();
     } catch (e) {
         console.error('Print Report Error:', e);
