@@ -112,11 +112,9 @@ switch ($role) {
         <a href="<?= htmlspecialchars($manualUrl) ?>"
            target="_blank"
            rel="noopener noreferrer"
-           class="w-full flex items-left justify-left space-x-2
-                  bg-transparent hover:bg-gray-100
-                  dark:hover:bg-gray-800
-                  text-[#33475F] hover:text-[#2563EB]
-                  dark:text-gray-200 dark:hover:text-blue-400
+           class="w-full flex items-center justify-start space-x-2
+                  bg-transparent hover:bg-[#33475F]
+                  text-gray-300 hover:text-white
                   font-medium py-2 px-4 rounded-lg
                   transition-all duration-200 active:scale-95">
             <span aria-hidden="true"
