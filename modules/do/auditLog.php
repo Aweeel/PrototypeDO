@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             ];
 
             $sql = "SELECT al.log_id, al.user_id, al.action, al.table_name, al.record_id, 
-                           al.old_values, al.new_values, al.ip_address, al.user_agent, al.timestamp,
+                           al.old_values, al.new_values, al.user_agent, al.timestamp,
                            u.full_name as user_name, u.role as user_role
                     FROM audit_log al 
                     LEFT JOIN users u ON al.user_id = u.user_id 
@@ -45,9 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             if (!empty($filters['search'])) {
-                $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
+                $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ?)";
                 $searchParam = '%' . $filters['search'] . '%';
-                $params = array_merge($params, [$searchParam, $searchParam, $searchParam, $searchParam]);
+                $params = array_merge($params, [$searchParam, $searchParam, $searchParam]);
             }
 
             if (!empty($filters['action_type'])) {
@@ -90,7 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     'table' => $log['table_name'],
                     'recordId' => $log['record_id'],
                     'timestamp' => formatDatabaseDateTime($log['timestamp']),
-                    'ipAddress' => $log['ip_address'] ?? 'N/A',
                     'userAgent' => $log['user_agent'] ?? 'N/A',
                     'oldValues' => $log['old_values'],
                     'newValues' => $log['new_values'],
@@ -141,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             ];
 
             $sql = "SELECT al.log_id, al.user_id, al.action, al.table_name, al.record_id, 
-                           al.timestamp, al.ip_address, u.full_name as user_name 
+                           al.timestamp, u.full_name as user_name
                     FROM audit_log al 
                     LEFT JOIN users u ON al.user_id = u.user_id 
                     WHERE 1=1";
@@ -156,9 +155,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
 
             if (!empty($filters['search'])) {
-                $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ? OR al.ip_address LIKE ?)";
+                $sql .= " AND (u.full_name LIKE ? OR al.action LIKE ? OR al.table_name LIKE ?)";
                 $searchParam = '%' . $filters['search'] . '%';
-                $params = array_merge($params, [$searchParam, $searchParam, $searchParam, $searchParam]);
+                $params = array_merge($params, [$searchParam, $searchParam, $searchParam]);
             }
 
             if (!empty($filters['action_type'])) {
@@ -203,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             fputcsv($output, ['Date & Time:', date('F d, Y h:i A')]);
             fputcsv($output, []);
             
-            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp', 'IP Address']);
+            fputcsv($output, ['Log ID', 'User', 'Action', 'Table', 'Record ID', 'Timestamp']);
 
             foreach ($logs as $log) {
                 fputcsv($output, [
@@ -212,8 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                     $log['action'],
                     $log['table_name'],
                     $log['record_id'],
-                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s'),
-                    $log['ip_address'] ?? 'N/A'
+                    formatDatabaseDateTime($log['timestamp'], 'Y-m-d H:i:s')
                 ]);
             }
 
@@ -422,7 +420,6 @@ table.w-full th, table.w-full td {
     white-space: nowrap;
 }
 
-/* Keep the PDF export from clipping the final IP address column. */
 @media print {
     table.w-full {
         table-layout: auto;
@@ -715,18 +712,10 @@ table.w-full th, table.w-full td {
                     </div>
                 </div>
 
-                <!-- Network Information -->
                 <div class="border-t border-gray-200 dark:border-slate-700 pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Network Information</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">IP Address</h4>
-                            <p class="text-gray-900 dark:text-gray-100 font-mono text-sm" id="detailIpAddress"></p>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">User Agent</h4>
-                            <p class="text-gray-900 dark:text-gray-100 text-xs break-all" id="detailUserAgent"></p>
-                        </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">User Agent</h3>
+                    <div>
+                        <p class="text-gray-900 dark:text-gray-100 text-xs break-all" id="detailUserAgent"></p>
                     </div>
                 </div>
 

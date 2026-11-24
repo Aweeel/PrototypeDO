@@ -2204,8 +2204,8 @@ function notifyStudentOnNewCase($studentId, $caseId, $caseType, $severity) {
 // ==========================================
 
 function logAudit($userId, $action, $tableName = null, $recordId = null, $oldValues = null, $newValues = null) {
-    $sql = "INSERT INTO audit_log (user_id, action, table_name, record_id, old_values, new_values, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO audit_log (user_id, action, table_name, record_id, old_values, new_values, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?)";
     
     $params = [
         $userId,
@@ -2214,7 +2214,6 @@ function logAudit($userId, $action, $tableName = null, $recordId = null, $oldVal
         $recordId,
         $oldValues ? json_encode($oldValues) : null,
         $newValues ? json_encode($newValues) : null,
-        $_SERVER['REMOTE_ADDR'] ?? null,
         $_SERVER['HTTP_USER_AGENT'] ?? null
     ];
     
@@ -3793,12 +3792,11 @@ function acceptTermsAndConditions($userId, $version = null) {
     $result = executeQuery($sql, [$version, $userId]);
     
     // Log the acceptance
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
     
-    $logSql = "INSERT INTO terms_acceptance_log (user_id, terms_version, ip_address, user_agent) 
-               VALUES (?, ?, ?, ?)";
-    executeQuery($logSql, [$userId, $version, $ipAddress, $userAgent]);
+    $logSql = "INSERT INTO terms_acceptance_log (user_id, terms_version, user_agent)
+               VALUES (?, ?, ?)";
+    executeQuery($logSql, [$userId, $version, $userAgent]);
     
     return $result !== false;
 }
@@ -3827,8 +3825,7 @@ function auditTermsAccepted($userId, $version = null) {
     logAudit($userId, 'Terms Accepted', 'terms', 0, null, [
         'action' => 'User accepted Terms and Conditions',
         'terms_version' => $version,
-        'accepted_by' => $userName,
-        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown'
+        'accepted_by' => $userName
     ]);
 }
 

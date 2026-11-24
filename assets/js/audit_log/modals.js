@@ -8,7 +8,6 @@ function formatLabel(key) {
         sanction_id: 'Sanction ID',
         record_id: 'Record ID',
         day_number: 'Day Number',
-        ip_address: 'IP Address',
         user_agent: 'User Agent',
         html_content: 'HTML Content',
         pdf_path: 'PDF Path',
@@ -552,7 +551,6 @@ function openLogDetailModal(log) {
     document.getElementById('detailTable').textContent = log.table ? formatTableLabel(log.table) : 'N/A';
     document.getElementById('detailRecordId').textContent =
         log.table === 'handbook' && String(log.recordId) === '0' ? 'N/A' : (log.recordId || 'N/A');
-    document.getElementById('detailIpAddress').textContent = log.ipAddress || 'N/A';
     document.getElementById('detailUserAgent').textContent = log.userAgent || 'N/A';
     
     // Populate old values
@@ -627,8 +625,6 @@ function exportDetailAsCSV() {
     csvContent += `Table,${escapeCSV(selectedLog.table || 'N/A')}\n`;
     csvContent += `Record ID,${escapeCSV(selectedLog.table === 'handbook' && String(selectedLog.recordId) === '0' ? 'N/A' : (selectedLog.recordId || 'N/A'))}\n`;
     
-    // Network Information
-    csvContent += `IP Address,${escapeCSV(selectedLog.ipAddress || 'N/A')}\n`;
     csvContent += `User Agent,${escapeCSV(selectedLog.userAgent || 'N/A')}\n`;
     
     // Helper to flatten value for CSV (strips HTML, stringifies objects)
@@ -764,10 +760,6 @@ function printDetailAsPDF() {
                     <tr>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">Record ID</td>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.table === 'handbook' && String(selectedLog.recordId) === '0' ? 'N/A' : (selectedLog.recordId || 'N/A'))}</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">IP Address</td>
-                        <td style="padding: 6px; border-bottom: 1px solid #ddd;">${escapeHtml(selectedLog.ipAddress || 'N/A')}</td>
-                    </tr>
-                    <tr>
                         <td style="padding: 6px; border-bottom: 1px solid #ddd; font-weight: bold; color: #555;">User Agent</td>
                         <td colspan="3" style="padding: 6px; border-bottom: 1px solid #ddd; overflow-wrap: anywhere;">${escapeHtml(selectedLog.userAgent || 'N/A')}</td>
                     </tr>

@@ -522,9 +522,9 @@ function audHTML(d) {
     html += h2('Activity by Action Type');
     html += tbl(['Action','Count'], byAction.map(r=>[badge(r.action),r.count]));
     html += h2('Log Entries');
-    html += tbl(['Log ID','User','Role','Action','Table','Record ID','IP','Timestamp'],
+    html += tbl(['Log ID','User','Role','Action','Table','Record ID','Timestamp'],
         logs.map(l=>[esc(l.log_id),esc(l.user_name)||'System',esc(l.role),badge(l.action),
-            esc(l.table_name),esc(l.record_id),esc(l.ip_address),
+            esc(l.table_name),esc(l.record_id),
             l.timestamp?new Date(l.timestamp).toLocaleString('en-US',{dateStyle:'short',timeStyle:'short'}):'—']));
     return html;
 }
