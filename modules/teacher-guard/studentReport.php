@@ -346,6 +346,23 @@ $caseTypeDescriptionMap = array_combine(
             opacity: 1 !important;
         }
 
+        #reportForm button[type="submit"] {
+            -webkit-appearance: none;
+            appearance: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.5rem;
+            background-color: #16a34a;
+            color: #ffffff;
+            -webkit-text-fill-color: #ffffff;
+            opacity: 1;
+        }
+
+        #reportForm button[type="submit"]:hover {
+            background-color: #15803d;
+        }
+
         .dark #reportForm input:placeholder-shown::placeholder,
         .dark #reportForm textarea:placeholder-shown::placeholder,
         .dark #reportForm input:placeholder-shown::-webkit-input-placeholder,
@@ -561,7 +578,7 @@ $caseTypeDescriptionMap = array_combine(
                                 Cancel 
                             </button> 
                             <button type="submit" 
-                                    class="w-full sm:w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-center"> 
+                                    class="submit-report-button w-full sm:w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-center">
                                 Submit Report 
                             </button> 
                         </div> 
