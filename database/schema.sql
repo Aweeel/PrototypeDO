@@ -94,6 +94,7 @@ CREATE TABLE offense_types (
     offense_id INT AUTO_INCREMENT PRIMARY KEY,
     offense_name VARCHAR(100) NOT NULL,
     category VARCHAR(20) NOT NULL CHECK (category IN ('Major', 'Minor')),
+    major_category VARCHAR(20) NULL,
     description VARCHAR(500),
     is_active TINYINT(1) DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

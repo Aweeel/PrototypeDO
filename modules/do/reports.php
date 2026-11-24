@@ -504,6 +504,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             th { background: #1e3a8a !important; color: white !important; padding: 4px 6px; font-size: 8pt; font-weight: 600; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             td { color: #111827 !important; padding: 4px 6px; font-size: 8pt; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
             tr:nth-child(even) td { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                html.dark #print-root { background: #1f2937 !important; color: #f1f5f9 !important; }
+                html.dark #print-root .preview-wrap { color: #f1f5f9 !important; }
+                html.dark #print-root h1,
+                html.dark #print-root h2,
+                html.dark #print-root h3,
+                html.dark #print-root .text-gray-900,
+                html.dark #print-root .text-gray-700,
+                html.dark #print-root .text-gray-600,
+                html.dark #print-root .text-gray-400 { color: #f1f5f9 !important; }
+                html.dark #print-root .border-b-4,
+                html.dark #print-root .border-l-4 { border-color: #60a5fa !important; }
+                html.dark #print-root .bg-gray-100 { background: #334155 !important; }
+                html.dark #print-root table { border-color: #475569 !important; background: #1f2937 !important; }
+                html.dark #print-root td { background: #1f2937 !important; color: #f1f5f9 !important; border-bottom-color: #475569 !important; }
+                html.dark #print-root tr:nth-child(even) td { background: #334155 !important; }
+                html.dark #print-root th { background: #1e40af !important; color: #ffffff !important; }
             .page-break-inside { page-break-inside: avoid; }
             h1, h2, h3 { page-break-after: avoid; margin: 0.25rem 0; }
             @page { margin: 10mm; size: A4 landscape; }

@@ -367,6 +367,102 @@ function shareHearingEventWithDepartmentHeads($eventId, $eventName, $eventDate) 
     }
 }
 
+function notifyDisciplineOfficeOnHearingRsvp($eventId, $departmentHeadUserId, $response) {
+    if (!$eventId || !$departmentHeadUserId || !in_array($response, ['attend', 'unavailable'], true)) {
+        return 0;
+    }
+
+    ensureNotificationRelatedIdColumn();
+
+    $event = fetchOne(
+        "SELECT event_name, event_date, event_time, event_end_time, location
+         FROM calendar_events
+         WHERE event_id = ?",
+        [$eventId]
+    );
+    $departmentHead = fetchOne(
+        "SELECT full_name FROM users WHERE user_id = ?",
+        [$departmentHeadUserId]
+    );
+    if (!$event || !$departmentHead) {
+        return 0;
+    }
+
+    $doUsers = fetchAll(
+        "SELECT user_id
+         FROM users
+         WHERE is_active = 1
+           AND role IN ('discipline_office', 'do')
+         ORDER BY user_id"
+    );
+    if (empty($doUsers)) {
+        return 0;
+    }
+
+    $responseLabel = $response === 'attend' ? 'Attend' : 'Unavailable';
+    $departmentHeadName = trim((string)($departmentHead['full_name'] ?? 'Department Head'));
+    $eventName = trim((string)($event['event_name'] ?? 'Hearing'));
+    $dateText = !empty($event['event_date']) ? date('F j, Y', strtotime($event['event_date'])) : '';
+
+    $timeText = '';
+    if (!empty($event['event_time'])) {
+        $timeText = ' at ' . date('g:i A', strtotime($event['event_time']));
+        if (!empty($event['event_end_time'])) {
+            $timeText .= ' - ' . date('g:i A', strtotime($event['event_end_time']));
+        }
+    }
+
+    $caseId = null;
+    if (preg_match('/Case\s+([A-Za-z0-9-]+)/i', (string)($event['event_name'] ?? ''), $caseMatches)) {
+        $caseId = trim((string)($caseMatches[1] ?? ''));
+    }
+
+    $title = 'Department Head RSVP - ' . $responseLabel;
+    $message = $departmentHeadName . ' marked "' . $responseLabel . '" for ' . $eventName;
+    if ($dateText !== '') {
+        $message .= ' on ' . $dateText;
+    }
+    $message .= $timeText . '.';
+    if (!empty($event['location'])) {
+        $message .= ' Location: ' . $event['location'] . '.';
+    }
+
+    $relatedId = 'hearing_rsvp:' . ($caseId !== null ? $caseId : '') . ':' . (int)$eventId . ':' . (int)$departmentHeadUserId;
+    $count = 0;
+
+    foreach ($doUsers as $doUser) {
+        $existing = fetchOne(
+            "SELECT notification_id
+             FROM notifications
+             WHERE user_id = ?
+               AND CAST(related_id AS CHAR) = CAST(? AS CHAR)
+             LIMIT 1",
+            [$doUser['user_id'], $relatedId]
+        );
+
+        if ($existing) {
+            executeQuery(
+                "UPDATE notifications
+                 SET title = ?, message = ?, type = 'hearing_rsvp',
+                     is_read = 0, read_at = NULL, created_at = NOW()
+                 WHERE notification_id = ?",
+                [$title, $message, $existing['notification_id']]
+            );
+        } else {
+            createNotification(
+                $doUser['user_id'],
+                $title,
+                $message,
+                'hearing_rsvp',
+                $relatedId
+            );
+        }
+        $count++;
+    }
+
+    return $count;
+}
+
 function notifyDepartmentHeadTeachersOfHearing($eventId, $eventName, $eventDate, $eventTime = null, $eventEndTime = null, $description = null, $location = null) {
     if (empty($eventName)) {
         return 0;
@@ -820,6 +916,38 @@ function getAllCases($filters = []) {
     return fetchAll($sql, $params);
 }
 
+function ensureOffenseMajorCategoryColumn() {
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+
+    $column = fetchOne(
+        "SELECT 1 AS column_exists
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_NAME = 'offense_types'
+           AND COLUMN_NAME = 'major_category'"
+    );
+    if (!$column) {
+        executeQuery("ALTER TABLE offense_types ADD COLUMN major_category VARCHAR(20) NULL");
+    }
+
+    foreach (['A', 'B', 'C', 'D'] as $category) {
+        foreach (getMajorOffenseNamesByCategory($category) as $offenseName) {
+            executeQuery(
+                "UPDATE offense_types
+                 SET major_category = ?
+                 WHERE category = 'Major'
+                   AND LOWER(offense_name) = LOWER(?)
+                   AND major_category IS NULL",
+                ['Category ' . $category, $offenseName]
+            );
+        }
+    }
+
+    $initialized = true;
+}
+
 function ensureMinorEscalationSeenColumn() {
     static $initialized = false;
     if ($initialized) {
@@ -936,22 +1064,28 @@ function createCase($data) {
 
     // Try to find matching offense_id
     $offenseId = null;
-    $offenseQuery = "SELECT offense_id FROM offense_types WHERE offense_name = ?";
+    $offenseQuery = "SELECT offense_id, category, major_category FROM offense_types WHERE offense_name = ?";
     $offense = fetchOne($offenseQuery, [$data['case_type']]);
     if ($offense) {
         $offenseId = $offense['offense_id'];
     }
 
     // Create case
-    $sql = "INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, 
+    $offenseCategory = null;
+    if (($offense['category'] ?? '') === 'Major') {
+        $offenseCategory = 'Category ' . categorizeMajorOffense($data['case_type']);
+    }
+
+    $sql = "INSERT INTO cases (case_id, student_id, offense_id, case_type, severity, offense_category,
             status, date_reported, reported_by, assigned_to, description, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $params = [
         $newCaseId,
         $studentId,
         $offenseId,
         $data['case_type'],
         $data['severity'],
+        $offenseCategory,
         $data['status'] ?? ($data['severity'] === 'Minor' ? 'Unrecorded' : 'Pending'),
         date('Y-m-d'),
         $data['reported_by'] ?? null,
@@ -1195,6 +1329,16 @@ function updateStudentOffenseCount($studentId) {
  * @return string Category A, B, C, or D
  */
 function categorizeMajorOffense($offenseName) {
+    ensureOffenseMajorCategoryColumn();
+    $offense = fetchOne(
+        "SELECT major_category FROM offense_types WHERE LOWER(offense_name) = LOWER(?) LIMIT 1",
+        [$offenseName]
+    );
+    $storedCategory = trim((string)($offense['major_category'] ?? ''));
+    if (preg_match('/([ABCD])$/i', $storedCategory, $matches)) {
+        return strtoupper($matches[1]);
+    }
+
     if (in_array($offenseName, getMajorOffenseNamesByCategory('A'), true)) return 'A';
     if (in_array($offenseName, getMajorOffenseNamesByCategory('B'), true)) return 'B';
     if (in_array($offenseName, getMajorOffenseNamesByCategory('C'), true)) return 'C';

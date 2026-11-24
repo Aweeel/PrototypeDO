@@ -3,6 +3,9 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
+$pageTitle = "Audit Logs";
+$adminName = getFormattedUserName();
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
@@ -352,6 +355,9 @@ function getActionColor($action) {
     <title>STI Discipline Office - Audit Logs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="data-admin-name" content="<?= htmlspecialchars($adminName) ?>">
+    <script>
+        window.ADMIN_NAME = <?= json_encode($adminName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    </script>
 <script>
     tailwind.config = { darkMode: 'class' };
     
@@ -441,8 +447,6 @@ table.w-full th, table.w-full td {
     <div class="flex h-screen overflow-hidden">
         <div class="flex-1 overflow-y-auto ml-0 md:ml-64 transition-all duration-300">
             <?php
-            $pageTitle = "Audit Logs";
-            $adminName = getFormattedUserName();
             include __DIR__ . '/../../includes/header.php';
             ?>
             <main class="p-4 pt-20 md:p-8 md:pt-28 min-h-screen transition-colors duration-300">
